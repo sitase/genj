@@ -216,7 +216,7 @@ public class ViewManager {
     Enumeration vs = frames.keys();
     while (vs.hasMoreElements()) {
       String key = (String)vs.nextElement();
-      if (key.indexOf('.'+gedcom.getName()+'.')>0) targets.add(frames.get(key));
+      if (key.indexOf('.'+gedcom.getName()+'.')>0) targets.addElement(frames.get(key)); //20030220 add() is post 1.1.x
     }
 
     // close those views

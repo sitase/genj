@@ -201,7 +201,10 @@ public class Indi extends PropertyIndi implements Entity {
     }
     // Return result
     Indi[] result = new Indi[v.size()];
-    v.toArray(result);
+    for (int i = 0; i < result.length; i++) {
+    	result[i] = (Indi)v.elementAt(i);
+    }
+    // 20030230 this is post 1.1.x v.toArray(result);
     return result;
   }
   

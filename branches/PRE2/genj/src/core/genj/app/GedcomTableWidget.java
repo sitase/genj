@@ -294,7 +294,7 @@ public class GedcomTableWidget extends JTable {
      * @see genj.gedcom.GedcomListener#handleClose(Gedcom)
      */
     public void handleClose(Gedcom which) {
-      gedcoms.remove(which);
+      gedcoms.removeElement(which); //20030320 remove() is post 1.1.x
       fireTableChange(-1);
     }
 
