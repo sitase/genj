@@ -35,6 +35,23 @@ public abstract class PropertyFam extends Property {
   }
 
   /**
+   * Compares this property to another property
+   * @return -1 this < property <BR>
+   *          0 this = property <BR>
+   *          1 this > property
+   */
+  public int compareTo(Property p) {
+    try {
+      return
+        Integer.parseInt(getEntity().getId().substring(1))
+        -
+        Integer.parseInt(p.getEntity().getId().substring(1));
+    } catch (Exception e) {
+    }
+    return getEntity().getId().compareTo(p.getEntity().getId());
+  }
+
+  /**
    * Returns the logical name of the proxy-object which knows this object
    */
   public String getProxy() {
