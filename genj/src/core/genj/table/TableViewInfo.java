@@ -25,9 +25,7 @@ import java.awt.event.*;
 import javax.swing.*;
 import javax.swing.event.*;
 
-import genj.util.ActionDelegate;
 import genj.util.GridBagHelper;
-import genj.util.swing.ButtonHelper;
 import genj.gedcom.*;
 import genj.option.*;
 import genj.app.*;
@@ -53,7 +51,33 @@ public class TableViewInfo extends JPanel implements ViewInfo {
   public TableViewInfo() {
 
     // Create!
-    GridBagHelper gh = new GridBagHelper(this);
+    GridBagHelper helper = new GridBagHelper(this);
+
+    // Prepare an action listener
+    ActionListener alistener = new ActionListener() {
+      // LCD
+      /** notification about action */
+      public void actionPerformed(ActionEvent e) {
+        if (table==null) {
+          return;
+        }
+        // Selection of Type?
+        if (e.getSource()==cTypes) {
+          eType = cTypes.getSelectedIndex();
+          readFromTable();
+          return;
+        }
+        // Buttons?
+        if ("UP".equals(e.getActionCommand())) {
+          pathList.up();
+        }
+        if ("DOWN".equals(e.getActionCommand())) {
+          pathList.down();
+        }
+        // Done
+      }
+      // EOC
+    };
 
     // Chooseable type
     cTypes = new JComboBox();
@@ -61,7 +85,7 @@ public class TableViewInfo extends JPanel implements ViewInfo {
     for (int i=Gedcom.FIRST_ETYPE;i<=Gedcom.LAST_ETYPE;i++) {
       cTypes.addItem(Gedcom.getNameFor(i,true));
     }
-    cTypes.addActionListener((ActionListener)new ActionChooseEntity().as(ActionListener.class));
+    cTypes.addActionListener(alistener);
 
     // Tree of TagPaths
     pathTree = new TagPathTree();
@@ -84,21 +108,20 @@ public class TableViewInfo extends JPanel implements ViewInfo {
     pathList = new TagPathList();
 
     // Up/Down of ordering
-    ButtonHelper bh = new ButtonHelper().setResources(TableView.resources).setInsets(0);
-    JButton bUp   = bh.create(new ActionUpDown(true));
-    JButton bDown = bh.create(new ActionUpDown(false));
-    
+    JButton bUp   = ButtonHelper.createButton(TableView.resources.getString("info.up"),null,"UP",alistener,true,false);
+    JButton bDown = ButtonHelper.createButton(TableView.resources.getString("info.down"),null,"DOWN",alistener,true,false);
+
     // Layout
-    gh.add(new JLabel(TableView.resources.getString("info.entities"))  ,0,1,1,1);
-    gh.add(cTypes                  ,1,1,2,1);
+    helper.add(new JLabel(TableView.resources.getString("info.entities"))  ,0,1,1,1);
+    helper.add(cTypes                  ,1,1,2,1);
 
-    gh.add(new JLabel(TableView.resources.getString("info.columns"))  ,0,2,1,1);
-    gh.add(pathTree                ,1,2,2,1,gh.GROW_BOTH|gh.FILL_BOTH);
+    helper.add(new JLabel(TableView.resources.getString("info.columns"))  ,0,2,1,1);
+    helper.add(pathTree                ,1,2,2,1,helper.GROW_BOTH|helper.FILL_BOTH);
 
-    gh.add(new JLabel(TableView.resources.getString("info.order"))  ,0,3,1,1);
-    gh.add(bUp                     ,0,4,1,1);
-    gh.add(bDown                   ,0,5,1,1);
-    gh.add(pathList                ,1,3,2,4,gh.GROW_BOTH|gh.FILL_BOTH);
+    helper.add(new JLabel(TableView.resources.getString("info.order"))  ,0,3,1,1);
+    helper.add(bUp                     ,0,4,1,1);
+    helper.add(bDown                   ,0,5,1,1);
+    helper.add(pathList                ,1,3,2,4,helper.GROW_BOTH|helper.FILL_BOTH);
 
     // Done
   }
@@ -180,40 +203,4 @@ public class TableViewInfo extends JPanel implements ViewInfo {
 
     // Done
   }
-  
-
-  /**
-   * Action - ActionChooseEntity
-   */
-  private class ActionChooseEntity extends ActionDelegate {
-    /** constructor */
-    /** run */
-    public void execute() {
-      if (table==null) return;
-      eType = cTypes.getSelectedIndex();
-      readFromTable();
-    }
-  } //ActionChooseEntity
-  
-  /**
-   * Action - ActionUpDown
-   */
-  private class ActionUpDown extends ActionDelegate {
-    /** up or down */
-    private boolean up;
-    /** constructor */
-    protected ActionUpDown(boolean up) {
-      this.up=up;
-      if (up) setText("info.up");
-      else setText("info.down");
-    }
-    /** run */
-    public void execute() {
-      if (up)
-        pathList.up();
-      else 
-        pathList.down();
-    }
-  } //ActionUpDown
-  
 }

@@ -22,8 +22,6 @@ package genj.app;
 import java.awt.*;
 import javax.swing.*;
 
-import genj.util.ImgIcon;
-
 /**
  * Transaction - a transactional controller for a TransactionPanel
  */
@@ -55,7 +53,7 @@ public interface Transaction {
   /**
    * Returns an image that represents this transaction's state
    */
-  public ImgIcon getImage();
+  public Image getImage();
 
   /**
    * Returns the current visualization for this transaction

@@ -51,12 +51,20 @@ public class PropertyAge extends Property {
   }
 
   /**
-   * Returns <b>true</b> if this property is valid
+   * Default Image
    */
-  public boolean isValid() {
-    return ageAsString!=null;
+  public static ImgIcon getDefaultImage() {
+    return Images.imgTime;
   }
 
+  /**
+   * Image
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    if ((checkValid)&&(ageAsString!=null))
+      return Images.imgError;
+    return Images.imgTime;
+  }
 
   /**
    * Accessor Tag

@@ -27,7 +27,6 @@ import java.awt.*;
 import java.awt.event.*;
 
 import genj.gedcom.*;
-import genj.util.swing.ImgIconConverter;
 
 /**
  * Option - Layout Properties in Box
@@ -105,7 +104,7 @@ public class OptionLayoutProperties extends Option implements MouseMotionListene
 
     // Add it
     JLabel l = new JLabel(path.asString(),
-                ImgIconConverter.get(Property.getDefaultImage(path.getLast())),
+                new ImageIcon(Property.calcDefaultImage(path.getLast()).getImage()),
                 JLabel.CENTER);
     l.setBorder(BorderFactory.createLineBorder(Color.lightGray));
     l.setHorizontalAlignment(JLabel.LEFT);

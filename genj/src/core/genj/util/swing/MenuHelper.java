@@ -19,86 +19,32 @@
  */
 package genj.util.swing;
 
-import genj.util.ActionDelegate;
-import genj.util.ImgIcon;
-import genj.util.Resources;
-
 import java.awt.*;
 import java.awt.event.*;
-import java.util.Vector;
-
 import javax.swing.*;
 
 /**
  * Class which provides some static helpers for menu-handling
  */
 public class MenuHelper  {
-  
-  private String text             = null;
-  private String action           = null;
-  private ImgIcon image           = null;
-  private JMenu menu              = null;  
-  private ActionListener listener = null;
-  private Vector collection       = null;
-  private Resources resources     = null;
-  private JMenuBar bar            = null;
-  private boolean enabled         = true;
-
-  /** Setters */    
-  public MenuHelper setMenu(JMenu set) { menu=set; return this; }
-  public MenuHelper setCollection(Vector set) { collection=set; return this; }
-  public MenuHelper setResources(Resources set) { resources=set; return this; }
-  public MenuHelper setBar(JMenuBar set) { bar=set; return this; }
-  public MenuHelper setEnabled(boolean set) { enabled=set; return this; }
 
   /**
-   * Creates a menubar
+   * Helper that adds a menu item to a menu
    */
-  public JMenuBar createBar() {
-    JMenuBar result = new JMenuBar();
-    setBar(result);
-    return result;
-  }
+  static public JMenuItem addMenuItem(JMenu menu, String txt, String action, ImageIcon img, JMenuItem mi, ActionListener listener) {
 
-  /**
-   * Creates a menu
-   */
-  public JMenu createMenu(String text) {
-    JMenu result = new JMenu(string(text));
-    if ((menu==null)&&(bar!=null)) bar.add(result);
-    setMenu(result);
-    return result;
-  }
+    if (img!=null) {
+      mi.setIcon(img);
+    }
+    if (txt!=null) {
+      mi.setText(txt);
+    }
 
-  /**
-   * Creates an item
-   */
-  public JMenuItem createItem(ActionDelegate action) {
-    
-    JMenuItem result = new JMenuItem();
-    result.addActionListener((ActionListener)action.as(ActionListener.class));
-    if (action.txt!=null) result.setText(string(action.txt));
-    if (action.img!=null) result.setIcon(ImgIconConverter.get(action.img));
-    result.setEnabled(enabled);
-    if (menu!=null) menu.add(result);
-    if (collection!=null) collection.addElement(result);
-    
-    return result;
-  }
-  
-  /**
-   * Creates an separator
-   */
-  public MenuHelper createSeparator() {
-    if (menu!=null) menu.addSeparator();
-    return this;
-  }
+    mi.setActionCommand(action);
+    mi.addActionListener(listener);
+    mi.setHorizontalTextPosition(AbstractButton.RIGHT);
+    menu.add(mi);
 
-  /**
-   * Helper resolving a text
-   */
-  private String string(String txt) {
-    if (resources==null) return txt;
-    return resources.getString(txt);
+    return mi;
   }
 }

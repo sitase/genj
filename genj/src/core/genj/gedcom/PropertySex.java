@@ -30,9 +30,8 @@ import genj.util.*;
 public class PropertySex extends Property {
 
   /** sexes */
-  private static final int UNKNOWN = -1;
-  public static final int MALE    = Gedcom.MALE;
-  public static final int FEMALE  = Gedcom.FEMALE;
+  private static final int MALE   = Gedcom.MALE;
+  private static final int FEMALE = Gedcom.FEMALE;
 
   /** the sex code */
   private int sex;
@@ -45,7 +44,7 @@ public class PropertySex extends Property {
    */
   public PropertySex() {
     // Setup data
-    setSex(UNKNOWN);
+    sex = MALE;
     // Done
   }
 
@@ -64,11 +63,18 @@ public class PropertySex extends Property {
   public PropertySex(String tag, String value) {
     // Setup data
     if (value.length() == 0) {
-      setSex(UNKNOWN);
+      setValue("M");
     } else {
       setValue(value);
     }
     // Done
+  }
+
+  /**
+   * Default Image
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgMale;
   }
 
   /**
@@ -77,9 +83,9 @@ public class PropertySex extends Property {
   public static ImgIcon getDefaultImage(int sex) {
     switch (sex) {
     case MALE:
-      return Images.get("sex.m");
+      return Images.imgMale;
     case FEMALE:
-      return Images.get("sex.f");
+      return Images.imgFemale;
     }
     throw new IllegalArgumentException("Unknown sex");
   }
@@ -88,25 +94,12 @@ public class PropertySex extends Property {
    * Image
    */
   public ImgIcon getImage(boolean checkValid) {
-    if (checkValid&&(!isValid()))
-      return super.getImage(true);
-    switch (sex) {
-      case FEMALE:
-        return Images.get("sex.f");
-      case MALE:
-        return Images.get("sex.m");
-      default:
-        return Images.get("sex");
-    }
+    if (checkValid&&(sexAsString!=null))
+      return Images.imgError;
+    if (sex == MALE)
+      return Images.imgMale;
+    return Images.imgFemale;
   }
-
-  /**
-   * Returns <b>true</b> if this property is valid
-   */
-  public boolean isValid() {
-    return (sexAsString==null);
-  }
-
 
   /**
    * Returns localized label for sex
@@ -170,11 +163,17 @@ public class PropertySex extends Property {
   }
 
   /**
+   * Returns <b>true</b> if this property is valid
+   */
+  public boolean isValid() {
+    return ((sexAsString==null)&&(isSex(sex)));
+  }
+
+  /**
    * Accessor for Sex
    */
   public void setSex(int newSex) {
     noteModifiedProperty();
-    sexAsString = null;
     sex = newSex;
     // Done
   }

@@ -19,42 +19,99 @@
  */
 package genj.app;
 
-import genj.lnf.LnFBridge;
-import genj.util.AreaInScreen;
-import genj.util.ImgIcon;
-import genj.util.Registry;
-import genj.util.Resources;
-import java.awt.Dimension;
-import java.awt.Rectangle;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.io.File;
-import java.util.Enumeration;
-import java.util.Hashtable;
-import java.util.StringTokenizer;
-import java.util.Vector;
+import javax.swing.*;
 
-import javax.swing.AbstractAction;
-import javax.swing.JFrame;
-import javax.swing.JOptionPane;
-import javax.swing.JScrollPane;
-import javax.swing.JTextPane;
-import javax.swing.UIManager;
+import java.util.*;
+import java.awt.*;
+import java.io.*;
+import java.awt.event.*;
+import java.net.*;
+
+import genj.gedcom.*;
+import genj.util.*;
 
 /**
  * Main Class for GenJ Application
  */
 public class App {
-  
+
   /** constants */
   private final static String SWING_RESOURCES_KEY_PREFIX = "swing.";
-  private final static String FRAME_KEY_PREFIX = "frame.";
 
   /** members */
+  private static boolean doDisclaimer=false;
   private Registry registry = Registry.getRegistry("genj");
-  private Hashtable openFrames = new Hashtable();
-  private static App instance;
-  /*package*/ final static Resources resources = new Resources("genj.app");
+  private JFrame frame;
+  private ControlCenter center;
+
+  final static Resources resources = new Resources("genj.app");
+
+  /**
+   * Listening to Window Events
+   */
+  private class AppWindowListener implements WindowListener {
+
+    /**
+     * Invoked when a window is activated.
+     */
+    public void windowActivated(WindowEvent e) {
+    }
+
+    /**
+     * Invoked when a window has been closed.
+     */
+    public void windowClosed(WindowEvent e) {
+
+      // Store registry so that current settings
+      // are available next time
+      Registry.saveToDisk();
+
+      // Current frame ?
+      if (e.getSource() == frame){
+        System.exit(0);
+      }
+  
+    // Done
+    }
+
+    /**
+     * Invoked when a window is in the process of being closed.
+     * The close operation can be overridden at this point.
+     */
+    public void windowClosing(WindowEvent e) {
+
+      // Remember position
+      registry.put("frame",frame.getBounds());
+      center.close();
+
+      // Done
+    }
+
+    /**
+     * Invoked when a window is deactivated.
+     */
+    public void windowDeactivated(WindowEvent e) {
+    }
+
+    /**
+     * Invoked when a window is de-iconified.
+     */
+    public void windowDeiconified(WindowEvent e) {
+    }
+
+    /**
+     * Invoked when a window is iconified.
+     */
+    public void windowIconified(WindowEvent e) {
+    }
+
+    /**
+     * Invoked when a window has been opened.
+     */
+    public void windowOpened(WindowEvent e) {
+    }
+
+  }
 
   /**
    * Application Constructor
@@ -62,8 +119,15 @@ public class App {
   private App() {
 
     // Startup Information
-    checkEnvironment();
-    
+    String cpath = System.getProperty("java.class.path");
+    StringTokenizer tokens = new StringTokenizer(
+      cpath,
+      System.getProperty("path.separator"),
+      false
+    );
+    while (tokens.hasMoreTokens())
+      System.out.println("[Debug]Classpath contains "+tokens.nextToken());
+
     // Make sure that Swing shows our localized texts
     Enumeration keys = resources.getKeys();
     while (keys.hasMoreElements()) {
@@ -75,12 +139,7 @@ public class App {
         );
       }
     }
-    
-    // Set the Look&Feel
-    LnFBridge.LnF lnf = LnFBridge.getInstance().getLnF(registry.get("lnf", (String)null));
-    if (lnf!=null) {
-      lnf.apply(lnf.getTheme(registry.get("lnf.theme", (String)null)), new Vector());
-    }
+//    UIManager.put("OptionPane.yesButtonText", "Natuerlich");
 
     // Disclaimer
     if (registry.get("disclaimer",0)==0) {
@@ -99,39 +158,35 @@ public class App {
 
     }
 
+    // Make ToolTip HeavyWeight
+    //ToolTipManager.sharedInstance().setLightWeightPopupEnabled(false);
+
     // Create frame
-    JFrame frame = createFrame(resources.getString("app.title"),Images.imgGedcom,"main", new Dimension(320,256));
+    frame = new JFrame(resources.getString("app.title"));
+    frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+    frame.setIconImage(Images.imgGedcom.getImage());
 
     // Create the desktop
-    ControlCenter center = new ControlCenter(frame,registry);
+    center = new ControlCenter(frame,registry);
     frame.getContentPane().add(center);
 
+    // Menu-Bar
+    frame.setJMenuBar(center.getMenu());
+
+    // Handler
+    frame.addWindowListener(new AppWindowListener());
+
     // Show it
-    frame.pack();
+
+    Rectangle saved = registry.get("frame",(Rectangle)null);
+    if (saved!=null) {
+      frame.setBounds(saved);
+    } else {
+      frame.pack();
+    }
     frame.show();
 
     // Done
-  }
-  
-  /**
-   * Singleton access
-   */
-  public static App getInstance() {
-    return instance;
-  }
-  
-  /**
-   * Shutdown
-   */
-  public void shutdown() {
-    
-    // close all frames we know
-    Enumeration e = App.getInstance().getFrames().elements();
-    while (e.hasMoreElements()) ((JFrame)e.nextElement()).dispose();
-    // Store registry 
-    Registry.saveToDisk();      
-    // exit
-    System.exit(0);
   }
 
   /**
@@ -141,130 +196,12 @@ public class App {
 
     // Startup and catch Swing missing
     try {
-      instance = new App();
+      new App();
     } catch (NoClassDefFoundError err) {
       System.out.println("Error: Swing is missing - please install v1.1 and put swing.jar in your CLASSPATH!");
       err.printStackTrace();
       System.exit(1);
     }
-  }
-
-  /**
-   * Returns a previously opened Frame by key
-   */
-  public JFrame getFrame(String key) {
-    return (JFrame)openFrames.get(FRAME_KEY_PREFIX+key);
-  }
-  
-  /**
-   * Returns all know JFrames that have been opened
-   */
-  public Hashtable getFrames() {
-    return openFrames;
-  }
-
-  /**
-   * Creates a Frame which remembers it's position from last time
-   */
-  public JFrame createFrame(String title, ImgIcon image, final String key, final Dimension dimension) {
-    return new App.Frame(title,image,key,dimension);
-  }
-
-  /**
-   * Our own frame
-   */
-  public class Frame extends JFrame {
-    
-    private String savedKey;
-    private Dimension savedDimension;
-    
-    /**
-     * Constructor
-     */
-    protected Frame(String title, ImgIcon image, String key, Dimension dimension) {
-
-      // 1st remember
-      savedKey = FRAME_KEY_PREFIX+key;
-      savedDimension = dimension;
-      
-      // 2nd modify the frame's behavior
-      setTitle(title);
-      if (image!=null) setIconImage(image.getImage());
-      setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-      
-      // 3rd remember
-      openFrames.put(savedKey,this);
-
-      // done
-    }
-    
-    /**
-     * @see java.awt.Window#dispose()
-     */
-    public void dispose() {
-      registry.put(savedKey,getBounds());
-      openFrames.remove(savedKey);
-      super.dispose();
-    }
-
-    /**
-     * @see java.awt.Window#pack()
-     */    
-    public void pack() {
-      
-      Rectangle box = registry.get(savedKey,(Rectangle)null);
-      if ((box==null)&&(savedDimension!=null)) 
-        box = new Rectangle(0,0,savedDimension.width,savedDimension.height);
-      if (box==null) {
-        super.pack();
-      } else {
-        setBounds(new AreaInScreen(box));
-      }
-      invalidate();
-      validate();
-      doLayout();
-    }
-
-  } // Frame
-
-  /**
-   * Sets the LookAndFeel
-   */
-  public void setLnF(LnFBridge.LnF lnf, LnFBridge.Theme theme) {
-    
-    // collect frames we know about
-    Vector uis = new Vector();
-    Enumeration frames = getFrames().elements();
-    while (frames.hasMoreElements()) uis.add(frames.nextElement());
-    
-    // set it!
-    if (lnf.apply(theme, uis)) {
-      registry.put("lnf", lnf.getName());
-      if (theme!=null) registry.put("lnf.theme", theme.getName());
-    }
-    
-    // remember
-  }
-
-  /**
-   * Check the environment
-   */
-  private static void checkEnvironment() {
-
-    // CLASSPATH    
-    String cpath = System.getProperty("java.class.path");
-    StringTokenizer tokens = new StringTokenizer(
-      cpath,
-      System.getProperty("path.separator"),
-      false
-    );
-    
-    while (tokens.hasMoreTokens()) {
-      String entry = tokens.nextToken();
-      String stat = " (does" + (new File(entry).exists() ? "" :"n't") + " exist)";
-      System.out.println("[Debug]Classpath contains "+entry+stat);
-    }
-
   }
 
 }

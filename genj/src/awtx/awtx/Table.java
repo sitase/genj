@@ -367,15 +367,10 @@ public class Table extends Scrollpane implements TableModelListener {
     translation = null;
 
     // Validate View
-    // 20020814 changed from simply doLayout to ...
-    invalidate();
-    validate();
+    doLayout();
 
     // Show it
     repaint();
-    
-    // notify
-    fireSelectionChanged();
   }
 
   /**

@@ -57,6 +57,20 @@ public abstract class PropertyIndi extends Property{
   }
 
   /**
+   * Default Image
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgIndi;
+  }
+
+  /**
+   * Image
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
+  }
+
+  /**
    * Returns the logical name of the proxy-object which knows this object
    */
   public String getProxy() {
@@ -92,5 +106,4 @@ public abstract class PropertyIndi extends Property{
   public boolean setValue(String value) {
     return false;
   }
-  
 }

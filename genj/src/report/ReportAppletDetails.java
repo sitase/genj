@@ -9,13 +9,10 @@ import genj.gedcom.*;
 import genj.report.*;
 
 import java.io.*;
-import java.util.StringTokenizer;
-import java.util.ArrayList;
 
 /**
  * GenJ - Report
- * $Header: /cygdrive/c/temp/cvs/genj/genj/src/report/ReportAppletDetails.java,v 1.12 2002-08-08 19:28:41 nmeier Exp $
- * @author Nils Meier <nils@meiers.net>
+ * @author Nils Meier nils@meiers.net
  * @version 0.1
  */
 public class ReportAppletDetails implements Report {
@@ -29,18 +26,6 @@ public class ReportAppletDetails implements Report {
   /** maximum text-length of properties */
   public final static int MAX_LINE_LENGTH = 40;
 
-  /** this report's version */
-  public static final String VERSION = "0.1";
-
-  /**
-   * Returns the version of this script
-   */
-  public String getVersion() {
-    return VERSION;
-  }
-
-  private ArrayList propertiesToLink;
-  
   /**
    * Returns the name of this report - should be localized.
    */
@@ -53,37 +38,24 @@ public class ReportAppletDetails implements Report {
    * @return Information as String
    */
   public String getInfo() {
-    return "This report creates HTML-files for all individuals and families. "
-      + "These files contain details that are normally shown in the "
-      + "application's EditView.\n"
-      + "It also copies one existing image (OBJE:FILE) that is shown in the "
-      + "entity's detail-page.\n"
-      + "For multiline details (e.g., NOTE), any line break that is specified "
-      + "will be preserved in the HTML file.  Lines in the HTML file will "
-      + "wrap at 40 characters of length.  This is likely a different size "
-      + "than the text box in the application's EditView.\n" 
-      + "Then by specifying the parameter DETAILS you tell the applet to "
-      + "open a new browser window with that information if an entity is "
-      + "selected. Example:\n"
-      + " <applet code=... > \n"
-      + " <param name=GEDCOM value=...> \n"
-      + " <param name=ZIP    value=...> \n"
-      + " <param name=DETAIL value=\"./details\"> \n"
-      + " </applet> \n"
-      + "Make sure that the generated files are present in the specified "
-      + "directory.";
+    return "This report creates HTML-files for all individuals and families. These files "+
+           "contain details that are normally shown in the application's EditView.\n" +
+           "It also copies one existing image (OBJE:FILE) that is shown in the entity's "+
+           "detail-page.\n"+
+           "Then by specifying the parameter DETAILS you tell the applet to open a new " +
+           "browser window with that information if an entity is selected. Example:\n" +
+           " <applet code=... > \n" +
+           " <param name=GEDCOM value=...> \n" +
+           " <param name=ZIP    value=...> \n" +
+           " <param name=DETAIL value=\"./details\"> \n" +
+           " </applet> \n" +
+           "Make sure that the generated files are present in the specified directory.";
   }  
 
   /**
    * Exports the given entity to given directory
    */
   private void export(Entity ent, File dir, PrintWriter out) throws IOException {
-    propertiesToLink = new ArrayList();
-    propertiesToLink.add("FAMS");
-    propertiesToLink.add("FAMC");
-    propertiesToLink.add("HUSB");
-    propertiesToLink.add("WIFE");
-    propertiesToLink.add("CHIL");
 
     // HEAD
     out.println("<HTML>");
@@ -105,11 +77,9 @@ public class ReportAppletDetails implements Report {
     out.println("</TD>");
 
     // Property Column
-    out.println("<TD width=\"50%\" valign=\"top\" align=\"left\">");
-    out.println("<TABLE border=0>");
+    out.println("<TD width=\"50%\" valign=\"top\" align=\"left\"><PRE>");
     exportProperty(ent.getProperty(),out,0);
-    out.println("</TABLE>");
-    out.println("</TD>");
+    out.println("</PRE></TD>");
 
     // END TABLE
     out.println("</TR>");
@@ -133,14 +103,11 @@ public class ReportAppletDetails implements Report {
     TagPath path = new TagPath("OBJE:FILE");
     Property prop = ent.getProperty().getProperty(path,true);
     if ( (prop!=null) && (prop instanceof PropertyFile) ) {
-      url = exportImage( (PropertyFile) prop, dir , ent.getId());
+            url = exportImage( (PropertyFile) prop, dir , ent.getId());
+    }
 
-      // Here comes the IMG-tag
-      out.println("<IMG src=\""+url+"\"></IMG>");
-    }
-    else {
-      out.println("No image<Br>available.");
-    }
+    // Here comes the IMG-tag
+    out.println("<IMG src=\""+url+"\"></IMG>");
   }
 
   /**
@@ -195,49 +162,17 @@ public class ReportAppletDetails implements Report {
     if (prop.isMultiLine() != Property.NO_MULTI) {
       Property.LineIterator li = prop.getLineIterator();
       while (li.hasMoreValues()) {
-        value += li.getNextValue() + '\n';
+        value += li.getNextValue() + ' ';
       }
     } else {
       value = prop.getValue();
     }
-    
-    String tag = prop.getTag();
-    if (tag.equals("NAME")) {
-      // Replace /Last/ with LAST
-      int slashPos = value.indexOf('/');
-      if (slashPos >= 0) {
-        String first = value.substring(0, slashPos);
-        String last = value.substring(slashPos + 1, value.length() - 1);
-        value = first + last.toUpperCase();
-      }
-    }
 
-    if ( propertiesToLink.contains(tag) ) {
-      String idStr = value.replace('@',' ').trim();
-      if ( !(prop instanceof PropertyFam) ) {
-        try {
-          Indi individual = prop.getGedcom().getIndiFromId(idStr);
-          if ( individual != null ) {
-            value = individual.getName();
-          }
-        }
-        catch ( genj.gedcom.DuplicateIDException x ) {
-          // ignore exception
-        }
-      }
-      out.println("<tr><td valign=TOP><b><u>"
-                  + Gedcom.getResources().getString(prop.getTag() + ".name")
-                  + "</u></b></td><td>"
-                  + "<A HREF=\"" + idStr + ".html\">"
-                  + value
-                  + "</a></td></tr>");
-    }
-    else {
-      exportProperty(tag, value, out, level);
-    }
+    exportProperty(prop.getTag(), value, out, level);
 
-    for (int i=0;i<prop.getNoOfProperties();i++) {
-      exportProperty(prop.getProperty(i), out, level+1);
+    ReferencePropertySet props = prop.getProperties();
+    for (int i=0;i<props.getSize();i++) {
+      exportProperty(props.get(i), out, level+1);
     }
 
   }
@@ -247,71 +182,27 @@ public class ReportAppletDetails implements Report {
    */
   private void exportProperty(String tag, String value, PrintWriter out, int level) {
 
-    String spanColumns = "";
-    if ( (level == 0) && (value.length() == 0) ) {
-      spanColumns = "colspan = 2";
-    }
-
-    out.print("<tr><td valign=TOP " + spanColumns + ">");
-
     // a loop for multi lines
-    exportSpaces(out, level);
-    
-    
-    String markupBeg;
-    String markupEnd;
-    if ( level == 0 ) {
-      // bold underlined
-      markupBeg = "<b><u>";
-      markupEnd = "</u></b>";
-    }
-    else if ( level == 1 ) {
-      // italic underlined
-      markupBeg = "<i><u>";
-      markupEnd = "</u></i>";
-    }
-    else {
-      // italic
-      markupBeg = "<i>";
-      markupEnd = "</i>";
-    }
+    while (true) {
 
-    out.print(markupBeg + 
-              Gedcom.getResources().getString(tag + ".name") +
-              markupEnd + "</td><td><pre>");
+      exportSpaces(out, level);
 
-    value = value.trim();
+      out.print(tag + " ");
 
-    // below conditional is an optimization, but is not logically necessary.
-    if (value.length() <= MAX_LINE_LENGTH) {
-      out.println(value);
-      out.println("</pre></td></tr>");
-      return;
-    }
+      value = value.trim();
 
-    // This big string tokenization mess is so we breaks lines on word
-    // boundaries and newline characters.
-    boolean first = true;
-    StringTokenizer linetok = new StringTokenizer(value, "\n");
-    while (linetok.hasMoreTokens()) {
-      StringTokenizer wordtok = new StringTokenizer(linetok.nextToken());
-      String line = wordtok.nextToken() + " ";
-      final String padding = "     ";
-      while (wordtok.hasMoreTokens()) {
-        String next = wordtok.nextToken();
-        if (line.length() + next.length() > MAX_LINE_LENGTH) {
-          out.println(line);
-          line = "";
-        }
-        line += next + " ";
+      if (value.length() <= MAX_LINE_LENGTH) {
+        out.println(value);
+        break;
       }
-    
-      if (line.length() > 0) {
-        out.println(line);
-        line = "";
-      }
+
+      out.println(value.substring(0,MAX_LINE_LENGTH));
+
+      value = value.substring(MAX_LINE_LENGTH);
+
+      tag = "    ";
     }
-    out.println("</pre></td></tr>");
+
     // Done
   }
 
@@ -320,7 +211,7 @@ public class ReportAppletDetails implements Report {
    */
   public void exportSpaces(PrintWriter out, int num) {
     for (int c=0;c<num;c++) {
-      out.print("&nbsp;");
+      out.print(" ");
     }
   }
 
@@ -340,17 +231,10 @@ public class ReportAppletDetails implements Report {
   }  
 
   /**
-   * Tells whether this report doesn't change information in the Gedcom-file
+   * Tells wether this report doesn't change information in the Gedcom-file
    */
   public boolean isReadOnly() {
     return true;
-  }
-  
-  /**
-   * Helper that resolves a filename for given entity
-   */
-  public static File getFileForEntity(File dir, Entity entity) {
-    return new File(dir, entity.getId()+".html");
   }
 
   /**
@@ -360,7 +244,7 @@ public class ReportAppletDetails implements Report {
 
     bridge.println("Exporting "+ent);
 
-    File file = getFileForEntity(dir, ent);
+    File file = new File(dir, ent.getId()+".html" );
 
     PrintWriter htmlOut = new PrintWriter(new FileOutputStream(file));
 

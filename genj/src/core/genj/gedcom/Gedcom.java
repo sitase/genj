@@ -30,16 +30,16 @@ public class Gedcom implements GedcomListener {
 
   private boolean          isTransaction = false;
   private boolean          hasUnsavedChanges;
-  private Origin            origin;
-  private Vector            listeners = new Vector();
-  private Entity            lastEntity = null;
-  private Vector            addedEntities     ,
-                             deletedEntities   ;
-  private Vector            addedProperties   ,
-                             deletedProperties ,
-                             modifiedProperties;
-  private EntityList[]      entities = new EntityList[LAST_ETYPE-FIRST_ETYPE+1];
-  private IDHashtable[]     ids = new IDHashtable[LAST_ETYPE-FIRST_ETYPE+1];
+  private Origin           origin;
+  private Vector           listeners = new Vector();
+  private Entity           lastEntity = null;
+  private Vector           addedEntities     ,
+                           deletedEntities   ;
+  private Vector           addedProperties   ,
+                           deletedProperties ,
+                           modifiedProperties;
+  private EntityList[]     entities = new EntityList[LAST_ETYPE-FIRST_ETYPE+1];
+  private IDHashtable[]    ids = new IDHashtable[LAST_ETYPE-FIRST_ETYPE+1];
 
   static private Random    seed = new Random();
   static private Resources resources;
@@ -60,19 +60,16 @@ public class Gedcom implements GedcomListener {
     FEMALE = 2;
 
   private final static String[]
-    ePrefixs  = { "I", "F", "M", "N", "S", "B", "R"},
-    eTags     = { "INDI", "FAM", "OBJE", "NOTE", "SOUR", "SUBM", "REPO" };
+    ePrefixs  = { "I", "F", "M", "N" },
+    eTags     = { "INDI", "FAM", "OBJE", "NOTE" };
 
   public final static int
     INDIVIDUALS  = 0,
     FAMILIES     = 1,
     MULTIMEDIAS  = 2,
     NOTES        = 3,
-    SOURCES      = 4,
-    SUBMITTERS   = 5,
-    REPOSITORIES = 6,
     FIRST_ETYPE  = INDIVIDUALS,
-    LAST_ETYPE   = REPOSITORIES;
+    LAST_ETYPE   = NOTES;
 
   /**
    * Gedcom's Constructor
@@ -166,21 +163,9 @@ public class Gedcom implements GedcomListener {
     if (getTagFor(MULTIMEDIAS).equals(tag.toUpperCase())) {
       return createMedia(id);
     }
-    // Notes
+    // Media ?
     if (getTagFor(NOTES).equals(tag.toUpperCase())) {
       return createNote(id);
-    }
-    // Sources
-    if (getTagFor(SOURCES).equals(tag.toUpperCase())) {
-      return createSource(id);
-    }
-    // Submitters
-    if (getTagFor(SUBMITTERS).equals(tag.toUpperCase())) {
-      return createSubmitter(id);
-    }
-    // Repository
-    if (getTagFor(REPOSITORIES).equals(tag.toUpperCase())) {
-      return createRepository(id);
     }
     // Unknown
     throw new GedcomException("Unknown tag for entity");
@@ -260,15 +245,14 @@ public class Gedcom implements GedcomListener {
       throw new DuplicateIDException("Family with id "+id+" is alread defined");
     }
 
-    // Generate id if necessary
-    if (id==null) {
-      id = getRandomIdFor(FAMILIES);
-    }
-    
     // Create fam & add to list of indis
     Fam fam = new Fam(this);
     noteAddedEntity(fam);
     entities[FAMILIES].add(fam);
+
+    // Generate id
+    if (id==null)
+      id = getRandomIdFor(FAMILIES);
 
     // Store id
     ids[FAMILIES].put(id,fam);
@@ -314,15 +298,15 @@ public class Gedcom implements GedcomListener {
       throw new DuplicateIDException("Individual with id "+id+" is alread defined");
     }
 
-    // Calculate id if necessary
-    if (id==null) {
-      id = getRandomIdFor(INDIVIDUALS);
-    }
-
     // Create indi & add to list of indis
     Indi indi = new Indi(this);
     noteAddedEntity(indi);
     entities[INDIVIDUALS].add(indi);
+
+    // Calculate id
+    if (id==null) {
+      id = getRandomIdFor(INDIVIDUALS);
+    }
 
     // Store id in individual
     ids[INDIVIDUALS].put(id,indi);
@@ -343,7 +327,7 @@ public class Gedcom implements GedcomListener {
     // NAME
     if ((lastName!=null)&&(firstName!=null)) {
       PropertyName pn = new PropertyName();
-      pn.setName(firstName, lastName);
+      pn.setName(firstName,lastName);
       indi.addProperty(pn);
     }
 
@@ -485,15 +469,15 @@ public class Gedcom implements GedcomListener {
    */
   /*package*/ Media createMedia(String id, Entity attachedTo) throws GedcomException {
 
-    // Generate id if necessary
-    if (id==null) {
-      id = getRandomIdFor(MULTIMEDIAS);
-    }
-
     // Create media & add to list of indis
     Media media = new Media(this);
     noteAddedEntity(media);
     entities[MULTIMEDIAS].add(media);
+
+    // Generate id
+    if (id==null) {
+      id = getRandomIdFor(MULTIMEDIAS);
+    }
 
     // Store id
     ids[MULTIMEDIAS].put(id,media);
@@ -540,15 +524,15 @@ public class Gedcom implements GedcomListener {
    */
   /*package*/ Note createNote(String id, Entity attachedTo) throws GedcomException {
 
-    // Generate id if necessary
-    if (id==null) {
-      id = getRandomIdFor(NOTES);
-    }
-
     // Create note & add to list of notes
     Note note = new Note(this);
     noteAddedEntity(note);
     entities[NOTES].add(note);
+
+    // Generate id
+    if (id==null) {
+      id = getRandomIdFor(NOTES);
+    }
 
     // Store id
     ids[NOTES].put(id,note);
@@ -561,102 +545,6 @@ public class Gedcom implements GedcomListener {
 
     // Done
     return note;
-  }
-
-  /**
-   * Creates a Repository entity.
-   * @exception GedcomException in of error during creation
-   */
-  /*package*/ Source createSource(String id) throws GedcomException {
-    return createSource(id, null);
-  }
-
-  /**
-   * Creates a Repository entity.
-   * @exception GedcomException in of error during creation
-   */
-  /*package*/ Source createSource(String id, Entity attachedTo) throws GedcomException {
-
-    // Generate id if necessary
-    if (id==null) {
-      id = getRandomIdFor(SOURCES);
-    }
-
-    // Create source & add to list of sources
-    Source source = new Source(this);
-    noteAddedEntity(source);
-    entities[SOURCES].add(source);
-
-    // Store id
-    ids[SOURCES].put(id,source);
-    source.setId(id);
-
-    // Attach?
-    if (attachedTo!=null) {
-      attachedTo.getProperty().addSource(source);
-    }
-    // Done
-    return source;
-  }
-
-  /**
-   * Creates a non-related submitter
-   * @exception GedcomException in of error during creation
-   * dkionka: blindly copied createNote()
-   */
-  /*package*/ Submitter createSubmitter(String id) throws GedcomException {
-
-    // Generate id if necessary
-    if (id==null) {
-      id = getRandomIdFor(SUBMITTERS);
-    }
-
-    // Create submitter & add to list of submitters
-    Submitter submitter = new Submitter(this);
-    noteAddedEntity(submitter);
-    entities[SUBMITTERS].add(submitter);
-
-    // Store id
-    ids[SUBMITTERS].put(id,submitter);
-    submitter.setId(id);
-
-    // Done
-    return submitter;
-  }
-
-  /**
-   * Creates a Repository entity.
-   * @exception GedcomException in of error during creation
-   */
-  /*package*/ Repository createRepository(String id) throws GedcomException {
-    return createRepository(id, null);
-  }
-
-  /**
-   * Creates a Repository entity.
-   * @exception GedcomException in of error during creation
-   */
-  /*package*/ Repository createRepository(String id, Entity attachedTo) throws GedcomException {
-
-    // Generate id if necessary
-    if (id==null) {
-      id = getRandomIdFor(REPOSITORIES);
-    }
-
-    // Create repository & add to list of repositorys
-    Repository repository = new Repository(this);
-    noteAddedEntity(repository);
-    entities[REPOSITORIES].add(repository);
-    // Store id
-    ids[REPOSITORIES].put(id,repository);
-    repository.setId(id);
-
-    // Attach?
-    if (attachedTo!=null) {
-      attachedTo.getProperty().addRepository(repository);
-    }
-    // Done
-    return repository;
   }
 
   /**
@@ -693,14 +581,9 @@ public class Gedcom implements GedcomListener {
       // .. existing fam
       fam = indi.getFamc();
       // .. two spouses ?
-      if (!fam.hasMissingSpouse()) {
-        throw new GedcomException("Tried to create 3rd spouse in family !");
-      }
-      // .. max one spouse !
-      Indi spouse = fam.getOtherSpouse(null);
-      if (spouse!=null) {
-        sex = PropertySex.calcOppositeSex(spouse, sex);
-      }
+      if (!fam.hasMissingSpouse())
+      throw new GedcomException("Tried to create 3rd spouse in family !");
+      // .. one spouse !
     } else {
       // .. fam
       fam = createFam();
@@ -1027,28 +910,6 @@ public class Gedcom implements GedcomListener {
   }
 
   /**
-   * Returns the source with given id
-   */
-  public Source getSourceFromId(String id) throws DuplicateIDException {
-    return (Source)ids[SOURCES].get(id);
-  }
-
-  /**
-   * Returns the submitter with given id
-   */
-  public Submitter getSubmitterFromId(String id) throws DuplicateIDException {
-    return (Submitter)ids[SUBMITTERS].get(id);
-  }
-
-  /**
-   *
-   * Returns the repository with given id
-   */
-  public Repository getRepositoryFromId(String id) throws DuplicateIDException {
-    return (Repository)ids[REPOSITORIES].get(id);
-  }
-
-  /**
    * Returns the origin of this gedcom
    */
   public Origin getOrigin() {
@@ -1077,14 +938,15 @@ public class Gedcom implements GedcomListener {
     String result = null;
 
     // We might to do this several times
-    int id = Math.max(g1==null?0:g1.entities[type].getSize(),g2==null?0:g2.entities[type].getSize());
-
     while (true) {
-      
-      id ++;
+
+      // Calc integer
+      int numents = Math.max(g1==null?0:g1.entities[type].getSize(),g2==null?0:g2.entities[type].getSize());
+
+      int rnd = ( Math.abs(seed.nextInt()) % ((numents+1)*2) ) + 1;
 
       // Trim to 000
-      result = ePrefixs[type] + (id<100?(id<10?"00":"0"):"") + id;
+      result = ePrefixs[type] + (rnd<100?(rnd<10?"00":"0"):"") + rnd;
 
       if ((g1!=null)&&(g1.ids[type].contains(result)))
         continue;
@@ -1102,7 +964,7 @@ public class Gedcom implements GedcomListener {
   /**
    * Returns the Resources (lazily)
    */
-  public static Resources getResources() {
+  static Resources getResources() {
     if (resources==null) {
       resources = new Resources("genj.gedcom");
     }
@@ -1115,7 +977,7 @@ public class Gedcom implements GedcomListener {
   public static String getTagFor(int type) {
     return eTags[type];
   }
-  
+
   /**
    * Notification that a change in a Gedcom-object took place.
    */
@@ -1229,28 +1091,30 @@ public class Gedcom implements GedcomListener {
       Entity e2 = matches[m][1];
 
       // Tag kept properties from G2 (if needed)
+      ReferencePropertySet plist2 = e2.getProperty().getProperties();
       if ((options&TAG_PROPERTY_SOURCE)!=0) {
-        for (int p=0;p<e2.getProperty().getNoOfProperties();p++) {
-          Property prop = e2.getProperty().getProperty(p);
+        for (int p=0;p<plist2.getSize();p++) {
+          Property prop = plist2.get(p);
           prop.addProperty(new PropertyNote(n2));
         }
       }
 
       // Move properties from G1 (and tag moved properties if needed)
-      for (int p=0;p<e1.getProperty().getNoOfProperties();p++) {
+      ReferencePropertySet plist1 = e1.getProperty().getProperties();
+      for (int p=0;p<plist1.getSize();p++) {
 
-        Property prop = e1.getProperty().getProperty(p);
-  
-        // .. A PropertyXRef?
-        if (prop instanceof PropertyXRef)
-          continue;
-  
-        // .. Tag it
-        if ((options&TAG_PROPERTY_SOURCE)!=0)
-          prop.addProperty(new PropertyNote(n1));
-  
-        // .. Add it
-        e2.getProperty().addProperty(prop);
+      Property prop = plist1.get(p);
+
+      // .. A PropertyXRef?
+      if (prop instanceof PropertyXRef)
+        continue;
+
+      // .. Tag it
+      if ((options&TAG_PROPERTY_SOURCE)!=0)
+        prop.addProperty(new PropertyNote(n1));
+
+      // .. Add it
+      e2.getProperty().addProperty(prop);
       }
 
       // Forget entity E1 in G1
@@ -1262,24 +1126,48 @@ public class Gedcom implements GedcomListener {
     // Tag entities from two sources
     if ((options&TAG_ENTITY_SOURCE)!=0) {
 
-      // .. Tag entities
-      for (int l=0;l<g1.entities.length;l++) {
-        for (int e=0;e<g1.entities[l].getSize();e++) {
-          g1.entities[l].get(e).getProperty().addProperty(new PropertyNote(n1));
-        }
+      // .. Action
+      final Note _n1=n1,_n2=n2;
+      EntityList.Action a = new EntityList.Action() {
+      public boolean on(Entity e) {
+        // .. set source
+        if (e.getGedcom()==g1)
+        e.getProperty().addProperty(new PropertyNote(_n1));
+        else
+        e.getProperty().addProperty(new PropertyNote(_n2));
+        // .. please continue
+        return true;
       }
+      };
 
       // .. Tag entities
-      for (int l=0;l<g2.entities.length;l++) {
-        for (int e=0;e<g2.entities[l].getSize();e++) {
-          g2.entities[l].get(e).getProperty().addProperty(new PropertyNote(n2));
-        }
-      }
+      for (int l=0;l<g1.entities.length;l++)
+      g1.entities[l].operate(a);
+
+      // .. Tag entities
+      for (int l=0;l<g2.entities.length;l++)
+      g2.entities[l].operate(a);
 
       // .. done
     }
 
     // Fill in entities
+    EntityList.Action a = new EntityList.Action() {
+      public boolean on(Entity e) {
+      // .. remember Daddy
+      e.setGedcom(result);
+      // .. get new ID
+      String id = result.getRandomIdFor(e.getType());
+      // .. change entity
+      e.setId(id);
+      // .. remember ID
+      result.ids[e.getType()].put(id,e);
+      // .. continue
+      return true;
+      }
+      // EOC
+    };
+
     if (n1!=null) {
       result.entities[n1.getType()].add(n1);
       result.entities[n2.getType()].add(n2);
@@ -1291,17 +1179,7 @@ public class Gedcom implements GedcomListener {
       // .. add entities of type from G1
       result.entities[i].add(g2.entities[i]);
       // .. loop through entities of type from Result
-      for (int e=0;e<result.entities[i].getSize();e++) {
-        Entity ent=result.entities[i].get(e);
-        // .. remember Daddy
-        ent.setGedcom(result);
-        // .. get new ID
-        String id = result.getRandomIdFor(ent.getType());
-        // .. change entity
-        ent.setId(id);
-        // .. remember ID
-        result.ids[ent.getType()].put(id,ent);
-      }
+      result.entities[i].operate(a);
     }
 
     // Done
@@ -1320,6 +1198,20 @@ public class Gedcom implements GedcomListener {
     }
 
     addedEntities.addElement(entities);
+  }
+
+  /**
+   * Notification that a set of properties have been added.
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteAddedEntities(ReferencePropertySet props) {
+
+    // Is there a transaction running?
+    if (!isTransaction) {
+      return;
+    }
+
+    addedProperties.addElement(props);
   }
 
   /**
@@ -1387,6 +1279,21 @@ public class Gedcom implements GedcomListener {
   }
 
   /**
+   * Notification that a set of propertiess have been deleted.
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteDeletedProperties(ReferencePropertySet props) {
+
+    // Is there a transaction running?
+    if (!isTransaction) {
+      return;
+    }
+
+    deletedProperties.addElement(props);
+    // Done
+  }
+
+  /**
    * Notification that a property has been deleted.
    * That change will be notified to listeners after unlocking write.
    */
@@ -1397,6 +1304,20 @@ public class Gedcom implements GedcomListener {
       return;
 
     deletedProperties.addElement(prop);
+    // Done
+  }
+
+  /**
+   * Notification that properties have been changed
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteModifiedProperties(ReferencePropertySet properties) {
+
+    // Is there a transaction running?
+    if (!isTransaction)
+      return;
+
+    modifiedProperties.addElement(properties);
     // Done
   }
 
@@ -1472,10 +1393,11 @@ public class Gedcom implements GedcomListener {
   private void removeUnsatisfiedLinks(Property property) {
 
     // Check wether any property of this property is unsatisfied
-    for (int p=property.getNoOfProperties()-1;p>=0;p--) {
+    ReferencePropertySet plist = property.getProperties();
+    for (int p=plist.getSize()-1;p>=0;p--) {
 
       // .. candidate
-      Property prop = property.getProperty(p);
+      Property prop = plist.get(p);
 
       // .. unsatisfied XRef?
       if ( (prop instanceof PropertyXRef)&&(!((PropertyXRef)prop).isValid()) ) {
@@ -1587,11 +1509,17 @@ public class Gedcom implements GedcomListener {
    * Returns an image for given entity type
    */
   public static ImgIcon getImage(int type) {
-    try {
-      return Images.get(eTags[type]);
-    } catch (ArrayIndexOutOfBoundsException e) {
-      throw new IllegalArgumentException("Unknown type");
+    switch (type) {
+      case INDIVIDUALS:
+        return Images.imgIndi;
+      case FAMILIES:
+        return Images.imgFam;
+      case MULTIMEDIAS:
+        return Images.imgMedia;
+      case NOTES:
+        return Images.imgNote;
     }
+    throw new IllegalArgumentException("Unknown type");
   }
 
 

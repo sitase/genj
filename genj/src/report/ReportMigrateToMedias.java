@@ -20,16 +20,6 @@ public class ReportMigrateToMedias implements Report {
   /** the tags to look for while migrating */
   private static final String tagsToMigrate[] = { "PHOT" };
 
-  /** this report's version */
-  public static final String VERSION = "0.1";
-
-  /**
-   * Returns the version of this script
-   */
-  public String getVersion() {
-    return VERSION;
-  }
-  
   /**
    * Returns the name of this report - should be localized.
    */
@@ -64,7 +54,7 @@ public class ReportMigrateToMedias implements Report {
   }
 
   /**
-   * Tells whether this report doesn't change information in the Gedcom-file
+   * Tells wether this report doesn't change information in the Gedcom-file
    */
   public boolean isReadOnly() {
     return false;
@@ -76,13 +66,14 @@ public class ReportMigrateToMedias implements Report {
   private void analyseEntity(Entity entity, ReportBridge bridge) {
 
     // Get properties of entity
-    if (entity.getProperty().getNoOfProperties()==0) {
+    if (entity.getProperty().getProperties().getSize()==0) {
       return;
     }
 
     // Look for properties to migrate
-    for (int i=entity.getProperty().getNoOfProperties()-1;i>=0;i--) {
-      analyseProperty(entity.getProperty().getProperty(i),bridge);
+    ReferencePropertySet props = entity.getProperty().getProperties();
+    for (int i=props.getSize()-1;i>=0;i--) {
+      analyseProperty(props.get(i),bridge);
     }
 
     // Done
@@ -163,4 +154,3 @@ public class ReportMigrateToMedias implements Report {
   }
 
 }
-

@@ -16,16 +16,6 @@ import java.io.*;
  */
 public class ReportEarliestAncestor implements Report {
 
-  /** this report's version */
-  public static final String VERSION = "0.1";
-
-  /**
-   * Returns the version of this script
-   */
-  public String getVersion() {
-    return VERSION;
-  }
-  
   /**
    * Returns the name of this report - should be localized.
    */
@@ -58,9 +48,9 @@ public class ReportEarliestAncestor implements Report {
     if (indi != null){
       indi = findEarliest (indi);
 
-      birth = indi.getBirthDate();
+      birth = indi.getBirth();
 
-      if ((birth!=null)&&(birth.compareTo(earliest.getBirthDate())< 0)) {
+      if ((birth!=null)&&(birth.compareTo(earliest.getBirth())< 0)) {
         earliest = indi;
       }
     }
@@ -69,9 +59,9 @@ public class ReportEarliestAncestor implements Report {
     if (indi != null){
       indi = findEarliest (indi);
 
-      birth = indi.getBirthDate();
+      birth = indi.getBirth();
 
-      if ((birth!=null)&&(birth.compareTo(earliest.getBirthDate())<0)) {
+      if ((birth!=null)&&(birth.compareTo(earliest.getBirth())<0)) {
         earliest = indi;
       }
     }
@@ -96,7 +86,7 @@ public class ReportEarliestAncestor implements Report {
   }
 
   /**
-   * Tells whether this report doesn't change information in the Gedcom-file
+   * Tells wether this report doesn't change information in the Gedcom-file
    */
   public boolean isReadOnly() {
     return true;

@@ -43,6 +43,13 @@ public class PropertyFamilyChild extends PropertyXRef {
   }
 
   /**
+   * Returns the default image associated with this property
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgLink2Fam;
+  }
+
+  /**
    * Returns a warning string that describes what happens when this
    * property would be deleted
    * @return warning as <code>String</code>, <code>null</code> when no warning
@@ -58,8 +65,15 @@ public class PropertyFamilyChild extends PropertyXRef {
     return (Fam)getReferencedEntity();
   }
 
-  
-  
+  /**
+   * Returns the image which is associated with this property.
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    if (checkValid&&(getReferencedEntity()==null)) {
+      return Images.imgLinkXFam;
+    }
+    return Images.imgLink2Fam;
+  }
 
   /**
    * Returns the Gedcom-Tag of this property

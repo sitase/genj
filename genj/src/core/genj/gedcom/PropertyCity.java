@@ -46,6 +46,20 @@ public class PropertyCity extends Property {
   }
 
   /**
+   * Default Image
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgPlace;
+  }
+
+  /**
+   * Image
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
+  }
+
+  /**
    * Accessor Tag
    */
   public String getTag() {

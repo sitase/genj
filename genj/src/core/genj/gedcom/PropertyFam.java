@@ -35,6 +35,20 @@ public abstract class PropertyFam extends Property {
   }
 
   /**
+   * Default Image
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgFam;
+  }
+
+  /**
+   * Image
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
+  }
+
+  /**
    * Returns the logical name of the proxy-object which knows this object
    */
   public String getProxy() {

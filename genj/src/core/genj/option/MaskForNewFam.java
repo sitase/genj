@@ -107,7 +107,7 @@ class MaskForNewFam extends MaskForNewEntity implements ItemListener {
     }
 
     PropertyDate p = new PropertyDate();
-    p.getStart().set(dMarrDate.getDay(),dMarrDate.getMonth(),dMarrDate.getYear());
+    p.setValue(1,dMarrDate.getDay(),dMarrDate.getMonth(),dMarrDate.getYear());
 
     Fam fam;
     try {
@@ -232,7 +232,7 @@ class MaskForNewFam extends MaskForNewEntity implements ItemListener {
     Indi indi = (Indi)entity;
 
     lMemberIs.setText( "@"+indi.getId()+"@" );
-    lMemberIs.setIcon( ImgIconConverter.get(Property.getDefaultImage("indi")) );
+    lMemberIs.setIcon( new ImageIcon(PropertyIndi.getDefaultImage().getImage()) );
 
     rbParent .setEnabled(true);
     rbChild  .setEnabled(indi.getFamc() == null);

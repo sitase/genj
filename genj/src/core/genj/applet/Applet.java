@@ -42,10 +42,6 @@ import genj.io.*;
 public class Applet extends java.applet.Applet implements Runnable {
 
   private final static int
-    VIEW_DEFAULT_WIDTH  = 640,
-    VIEW_DEFAULT_HEIGHT = 480;
-
-  private final static int
     NOT_READY = -1,
     LOADING   =  0,
     ERROR     =  1,
@@ -63,9 +59,8 @@ public class Applet extends java.applet.Applet implements Runnable {
   private Gedcom         gedcom;
   private Registry       registry;
   private GedcomReader   gedReader;
-  private DetailBridge   detailBridge;
 
-  private Resources resources;
+  private static final Resources resources = new Resources("genj.applet");
 
   /**
    * A Link for a View
@@ -149,12 +144,7 @@ public class Applet extends java.applet.Applet implements Runnable {
     if (state!=NOT_READY) {
       return;
     }
-    
-    // Read the resources
-    // 20020311 Apparently Netscape doesn't like it if we read this
-    // in the static initialization block
-    resources = new Resources("genj.applet");
-    
+
     // Report some information
     System.out.println(
       resources.getString("applet.info")
@@ -258,61 +248,30 @@ public class Applet extends java.applet.Applet implements Runnable {
 
     WindowAdapter wadapter = new WindowAdapter() {
       public void windowClosing(WindowEvent e) {
-        frame.setVisible(false);
+      frame.setVisible(false);
       }
     };
     frame.addWindowListener(wadapter);
 
-    Component component;
     try {
       Object params[] = new Object[]{
-        gedcom,
-        new Registry(registry,key),
-        frame
+      gedcom,
+      new Registry(registry,key),
+      frame
       };
 
-      component = (Component)constructor.newInstance(params);
-
-      frame.add( new Rootpane(component) );
+      frame.add( new Rootpane((Component) constructor.newInstance(params)) );
     } catch (Exception e) {
       e.printStackTrace();
       return;
     }
 
-    // Hook up to DetailBridge?
-    connectDetailBridge(component);
-
     // Done
     views.put(key,frame);
 
-    frame.setSize(new Dimension(VIEW_DEFAULT_WIDTH, VIEW_DEFAULT_HEIGHT));
+    frame.setSize(new Dimension(512,256));
     frame.show();
 
-  }
-
-  /**
-   * Helper that connects the(?) DetailBridge with given component
-   * In case the component is a awtx.ScrollPane then a button is added to
-   * the lower right corner
-   */
-  private void connectDetailBridge(Component component) {
-
-    // something to do?
-    if (detailBridge==null) {
-      return;
-    }
-
-    // Something we can work with?
-    if (!(component instanceof Scrollpane)) {
-      return;
-    }
-
-    // Let's add a button for the bridge activation
-    Scrollpane pane = (Scrollpane)component;
-
-    pane.add2Edge(ComponentProvider.createButton(null, resources.getString("applet.browse_details"), null, "DETAIL", detailBridge));
-
-    // Done
   }
 
   /**
@@ -388,7 +347,7 @@ public class Applet extends java.applet.Applet implements Runnable {
     // Hookup our DetailBridge
     if (detailUrl!=null) {
       System.out.println("Will show details for entities from "+detailUrl);
-      detailBridge = new DetailBridge(this,detailUrl,gedcom);
+      gedcom.addListener(new DetailBridge(this,detailUrl));
     }
 
     // Done

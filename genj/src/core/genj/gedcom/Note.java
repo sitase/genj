@@ -28,7 +28,7 @@ public class Note extends PropertyNote implements Entity {
 
   private String id = "";
   private Gedcom gedcom;
-  private PropertySet foreignXRefs = new PropertySet();
+  private ReferencePropertySet foreignXRefs = new ReferencePropertySet();
 
   /**
    * Constructor for Note
@@ -46,7 +46,7 @@ public class Note extends PropertyNote implements Entity {
    * Adds a PropertyForeignXRef to this entity
    */
   public void addForeignXRef(PropertyForeignXRef fxref) {
-    foreignXRefs.add(fxref);
+    foreignXRefs.add(fxref, this);
   }
 
   /**

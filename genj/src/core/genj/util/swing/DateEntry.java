@@ -44,8 +44,8 @@ public class DateEntry extends javax.swing.JPanel implements DocumentListener, F
 
   /** images */
   private ImageIcon
-    imgGood = ImgIconConverter.get(new ImgIcon(this,"DateGood.gif")),
-    imgBad  = ImgIconConverter.get(new ImgIcon(this,"DateBad.gif" ));
+    imgGood = new ImageIcon(new ImgIcon(this,"DateGood.gif").getImage()),
+    imgBad  = new ImageIcon(new ImgIcon(this,"DateBad.gif" ).getImage());
 
   /**
    * Constructor
@@ -69,7 +69,6 @@ public class DateEntry extends javax.swing.JPanel implements DocumentListener, F
     add(tfDay);
     add(tfMonth);
     add(tfYear);
-    add(new JLabel("dd/mm/yyyy"));	// dkionka: I assumed mm/dd/yyyy
     // Status
     changed=false;
     checkStatus();
@@ -86,7 +85,6 @@ public class DateEntry extends javax.swing.JPanel implements DocumentListener, F
 
   /**
    * Checks if date is o.k and sets corresponding image
-   * dkionka: added simple month range check
    */
   private void checkStatus() {
 
@@ -97,8 +95,6 @@ public class DateEntry extends javax.swing.JPanel implements DocumentListener, F
     } catch (NumberFormatException e) { }
     try {
       m = new Integer(tfMonth.getText());
-      if ((m.intValue() < 1) || (m.intValue() > 12))
-        m = null;			// month[] index in PropertyDate
     } catch (NumberFormatException e) { }
     try {
       d = new Integer(tfDay  .getText());

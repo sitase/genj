@@ -52,6 +52,20 @@ public class PropertyPlace extends Property {
   }
 
   /**
+   * the property's default image
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgPlace;
+  }
+
+  /**
+   * the image
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
+  }
+
+  /**
    * the tag
    */
   public String getTag() {

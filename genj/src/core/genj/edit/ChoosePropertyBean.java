@@ -30,7 +30,6 @@ import javax.swing.event.*;
 import genj.gedcom.*;
 import genj.util.ImgIcon;
 import genj.util.Resources;
-import genj.util.swing.ImgIconConverter;
 
 /**
  * A bean that allows to choose a property from a list of properties
@@ -60,10 +59,10 @@ public class ChoosePropertyBean extends JComponent implements ItemListener, List
       try {
         // .. get class of property
         ImgIcon img   = prop.getImage(false);
-        setIcon(ImgIconConverter.get(img));
+        setIcon(new ImageIcon( img.getImage() ));
       } catch (Exception e) {
         System.out.println("Unexpected error while retrieving property's image!");
-        setIcon(ImgIconConverter.get( genj.gedcom.Images.get("?")));
+        setIcon(new ImageIcon( PropertyUnknown.getDefaultImage().getImage() ));
       }
       this.isSelected = isSelected;
       return this;

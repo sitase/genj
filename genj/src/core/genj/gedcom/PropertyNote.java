@@ -93,6 +93,20 @@ public class PropertyNote extends PropertyXRef {
   }
 
   /**
+   * Returns the (default) image of this property
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgNote;
+  }
+
+  /**
+   * Returns the image of this property
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
+  }
+
+  /**
    * Returns a LineIterator which can be used to iterate through
    * several lines of this address
    */
@@ -203,9 +217,6 @@ public class PropertyNote extends PropertyXRef {
     }
 
     Note note = getGedcom().getNoteFromId(id);
-    if (note == null) {
-        throw new GedcomException(toString()+" not in this gedcom");
-    }
 
     // Create Backlink
     PropertyForeignXRef fxref = new PropertyForeignXRef(this);

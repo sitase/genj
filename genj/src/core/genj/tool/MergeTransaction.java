@@ -150,8 +150,8 @@ public class MergeTransaction implements Transaction {
   /**
    * Returns an image that represents this transaction's state
    */
-  public ImgIcon getImage() {
-    return new ImgIcon(this,"Merge.gif");
+  public Image getImage() {
+    return new ImgIcon(this,"Merge.gif").getImage();
   }
 
   /**
@@ -212,7 +212,7 @@ public class MergeTransaction implements Transaction {
     g2.endTransaction();
 
     // Done
-    center.addGedcom(result);
+    center.registerGedcom(result);
   }
 
   /**

@@ -53,6 +53,23 @@ public class PropertyGenericAttribute extends Property {
   }
 
   /**
+   * Returns the default image of this property
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgAttribute;
+  }
+
+  /**
+   * Returns the image of this property
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    if (tag.equals("TYPE")) return Images.imgType;
+    if (tag.equals("FORM")) return Images.imgFormat;
+    // Return Default
+    return Images.imgAttribute;
+  }
+
+  /**
    * Returns the tag of this property
    */
   public String getTag() {

@@ -48,20 +48,20 @@ public class TreeViewPrintRenderer implements PrintRenderer {
   private Printer         printer;
 
   final static int CENTER=0, TOP=1, BOTTOM=2, LEFT=1, RIGHT=2;
-  final static String valignments[] = { "renderer.vert.center", "renderer.vert.top" , "renderer.vert.bottom"};
-  final static String halignments[] = { "renderer.hori.center", "renderer.hori.left", "renderer.hori.right" };
+  final static String valignments[] = { "Center", "Top" , "Bottom"};
+  final static String halignments[] = { "Center", "Left", "Right" };
 
   /**
-   * Sets the View that this PrintRenderer should work for
+   * Constructor
    */
-  public void setView(Component component) {
-    model = (TreeModel)((TreeView)component).getModel().clone();
+  public TreeViewPrintRenderer(TreeModel model) {
+    this.model = (TreeModel)model.clone();
   }
 
   /**
    * Returns a panel for editing this renderers properties
    */
-  public JPanel getEditor(Resources resources) {
+  public JPanel getEditor() {
 
     // Already present ?
     if (panelProperties!=null) {
@@ -70,11 +70,11 @@ public class TreeViewPrintRenderer implements PrintRenderer {
 
     // Create editable fields
     final JTextField tZoom = new JTextField(5);
-    JButton bZoom = new JButton(resources.getString("renderer.zoom"));
+    JButton bZoom = new JButton("Zoom");
 
-    final JComboBox cVertical   = new JComboBox(resources.getStrings(valignments));
+    final JComboBox cVertical   = new JComboBox(valignments);
     cVertical  .setSelectedIndex(valignment);
-    final JComboBox cHorizontal = new JComboBox(resources.getStrings(halignments));
+    final JComboBox cHorizontal = new JComboBox(halignments);
     cHorizontal.setSelectedIndex(halignment);
 
     readFromUser(tZoom,cVertical,cHorizontal);
@@ -82,7 +82,7 @@ public class TreeViewPrintRenderer implements PrintRenderer {
     // Prepare ActionListener
     ActionListener alistener = new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        readFromUser(tZoom,cVertical,cHorizontal);
+      readFromUser(tZoom,cVertical,cHorizontal);
       }
     };
     tZoom      .addActionListener(alistener);
@@ -94,9 +94,9 @@ public class TreeViewPrintRenderer implements PrintRenderer {
     panelProperties = new JPanel();
     panelProperties.add(bZoom);
     panelProperties.add(tZoom);
-    panelProperties.add(new JLabel(resources.getString("renderer.vert")));
+    panelProperties.add(new JLabel("Vertical"));
     panelProperties.add(cVertical);
-    panelProperties.add(new JLabel(resources.getString("renderer.hori")));
+    panelProperties.add(new JLabel("Horizontal"));
     panelProperties.add(cHorizontal);
 
     // Done

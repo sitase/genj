@@ -22,22 +22,15 @@ package genj.print;
 import java.awt.*;
 import javax.swing.*;
 
-import genj.util.Resources;
-
 /**
  * Interface between Printer and Renderer
  */
 public interface PrintRenderer {
-  
-  /**
-   * Sets the View that this PrintRenderer should work for
-   */
-  public void setView(Component component);
 
   /**
    * Returns a panel for editing this renderers properties
    */
-  public JPanel getEditor(Resources resources);
+  public JPanel getEditor();
 
   /**
    * Returns size of rendering object in pixels

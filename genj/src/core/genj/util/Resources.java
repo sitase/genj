@@ -68,18 +68,6 @@ public class Resources {
   public Resources(String pkg) {
     init(pkg);
   }
-  
-  /**
-   * Returns localized strings
-   */
-  public String[] getStrings(String[] keys) {
-    
-    String[] result = new String[keys.length];
-    for (int i = 0; i < result.length; i++) {
-      result[i] = getString(keys[i]);
-    }
-    return result;
-  }
 
   /**
    * Returns a localized string
@@ -95,7 +83,7 @@ public class Resources {
     } catch (RuntimeException e) {
     }
 
-    System.out.println("[Debug]Resource '"+key+"' for pkg '"+pkg+"' is missing");
+    System.out.println("Resource "+key+" for pkg "+pkg+" is missing");
 
     return "";
   }
@@ -106,15 +94,6 @@ public class Resources {
    * @param values array of values to replace placeholders in value
    */
   public String getString(String key, Object substitute) {
-    return getString(key, new Object[]{ substitute });
-  }
-
-  /**
-   * Returns a localized string
-   * @param key identifies string to return
-   * @param values array of values to replace placeholders in value
-   */
-  public String getString(String key, Object[] substitutes) {
 
     try {
 
@@ -123,22 +102,19 @@ public class Resources {
         // Get Value
         String value = rb.getString(key);
 
-        // .. this is our pattern
+        // Replace with substitutes
         format.applyPattern(value);
+        Object[] subs = { substitute };
+        return format.format(subs);
 
-        // .. which we fill with substitutes
-        String result = format.format(substitutes);
-
-        // Done
-        return result;
       }
 
     } catch (RuntimeException e) {
     }
 
-    System.out.println("[Debug]Resource '"+key+"' for pkg '"+pkg+"' is missing");
+    System.out.println("Resource "+key+" for pkg "+pkg+" is missing");
 
-    return "";
+    return "..." + substitute + "...";
 
   }
 
@@ -175,7 +151,7 @@ public class Resources {
 
     } catch (RuntimeException e) {
 
-      System.out.println("[Debug]Error reading resources from '"+pkg+"': "+e.getMessage());
+      System.out.println("Error reading resources from "+pkg+": "+e.getMessage());
 
     }
 

@@ -12,11 +12,9 @@ import java.io.*;
 import java.util.*;
 
 /**
- * GenJ - Report.
- * This report exports individuals' information to HTML.
- * $Header: /cygdrive/c/temp/cvs/genj/genj/src/report/ReportMakeHTMLTable.java,v 1.10 2002-04-24 03:28:03 timmsc Exp $
+ * GenJ - Report
  * @author Nils Meier nils@meiers.net
- * @version $Revision: 1.10 $
+ * @version 0.1
  */
 public class ReportMakeHTMLTable implements Report {
 
@@ -92,16 +90,6 @@ public class ReportMakeHTMLTable implements Report {
   /** the mapping between unicode and html */
   private static Hashtable unicode2html = initializeUnicodeSupport();
 
-  /** this report's version */
-  public static final String VERSION = "1.8";
-
-  /**
-   * Returns the version of this script
-   */
-  public String getVersion() {
-    return VERSION;
-  }
-  
   /**
    * Returns the name of this report - should be localized.
    */
@@ -133,7 +121,7 @@ public class ReportMakeHTMLTable implements Report {
   }
 
   /**
-   * Tells whether this report doesn't change information in the Gedcom-file
+   * Tells wether this report doesn't change information in the Gedcom-file
    */
   public boolean isReadOnly() {
     return true;
@@ -252,7 +240,6 @@ public class ReportMakeHTMLTable implements Report {
     );
 
     // HEAD
-    bridge.println("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">");
     bridge.println("<HTML>");
     bridge.println("<HEAD>");
     bridge.println("<TITLE>"+gedcom.getName()+" - HTML Table</TITLE>");
@@ -277,17 +264,11 @@ public class ReportMakeHTMLTable implements Report {
     // Go through individuals
     EntityList indis = gedcom.getEntities(Gedcom.INDIVIDUALS);
 
-    TreeMap indiMap = new TreeMap ();  // use to sort by name
     for (int i=0;i<indis.getSize();i++) {
-      Indi indi = indis.getIndi(i);
-      indiMap.put( indi.getLastName() + "\t" + indi.getFirstName() + "\t" + i,
-                   indis.getIndi(i) );
-    }
-    Iterator iter = indiMap.values().iterator();
-    while ( iter.hasNext() ) {
+
       bridge.println("<TR>");
 
-      export((Indi)iter.next(), bridge, detailsUrl);
+      export(indis.getIndi(i),bridge, detailsUrl);
 
       bridge.println("</TR>");
 

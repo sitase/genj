@@ -64,6 +64,20 @@ public class PropertyFile extends Property {
   }
 
   /**
+   * Returns the default Image for this Property
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgDisk;
+  }
+
+  /**
+   * Image
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
+  }
+
+  /**
    * Returns the logical name of the proxy-object which knows this object
    */
   public String getProxy() {

@@ -18,16 +18,6 @@ import java.util.*;
  */
 public class ReportBirthdays implements Report {
 
-  /** this report's version */
-  public static final String VERSION = "0.1";
-
-  /**
-   * Returns the version of this script
-   */
-  public String getVersion() {
-    return VERSION;
-  }
-  
   /**
    * Returns the name of this report - should be localized.
    */
@@ -62,7 +52,7 @@ public class ReportBirthdays implements Report {
   }
 
   /**
-   * Tells whether this report doesn't change information in the Gedcom-file
+   * Tells wether this report doesn't change information in the Gedcom-file
    */
   public boolean isReadOnly() {
     return true;
@@ -95,11 +85,11 @@ public class ReportBirthdays implements Report {
     EntityList indis = gedcom.getEntities(gedcom.INDIVIDUALS);
     for (int i=0;i<indis.getSize();i++) {
       Indi indi = indis.getIndi(i);
-      PropertyDate birth = indi.getBirthDate();
+      PropertyDate birth = indi.getBirth();
       if (birth==null) {
         continue;
       }
-      if (birth.getStart().getMonth(-1) == month) {
+      if (birth.getMonth(0,-1) == month) {
         candidates.addElement(indi);
       }
     }
@@ -111,18 +101,18 @@ public class ReportBirthdays implements Report {
       // LCD
       public int compare(Object o1, Object o2) {
         // O.K. here are the birthdays (might be null!)
-        PropertyDate b1 = ((Indi)o1).getBirthDate();
-        PropertyDate b2 = ((Indi)o2).getBirthDate();
+        PropertyDate b1 = ((Indi)o1).getBirth();
+        PropertyDate b2 = ((Indi)o2).getBirth();
 
-        // So we check whether we can get a day
+        // So we check wether we can get a day
         int d1 = 0;
         if (b1!=null)
-                d1 = b1.getStart().getDay(0);
+                d1 = b1.getDay(0,0);
 
-        // So we check whether we can get a day
+        // So we check wether we can get a day
         int d2 = 0;
         if (b2!=null)
-                d2 = b2.getStart().getDay(0);
+                d2 = b2.getDay(0,0);
 
         // Comparison at last
         return d1-d2;
@@ -137,7 +127,7 @@ public class ReportBirthdays implements Report {
     Enumeration e = candidates.elements();
     while (e.hasMoreElements()) {
       Indi indi = (Indi)e.nextElement();
-      bridge.println(indi.getName()+" (*"+indi.getBirthDate()+")");
+      bridge.println(indi.getName()+" (*"+indi.getBirth()+")");
     }
 
     // Done

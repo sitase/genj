@@ -35,7 +35,6 @@ final public class Images {
     imgGedcom,
     imgNewIndi,
     imgNewSubmitter,
-    imgNewRepository,
     imgUndo,
     imgNewMedia,
     imgNewTable,
@@ -44,10 +43,8 @@ final public class Images {
     imgNewTree,
     imgNewEdit,
     imgNewReport,
-    imgNewNavigator,
     imgSettings,
-    imgPrint,
-    imgHelp;
+    imgPrint;
 
   /**
    * Constructor which pre-loads all images
@@ -60,7 +57,6 @@ final public class Images {
     imgGedcom       = new ImgIcon(this,"images/Gedcom.gif");
     imgNewIndi      = new ImgIcon(this,"images/NewIndi.gif");
     imgNewSubmitter = new ImgIcon(this,"images/NewSubmitter.gif");
-    imgNewRepository= new ImgIcon(this,"images/NewRepository.gif");
     imgUndo         = new ImgIcon(this,"images/Undo.gif");
     imgNewMedia     = new ImgIcon(this,"images/NewMedia.gif");
     imgNewTable     = new ImgIcon(this,"images/NewTable.gif");
@@ -69,9 +65,7 @@ final public class Images {
     imgNewTree      = new ImgIcon(this,"images/NewTree.gif");
     imgNewEdit      = new ImgIcon(this,"images/NewEdit.gif");
     imgNewReport    = new ImgIcon(this,"images/NewReport.gif");
-    imgNewNavigator = new ImgIcon(this,"images/NewNavigator.gif");
     imgSettings     = new ImgIcon(this,"images/Settings.gif");
     imgPrint        = new ImgIcon(this,"images/Print.gif");
-    imgHelp         = new ImgIcon(this,"images/Help.gif");
   }
 }

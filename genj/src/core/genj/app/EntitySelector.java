@@ -29,7 +29,6 @@ import javax.swing.event.*;
 
 import genj.gedcom.*;
 import genj.util.ImgIcon;
-import genj.util.swing.ImgIconConverter;
 
 /**
  * A component that allows to select an entity - the entity is
@@ -120,10 +119,10 @@ public class EntitySelector extends JLabel implements GedcomListener {
     entity=pEntity;
     // Show
     if (entity!=null) {
-      setIcon(ImgIconConverter.get(entity.getProperty().getImage(false)));
+      setIcon(entity.getProperty().getImage(false).getImageIcon());
       setText(entity.toString());
     } else {
-      setIcon(ImgIconConverter.get(genj.gedcom.Images.get("?")));
+      setIcon(PropertyUnknown.getDefaultImage().getImageIcon());
       setText("");
     }
     // Done

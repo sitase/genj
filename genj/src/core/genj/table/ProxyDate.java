@@ -35,4 +35,22 @@ public class ProxyDate extends DefaultCellRenderer {
     super(RIGHT);
   }
 
+  /**
+   * Renders the cells content
+   */
+  public void render(Graphics g, Rectangle rect, Object o, FontMetrics fm) {
+
+    // Object?
+    if (o==null)
+      return;
+
+    super.render(
+      g,
+      rect,
+      ((Property)o).getValue(),
+      fm
+    );
+
+    // Done
+  }          
 }

@@ -55,6 +55,5 @@ final public class Images {
     imgFind      = new ImgIcon(this,"Find.gif");
     imgLink      = new ImgIcon(this,"Link.gif");
     imgReturn    = new ImgIcon(this,"Return.gif");
-    
   }
 }

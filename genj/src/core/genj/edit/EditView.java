@@ -19,62 +19,29 @@
  */
 package genj.edit;
 
-import genj.app.App;
-import genj.gedcom.Change;
-import genj.gedcom.Entity;
-import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomException;
-import genj.gedcom.GedcomListener;
-import genj.gedcom.Property;
-import genj.gedcom.PropertyEvent;
-import genj.gedcom.Selection;
-import genj.util.ActionDelegate;
-import genj.util.ImgIcon;
-import genj.util.Registry;
-import genj.util.Resources;
-import genj.util.swing.ButtonHelper;
-import genj.util.swing.ImgIconConverter;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Frame;
-import java.awt.event.MouseEvent;
-import java.util.Enumeration;
-import java.util.Vector;
-
-import javax.swing.AbstractButton;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.JCheckBox;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JSplitPane;
-import javax.swing.JTextPane;
-import javax.swing.JTree;
-import javax.swing.SwingConstants;
-import javax.swing.ToolTipManager;
+import javax.swing.*;
+import javax.swing.tree.*;
+import javax.swing.event.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.TreeSelectionEvent;
-import javax.swing.event.TreeSelectionListener;
-import javax.swing.tree.TreeCellRenderer;
-import javax.swing.tree.TreePath;
-import sun.security.krb5.internal.crypto.p;
+
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
+
+import genj.gedcom.*;
+import genj.option.*;
+import genj.util.*;
 
 /**
  * Component for editing genealogic entity properties
  */
-public class EditView extends JPanel implements TreeSelectionListener, GedcomListener {
+public class EditView extends JPanel implements ActionListener, TreeSelectionListener, GedcomListener {
 
   private Gedcom    gedcom;
   private Entity    entity;
   private Frame     frame;
 
+  private JPanel            actionPanel;
   private AbstractButton    actionButtonAdd,
                             actionButtonRemove,
                             actionButtonUp,
@@ -102,28 +69,6 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
   private Registry registry;
 
   static final Resources resources = new Resources("genj.edit");
-
-  /** the actions for creating entities */  
-  private final ActionCreate
-    actionChild  = new ActionCreate(Images.imgNewSpouse, Gedcom.INDIVIDUALS, Gedcom.REL_CHILD, "new.child"),
-    actionParent = new ActionCreate(Images.imgNewParent, Gedcom.INDIVIDUALS, Gedcom.REL_PARENT, "new.parent"),
-    actionSpouse = new ActionCreate(Images.imgNewSpouse, Gedcom.INDIVIDUALS, Gedcom.REL_SPOUSE, "new.spouse"),
-    actionNote   = new ActionCreate(Images.imgNewNote  , Gedcom.NOTES, 0, "new.note"),
-    actionMedia  = new ActionCreate(Images.imgNewMedia , Gedcom.MULTIMEDIAS, 0, "new.media")
-  ;
-
-  /** the creates for entities */  
-  private ActionDelegate[][] entity2create = new ActionDelegate[][] {
-    { actionSpouse,actionChild,actionParent,actionNote,actionMedia }, // INDIVIDUALS
-    { actionSpouse, actionChild, actionNote, actionMedia }, // FAMILIES
-    { }, // MULTIMEDIAS
-    { }, // NOTES
-    { }, // SOURCES
-    { }, // SUBMITTERS
-    { }  // REPOSITORIES
-  };
-
-  
 
   /**
    * Class for rendering tree cell nodes
@@ -254,10 +199,25 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
     // Begin Layout
     setLayout(new BorderLayout());
 
-    // NORTH - action buttons
-    add(createActionPanel(),BorderLayout.NORTH);
+    // ACTION Component
+    actionPanel = new JPanel();
+    actionPanel.setLayout(new FlowLayout(FlowLayout.LEFT,0,0));
 
-    // CENTER - SplitPane for top/lower section
+    actionCheckStick  = new JCheckBox(new ImageIcon(Images.imgStickOff.getImage()));
+    actionCheckStick.setSelectedIcon (new ImageIcon(Images.imgStickOn .getImage()));
+    actionCheckStick.setFocusPainted(false);
+    actionCheckStick.setSelected(registry.get("sticky",false));
+
+    actionButtonAdd    = addButton(actionPanel, "ADD"   ,"action.add"   ,null            ,"tip.add_prop" , false );
+    actionButtonRemove = addButton(actionPanel, "DEL"   ,"action.del"   ,null            ,"tip.del_prop" , false );
+    actionButtonUp     = addButton(actionPanel, "UP"    ,"action.up"    ,null            ,"tip.up_prop"  , false );
+    actionButtonDown   = addButton(actionPanel, "DOWN"  ,"action.down"  ,null            ,"tip.down_prop", false );
+    actionButtonReturn = addButton(actionPanel, "RETURN",null           ,Images.imgReturn,"tip.return"   , false );
+                         addButton(actionPanel, "STICK" ,null           ,null            ,"tip.stick"    , true  ,actionCheckStick);
+
+    add(actionPanel,BorderLayout.NORTH);
+
+    // SplitPane for top/lower section
 
       // TREE Component's ScrollPane
       paneForTree = new JScrollPane();
@@ -272,19 +232,22 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
     split.setContinuousLayout(true);
     add(split,BorderLayout.CENTER);
 
-    // 20020401 This seemed to be a problem with pre-jdk-1.4's 
-    // swing (even tried to defer it by putting it on another
-    // thread. Now it seems to work again/
-    int loc = registry.get("divider",-1);
-    if (loc!=-1) {
-      split.setDividerLocation(loc);
-    }
-    
-    // SOUTH - create buttons
+    Runnable run = new Runnable() {
+      /** we have to defer the setDividerLocation - FIXME: still? */
+      public void run() {
+        int loc = registry.get("divider",-1);
+        if (loc!=-1) {
+          split.setDividerLocation(loc);
+        }
+      }
+    };
+    SwingUtilities.invokeLater(run);
+
+    // NEW Component
     createPanel = new JPanel();
-    createPanel.setLayout(new BoxLayout(createPanel,BoxLayout.X_AXIS));
+    createPanel.setLayout(new FlowLayout(FlowLayout.LEFT,0,0));
     add(createPanel,BorderLayout.SOUTH);
-    
+
     // Listeners
     gedcom.addListener(this);
 
@@ -308,6 +271,43 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
     }
 
     // Done
+  }
+
+  /**
+   * One of the action buttons has been pressed
+   */
+  public void actionPerformed(ActionEvent e) {
+
+    if ( e.getActionCommand().equals("RETURN"))
+      actionReturn();
+
+    if (e.getActionCommand().equals("ADD"))
+      actionAdd();
+
+    if (e.getActionCommand().equals("DEL"))
+      actionDel();
+
+    if (e.getActionCommand().equals("UP"))
+      actionUpDown(e);
+
+    if (e.getActionCommand().equals("DOWN"))
+      actionUpDown(e);
+
+    if (e.getActionCommand().equals("CSPOUSE"))
+      actionCreateSpouse();
+
+    if (e.getActionCommand().equals("CCHILD"))
+      actionCreateChild();
+
+    if (e.getActionCommand().equals("CPARENT"))
+      actionCreateParent();
+
+    if (e.getActionCommand().equals("CNOTE"))
+      actionCreateNote();
+
+    if (e.getActionCommand().equals("CMEDIA"))
+      actionCreateMedia();
+
   }
 
   /**
@@ -336,6 +336,339 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
    */
   private void endTransaction() {
     gedcom.endTransaction();
+  }
+
+  /**
+   * Helper: Creata an entity
+   */
+  private void createEntity(int type, int relation) {
+
+    // Lock write
+    if (!startTransaction("Couldn't lock Gedcom for write")) {
+      return;
+    }
+
+    // Stop editing old
+    flushEditing(true);
+
+    // Try to create
+    Entity old = entity;
+    Entity created = null;
+    try {
+      switch (type) {
+        case Gedcom.INDIVIDUALS:
+          created = gedcom.createIndi("", "", 0, relation, entity);
+          break;
+        case Gedcom.NOTES:
+          created = gedcom.createNote(entity);
+          break;
+        case Gedcom.MULTIMEDIAS:
+          created = gedcom.createMedia(entity);
+          break;
+      }
+    } catch (GedcomException ex) {
+      JOptionPane.showMessageDialog(
+        getFrame(),
+        ex.getMessage(),
+        EditView.resources.getString("error"),
+        JOptionPane.ERROR_MESSAGE
+      );
+    }
+
+    // End transaction
+    endTransaction();
+
+    // Set new entity
+    if (created!=null) {
+      setEntity(created);
+      //gedcom.fireEntitySelected(null,old    ,true);
+      //gedcom.fireEntitySelected(null,created,false);
+    }
+
+  }
+
+
+  /**
+   * Action: Create Child
+   */
+  private void actionCreateChild() {
+    createEntity(Gedcom.INDIVIDUALS,Gedcom.REL_CHILD);
+  }
+
+  /**
+   * Action: Create Parent
+   */
+  private void actionCreateParent() {
+    createEntity(Gedcom.INDIVIDUALS,Gedcom.REL_PARENT);
+  }
+
+  /**
+   * Action: Create Spouse
+   */
+  private void actionCreateSpouse() {
+    createEntity(Gedcom.INDIVIDUALS,Gedcom.REL_SPOUSE);
+  }
+
+  /**
+   * Action: Create Note
+   */
+  private void actionCreateNote() {
+    createEntity(Gedcom.NOTES, 0);
+  }
+
+  /**
+   * Action: Create Media
+   */
+  private void actionCreateMedia() {
+    createEntity(Gedcom.MULTIMEDIAS, 0);
+  }
+
+  /**
+   * Action: Return
+   */
+  private void actionReturn() {
+
+      // Return to last entity from return-stack
+      int last = returnStack.size()-1;
+      if (last==-1) {
+        return;
+      }
+
+      Entity old = (Entity)returnStack.elementAt(last);
+      returnStack.removeElementAt(last);
+      setEntity(old,true);
+      actionButtonReturn.setEnabled(returnStack.size()>0);
+
+      // .. done
+    }
+
+  /**
+   * Action: Add
+   */
+  private void actionAdd() {
+
+    // Depending on Gedcom of current entity
+    if (entity==null)
+      return;
+
+    Gedcom gedcom = entity.getGedcom();
+
+    // .. LockWrite
+    if (!startTransaction("Couldn't save")) {
+      return;
+    }
+
+    // .. Stop Editing
+    flushEditing(true);
+
+    // .. only in case of single selection
+    TreePath paths[] = treeOfProps.getSelectionPaths();
+    if ( (paths==null) || (paths.length!=1) ) {
+      endTransaction();
+      return;
+    }
+    TreePath path = treeOfProps.getSelectionPath();
+
+    // .. calculate new props
+    Property prop = (Property)path.getLastPathComponent();
+
+    // .. Confirm
+    ChoosePropertyBean choose = new ChoosePropertyBean(prop.getKnownProperties(),resources);
+    JCheckBox check = new JCheckBox(resources.getString("add.default_too"),true);
+
+    Object[] message = new Object[3];
+    message[0] = resources.getString("add.choose");
+    message[1] = choose;
+    message[2] = check;
+
+    int option = JOptionPane.showOptionDialog(
+      this,
+      message,
+      resources.getString("add.title"),
+      JOptionPane.OK_CANCEL_OPTION,
+      JOptionPane.QUESTION_MESSAGE,
+      null, null, null
+    );
+
+    // .. OK or Cancel ?
+    if (option != JOptionPane.OK_OPTION) {
+      gedcom.endTransaction();
+      return;
+    }
+
+    // .. Calculate chosen properties
+    Property[] props = choose.getResultingProperties();
+
+    if ( (props==null) || (props.length==0) ) {
+      JOptionPane.showMessageDialog(
+        this,
+        resources.getString("add.must_enter"),
+        resources.getString("error"),
+        JOptionPane.ERROR_MESSAGE
+      );
+      gedcom.endTransaction();
+      return;
+    }
+
+    // .. add properties
+    boolean doSub = check.isSelected();
+    for (int i=0;i<props.length;i++) {
+      if (doSub) {
+        props[i].addDefaultProperties();
+      }
+      prop.addProperty(props[i]);
+    }
+
+    // .. UnlockWrite
+    endTransaction();
+  }
+
+  /**
+   * Action: Del
+   */
+  private void actionDel() {
+
+    TreePath paths[] = treeOfProps.getSelectionPaths();
+    boolean changed = false;
+
+    // .. check if there are some selections
+    if ( (paths==null) || (paths.length==0) ) {
+      return;
+    }
+
+    // .. LockWrite
+    if (!gedcom.startTransaction()) {
+      JOptionPane.showMessageDialog(
+        this,
+        "Couldn't save",
+        resources.getString("error"),
+        JOptionPane.ERROR_MESSAGE
+      );
+      return;
+    }
+
+    // .. Stop Editing
+    stopEditing(true);
+
+    // .. remove every selected node
+    for (int i=0;i<paths.length;i++) {
+
+      Property prop = (Property)paths[i].getLastPathComponent();
+      String veto = prop.getDeleteVeto();
+
+      if (veto!=null) {
+
+        JTextPane tp = new JTextPane();
+        tp.setText(veto);
+        tp.setEditable(false);
+        JScrollPane sp = new JScrollPane(tp,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER) {
+          public Dimension getPreferredSize() {
+            return new Dimension(128,64);
+          }
+        };
+
+        Object message[] = new Object[2];
+        message[0] = resources.getString("del.leads_to",prop.getTag());
+        message[1] = sp;
+
+        // Show veto and respect user choice
+        int rc = JOptionPane.showConfirmDialog(
+          this,
+          message,
+          resources.getString("warning"),
+          JOptionPane.OK_CANCEL_OPTION
+        );
+        if (rc==JOptionPane.OK_OPTION)
+          veto=null;
+
+        // Continue with/without veto
+      }
+
+      if (veto==null) {
+        entity.getProperty().delProperty( prop );
+        changed = true;
+      }
+
+    // Next selected prop
+    }
+
+    // .. UnlockWrite
+    gedcom.endTransaction();
+
+    // .. done
+  }
+
+  /**
+   * Action: Up/Down
+   */
+  private void actionUpDown(ActionEvent e) {
+
+    // Move property UP/DOWN ?
+    if ( (!e.getActionCommand().equals("UP")) && (!e.getActionCommand().equals("DOWN")) ){
+      return;
+    }
+
+    // .. LockWrite
+    if (!gedcom.startTransaction()) {
+      JOptionPane.showMessageDialog(
+        this,
+        "Couldn't save",
+        resources.getString("error"),
+        JOptionPane.ERROR_MESSAGE
+      );
+      return;
+    }
+
+    // .. Stop Editing
+    flushEditing(true);
+
+    // .. Calculate property that is moved
+    entity.getProperty().moveProperty(
+      currentNode,
+      e.getActionCommand().equals("UP") ? Property.UP : Property.DOWN
+    );
+
+    // .. UnlockWrite
+    gedcom.endTransaction();
+
+    // 03.02.2000 Since the movement of properties is not
+    // signalled by any event, we have to reselect the node again
+    prepareTreeModel();
+    TreePath path = new TreePath(entity.getProperty().getPathTo(currentNode));
+    treeOfProps.setSelectionPath(path);
+
+  }
+
+  /**
+   * Helper that adds buttons to a panel
+   */
+  private AbstractButton addButton(Container c, String action, String text, ImgIcon image, String tip, boolean enabled) {
+    return addButton(c, action, text, image, tip, enabled, new JButton());
+  }
+
+  /**
+   * Helper that adds buttons to a panel
+   */
+  private AbstractButton addButton(Container c, String action, String text, ImgIcon image, String tip, boolean enabled, AbstractButton result) {
+
+    if (text!=null) {
+      result.setText(resources.getString(text));
+    }
+    if (image!=null) {
+      result.setIcon(new ImageIcon(image.getImage()));
+    }
+    if (tip!=null) {
+      result.setToolTipText(resources.getString(tip));
+    }
+    result.setEnabled(enabled);
+    result.setMargin(new Insets(0,0,0,0));
+
+    result.setActionCommand(action);
+    result.addActionListener(this);
+
+    c.add(result);
+
+    return result;
   }
 
   /**
@@ -632,7 +965,21 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
     // Done
   }
 
- /**
+  private final static Object[][] entity2create = new Object[][] {
+    { "CSPOUSE", Images.imgNewSpouse , "new.spouse",
+      "CCHILD" , Images.imgNewChild  , "new.child",
+      "CPARENT", Images.imgNewParent , "new.parent",
+      "CNOTE"  , Images.imgNewNote   , "new.note",
+      "CMEDIA" , Images.imgNewMedia  , "new.media" },
+    { "CSPOUSE", Images.imgNewSpouse , "new.spouse",
+      "CCHILD" , Images.imgNewChild  , "new.child",
+      "CNOTE"  , Images.imgNewNote   , "new.note",
+      "CMEDIA" , Images.imgNewMedia  , "new.media" },
+    { },
+    { }
+  };
+
+  /**
    * Updates (optional) create Buttons at the bottom
    */
   private void updateCreateButtons() {
@@ -648,31 +995,27 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
     // Remove all
     createPanel.removeAll();
 
-    // 1st a label
-    createPanel.add(new JLabel(resources.getString("new")));
-    
+    Label label=new Label(resources.getString("new"));
+    createPanel.add(label);
+
+    //new Font("Arial", Font.PLAIN, 8)
+
     // None
     if (entity!=null) {
-      
-      ButtonHelper bh = new ButtonHelper()
-        .setResources(resources)
-        .setInsets(0)
-        .setMinimumSize(new Dimension(0,0))
-        .setHorizontalAlignment(SwingConstants.LEADING)
-        .setContainer(createPanel);
 
       // Create Buttons
-      ActionDelegate[] creates = entity2create[entity.getType()];
-      for (int c=0;c<creates.length;c++) {
-        bh.create(creates[c]);
+      Object[] creates = entity2create[entity.getType()];
+
+      for (int c=0;c<creates.length/3;c++) {
+        String action = (String )creates[c*3+0];
+        ImgIcon img   = (ImgIcon)creates[c*3+1];
+        String tip    = (String )creates[c*3+2];
+        addButton(createPanel, action, tip, img, null, true).setFont(label.getFont());
       }
-      
-      // glue
-      createPanel.add(Box.createHorizontalGlue());
     }
 
     // make sure that's seen, too
-    createPanel.revalidate();
+    createPanel.validate();
     createPanel.repaint();
 
     // Done
@@ -708,7 +1051,7 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
 
     // Add Image+Heading
     JLabel label = new JLabel();
-    label.setIcon(ImgIconConverter.get(prop.getImage(true)));
+    label.setIcon(new ImageIcon(prop.getImage(true).getImage()));
     label.setText(prop.getTag());
     label.setAlignmentX(0);
     label.setBorder(new EmptyBorder(2,0,8,0));
@@ -720,7 +1063,7 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
     } catch (ClassCastException ex) {
       System.out.println("Wrong proxy for property "+prop);
     }
-    
+
     // Layout change !
     panelForProxy.validate();
     panelForProxy.doLayout();
@@ -819,369 +1162,4 @@ public class EditView extends JPanel implements TreeSelectionListener, GedcomLis
 
     // Done
   }
-  
-  /**
-   * Creates a panl with action buttons
-   */
-  private JPanel createActionPanel() {
-    
-    JPanel actionPanel = new JPanel();
-    actionPanel.setLayout(new BoxLayout(actionPanel,BoxLayout.X_AXIS));
-
-    actionCheckStick  = new JCheckBox(ImgIconConverter.get(Images.imgStickOff));
-    actionCheckStick.setSelectedIcon (ImgIconConverter.get(Images.imgStickOn ));
-    actionCheckStick.setFocusPainted(false);
-    actionCheckStick.setSelected(registry.get("sticky",false));
-    actionCheckStick.setToolTipText(resources.getString("tip.stick"));
-
-    ButtonHelper bh = new ButtonHelper()
-      .setEnabled(false)
-      .setResources(resources)
-      .setInsets(0)
-      .setMinimumSize(new Dimension(0,0))
-      .setContainer(actionPanel);
-    
-    actionButtonAdd    = bh.create(new ActionPropertyAdd());
-    actionButtonRemove = bh.create(new ActionPropertyDel());
-    actionButtonUp     = bh.create(new ActionPropertyUpDown(true));
-    actionButtonDown   = bh.create(new ActionPropertyUpDown(false));
-    actionButtonReturn = bh.create(new ActionBack());
-
-    actionPanel.add(actionCheckStick);
-    
-    return actionPanel;
-  }
-
-  /**
-   * Action - create entity
-   */
-  private class ActionCreate extends ActionDelegate {
-    
-    /** which */
-    private int type;
-    
-    /** relation */
-    private int relation;
-    
-    /** constructor */
-    protected ActionCreate(ImgIcon img, int t, int r, String txt) {
-      type = t;
-      relation = r;
-      super.setImage(img);
-      super.setText(txt);
-    } 
-    
-    /** run */
-    public void execute() {
-  
-      // Recheck with the user
-      String message = resources.getString(
-        "new.confirm", new String[] {resources.getString(txt),Gedcom.getNameFor(type,false)}
-      );
-  
-      int option = JOptionPane.showOptionDialog(
-        EditView.this,
-        message,
-        resources.getString("new"),
-        JOptionPane.OK_CANCEL_OPTION,
-        JOptionPane.QUESTION_MESSAGE,
-        null, null, null
-      );
-  
-      // .. OK or Cancel ?
-      if (option != JOptionPane.OK_OPTION) {
-        return;
-      }
-  
-      // Lock write
-      if (!startTransaction("Couldn't lock Gedcom for write")) {
-        return;
-      }
-  
-      // Stop editing old
-      flushEditing(true);
-  
-      // Try to create
-      Entity old = entity;
-      Entity created = null;
-      try {
-        switch (type) {
-          case Gedcom.INDIVIDUALS:
-            created = gedcom.createIndi("", "", 0, relation, entity);
-            break;
-          case Gedcom.NOTES:
-            created = gedcom.createNote(entity);
-            break;
-          case Gedcom.MULTIMEDIAS:
-            created = gedcom.createMedia(entity);
-            break;
-        }
-      } catch (GedcomException ex) {
-        JOptionPane.showMessageDialog(
-          getFrame(),
-          ex.getMessage(),
-          EditView.resources.getString("error"),
-          JOptionPane.ERROR_MESSAGE
-        );
-      }
-  
-      // End transaction
-      endTransaction();
-  
-      // Set new entity
-      if (created!=null) {
-        setEntity(created);
-        //gedcom.fireEntitySelected(null,old    ,true);
-        //gedcom.fireEntitySelected(null,created,false);
-      }
-  
-    }
-  } //ActionCreate
-
-  /**
-   * Action - back
-   */
-  private class ActionBack extends ActionDelegate {
-    /** constructor */
-    protected ActionBack() {
-      super.setImage(Images.imgReturn).setTip("tip.return");
-    }
-    /** run */
-    protected void execute() {
-  
-      // Return to last entity from return-stack
-      int last = returnStack.size()-1;
-      if (last==-1) {
-        return;
-      }
-
-      Entity old = (Entity)returnStack.elementAt(last);
-      returnStack.removeElementAt(last);
-      setEntity(old,true);
-      actionButtonReturn.setEnabled(returnStack.size()>0);
-
-      // .. done
-    }
-  } //ActionBack
-  
-  /**
-   * Action - add
-   */
-  private class ActionPropertyAdd extends ActionDelegate {
-    /** constructor */
-    protected ActionPropertyAdd() {
-      super.setText("action.add");
-      super.setTip("tip.add_prop");
-    }
-    /** run */
-    protected void execute() {
-  
-      // Depending on Gedcom of current entity
-      if (entity==null)
-        return;
-  
-      Gedcom gedcom = entity.getGedcom();
-  
-      // .. LockWrite
-      if (!startTransaction("Couldn't save")) {
-        return;
-      }
-  
-      // .. Stop Editing
-      flushEditing(true);
-  
-      // .. only in case of single selection
-      TreePath paths[] = treeOfProps.getSelectionPaths();
-      if ( (paths==null) || (paths.length!=1) ) {
-        endTransaction();
-        return;
-      }
-      TreePath path = treeOfProps.getSelectionPath();
-  
-      // .. calculate new props
-      Property prop = (Property)path.getLastPathComponent();
-  
-      // .. Confirm
-      ChoosePropertyBean choose = new ChoosePropertyBean(prop.getKnownProperties(),resources);
-      JCheckBox check = new JCheckBox(resources.getString("add.default_too"),true);
-  
-      Object[] message = new Object[3];
-      message[0] = resources.getString("add.choose");
-      message[1] = choose;
-      message[2] = check;
-  
-      int option = JOptionPane.showOptionDialog(
-        EditView.this,
-        message,
-        resources.getString("add.title"),
-        JOptionPane.OK_CANCEL_OPTION,
-        JOptionPane.QUESTION_MESSAGE,
-        null, null, null
-      );
-  
-      // .. OK or Cancel ?
-      if (option != JOptionPane.OK_OPTION) {
-        gedcom.endTransaction();
-        return;
-      }
-  
-      // .. Calculate chosen properties
-      Property[] props = choose.getResultingProperties();
-  
-      if ( (props==null) || (props.length==0) ) {
-        JOptionPane.showMessageDialog(
-          EditView.this,
-          resources.getString("add.must_enter"),
-          resources.getString("error"),
-          JOptionPane.ERROR_MESSAGE
-        );
-        gedcom.endTransaction();
-        return;
-      }
-  
-      // .. add properties
-      boolean doSub = check.isSelected();
-      for (int i=0;i<props.length;i++) {
-        if (doSub) {
-          props[i].addDefaultProperties();
-        }
-        prop.addProperty(props[i]);
-      }
-  
-      // .. UnlockWrite
-      endTransaction();
-    }
-
-  } //ActionPropertyAdd
-    
-  /**
-   * Action - del
-   */
-  private class ActionPropertyDel extends ActionDelegate {
-    /** constructor */
-    protected ActionPropertyDel() {
-      super.setText("action.del").setTip("tip.del_prop");
-    }
-    /** run */
-    protected void execute() {
-  
-      TreePath paths[] = treeOfProps.getSelectionPaths();
-      boolean changed = false;
-  
-      // .. check if there are some selections
-      if ( (paths==null) || (paths.length==0) ) {
-        return;
-      }
-  
-      // .. LockWrite
-      if (!gedcom.startTransaction()) {
-        JOptionPane.showMessageDialog(
-          EditView.this,
-          "Couldn't save",
-          resources.getString("error"),
-          JOptionPane.ERROR_MESSAGE
-        );
-        return;
-      }
-  
-      // .. Stop Editing
-      stopEditing(true);
-  
-      // .. remove every selected node
-      for (int i=0;i<paths.length;i++) {
-  
-        Property prop = (Property)paths[i].getLastPathComponent();
-        String veto = prop.getDeleteVeto();
-  
-        if (veto!=null) {
-  
-          JTextPane tp = new JTextPane();
-          tp.setText(veto);
-          tp.setEditable(false);
-          JScrollPane sp = new JScrollPane(tp,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER) {
-            public Dimension getPreferredSize() {
-              return new Dimension(128,64);
-            }
-          };
-  
-          Object message[] = new Object[2];
-          message[0] = resources.getString("del.leads_to",prop.getTag());
-          message[1] = sp;
-  
-          // Show veto and respect user choice
-          int rc = JOptionPane.showConfirmDialog(
-            EditView.this,
-            message,
-            resources.getString("warning"),
-            JOptionPane.OK_CANCEL_OPTION
-          );
-          if (rc==JOptionPane.OK_OPTION)
-            veto=null;
-  
-          // Continue with/without veto
-        }
-  
-        if (veto==null) {
-          entity.getProperty().delProperty( prop );
-          changed = true;
-        }
-  
-      // Next selected prop
-      }
-  
-      // .. UnlockWrite
-      gedcom.endTransaction();
-  
-      // .. done
-    }
-  } //ActionPropertyDel
-  
-  /**
-   * Action - up/down
-   */
-  private class ActionPropertyUpDown extends ActionDelegate {
-    /** which */
-    boolean up;
-    /** constructor */
-    protected ActionPropertyUpDown(boolean up) {
-      this.up=up;
-      if (up) super.setText("action.up").setTip("tip.up_prop");
-      else super.setText("action.down").setTip("tip.down_prop");
-    }
-    /** run */
-    protected void execute() {
-  
-      // .. LockWrite
-      if (!gedcom.startTransaction()) {
-        JOptionPane.showMessageDialog(
-          EditView.this,
-          "Couldn't save",
-          resources.getString("error"),
-          JOptionPane.ERROR_MESSAGE
-        );
-        return;
-      }
-  
-      // .. Stop Editing
-      flushEditing(true);
-  
-      // .. Calculate property that is moved
-      entity.getProperty().moveProperty(
-        currentNode,
-        up? Property.UP : Property.DOWN
-      );
-  
-      // .. UnlockWrite
-      gedcom.endTransaction();
-  
-      // 03.02.2000 Since the movement of properties is not
-      // signalled by any event, we have to reselect the node again
-      prepareTreeModel();
-      TreePath path = new TreePath(entity.getProperty().getPathTo(currentNode));
-      treeOfProps.setSelectionPath(path);
-  
-    }
-    
-  }  //ActionPropertyUpDown
-  
 }

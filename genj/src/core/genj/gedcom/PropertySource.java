@@ -19,73 +19,33 @@
  */
 package genj.gedcom;
 
-import java.util.*;
 import genj.util.*;
 
 /**
- * Gedcom Property : SOURCE (entity/property)
- * A property that either consists of SOURCE information or
- * refers to a SOURCE entity
+ * Gedcom Property : SOUR (entity)
+ * Class for encapsulating a source as property
  */
-public class PropertySource extends PropertyXRef {
-
-  /** the source's content */
-  private String source;
-
+public abstract class PropertySource extends Property {
 
   /**
-   * Constructor with reference
-   * @param entity reference of entity this property links to
+   * the default image
    */
-  public PropertySource(PropertyXRef target) {
-    super(target);
+  public static ImgIcon getDefaultImage() {
+    return Images.imgIndi;
   }
 
   /**
-   * Constructor with Tag,Value parameters
-   * @param tag property's tag
-   * @param value property's value
+   * the image
    */
-  public PropertySource() {
-    this(null,"");
-  }
-
-  /**
-   * Constructor with Tag,Value parameters
-   * @param tag property's tag
-   * @param value property's value
-   */
-  public PropertySource(String tag, String value) {
-    super(null);
-
-    // Setup value
-    setValue(value);
-  }
-
-  /**
-   * Adds all default properties to this property
-   */
-  public void addDefaultProperties() {
-
-    noteModifiedProperty();
-
-    // Just add 'em
-    if (this instanceof Entity) {
-	addProperty(new PropertyGenericAttribute("TITL"));
-    }
-    // Done
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
   }
 
   /**
    * Returns the logical name of the proxy-object which knows this object
    */
   public String getProxy() {
-    // Entity Media ?
-    if (this instanceof Entity) {
-      return "Entity";
-    }
-
-    return "XRef";
+    return "Entity";
   }
 
   /**
@@ -94,71 +54,27 @@ public class PropertySource extends PropertyXRef {
    * @return proxy's logical name
    */
   public static String getProxy(TagPath path) {
-    if (path.length()>1) {
-      return "XRef";
-    }
     return "Entity";
   }
 
-
   /**
-   * Returns the tag of this property
+   * Accessor for Tag
    */
   public String getTag() {
     return "SOUR";
   }
 
-
   /**
-   * Links reference to entity (if not already done)
-   * @exception GedcomException when processing link would result in inconsistent state
+   * Accessor for Value
    */
-  public void link() throws GedcomException {
-
-    // No Property Source?
-    if (source!=null) {
-      return;
-    }
-
-    // Get enclosing entity ?
-    Entity entity = getEntity();
-
-    // .. Me Source-Property or -Entity?
-    if (this==entity) {
-      return;  // outa here
-    }
-
-    // Something to do ?
-    if (getReferencedEntity()!=null) {
-      return;
-    }
-
-    // Look for Source
-    String id = getReferencedId();
-    if (id.length()==0) {
-      return;
-    }
-
-    Source source = getGedcom().getSourceFromId(id);
-    if (source == null) {
-      throw new GedcomException("Couldn't find entity with ID "+id);
-    }
-
-    // Create Backlink
-    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
-    source.addForeignXRef(fxref);
-
-    // ... and point
-    setTarget(fxref);
-
-    // don't delete anything because we may have children, like PAGE
+  public String getValue() {
+    return "";
   }
 
   /**
-   * The expected referenced type
+   * Accessor for Value (n/a)
    */
-  public int getExpectedReferencedType() {
-    return Gedcom.SOURCES;
+  public boolean setValue(String value) {
+    return false;
   }
 }
-

@@ -43,6 +43,20 @@ public class PropertyUnknown extends Property {
   }
 
   /**
+   * The default image
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgQuestion;
+  }
+
+  /**
+   * The image
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
+  }
+
+  /**
    * Returns some explanationary information about this property.
    * Here not known.
    */

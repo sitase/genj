@@ -20,9 +20,6 @@
 package genj.applet;
 
 import java.applet.*;
-import java.awt.*;
-import java.awt.event.*;
-
 import java.net.*;
 
 import genj.gedcom.*;
@@ -30,7 +27,7 @@ import genj.gedcom.*;
 /**
  * GenJ Applet bridge to browser
  */
-public class DetailBridge implements ActionListener {
+public class DetailBridge implements GedcomListener {
 
   /** the applet's context */
   private AppletContext ctx;
@@ -38,23 +35,15 @@ public class DetailBridge implements ActionListener {
   /** the url we came from */
   private String url;
 
-  /** the gedcom we're looking at */
-  private Gedcom gedcom;
-
   /**
    * Constructor
    */
-  public DetailBridge(Applet applet, String pUrl, Gedcom pGedcom) {
+  public DetailBridge(Applet applet, String url) {
 
     // Remember the context
-    ctx = applet.getAppletContext();
-
-    // .. and the gedcom
-    gedcom = pGedcom;
+    this.ctx = applet.getAppletContext();
 
     // Check the url
-    url = pUrl;
-
     if (!url.endsWith("/")) {
       url = url + "/";
     }
@@ -64,28 +53,39 @@ public class DetailBridge implements ActionListener {
       url = base.substring(0,p+1)+url;
     }
 
+    // .. and remember
+    this.url = url;
+
     // Done
   }
 
   /**
-   * Notification about action performed - triggers detail
+   * Notification about change in Gedcom
    */
-  public void actionPerformed(ActionEvent e) {
+  public void handleChange(Change change) {
+    // does not apply for applet
+  }
 
-    // What's the entity we're looking at?
-    Entity last = gedcom.getLastEntity();
-    if (last==null) {
-      return;
-    }
+  /**
+   * Notification about closing Gedcom
+   */
+  public void handleClose(Gedcom gedcom) {
+    // does not apply for applet
+  }
 
-    String id = last.getId();
+  /**
+   * Notification about selection
+   */
+  public void handleSelection(Selection selection) {
+
+    String id = selection.getEntity().getId();
     String doc = url+id+".html";
 
     try {
       ctx.showDocument(new URL(doc),"_detail");
       System.out.println("Showing detail document "+doc);
-    } catch (Exception ex) {
-      System.out.println("Couldn't show detail document "+doc+"["+ex.getMessage()+"]");
+    } catch (Exception e) {
+      System.out.println("Couldn't show detail document "+doc);
     }
 
   }

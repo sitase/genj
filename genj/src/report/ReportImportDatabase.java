@@ -35,16 +35,6 @@ public class ReportImportDatabase implements Report {
   /** list of resources that this script opens */
   private Vector resources = new Vector();
 
-  /** this report's version */
-  public static final String VERSION = "0.1";
-
-  /**
-   * Returns the version of this script
-   */
-  public String getVersion() {
-    return VERSION;
-  }
-  
   /**
    * Cleanup leftover resources
    */
@@ -122,7 +112,7 @@ public class ReportImportDatabase implements Report {
   }
 
   /**
-   * Tells whether this report doesn't change information in the Gedcom-file
+   * Tells wether this report doesn't change information in the Gedcom-file
    */
   public boolean isReadOnly() {
     return false;

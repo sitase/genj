@@ -31,7 +31,6 @@ public class ReportLoader extends ClassLoader {
   private File basedir;
   private Hashtable cache = new Hashtable();
   private Vector reports = new Vector(10);
-  private static boolean warnedAboutClasspath = false;
 
   /**
    * Constructor
@@ -45,7 +44,7 @@ public class ReportLoader extends ClassLoader {
     loadReports();
 
   }
-  
+
   /**
    * Helper that loads a class from File
    */
@@ -73,7 +72,7 @@ public class ReportLoader extends ClassLoader {
       // .. and close
       in.close();
     } catch (IOException ex) {
-      System.out.println("[Debug]File "+file+" couldn't be loaded :(");
+      System.out.println("File "+file+" couldn't be loaded :(");
     }
 
     // Construct class
@@ -81,7 +80,7 @@ public class ReportLoader extends ClassLoader {
     try {
       c = defineClass(null,classdata,0,classdata.length);
     } catch (ClassFormatError err) {
-      System.out.println("[Debug]File "+file+" isn't a valid class-file :(");
+      System.out.println("File "+file+" isn't a valid class-file :)");
       return null;
     }
 
@@ -89,7 +88,7 @@ public class ReportLoader extends ClassLoader {
     try {
       resolveClass(c);
     } catch (IncompatibleClassChangeError err) {
-      System.out.println("Debug:File "+file+" is incompatible - don't ask me what that means :(");
+      System.out.println("File "+file+" is incompatible - don't ask me what that means :(");
       return null;
     }
 
@@ -109,16 +108,8 @@ public class ReportLoader extends ClassLoader {
     // Check if already in cache
     Class c = (Class)cache.get(name);
     if (c!=null) {
+      System.out.println("Found "+c);
       return c;
-    }
-
-		// Maybe super can load it?
-    try {
-			c = super.loadClass(name, resolve);
-			if (c!=null) {
-			  return c;
-			}
-    } catch (Throwable t) {
     }
 
     // Load from reports-directory
@@ -137,71 +128,30 @@ public class ReportLoader extends ClassLoader {
    */
   private void loadReport(File file) {
 
-    // Has to be a file
-    if (file.isDirectory()) {
-      return;
-    }
-    
-    // Classfile that is
-    if (file.getName().indexOf(".class")<0) {
-      return;
-    }
-
-    // Named as "ReportXYZ.class" ?
+    // Named as "Report" ?
     if ( !file.getName().startsWith("Report") ) {
       return;
     }
 
-    // Please no inner type!
-    if ( file.getName().indexOf("$")>0 ) {
+    // Load class
+    Class c = loadClass(file);
+    if (c==null) {
       return;
     }
-    
-    // Getting the report type
-    Class type;
-              
+
+    // Remember as report ?
+    Object o;
     try {
-                    
-	    // If the report can be loaded by the default
-	    // classloader then we fall back on that one
-	    String name = file.getAbsoluteFile().getName().replace(File.separatorChar,'.');
-      name = name.substring(0,name.lastIndexOf(".class"));
-	    type = super.loadClass(name, true);
-
-      if (!warnedAboutClasspath) {
-        warnedAboutClasspath = true;
-        System.out.println("[Debug]Warning: Reports are in the Classpath and can't be reloaded");
-      }
-      
-    } catch (Throwable t) {
-
-      type = loadClass(file);
-    
-    }
-
-    if (type==null) {
-      return;
-    }
-        
-    // Getting an instance
-    Object instance;
-    try {
-      
-	    // . here's what we've been looking for
-	    instance = type.newInstance();
-        
-    } catch (Throwable t) {
-      System.out.println("[Debug]Warning: Couldn't load report "+file+" because of "+t.getClass().getName()+"#"+t.getMessage());
+      o = c.newInstance();
+    } catch (Exception ex) {
       return;
     }
 
-    // Remember as report?
-    if (!(instance instanceof Report)) {
+    if (!(o instanceof Report)) {
       return;
     }
 
-    // Remember!
-    reports.addElement(type);
+    reports.addElement(c);
 
     // Done
   }
@@ -217,9 +167,15 @@ public class ReportLoader extends ClassLoader {
     }
 
     // Look for class-files
+    FilenameFilter filter = new FilenameFilter() {
+      public boolean accept(File dir, String name) {
+      return (name.indexOf(".class")>0);
+      }
+    };
+
     try {
 
-      String[] files = basedir.list();
+      String[] files = basedir.list(filter);
 
       // Create classes for files
       Class report;
@@ -227,7 +183,9 @@ public class ReportLoader extends ClassLoader {
       File file;
       for (int i=0;i<files.length;i++) {
         file = new File(files[i]);
-        loadReport(new File(basedir,file.getName()));
+        if (!file.isDirectory()) {
+          loadReport(new File(basedir,file.getName()));
+        }
       }
 
     } catch (Exception ex) {

@@ -90,6 +90,22 @@ public class PropertyAddress extends Property {
   }
 
   /**
+   * Returns the default image which is associated with this property.
+   * @return image
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgPlace;
+  }
+
+  /**
+   * Returns the image which is associated with this property.
+   * @return image
+   */
+  public ImgIcon getImage(boolean checkValid) {
+    return getDefaultImage();
+  }
+
+  /**
    * Returns a LineIterator which can be used to iterate through
    * several lines of this address
    */

@@ -32,7 +32,6 @@ import java.util.Vector;
 
 import genj.gedcom.*;
 import genj.util.*;
-import genj.util.swing.ImgIconConverter;
 
 /**
  * A Proxy knows how to generate interaction components that the user
@@ -117,7 +116,7 @@ class ProxyFile extends Proxy implements ActionListener {
 
     // Image from File?
     ImgIcon i = pFile.getValueAsIcon();
-    ImageIcon icon = (i==null ? null : ImgIconConverter.get(i));
+    ImageIcon icon = (i==null ? null : i.getImageIcon());
     if ( (icon==null)||(icon.getIconWidth()<1)||(icon.getIconHeight()<1) ) {
       lImage.setText("No image file");
       lImage.setIcon(null);

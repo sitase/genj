@@ -31,8 +31,7 @@ public class PropertyName extends Property {
   /** the first + last name */
   private String
     lastName  = null,
-    firstName = null,
-    suffix    = null;
+    firstName = null;
 
   /** the name if unparsable */
   private String nameAsString;
@@ -72,6 +71,13 @@ public class PropertyName extends Property {
   }
 
   /**
+   * the property's default image
+   */
+  public static ImgIcon getDefaultImage() {
+    return Images.imgName;
+  }
+
+  /**
    * the first name
    */
   public String getFirstName() {
@@ -79,12 +85,14 @@ public class PropertyName extends Property {
   }
 
   /**
-   * Returns <b>true</b> if this property is valid
+   * the image
    */
-  public boolean isValid() {
-    return nameAsString==null;
+  public ImgIcon getImage(boolean checkValid) {
+    if (checkValid&&(nameAsString!=null)) {
+      return Images.imgError;
+    }
+    return Images.imgName;
   }
-
 
   /**
    * Returns localized label for first name
@@ -101,24 +109,10 @@ public class PropertyName extends Property {
   }
 
   /**
-   * Returns localized label for last name
-   */
-  static public String getLabelForSuffix() {
-    return "Suffix";
-  }
-
-  /**
    * the last name
    */
   public String getLastName() {
     return lastName;
-  }
-
-  /**
-   * the suffix
-   */
-  public String getSuffix() {
-    return suffix;
   }
 
   /**
@@ -166,26 +160,16 @@ public class PropertyName extends Property {
     if (nameAsString != null) {
       return nameAsString;
     }
-    WordBuffer wb = new WordBuffer();
-    wb.append(firstName);
-    if ((lastName!=null) && (lastName.length()>0))
-      wb.append("/"+lastName+"/");
-    if ((suffix!=null) && (suffix.length()>0) )
-      wb.append(suffix);
-    return wb.toString();
+    if (lastName.equals("")) {
+      return firstName;
+    }
+    return firstName+" /"+lastName+"/";
   }
 
   /**
    * Sets name to a new value
    */
   public void setName(String first, String last) {
-    setName(first,last,"");
-  }
-
-  /**
-   * Sets name to a new value
-   */
-  public void setName(String first, String last, String suff) {
 
     noteModifiedProperty();
 
@@ -194,7 +178,6 @@ public class PropertyName extends Property {
 
     lastName  = last.trim();
     firstName = first.trim();
-    suffix    = suff.trim();
 
     // Done
   }
@@ -238,7 +221,6 @@ public class PropertyName extends Property {
     }
 
     // ... format ok
-    suffix = l.substring( l.indexOf('/') + 1 );
     l = l.substring( 0 , l.indexOf('/') );
 
     // Done

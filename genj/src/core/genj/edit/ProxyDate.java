@@ -69,11 +69,11 @@ class ProxyDate extends Proxy implements ItemListener {
     p.setFormat(combo.getSelectedIndex());
 
     // Remember One
-    p.getStart().set(deOne.getDay(),deOne.getMonth(),deOne.getYear());
+    p.setValue(0,deOne.getDay(),deOne.getMonth(),deOne.getYear());
 
     // Remember Two
     if ( p.isRange() )
-      p.getEnd().set(deTwo.getDay(),deTwo.getMonth(),deTwo.getYear());
+      p.setValue(1,deTwo.getDay(),deTwo.getMonth(),deTwo.getYear());
 
     // Done
   }
@@ -115,24 +115,21 @@ class ProxyDate extends Proxy implements ItemListener {
     combo = new JComboBox();
     combo.setAlignmentX(0);
     combo.setEditable(false);
-    combo.setMaximumSize(new Dimension(Integer.MAX_VALUE,combo.getPreferredSize().height));
 
-    for (int i = 0; i <= PropertyDate.LAST_ATTRIB; i++) {
+    for (int i=0;i<PropertyDate.MAX;i++) {
       combo.addItem(PropertyDate.getLabelForFormat(i));
     }
     in.add(combo);
     combo.addItemListener(this);
 
-    deOne = new DateEntry(p.getStart().getDay(),p.getStart().getMonth(),p.getStart().getYear());
+    deOne = new DateEntry(p.getDay(0),p.getMonth(0),p.getYear(0));
     deOne.setAlignmentX(0);
     in.add(deOne);
 
-    deTwo = new DateEntry(p.getEnd().getDay(),p.getEnd().getMonth(),p.getEnd().getYear());
+    deTwo = new DateEntry(p.getDay(1),p.getMonth(1),p.getYear(1));
     deTwo.setAlignmentX(0);
 
     combo.setSelectedIndex( p.getFormat() );
-
-//    in.add(Box.createVerticalGlue());
 
     // Done
     deOne.requestFocus();

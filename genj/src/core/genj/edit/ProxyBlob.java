@@ -32,7 +32,6 @@ import java.util.Vector;
 
 import genj.gedcom.*;
 import genj.util.*;
-import genj.util.swing.ImgIconConverter;
 
 /**
  * A Proxy knows how to generate interaction components that the user
@@ -116,7 +115,7 @@ class ProxyBlob extends Proxy implements ActionListener {
     } else {
       // Image from Blob?
       ImgIcon i = pBlob.getValueAsIcon();
-      ImageIcon icon = (i==null ? null : ImgIconConverter.get(i));
+      ImageIcon icon = (i==null ? null : i.getImageIcon());
       if ( (icon==null)||(icon.getIconWidth()<1)||(icon.getIconHeight()<1) ) {
         lImage.setText("Blob is no image");
         lImage.setIcon(null);

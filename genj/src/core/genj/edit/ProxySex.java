@@ -26,7 +26,6 @@ import java.util.Vector;
 
 import genj.gedcom.*;
 import genj.util.*;
-import genj.util.swing.ImgIconConverter;
 
 /**
  * A Proxy knows how to generate interaction components that the user
@@ -50,7 +49,7 @@ class ProxySex extends Proxy implements ItemListener {
     try {
       if ( rbMale.getModel().isSelected() == true)
         ((PropertySex)prop).setSex(Gedcom.MALE);
-      if ( rbFemale.getModel().isSelected() == true)
+      else
         ((PropertySex)prop).setSex(Gedcom.FEMALE);
     } catch (IllegalArgumentException ex) {
       System.out.println(ex);
@@ -84,7 +83,7 @@ class ProxySex extends Proxy implements ItemListener {
       img=((PropertySex)prop).getDefaultImage(Gedcom.FEMALE);
 
     // Image change
-    label.setIcon(ImgIconConverter.get(img));
+    label.setIcon(new ImageIcon(img.getImage()));
 
     // Done
   }          
@@ -111,15 +110,12 @@ class ProxySex extends Proxy implements ItemListener {
     rbMale  .getModel().setGroup(bg);
     rbFemale.getModel().setGroup(bg);
 
-    switch (p.getSex()) {
-      case PropertySex.MALE:
-        rbMale  .getModel().setSelected(true);
-        rbFemale.requestFocus();
-        break;
-      case PropertySex.FEMALE:
-        rbFemale.getModel().setSelected(true);
-        rbMale  .requestFocus();
-        break;
+    if (p.getSex() == Gedcom.MALE) {
+      rbMale  .getModel().setSelected(true);
+      rbFemale.requestFocus();
+    } else {
+      rbFemale.getModel().setSelected(true);
+      rbMale  .requestFocus();
     }
 
     rbMale.getModel().addItemListener(this);

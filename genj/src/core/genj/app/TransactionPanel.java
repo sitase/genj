@@ -22,7 +22,6 @@ package genj.app;
 import javax.swing.*;
 
 import java.util.Vector;
-import genj.util.swing.ImgIconConverter;
 import java.awt.*;
 import java.awt.event.*;
 
@@ -53,17 +52,17 @@ public class TransactionPanel extends JPanel implements ActionListener {
     // Panel for Image
     JPanel pimage = new JPanel(new BorderLayout(2,2));
     pimage.add(
-      new JLabel(ImgIconConverter.get(transaction.getImage())),
+      new JLabel(new ImageIcon(transaction.getImage())),
       "Center"
     );
 
     // Panel for Actions
     JPanel paction = new JPanel(new FlowLayout(FlowLayout.RIGHT));
 
-    bNext  = createAction(App.resources.getString("transaction_panel.action.next")  ,"NEXT"  );
-    bPrev  = createAction(App.resources.getString("transaction_panel.action.back")  ,"PREV"  );
-    bCancel= createAction(App.resources.getString("transaction_panel.action.cancel"),"CANCEL");
-    bOK    = createAction(App.resources.getString("transaction_panel.action.ok")    ,"OK"  );
+    bNext  = createAction("Next"  ,"NEXT"  );
+    bPrev  = createAction("Back"  ,"PREV"  );
+    bCancel= createAction("Cancel","CANCEL");
+    bOK    = createAction("OK"    ,"OK"  );
 
     paction.add(bPrev  );
     paction.add(bNext  );
@@ -205,11 +204,11 @@ public class TransactionPanel extends JPanel implements ActionListener {
     bOK    .setEnabled( is(actions,Transaction.OK    ) || is(actions,Transaction.DONE) );
 
     if (is(actions,Transaction.DONE)) {
-      bOK.setText(App.resources.getString("transaction_panel.setText.done"));
+      bOK.setText("Done");
       bOK.setActionCommand("DONE");
     }
     if (is(actions,Transaction.OK)) {
-      bOK.setText(App.resources.getString("transaction_panel.setText.ok"));
+      bOK.setText("OK");
       bOK.setActionCommand("OK");
     }
 
