@@ -1,0 +1,122 @@
+<html>
+<body>
+
+<h2>Travailler avec les Menus Contextuels</h2>
+
+<p>
+ La chose la plus importante &agrave; essayer en travaillant avec GenJ 
+ est de vous servir des menus contextuels. Un clic droit 
+ <font size=-2>(votre syst&egrave;me peut n&eacute;cessiter d'agir 
+ diff&eacute;remment pour activer cette action)</font> sur l'information 
+ affich&eacute;e dans l'une des <a href="../views.html">fen&ecirc;tres 
+ de visualisation</a> vous permettra de voir diff&eacute;rents types 
+ d'actions possibles.
+</p>
+
+<p>
+ Le menu contextuel est toujours structur&eacute; de la m&ecirc;me 
+ mani&egrave;re : en premier lieu, il affiche un sous menu li&eacute; 
+ &agrave; ce sur quoi, vous avez cliqu&eacute;, et &eacute;ventuellement 
+ il peut vous afficher d'autres sous menus qui &eacute;largissent les 
+ possibilit&eacute;s en fonction du contexte.
+</p>
+
+<p>
+ Dans l'exemple qui suit, on montre le contexte pour la propri&eacute;t&eacute; 
+ Nom (INDI:NAME).
+ Le premier sous menu concerne la propri&eacute;t&eacute; 
+ elle-m&ecirc;me et les actions possibles qui y sont li&eacute;es. 
+ Le second sous menu concerne l'entit&eacute; (ici un individu) &agrave; 
+ laquelle cette propri&eacute;t&eacute; appartient (c'est le Nom d'un 
+ Individu). Le troisi&egrave;me sous menu concerne le fichier Gedcom 
+ auquel cette entit&eacute; appartient.
+  <blockquote>
+    <img src="../../images/screenshots/context1.png">
+  </blockquote>
+ Le sous menu pour l'Individu 'I008' pr&eacute;sente les actions suivantes :
+ <ul>
+  <li>Cr&eacute;er un enfant <i>(Add Child)</i> - on va cr&eacute;er un enfant 
+      (et une famille si n&eacute;cessaire) pour l'individu I008.
+  <li>Cr&eacute;er un(e) Epoux(se) <i>(Add Spouse)</i> - on va cr&eacute;er un(e) 
+      &eacute;poux(se) (et une famille  si n&eacute;cessaire) pour 
+      l'individu I008.
+  <li>Cr&eacute;er un(e) Fr&egrave;re(Soeur) <i>(Add Sibling)</i> - on va 
+      cr&eacute;er un(e) Fr&egrave;re(Soeur) (et des parents si 
+      n&eacute;cessaire) pour l'individu I008.
+  <li>Cr&eacute;er un lieu de stockage <i>(Add Repository)</i> - on va 
+      cr&eacute;er un enregistrement pour un lieu de stockage externe 
+      contenant des informations pour l'individu I008.
+  <li>Ajout d'un Objet Multim&eacute;dia <i>(Add Multimedia Object)</i> - on 
+      va cr&eacute;er un objet contenant des informations de type binaire.
+  <li>Ajout d'une Note <i>(Add Note)</i> - cr&eacute;ation d'une note 
+      d&eacute;crivant l'individu I008.
+  <li>Ajout d'un Fournisseur d'Information <i>(Add Submitter)</i> - on va 
+      cr&eacute;er la personne ayant fourni les informations &agrave; 
+      propos de l'individu I008.
+  <li>Ajout d'une Source <i>(Add Source)</i> - Cr&eacute;ation d'une source 
+      d'information concernant l'individu I008.
+  <li>Ajout d'une Association <i>(Add Association)</i> - Cr&eacute;ation 
+      d'une association avec un autre Individu.
+  <li>Effacer <i>(Delete)</i> - Permet la suppression de l'Entit&eacute; I008.
+ </ul>
+</p>
+
+<p>
+ L'exemple suivant montre &agrave; nouveau un menu contextuel pour une 
+ propri&eacute;t&eacute;, mais cette fois les actions pour la 
+ propri&eacute;t&eacute; elle-m&ecirc;me sont pr&eacute;sent&eacute;es 
+ (premier sous menu) :
+  <blockquote>
+    <img src="../../images/screenshots/context3.png">
+  </blockquote>
+ Voici les actions qui vous sont offertes :
+ <ul>
+  <li>Ajout d'une Note <i>(Add Note)</i> - cette note va pouvoir contenir 
+  des informations sp&eacute;cifiques &agrave; cette naissance.
+  <li>Ajout d'une Source <i>(Add Source)</i> - Cette source va pouvoir 
+  contenir d'o&ugrave; viennent les informations relatives &agrave; 
+  cette naissance.
+  <li>Ajout d'un Objet Multim&eacute;dia <i>(Add Multimedia Object)</i> - 
+  Cet objet va contenir les informations au format binaire concernant 
+  cette naissance.
+  <li>Effacer <i>(Delete)</i> - par cette action on va supprimer 
+  toutes les informations relatives &agrave; cette naissance (on supprime 
+  carr&eacute;ment la propri&eacute;t&eacute; naissance "BIRT").
+ </ul>
+</p>
+
+
+<p>
+ Enfin un exemple qui montre comment le menu contextuel peut offrir 
+ des possibilit&eacute;s encore plus importantes et cela de mani&egrave;re 
+ dynamique en fonction de l'endroit d'o&ugrave; il est lanc&eacute;. On 
+ peut le voir facilement lorsque l'on fait un clic droit afin d'afficher 
+ les menus, sur un node (un cadre) dans la visualisation de l'Arbre 
+ G&eacute;n&eacute;alogique :
+ <ul>
+  <li>l'endroit o&ugrave; l'on vient de cliquer n'est pas la 
+  repr&eacute;sentation d'une propri&eacute;t&eacute;, mais une 
+  entit&eacute; elle-m&ecirc;me (ici l'Individu I008), aussi le premier 
+  sous menu concerne cet Individu.
+  <li>Dans la <a href="../view/tree.html">Visualisation de l'Arbre 
+  G&eacute;n&eacute;alogique</a> le menu contextuel affiche une action 
+  particuli&egrave;re suppl&eacute;mentaire qui est l'ajo&ucirc;t d'un 
+  <em>Signet</em> (Add Bookmark).
+ </ul>
+  <blockquote>
+    <img src="../../images/screenshots/context2.png">
+  </blockquote>
+ Les actions pr&eacute;sent&eacute;es dans le sous-menu ouvert ci-dessus, 
+ permettent de cr&eacute;er de nouvelles 
+ <a href="../entities.html">Entit&eacute;s</a> dans le fichier 
+ example.ged. Il est fortement recommand&eacute; cependant de partir 
+ d'informations existantes pour les d&eacute;velopper, plut&ocirc;t que 
+ de cr&eacute;er des entit&eacute;s isol&eacute;es comme des Individus 
+ ou des Familles. Pour cr&eacute;er des entit&eacute;s li&eacute;es ou 
+ se rapportant les unes aux autres, utilisez les sous-menus, que ce soit 
+ pour les propri&eacute;t&eacute;s ou les entit&eacute;s, comme 
+ d&eacute;crit ci-dessus.<Br>
+</p>
+
+</body>
+</html>
