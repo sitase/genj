@@ -1,0 +1,419 @@
+<project name="GenJ" default="about" basedir=".">
+
+  <property file="./build.properties"/>
+
+  <path id="project.class.path">
+    <pathelement path ="${dir.build}/version"/>
+    <pathelement path ="${dir.build}/classes/contrib"/>
+    <pathelement path ="${dir.build}/classes/core"/>
+    <fileset dir=".">
+        <include name="**/*.jar"/>
+    </fileset>
+    <pathelement path ="./language/de"/>
+    <pathelement path ="./language/en"/>
+    <pathelement path ="./language/es"/>
+    <pathelement path ="./language/fr"/>
+    <pathelement path ="./language/it"/>
+    <pathelement path ="./language/ja"/>
+    <pathelement path ="./language/hu"/>
+    <pathelement path ="./language/ru"/>
+    <pathelement path ="./language/nl"/>
+    <pathelement path ="./src/contrib"/>
+    <pathelement path ="./src/core"/>
+    <pathelement path ="./src/report"/>
+    <pathelement path ="./images"/>
+  </path>
+
+  <property name="project.class.path" refid="project.class.path"/>
+
+  <!--
+   Initialization
+   -->
+  <target name="init">
+    <echo>Creating output directories</echo>
+    <mkdir dir="${dir.build}"/>
+    <mkdir dir="${dir.run}"/>
+    <mkdir dir="${dir.dist}"/>
+    <!-- create ./lib -->
+    <property name="dir.lib" value="${dir.build}/lib"/>
+    <delete dir="${dir.lib}"/>
+    <mkdir dir="${dir.lib}"/>
+  </target>
+
+  <!--
+   Contrib Compilation
+   -->
+  <target name="compile.contrib" depends="init">
+    <echo>**********************************************</echo>
+    <echo>*** Note: JDK 1.4 required for compilation ***</echo>
+    <echo>**********************************************</echo>
+    <mkdir dir="${dir.build}/classes/contrib"/>
+    <javac srcdir="src/contrib" destdir="${dir.build}/classes/contrib"
+           debug="${javac.debug}" optimize="off" deprecation="on" encoding="ASCII" source="1.4" target="1.4">
+      <classpath refid="project.class.path"/>
+    </javac>
+  </target>
+
+  <!--
+   Core Compilation
+   -->
+  <target name="compile.core" depends="init">
+    <echo>**********************************************</echo>
+    <echo>*** Note: JDK 1.4 required for compilation ***</echo>
+    <echo>**********************************************</echo>
+    <mkdir dir="${dir.build}/classes/core"/>
+    <javac srcdir="src/core" destdir="${dir.build}/classes/core"
+           debug="${javac.debug}" optimize="off" deprecation="on" encoding="ASCII" source="1.4" target="1.4">
+      <classpath refid="project.class.path"/>
+    </javac>
+  </target>
+
+  <!--
+   Report Compilation
+   -->
+  <target name="compile.report" depends="init">
+    <mkdir dir="${dir.build}/classes/report"/>
+    <javac srcdir="src/report" destdir="${dir.build}/classes/report"
+           debug="${javac.debug}" optimize="off" deprecation="on" encoding="ASCII" source="1.4" target="1.4">
+      <classpath refid="project.class.path"/>
+    </javac>
+  </target>
+
+  <!--
+   Compilation
+   -->
+  <target name="compile" depends="compile.contrib, compile.core, compile.report">
+  </target>
+
+  <!--
+   Cleaning
+   -->
+  <target name="clean">
+    <echo>Cleaning output directories</echo>
+    <delete dir="${dir.build}"/>
+    <delete dir="${dir.run}"/>
+    <delete dir="${dir.dist}"/>
+  </target>
+
+  <!--
+   Version
+   -->
+  <target name="version">
+    <echo>Generating version number</echo>
+    <mkdir dir="${dir.build}/version/genj"/>
+  	<tstamp>
+      <format property="now" pattern="yyyy/MM/dd HH:mm:ss"/>
+  	</tstamp>
+  	
+    <echo file="${dir.build}/version/genj/resources.properties">
+      version=${app.version}
+      build=${app.version} ${now} ${user.name}
+    </echo>
+  </target>
+
+  <!--
+   Distribution - a language
+   -->
+  <target name="dist.language">
+
+    <!-- create genj_ll.jar -->
+    <jar jarfile="${dir.lib}/genj_${language}.jar" update="True">
+      <fileset dir="./language/${language}"/>
+    </jar>
+
+    <!-- create genj_ll-xyz.zip -->
+    <zip zipfile="${dir.dist}/genj_${language}-${app.version}.zip" update="True">
+      <fileset dir="${dir.lib}/.." includes="lib/genj_${language}.jar"/>
+    </zip>
+  </target>
+
+  <!--
+   Distribution - All languages
+   -->
+  <target name="dist.languages">
+    <antcall target="dist.language"><param name="language" value="de"/></antcall>
+    <antcall target="dist.language"><param name="language" value="en"/></antcall>
+    <antcall target="dist.language"><param name="language" value="fr"/></antcall>
+    <antcall target="dist.language"><param name="language" value="hu"/></antcall>
+    <antcall target="dist.language"><param name="language" value="es"/></antcall>
+    <antcall target="dist.language"><param name="language" value="pt_BR"/></antcall>
+    <antcall target="dist.language"><param name="language" value="nl"/></antcall>
+  </target>
+
+  <!--
+   Distribution - Applet
+   -->
+  <target name="dist.applet" depends="init,compile,version">
+  
+  	 <!-- what we exclude - would be great to derive that automatically :( -->
+     <property name="exclude" value="
+      genj/app/**, genj/lnf/**, genj/entity/**, genj/report/**, **/*ViewPrinter*.class, **/*ViewSettings*.class
+      genj/renderer/BlueprintEditor*, genj/renderer/BlueprintList*
+     "/>
+
+     <!-- applet sub -->
+     <mkdir dir="${dir.build}/applet"/>
+
+     <!-- create genj.jar -->
+     <delete file="${dir.build}/applet/genj.jar"/>
+     <jar jarfile="${dir.build}/applet/genj.jar" update="True">
+       <fileset dir="${dir.build}/classes/contrib" excludes="${exclude}"/>
+       <fileset dir="${dir.build}/classes/core" excludes="${exclude}"/>
+       <fileset dir="./images" excludes="${exclude}"/>
+       <fileset dir="./language/en" excludes="${exclude}"/>
+       <fileset dir="./src/core" excludes="${exclude}"
+           includes="**/*.properties"/>
+       <fileset dir="${dir.build}/version"/>
+     </jar>
+     
+     <!-- copy graphj.jar -->
+     <copy todir="${dir.build}/applet" file="./lib/graphj.jar"/>
+
+     <!-- create genj_applet_xyz.jar -->
+     <zip zipfile="${dir.dist}/genj_applet-${app.version}.zip" update="True">
+       <fileset dir="${dir.build}" includes="applet/*"/>
+       <fileset dir="." includes="doc/*"/>
+     </zip>
+
+  </target>
+
+  <!--
+   Distribution - Application
+   -->
+  <target name="dist.app" depends="compile">
+
+     <!-- create genj.jar -->
+     <delete file="${dir.lib}/genj.jar"/>
+     <jar jarfile="${dir.lib}/genj.jar" update="True">
+       <fileset dir="${dir.build}/classes/contrib"/>
+       <fileset dir="${dir.build}/classes/core"/>
+       <fileset dir="${dir.build}/version"/>
+       <fileset dir="./images"/>
+       <fileset dir="./language/en"/>
+       <fileset dir="./src/core" includes="**/*.properties"/>
+       <fileset dir="./src/core" includes="META-INF/**"/>
+     </jar>
+     
+     <!-- create run.jar -->
+     <delete file="${dir.lib}/run.jar"/>
+     <jar jarfile="${dir.lib}/run.jar" update="True">
+       <manifest>
+         <attribute name="Main-Class" value="genj.app.App"/>
+         <attribute name="Class-Path" value="./lib/genj.jar ./lib/jhbasic.jar ./lib/graphj.jar ./lib/genj_de.jar ./lib/genj_en.jar ./lib/genj_es.jar ./lib/genj_fr.jar ./lib/genj_it.jar ./lib/genj_ja.jar ./lib/genj_hu.jar  ./lib/genj_pt_BR.jar"/>
+       </manifest>
+     </jar>
+     
+     <!-- copy rcompile scripts so that we'll pick 'em up -->
+     <copy todir="${dir.build}/classes/report">
+       <fileset dir="./script" includes="rcompile.*"/>
+     </copy>
+     
+     <!-- create genj_app-xyz.zip -->
+     <zip zipfile="${dir.dist}/genj_app-${app.version}.zip" update="True">
+       <zipfileset dir="${dir.lib}" includes="run.jar"/>
+       <zipfileset dir="${dir.lib}/.." includes="lib/genj.jar"/>
+       <zipfileset dir="." includes="lib/graphj.jar"/>
+       <zipfileset dir="${dir.build}/classes" includes="report/**"/>
+       <zipfileset dir="." includes="gedcom/**"/>
+       <zipfileset dir="." includes="doc/**"/>
+       <zipfileset dir="./script" includes="run.*" filemode="755"/>
+       <zipfileset dir="./src" includes="report/**"/>
+     </zip>
+
+  </target>
+
+  <!--
+   Distribution - Help File
+   -->
+  <target name="dist.help.language.files">
+  
+     <mkdir dir="${dir.help}"/>
+     
+     <copy todir="${dir.help}/images">
+       <fileset dir="./help/images"/>
+     </copy>
+     <copy todir="${dir.help}">
+       <fileset dir="./help" includes="${language}/**/*.html"/>
+       <filterset>
+         <filtersfile file="./help/${language}/resources.properties"/>
+       </filterset>
+     </copy>
+     <copy todir="${dir.help}">
+       <fileset dir="./help" includes="${language}/**/*.png"/>
+     </copy>
+     <copy todir="${dir.help}/${language}">
+       <fileset dir="./help" includes="*.xml, *.html"/>
+       <filterset>
+         <filtersfile file="./help/${language}/resources.properties"/>
+       </filterset>
+     </copy>
+  
+  </target>
+
+  <!--
+   Distribution - A Help Archive
+   -->
+  <target name="dist.help.language">
+
+     <!-- clean -->
+     <delete dir="${dir.build}/help"/>
+
+     <!-- create ./help -->
+     <antcall target="dist.help.language.files"><param name="dir.help" value="${dir.build}/help"/></antcall>
+  
+     <!-- create ./genj_help_xx-yy.zip -->
+     <zip zipfile="${dir.dist}/genj_help_${language}-${app.version}.zip" update="True">
+       <fileset dir="${dir.build}" includes="help/**"/>
+       <fileset dir="." includes="lib/jhbasic.jar"/>
+     </zip>
+     
+  </target>
+
+
+  <!--
+   Distribution - All Helps
+   -->
+  <target name="dist.help" depends="init">
+    <antcall target="dist.help.language"><param name="language" value="es"/></antcall>
+    <antcall target="dist.help.language"><param name="language" value="en"/></antcall>
+    <antcall target="dist.help.language"><param name="language" value="fr"/></antcall>
+    <antcall target="dist.help.language"><param name="language" value="de"/></antcall>
+  </target>
+
+  <!--
+   Distribution
+   -->
+  <target name="dist" depends="init,compile,version">
+
+     <echo>Generating distribution bits</echo>
+
+     <!-- do the languages -->
+     <antcall target="dist.languages"/>
+
+     <!-- do the applet -->
+     <antcall target="dist.applet"/>
+
+     <!-- do the application -->
+     <antcall target="dist.app"/> 
+
+     <!-- do the help -->
+     <antcall target="dist.help"/>
+
+  </target>
+
+  <!--
+   JavaDoc
+   -->
+  <target name="javadoc" depends="init">
+    <echo>Generating API documentation</echo>
+    <mkdir dir="${dir.build}/javadoc"/>
+    <javadoc destdir="${dir.build}/javadoc"
+             link="http://java.sun.com/j2se/1.4/docs/api"
+             sourcepath="./src/core"
+             packagenames="genj.gedcom.*, genj.report.*, genj.io.*"
+             classpathref="project.class.path"
+             access="public"
+             windowtitle="${app.name} - ${app.version}"
+             doctitle="${app.name} - ${app.version}&lt;br&gt;Package Overview"
+             bottom="&lt;a href=http://genj.sourceforge.net target=sourceforge &gt;genj.sourceforge.net&lt;/a&gt;"
+             noindex="yes"
+             nohelp="yes"
+             nodeprecatedlist="yes"
+    />
+    <!-- overview -->
+  </target>
+
+  <!--
+   Run
+   -->
+  <target name="run" depends="compile">
+
+    <echo>Generating and running GenJ test-run</echo>
+
+    <mkdir dir="${dir.run}"/>
+    <copy todir="${dir.run}/report">
+      <fileset dir="${dir.build}/classes/report"/>
+      <fileset dir="./src/report" includes="**/*.properties"/>
+    </copy>
+    <copy todir="${dir.run}/gedcom">
+      <fileset dir="./gedcom"/>
+    </copy>
+    <copy todir="${dir.run}/doc">
+      <fileset dir="./doc"/>
+    </copy>
+    <antcall target="dist.help.language.files">
+      <param name="language" value="en"/>
+      <param name="dir.help" value="${dir.run}/help"/>
+    </antcall>
+
+    <java classname="genj.app.App" fork="true" dir="${dir.run}">
+       <classpath refid="project.class.path"/>
+       <jvmarg line="${java.jvmargs}"/>
+       <sysproperty key="genj.lnf.dir" value="${dir.lnf}"/>
+       <sysproperty key="genj.gedcom.dir" value="./gedcom"/>
+    </java>
+  </target>
+  
+  <!--
+   Run Applet
+   -->
+  <target name="run.applet" depends="compile">
+
+    <mkdir dir="${dir.run}"/>
+        
+    <!-- create policy file simulating applet security -->
+    <echo file="${dir.run}/applet.policy"> 
+      grant {
+       permission java.util.PropertyPermission "user.home", "read";
+       permission java.io.FilePermission "${dir.build}/classes/-", "read";
+       permission java.io.FilePermission "${basedir}/src/core/-", "read";
+       permission java.io.FilePermission "${basedir}/images/-", "read";
+       permission java.io.FilePermission "${basedir}/language/en/-", "read";
+       permission java.io.FilePermission "${basedir}/gedcom/-", "read";
+       permission java.lang.RuntimePermission "modifyThread";
+       permission java.lang.RuntimePermission "modifyThreadGroup";
+      };
+    </echo>
+    
+    <replace file="${dir.run}/applet.policy" value="\\">
+     <replacefilter token="\"/>
+     <replacefilter token="/"/>
+    </replace>
+    
+    <!-- create applet.html -->
+    <echo file="${dir.run}/applet.html"><![CDATA[
+      <html><body>
+       <applet code="genj.applet.Applet.class" width="200" height="200">
+        <param name="gedcom" value="file:/${basedir}/gedcom/example.ged">
+       </applet>
+      </body></html>
+    ]]></echo>
+
+    <!-- run appletviewer -->
+    <concat><filelist dir="${dir.run}" files="applet.html,applet.policy"/></concat>
+    <java classname="sun.applet.AppletViewer" fork="true">
+       <arg value="file:/${dir.run}/applet.html"/>
+       <jvmarg value="-Djava.security.policy=${dir.run}/applet.policy"/>
+       <classpath refid="project.class.path"/>
+    </java>
+
+    <!-- done -->
+
+  </target>
+
+  <!--
+   Information about classpath
+   -->
+  <target name="classpath" depends="dist">
+    <echo>Classpath is: ${project.class.path}</echo>
+  </target>
+
+  <!--
+   About
+   -->
+  <target name="about">
+    <echo>GenJ - Build ${app.version}</echo>
+    <echo>Please specify one of the basic options: clean, run or dist</echo>
+  </target>
+
+</project>
