@@ -1,1 +1,0 @@
-javaw -jar run.jar
