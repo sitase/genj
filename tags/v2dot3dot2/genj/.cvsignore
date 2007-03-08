@@ -1,0 +1,6 @@
+*.jpage
+.cvsignore
+.build
+.project
+java.policy.applet
+.settings

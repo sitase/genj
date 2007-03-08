@@ -1,0 +1,204 @@
+<HTML>
+<BODY>
+
+<h2><a href="../views.html">Vues</a> - Fen&ecirc;tre d'Edition</h2>
+
+<table>
+ <tr>
+  <td valign=top>
+  
+<p>
+  Cette vue vous permet d'&eacute;diter les valeurs associ&eacute;es 
+  &agrave; une entit&eacute; (ou un enregistrement) dans GenJ. Cela 
+  peut &ecirc;tre un endroit ou une date li&eacute; &agrave; une personne. Cela 
+  peut &ecirc;tre le nom d'un fichier externe. Tous les champs 
+  affich&eacute;s peuvent accepter des donn&eacute;es, et tous les 
+  changements seront pris en consid&eacute;ration en cliquant sur 
+  le bouton 'OK' en bas. Pour annuler et revenir &agrave; 
+  l'&eacute;tat initial (donc avant modification), cliquez sur 'Annuler'.
+</p>
+  
+  </td>
+  
+  <td valign=top>
+  
+  <blockquote><img src="../../images/screenshots/edit1.png"></blockquote>
+  
+  </td>
+ </tr>
+</table>
+
+<table>
+ <tr>
+  <td valign=top>
+
+<p>
+  Dans GenJ, vous disposez de deux modes d'&eacute;dition : un mode dit 
+  'standard' (voir l'image ci-dessus), et un mode 'gedcom' (voir 
+  l'image ci-contre).<Br>
+  <Br>
+  Je vais surtout ici insister sur le mode 'gedcom', qui me semble 
+  le plus int&eacute;ressant pour travailler 'aux petits oignons', son 
+  arbre g&eacute;n&eacute;alogique.
+</p>
+
+    </td>
+  
+  <td>
+  
+    <blockquote>
+      <img src="../../images/screenshots/edit2.png">
+    </blockquote>
+  
+  </td>
+ </tr>
+</table>
+
+<p>
+  Comme nous l'avons vu dans la section relative au format 
+  <a href="../concepts/gedcom.html">Gedcom</a>, 
+  une entit&eacute; consiste en un empilement de propri&eacute;t&eacute;s, 
+  arrang&eacute;es selon une hi&eacute;rarchie, et auxquelles on 
+  associe une valeur pour chacune d'elles.<Br>
+</p>
+
+<p>
+  Vous pouvez ouvrir autant de vues d'Edition que vous le souhaitez -
+  elles seront toutes en interaction avec ce qui peut &ecirc;tre 
+  modifi&eacute; dans le fichier &agrave; partir duquel elles ont 
+  &eacute;t&eacute; ouvertes.<Br>
+  Apr&eacute;s avoir ouvert cette vue, le contenu de la fen&ecirc;tre 
+  affichera n'importe quelle entit&eacute; que vous pouvez avoir 
+  s&eacute;lectionn&eacute; dans une autre vue. Exemple une fois que 
+  vous avez choisi une entit&eacute; dans la fen&ecirc;tre du Tableau 
+  des Donn&eacute;es ou de l'Arbre G&eacute;n&eacute;alogique, elle 
+  sera affich&eacute; dans la fen&ecirc;tre d'Edition. Si jamais vous 
+  voulez que l'&eacute;diteur reste sur une entit&eacute; 
+  particuli&egrave;re, s&eacute;lectionnez l&agrave; dans l'une ou 
+  l'autre vue et cliquez sur le petit symbole en haut &agrave; droite 
+  (il repr&eacute;sente une petite aiguille). Maintenant 
+  l'&eacute;diteur restera centr&eacute; sur cette entit&eacute;.<Br>
+  La hi&eacute;rarchie des propri&eacute;t&eacute;s de l'entit&eacute; 
+  s&eacute;lectionn&eacute;e sera affich&eacute;e par tout d'abord 
+  des symboles qui repr&eacute;sentent chaque propri&eacute;t&eacute;, 
+  ensuite les Etiquettes, et enfin leur valeurs.<Br>
+  <Br>
+  On pourrait essayer de donner une autre explication en disant que 
+  le format Gedcom nous apporte un nombre illimit&eacute; 
+  d'<A href="../entities.html">entit&eacute;s</A> au sein d'un 
+  m&ecirc;me fichier. Chaque entit&eacute; a un nombre illimit&eacute; 
+  de propri&eacute;t&eacute;s qui peuvent s'imbriquer dans un nombre 
+  illimit&eacute; de niveaux. Pour pouvoir &eacute;diter une 
+  entit&eacute;, il faut donc que GenJ pr&eacute;sente une 
+  arborescence de ces propri&eacute;t&eacute;s.
+</p>
+
+<p>
+ Explorez cette arborescence de propri&eacute;t&eacute;s en utilisant 
+ si besoin est les ascenseurs &agrave; droite et en bas. Vous pourrez 
+ vous d&eacute;placer dans cette succession de propri&eacute;t&eacute;s 
+ en ouvrant et fermant les sous-r&eacute;pertoires et en choisissant 
+ chacune des propri&eacute;t&eacute;s. Une fois 
+ s&eacute;lectionn&eacute;e, la propri&eacute;t&eacute; est 
+ &eacute;galement affich&eacute;e dans la partie basse de la 
+ fen&ecirc;tre - c'est &agrave; cet endroit qu'il vous est possible 
+ de l'&eacute;diter, et donc de la modifier.
+</p>
+
+<p>
+ Une remarque : Pour des propri&eacute;t&eacute;s particuli&egrave;res, 
+ on trouve un certain nombre d'&eacute;diteurs pr&eacute;d&eacute;finies. 
+ La plupart des propri&eacute;t&eacute;s tiennent en effet sur une seule 
+ ligne, mais parfois elles utilisent un format particulier. Par exemple 
+ le NOM (NAME)&nbsp;:&nbsp; son format est <B>NAME first /last/</B> 
+ (pr&eacute;nom / nom de famille). Si vous s&eacute;lectionnez la 
+ propri&eacute;t&eacute; NAME (NOM) un &eacute;diteur un peu sp&eacute;cial 
+ appara&icirc;tra en bas de la fen&ecirc;tre pour vous permettre de 
+ modifier les informations dans des champs appropri&eacute;s. Si GenJ 
+ ne connait pas un &eacute;diteur qui peut correspondre &agrave; la 
+ propri&eacute;t&eacute; s&eacute;lectionn&eacute;e ou aux donn&eacute;es 
+ contenues dans cette propri&eacute;t&eacute; (ex. une mauvaise date) 
+ vous pourrez quand m&ecirc;me changer cette valeur avec l'&eacute;diteur 
+ par d&eacute;faut.
+</p>
+
+<p>
+  Quelques propri&eacute;t&eacute;s contiennent des 
+  r&eacute;f&eacute;rences &agrave; d'autres entit&eacute;s (exemples : 
+  HUSB (mari), apporte une r&eacute;f&eacute;rence &agrave; la 
+  famille du mari, et FAMS (famille que l'on forme entre deux 
+  conjoints) fait r&eacute;f&eacute;rence &agrave; la famille d'un 
+  conjoint). Double cliquez sur un tel noeud, et l'entit&eacute; sur 
+  laquelle vous &ecirc;tes, va basculer sur cette cible.
+</p>
+
+<p>
+ Le bouton "+" sur la barre d'outils (voir ci-apr&eacute;s) vous permet 
+ d'ajouter de nouvelles propri&eacute;t&eacute;s. En cliquant dessus, 
+ une nouvelle propri&eacute;t&eacute; et ses sous-propri&eacute;t&eacute;s 
+ associ&eacute;es seront ajout&eacute;es.<Br>
+ Une boite de dialogue vous donnera une liste des 
+ sous-propri&eacute;t&eacute;s li&eacute;es &agrave; cette 
+ propri&eacute;t&eacute; que vous voulez ajouter. Ces 
+ sous-propri&eacute;t&eacute;s sont celles autoris&eacute;es par le 
+ format Gedcom. Vous pouvez en choisir une ou plusieurs selon vos 
+ besoins. GenJ vous offre la possibilit&eacute; d'ajouter des 
+ sous-propri&eacute;t&eacute;s de votre propre cru - il vous suffit 
+ d'utiliser la partie basse de l'&eacute;diteur pour le faire, mais 
+ il faut que vous ayez conscience de deux choses : d'une part il faut 
+ faire commencer le nom de cette sous-propri&eacute;t&eacute;, de ce 
+ nouveau label, par un signe "_", comme par exemple "_URL", et d'autre 
+ part il vraiment que vous utilisiez cette possibilit&eacute; avec le 
+ plus de parcimonie possible - Evitez au maximum de cr&eacute;er 
+ ces nouveaux labels, car le jour ou vous voudrez &eacute;changer vos 
+ fichiers Gedcom, ils ne r&eacute;pondront plus &agrave; la norme, et 
+ vous perdrez plein d'informations.
+</p>
+
+<p>
+ N'oubliez pas les possibilit&eacute;s que vous offre le 
+ <a href="../concepts/context.html">Menu Contextuel</a> pour 
+ effectuer des actions complexes sur les propri&eacute;t&eacute;s et 
+ les entit&eacute;s &eacute;galement. Essayez un clic droit sur l'un 
+ des noeuds qui est affich&eacute;, et d&eacute;couvrez ce que vous 
+ pouvez faire.
+</p>
+
+<a name=toolbar>
+<h3><u>Barre d'Outils</u></h3>
+  <blockquote>
+    <img src="../../images/screenshots/edit3.png">
+  </blockquote>
+  
+  <ul>
+    <il>
+      <li>Revient &agrave; l'entit&eacute; pr&eacute;c&eacute;demment 
+      affich&eacute;e donc avant celle 
+      actuellement pr&eacute;sent&eacute;e.
+      <li>Fige oui/non le pr&eacute;sent affichage (l'entit&eacute; 
+      actuellement affich&eacute;e restera &agrave; l'&eacute;cran, 
+      m&ecirc;me si l'on se d&eacute;place vers d'autres entit&eacute;s 
+      dans d'autres vues).
+      <li> Revient sur les modifications apport&eacute;es aux donn&eacute;es 
+      avant que l'on ait appuy&eacute; sur le bouton 'OK'. (on d&eacute;fait 
+      ce qu'on a fait).
+      <li> Refait ce qui a &eacute;t&eacute; d&eacute;fait par la touche 'D&eacute;faire'
+      <li> Mettre en oeuvre des actions sur l'entit&eacute; actuellement 
+      en cours d'&eacute;dition (exemple : ajouter une &eacute;pouse
+      ou un enfant &agrave; une personne)
+      <li> Passer d'un mode d'&eacute;dition vers un autre, exemple passer 
+      du mode 'Gedcom', au mode 'Standard', ou vice-versa
+      <li>La croix rouge &agrave; droite, ferme la fen&ecirc;tre d'Edition.
+    </il>
+  </ul>
+
+
+<h3><u>Param&egrave;trages</u></h3>
+ Il n'y a aucun param&egrave;trage disponible &agrave; l'heure actuelle 
+ pour cette vue.
+
+<Br>
+
+
+</BODY>
+</HTML>
