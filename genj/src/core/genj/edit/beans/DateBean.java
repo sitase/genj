@@ -19,26 +19,31 @@
  */
 package genj.edit.beans;
 
+import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyDate;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
+import genj.gedcom.time.PointInTime;
+import genj.util.ActionDelegate;
+import genj.util.GridBagHelper;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.DateWidget;
 import genj.util.swing.ImageIcon;
-import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.PopupWidget;
-import genj.util.swing.TextFieldWidget;
+import genj.view.ViewManager;
+import genj.window.WindowManager;
 
+import java.awt.Dimension;
 import java.util.ArrayList;
 
 import javax.swing.JLabel;
 
 /**
- * A bean for editing DATEs
+ * A Proxy knows how to generate interaction components that the user
+ * will use to change a property : DATE
  */
 public class DateBean extends PropertyBean {
-
-  private final static NestedBlockLayout LAYOUT = new NestedBlockLayout("<col><row><a/><b/></row><row><c/><d/></row><row><e wx=\"0.1\"/></row></col>");
 
   private final static ImageIcon PIT = new ImageIcon(PropertyBean.class, "/genj/gedcom/images/Time.gif");
   
@@ -46,59 +51,30 @@ public class DateBean extends PropertyBean {
   private PropertyDate.Format format; 
   private DateWidget date1, date2;
   private PopupWidget choose;
-  private JLabel label2;
-  private TextFieldWidget phrase;
+  private JLabel label;
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    // setup Laout
-    setLayout(LAYOUT.copy());
-    
-    // prepare format change actions
-    ArrayList actions = new ArrayList(10);
-    for (int i=0;i<PropertyDate.FORMATS.length;i++)
-      actions.add(new ChangeFormat(PropertyDate.FORMATS[i]));
-
-    // .. the chooser (making sure the preferred size is pre-computed to fit-it-all)
-    choose = new PopupWidget(null, null, actions);
-    add(choose);
-    
-    // .. first date
-    date1 = new DateWidget();
-    date1.addChangeListener(changeSupport);
-    add(date1);
-
-    // .. second date
-    label2 = new JLabel();
-    add(label2);
-    
-    date2 = new DateWidget();
-    date2.addChangeListener(changeSupport);
-    add(date2);
-    
-    // phrase
-    phrase = new TextFieldWidget();
-    phrase.addChangeListener(changeSupport);
-    add(phrase);
-    
-    // setup default focus
-    defaultFocus = date1;
-
-    // Done
-  }
-  
   /**
    * Finish proxying edit for property Date
    */
-  public void commit(Property property) {
+  public void commit(Transaction tx) {
 
-    super.commit(property);
-    
     PropertyDate p = (PropertyDate)property;
-    
-    p.setValue(format, date1.getValue(), date2.getValue(), phrase.getText());
 
+    // Remember format
+    p.setFormat(format);
+
+    // Remember One
+    PointInTime start = date1.getValue();
+    if (start!=null)
+      p.getStart().set(start);
+  
+    // Remember Two
+    if ( p.isRange() ) {
+      PointInTime end = date2.getValue();
+      if (end!=null)
+        p.getEnd().set(date2.getValue());
+    }
+    
     // Done
   }
 
@@ -116,62 +92,118 @@ public class DateBean extends PropertyBean {
     // remember
     format = set;
 
-    // prepare chooser with 1st prefix
-    choose.setToolTipText(format.getName());
-    String prefix1= format.getPrefix1Name();
-    choose.setIcon(prefix1==null ? PIT : null);
-    choose.setText(prefix1==null ? "" : prefix1);
+    // check date2 visibility
+    date2.setVisible(format.isRange());
     
-    // check label2/date2 visibility
-    if (format.isRange()) {
-      date2.setVisible(true);
-      label2.setVisible(true);
-      label2.setText(format.getPrefix2Name());
-    } else {
-      date2.setVisible(false);
-      label2.setVisible(false);
-    }
-    
-    // check phrase visibility
-    phrase.setVisible(format.usesPhrase());
+    // set text of chooser and label
+    choose.setText(format.getLabel1());
+    label.setText(format.getLabel2());
 
+    // set image and tooltip of chooser
+    choose.setIcon(format==PropertyDate.DATE ? PIT : null);
+    choose.setToolTipText(format.getLabel());
+    
     // show
     revalidate();
     repaint();
   }          
   
+  private static Dimension preferredPopupSize;
+  
+  /**
+   * set cached calculated preferred size for popup
+   */
+  private static void setPreferredSize(PopupWidget choose) {
+    
+    // unknown?
+    if (preferredPopupSize==null) {
+
+      // calculate image alone
+      choose.setIcon(PIT);
+      preferredPopupSize = choose.getPreferredSize();
+      choose.setIcon(null);
+      
+      // loop over date format texts and patch preferred
+      for (int i=0,j=PropertyDate.FORMATS.length;i<j;i++) {
+        choose.setText(PropertyDate.FORMATS[i].getLabel1());
+        Dimension pref = choose.getPreferredSize();
+        preferredPopupSize.width = Math.max(preferredPopupSize.width , pref.width );
+        preferredPopupSize.height= Math.max(preferredPopupSize.height, pref.height);
+      }
+      
+    }
+    
+    // set it
+    choose.setPreferredSize(preferredPopupSize);
+
+  }
 
   /**
-   * Set context to edit
+   * Initialize
    */
-  public void setProperty(PropertyDate date) {
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
 
-    // remember property
-    property = date;
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
     
-    // connect
-    date1.setValue(date.getStart());
-    date2.setValue(date.getEnd());
-    phrase.setText(date.getPhrase());
-    setFormat(date.getFormat());
+    // we know it's a date
+    PropertyDate p = (PropertyDate)property;
+
+    // prepare format change actions
+    ArrayList actions = new ArrayList(10);
+    for (int i=0;i<PropertyDate.FORMATS.length;i++)
+      actions.add(new ChangeFormat(PropertyDate.FORMATS[i]));
+
+    // setup components
+    WindowManager mgr = viewManager.getWindowManager();
+
+    // .. the chooser (making sure the preferred size is pre-computed to fit-it-all)
+    choose = new PopupWidget(null, null, actions);
+    setPreferredSize(choose);
+    
+    // .. first date
+    date1 = new DateWidget(p.getStart(), mgr);
+    date1.addChangeListener(changeSupport);
+    date1.setAlignmentX(0);
+
+    // .. the label
+    label = new JLabel();
+    
+    // .. second date
+    date2 = new DateWidget(p.getEnd(), mgr);
+    date2.addChangeListener(changeSupport);
+
+    // setup Laout
+    GridBagHelper gh = new GridBagHelper(this);
+
+    gh.add(choose, 0, 0);
+    gh.add(date1 , 1, 0);
+    gh.add(label , 0, 1);
+    gh.add(date2 , 1, 1);
+    gh.add(new JLabel(), 2, 2, 1, 1, GridBagHelper.GROW_BOTH);
+    
+    // set format
+    setFormat(p.getFormat());
     
     // done
+    defaultFocus = date1;
+
+    // Done
   }
   
   /**
    * Action for format change
    */
-  private class ChangeFormat extends Action2 {
+  private class ChangeFormat extends ActionDelegate {
     
-    private PropertyDate.Format formatToSet;
+    private PropertyDate.Format format;
     
     private ChangeFormat(PropertyDate.Format set) {
-      formatToSet = set;
-      super.setText(set.getName());
+      format = set;
+      super.setText(set.getLabel());
     }
     
     protected void execute() {
-      setFormat(formatToSet);
+      setFormat(format);
     }
     
   } //ChangeFormat 

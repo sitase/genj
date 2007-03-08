@@ -19,9 +19,10 @@
  */
 package genj.util.swing;
 
+import genj.util.ActionDelegate;
 
+import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
@@ -44,9 +45,6 @@ public class PopupWidget extends JButton {
 
   /** whether we fire the first of the available actions on popup click */
   private boolean isFireOnClick = false;
-  
-  /** current popup */
-  private JPopupMenu popup;
     
   /**
    * Constructor  
@@ -114,25 +112,12 @@ public class PopupWidget extends JButton {
   }
   
   /**
-   * Cancel pending popup
-   */
-  public void cancelPopup() {
-    if (popup!=null) {
-      popup.setVisible(false);
-      popup=null;
-    }
-  }
-  
-  /**
    * Change popup's visibility
    */
   public void showPopup() {
-    
-    // old lingering around?
-    cancelPopup();
 
     // create it
-    popup = createPopup();
+    JPopupMenu popup = createPopup();
     if (popup==null)
       return;
   
@@ -151,7 +136,7 @@ public class PopupWidget extends JButton {
     
     // show it
     popup.show(PopupWidget.this, x, y);
-
+    
   }
   
   /**
@@ -166,14 +151,11 @@ public class PopupWidget extends JButton {
 
     // .. create an populate        
     JPopupMenu popup = new JPopupMenu();
-    // NM 20051108 don't let this get too big
-    if (as.size()>16)
-      popup.setLayout(new GridLayout(0,(int)Math.ceil(as.size()/16F)));
+    popup.setBackground(Color.white);
     MenuHelper mh = new MenuHelper();
     mh.pushMenu(popup);
-    mh.createItems(as);
+    mh.createItems(as, false);
 
-    
     // done
     return popup;
   }
@@ -236,16 +218,12 @@ public class PopupWidget extends JButton {
      * action performed
      */
     protected void fireActionPerformed(ActionEvent e) {
+      popupTriggered = false;
       // fire action on popup button press?
       if (isFireOnClick) { 
-        
-        // cancel popu
-        popupTriggered = false;
-        cancelPopup();
-        
         List as = getActions();
         if (!as.isEmpty())
-          ((Action2)as.get(0)).trigger();
+          ((ActionDelegate)as.get(0)).trigger();
       }
     }
   } //Model

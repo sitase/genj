@@ -28,6 +28,20 @@ package genj.gedcom;
 public class PropertySubmitter extends PropertyXRef {
 
   /**
+   * Empty Constructor
+   */
+  public PropertySubmitter() {
+  }
+  
+  /**
+   * Constructor with reference
+   * @param target reference of property this property links to
+   */
+  public PropertySubmitter(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
    * Returns the tag of this property
    */
   public String getTag() {
@@ -40,15 +54,23 @@ public class PropertySubmitter extends PropertyXRef {
    */
   public void link() throws GedcomException {
 
+    // something to do ?
+    if (getReferencedEntity()!=null) return;
+
     // Look for SUBM
-    Submitter subm = (Submitter)getCandidate();
+    String id = getReferencedId();
+    if (id.length()==0) return;
+
+    Submitter subm = (Submitter)getGedcom().getEntity(Gedcom.SUBM, id);
+    if (subm == null) 
+      return;
 
     // Create Backlink
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     subm.addProperty(fxref);
 
     // ... and point
-    link(fxref);
+    setTarget(fxref);
 
     // Done
   }

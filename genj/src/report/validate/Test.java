@@ -7,10 +7,10 @@
  */
 package validate;
 
+import java.util.List;
+
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
-
-import java.util.List;
 
 /**
  * A test for validation
@@ -53,7 +53,7 @@ import java.util.List;
       return false;
     }
     // and type
-    return typeTrigger==null||typeTrigger.isAssignableFrom(prop.getClass());
+    return typeTrigger.isAssignableFrom(prop.getClass());
   }
   
   /**

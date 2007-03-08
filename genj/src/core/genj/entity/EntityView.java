@@ -19,41 +19,41 @@
  */
 package genj.entity;
 
+import genj.gedcom.Change;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomListenerAdapter;
+import genj.gedcom.Transaction;
 import genj.renderer.Blueprint;
 import genj.renderer.BlueprintManager;
 import genj.renderer.EntityRenderer;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
+import genj.view.Context;
+import genj.view.ContextListener;
 import genj.view.ToolBarSupport;
-import genj.view.ViewContext;
 import genj.view.ViewManager;
-import genj.window.WindowBroadcastListener;
 
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
 
-import spin.Spin;
-
 /**
  * A rendering component showing the currently selected entity
  * via html
  */
-public class EntityView extends JPanel implements WindowBroadcastListener, ToolBarSupport, ContextProvider {
+public class EntityView extends JPanel implements ContextListener, ToolBarSupport, GedcomListener {
 
   /** language resources we use */  
   /*package*/ final static Resources resources = Resources.get(EntityView.class);
@@ -79,15 +79,6 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
   /** whether we do antialiasing */
   private boolean isAntialiasing = false;
   
-  private GedcomListener callback = new GedcomListenerAdapter() {
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      if (EntityView.this.entity == entity) {
-        setEntity(gedcom.getFirstEntity(Gedcom.INDI));
-      }
-      repaint();
-    }
-  };
-  
   /** the view manager */
   /*package*/ ViewManager viewManager;
   
@@ -100,28 +91,43 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
     registry = reg;
     gedcom = ged;
 
+    // listen to gedcom
+    gedcom.addGedcomListener(this);
+
     // grab data from registry
-    BlueprintManager bpm = BlueprintManager.getInstance();
+    BlueprintManager bpm = viewManager.getBlueprintManager();
     for (int t=0;t<Gedcom.ENTITIES.length;t++) {
       String tag = Gedcom.ENTITIES[t];
-      type2blueprint.put(tag, bpm.getBlueprint(ged.getOrigin(), tag, registry.get("blueprint."+tag, "")));
+      type2blueprint.put(tag, bpm.getBlueprint(tag, registry.get("blueprint."+tag, "")));
     }
     isAntialiasing  = registry.get("antial"  , false);
     
-    // Check if we can preset something to show
-    Entity entity = gedcom.getEntity(registry.get("entity", (String)null));
-    if (entity==null) entity = gedcom.getFirstEntity(Gedcom.INDI);
-    if (entity!=null) 
-      setEntity(entity);
+    // set first entity
+    Context context = manager.getContext(gedcom); 
+    if (context!=null) 
+      setEntity(context.getEntity());
+    
+    // enable context popup
+    addMouseListener(new MouseAdapter() {
+      
+      /** callback - mouse press */
+      public void mousePressed(MouseEvent e) {
+        mouseReleased(e);
+      }
+  
+      /** callback - mouse release */
+      public void mouseReleased(MouseEvent e) {
+        // no popup trigger no action
+        if (!e.isPopupTrigger()) 
+          return;
+        Point pos = e.getPoint();
+        // context
+        Context context = entity==null ? new Context(gedcom) : new Context(entity);
+        viewManager.showContextMenu(context, null, EntityView.this, pos);
+      }
+    });
     
     // done    
-  }
-  
-  /**
-   * ContextProvider - callback
-   */
-  public ViewContext getContext() {
-    return entity==null ? new ViewContext(gedcom) : new ViewContext(entity);
   }
 
   /**
@@ -129,13 +135,6 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
    */
   public Dimension getPreferredSize() {
     return new Dimension(256,160);
-  }
-  
-  public void addNotify() {
-    // cont
-    super.addNotify();
-    // listen to gedcom
-    gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
   }
 
   /**
@@ -146,7 +145,7 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
     super.removeNotify();
 
     // stop listening to Gedcom    
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
+    gedcom.removeGedcomListener(this);
     
     // store settings in registry
     for (int t=0;t<Gedcom.ENTITIES.length;t++) {
@@ -154,8 +153,6 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
       registry.put("blueprint."+tag, getBlueprint(tag).getName()); 
     }
     registry.put("antial"  , isAntialiasing );
-    if (entity!=null)
-      registry.put("entity", entity.getId());
     
     // done
   }
@@ -165,15 +162,11 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
    * @see javax.swing.JComponent#paintComponent(Graphics)
    */
   protected void paintComponent(Graphics g) {
-    
     Rectangle bounds = getBounds();
     g.setColor(Color.white);
     g.fillRect(0,0,bounds.width,bounds.height);
     g.setColor(Color.black);
 
-    if (renderer==null)
-      return;
-    
       ((Graphics2D)g).setRenderingHint(
         RenderingHints.KEY_ANTIALIASING,
         isAntialiasing ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF
@@ -194,7 +187,7 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
   /*package*/ Blueprint getBlueprint(String tag) {
     Blueprint result = (Blueprint)type2blueprint.get(tag);
     if (result==null) {
-      result = BlueprintManager.getInstance().getBlueprint(gedcom.getOrigin(),tag, "");
+      result = viewManager.getBlueprintManager().getBlueprint(tag, "");
       type2blueprint.put(tag, result);
     }
     return result;
@@ -219,14 +212,10 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
   /**
    * view callback
    */
-  public boolean handleBroadcastEvent(genj.window.WindowBroadcastEvent event) {
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, gedcom);
-    if (cse!=null) {
-      Entity e = cse.getContext().getEntity();
-      if (e!=null)
-        setEntity(e);
-    }
-    return true;
+  public void setContext(Context context) {
+    Entity e = context.getEntity();
+    if (e!=null)
+      setEntity(e);
   }
   
   /**
@@ -257,6 +246,16 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
    */
   public boolean isAntialiasing() {
     return isAntialiasing;
+  }
+
+  /**  
+   * @see genj.gedcom.GedcomListener#handleChange(Change)
+   */
+  public void handleChange(Transaction tx) {
+    if (tx.get(Transaction.ENTITIES_DELETED).contains(entity)) {
+      setEntity(null);
+    }
+    repaint();
   }
 
 } //EntityView

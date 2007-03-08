@@ -40,16 +40,8 @@ public class PropertySimpleValue extends Property {
   /**
    * Constructor with tag
    */
-  public PropertySimpleValue(String tag) {
-    this.tag = tag;
-  }
-
-  /**
-   * Constructor with tag & value
-   */
-  public PropertySimpleValue(String tag, String value) {
-    this.tag = tag;
-    this.value = value;
+  public PropertySimpleValue(String set) {
+    tag = set;
   }
 
   /**
@@ -76,7 +68,7 @@ public class PropertySimpleValue extends Property {
    * Returns the value of this property
    */
   public String getValue() {
-    if (value==null) return "";
+    if (value==null) return EMPTY_STRING;
     return value;
   }
 
@@ -86,7 +78,7 @@ public class PropertySimpleValue extends Property {
   public void setValue(String value) {
     String old = getValue();
     this.value=value;
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
   }
   
 } //PropertySimpleValue

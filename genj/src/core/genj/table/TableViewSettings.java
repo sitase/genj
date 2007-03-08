@@ -19,19 +19,19 @@
  */
 package genj.table;
 
-import genj.common.PathTreeWidget;
 import genj.gedcom.Gedcom;
-import genj.gedcom.Grammar;
+import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
+import genj.util.ActionDelegate;
 import genj.util.GridBagHelper;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.ListSelectionWidget;
 import genj.view.Settings;
 import genj.view.ViewManager;
+import genj.view.widgets.PathTreeWidget;
 
 import java.util.List;
 
@@ -90,12 +90,12 @@ public class TableViewSettings extends JPanel implements Settings {
     pathList = new ListSelectionWidget() {
       protected ImageIcon getIcon(Object choice) {
 	      TagPath path = (TagPath)choice;
-	      return Grammar.getMeta(path).getImage();
+	      return MetaProperty.get(path).getImage();
       }
     };
 
     // Up/Down of ordering
-    ButtonHelper bh = new ButtonHelper().setInsets(0);
+    ButtonHelper bh = new ButtonHelper().setResources(resources).setInsets(0);
     AbstractButton bUp   = bh.create(new ActionUpDown(true));
     AbstractButton bDown = bh.create(new ActionUpDown(false));
     
@@ -121,7 +121,7 @@ public class TableViewSettings extends JPanel implements Settings {
     // remember
     table = (TableView)view;
     // switch type
-    cTypes.setSelectedItem(Gedcom.getName(table.getMode().getTag(), true));
+    cTypes.setSelectedItem(Gedcom.getName(table.getType(), true));
     // done
   }
 
@@ -134,7 +134,7 @@ public class TableViewSettings extends JPanel implements Settings {
     String tag = Gedcom.ENTITIES[cTypes.getSelectedIndex()];
     List choices = pathList.getChoices();
     TagPath[] paths = (TagPath[])choices.toArray(new TagPath[choices.size()]);
-    table.getMode(tag).setPaths(paths);
+    table.setPaths(tag, paths);
     // Done
   }
 
@@ -146,8 +146,8 @@ public class TableViewSettings extends JPanel implements Settings {
     // Reflect columns by TagPaths
     String tag = Gedcom.ENTITIES[cTypes.getSelectedIndex()];
     
-    TagPath[] selectedPaths = table.getMode(tag).getPaths();
-    TagPath[] usedPaths     = Grammar.getAllPaths(tag, Property.class);
+    TagPath[] selectedPaths = table.getPaths(tag);
+    TagPath[] usedPaths     = MetaProperty.getPaths(tag, Property.class);
 
     pathTree.setPaths(usedPaths, selectedPaths);
     pathList.setChoices(selectedPaths);
@@ -165,12 +165,12 @@ public class TableViewSettings extends JPanel implements Settings {
   /**
    * Action - ActionChooseEntity
    */
-  private class ActionChooseEntity extends Action2 {
+  private class ActionChooseEntity extends ActionDelegate {
     /** constructor */
     /** run */
     public void execute() {
       if (table==null) return;
-      table.setMode(table.getMode(Gedcom.ENTITIES[cTypes.getSelectedIndex()]));
+      table.setType(Gedcom.ENTITIES[cTypes.getSelectedIndex()]);
       reset();
     }
   } //ActionChooseEntity
@@ -178,14 +178,14 @@ public class TableViewSettings extends JPanel implements Settings {
   /**
    * Action - ActionUpDown
    */
-  private class ActionUpDown extends Action2 {
+  private class ActionUpDown extends ActionDelegate {
     /** up or down */
     private boolean up;
     /** constructor */
     protected ActionUpDown(boolean up) {
       this.up=up;
-      if (up) setText(resources, "info.up");
-      else setText(resources, "info.down");
+      if (up) setText("info.up");
+      else setText("info.down");
     }
     /** run */
     public void execute() {

@@ -31,6 +31,32 @@ public class PropertyEvent extends Property {
   private boolean knownToHaveHappened;
 
   /**
+   * Patching default sub meta properties
+   */
+  public MetaProperty[] getSubMetaProperties(int filter) {
+    
+    MetaProperty[] result = super.getSubMetaProperties(filter);
+    
+    // this RESIdence and default?
+    if (filter==MetaProperty.FILTER_DEFAULT&&getTag().equals("RESI")) {
+      // patch defaults for RESIdence event
+      for (int i = 0; i < result.length; i++) {
+        // look for PLAC
+        if (!result[i].getTag().equals("PLAC"))
+          continue;
+        // patch it
+        result[i] = getMetaProperty().get("ADDR", false); 
+        // done
+        break;
+      }
+      // patched 
+    }
+    
+    // done
+    return result;
+  }
+  
+  /**
    * Returns the date of the event
    */
   public PropertyDate getDate() {
@@ -57,7 +83,14 @@ public class PropertyEvent extends Property {
    */
   public String getDateAsString() {
     Property date = getProperty("DATE");
-    return date!=null ? date.getValue() : "";
+    return date!=null ? date.getValue() : EMPTY_STRING;
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "Event";
   }
 
   /**
@@ -84,7 +117,7 @@ public class PropertyEvent extends Property {
    * Returns the value of this property
    */
   public String getValue() {
-    return knownToHaveHappened ? "Y" : "";
+    return knownToHaveHappened ? "Y" : EMPTY_STRING;
   }
 
   /**
@@ -98,7 +131,7 @@ public class PropertyEvent extends Property {
    * Returns the list of paths which identify PropertyEvents
    */
   public static TagPath[] getTagPaths() {
-    return Grammar.getAllPaths(null, PropertyEvent.class);  
+    return MetaProperty.getPaths(null, PropertyEvent.class);  
   }
   
   /**
@@ -106,8 +139,8 @@ public class PropertyEvent extends Property {
    * @return null if this attribute is not supported, true or false otherwise
    */
   public Boolean isKnownToHaveHappened() {
-    // patch - no known EVEN
-    if (getTag().equals("EVEN"))
+    // patch - no known for RESIdence and EVEN
+    if (getTag().equals("RESI")||getTag().equals("EVEN"))
       return null;
     return new Boolean(knownToHaveHappened);
   }
@@ -118,7 +151,7 @@ public class PropertyEvent extends Property {
   public void setKnownToHaveHappened(boolean set) {
     String old = getValue();
     knownToHaveHappened = set;
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
   }
 
 // Could do an automatic 'y' here but that would pollute

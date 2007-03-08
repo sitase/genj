@@ -23,7 +23,7 @@ import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Indi;
-import genj.util.swing.Action2;
+import genj.util.ActionDelegate;
 
 /**
  * A Bookmark in viewing a tree
@@ -32,7 +32,7 @@ import genj.util.swing.Action2;
  * <li>the name
  * </il>
  */
-public class Bookmark extends Action2 {
+public class Bookmark extends ActionDelegate {
   
   /** the tree */
   private TreeView tree;
@@ -93,7 +93,7 @@ public class Bookmark extends Action2 {
   }
   
   /**
-   * @see genj.util.swing.Action2#execute()
+   * @see genj.util.ActionDelegate#execute()
    */
   protected void execute() {
     // Either scroll to or change root

@@ -20,12 +20,19 @@
 package genj.edit.beans;
 
 import genj.gedcom.Entity;
+import genj.gedcom.Gedcom;
+import genj.gedcom.Property;
 import genj.gedcom.PropertyChange;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.util.Registry;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 
+import javax.swing.AbstractButton;
 import javax.swing.JLabel;
+import javax.swing.JTextField;
 
 /**
  * A Proxy knows how to generate interaction components that the user
@@ -33,8 +40,16 @@ import javax.swing.JLabel;
  */
 public class EntityBean extends PropertyBean {
 
-  private Preview preview;
-  private JLabel changed;
+  /** members */
+  private JTextField tfield;
+  private AbstractButton bchange;
+
+  /**
+   * Finish editing a property through proxy (no changes here unless
+   * hasChanged()==true since this will be called in all cases)
+   */
+  public void commit(Transaction tx) {
+  }
 
   /**
    * Nothing to edit
@@ -43,35 +58,28 @@ public class EntityBean extends PropertyBean {
     return false;
   }
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    preview = new Preview();
-    changed = new JLabel();
-    
-    setLayout(new BorderLayout());
-    add(BorderLayout.CENTER, preview);
-    add(BorderLayout.SOUTH, changed);
-  }
-  
   /**
-   * Set context to edit
+   * Initialize
    */
-  public void setProperty(Entity entity) {
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
 
-    // remember property
-    property = entity;
-    
-    // show it
-    preview.setEntity(entity);
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
 
-    // add change date/time
-    changed.setVisible(false);
-    if (entity!=null) {
-      PropertyChange change = entity.getLastChange();
+    setLayout(new BorderLayout());
+
+    // Look for entity
+    if (property instanceof Entity) {
+
+      Entity e = (Entity)property;
+
+      // add a preview
+      add(BorderLayout.CENTER, new Preview(e));
+
+      // add change date/time
+      PropertyChange change = e.getLastChange();
       if (change!=null)
-        changed.setText(resources.getString("entity.change", new String[] {change.getDateDisplayValue(), change.getTimeDisplayValue()} ));      
-        changed.setVisible(true);
+        add(BorderLayout.SOUTH, new JLabel(resources.getString("entity.change", new String[] {change.getDateAsString(), change.getTimeAsString()} )));      
+
     }
     
     // Done

@@ -19,18 +19,14 @@
  */
 package genj.renderer;
 
-import genj.option.CustomOption;
+import genj.option.Option;
 import genj.option.OptionProvider;
+import genj.option.OptionUI;
+import genj.option.OptionsWidget;
 import genj.option.PropertyOption;
 import genj.util.Registry;
-import genj.util.Resources;
-import genj.util.swing.Action2;
-import genj.util.swing.ScreenResolutionScale;
-import genj.window.WindowManager;
 
 import java.awt.Font;
-import java.awt.Point;
-import java.awt.Toolkit;
 import java.util.List;
 
 /**
@@ -38,19 +34,11 @@ import java.util.List;
  */
 public class Options extends OptionProvider {
   
-  private final static Resources RESOURCES = Resources.get(Options.class);
-  
   /** singleton */
   private final static Options instance = new Options();
   
   /** the default font */
   private Font defaultFont = new Font("SansSerif", 0, 11);
-  
-  /** the current screen resolution */
-  private Point dpi = new Point( 
-    Toolkit.getDefaultToolkit().getScreenResolution(),
-    Toolkit.getDefaultToolkit().getScreenResolution()
-  );
   
   /**
    * singleton access
@@ -77,48 +65,50 @@ public class Options extends OptionProvider {
    * Access to our options (one)
    */
   public List getOptions() {
-    List result = PropertyOption.introspect(getInstance());
-    result.add(new ScreenResolutionOption());
+    List result= PropertyOption.introspect(getInstance());
+    result.add(new Mgr());
     return result;
   }
   
-  /** 
-   * Accessor - DPI
+  /**
+   * Our headless option
    */
-  public Point getDPI() {
-    return dpi;
-  }
+  private class Mgr extends Option {
 
-  /** 
-   * Option for Screen Resolution
-   */
-  private class ScreenResolutionOption extends CustomOption {
-
-    /** callback - user readble name */
     public String getName() {
-      return RESOURCES.getString("option.screenresolution");
+      return "blueprints";
     }
 
-    /** callback - persist */
-    public void persist(Registry registry) {
-      registry.put("dpi", dpi);
-    }
-
-    /** callback - restore */
     public void restore(Registry registry) {
-      Point set = registry.get("dpi", (Point)null);
-      if (set!=null)
-        dpi = set;
+      
+      // read old style blueprints if available
+      //   views.blueprints.INDI=foo bar
+      //   views.blueprints.INDI.foo=...
+      //   views.blueprints.INDI.bar=...
+      // new is the current view (options)
+      //   options.blueprints.INDI=foo bar
+      //   options.blueprints.INDI.foo=...
+      //   options.blueprints.INDI.bar=...
+      Registry root = registry.getRoot();
+      if (root.get("views.blueprints.INDI", (String)null)!=null) 
+        registry = new Registry(root, "views");
+      
+      // continue
+      BlueprintManager.getInstance().read(registry);
+      
+      // continue old leftovers
+      root.remove("views.blueprints.");
+      root.remove("blueprints.");
     }
 
-    /** callback - edit option */
-    protected void edit() {
-      ScreenResolutionScale scale = new ScreenResolutionScale(dpi);
-      int rc = widget.getWindowManager().openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, scale, Action2.okCancel(), widget);
-      if (rc==0)
-        dpi = scale.getDPI();
+    public void persist(Registry registry) {
+      BlueprintManager.getInstance().write(registry);
     }
 
-  } //ScreenResolutionOption
+    public OptionUI getUI(OptionsWidget widget) {
+      return null;
+    }
+
+  } //Default
 
 } //Options

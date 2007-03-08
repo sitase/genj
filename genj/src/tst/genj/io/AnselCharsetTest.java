@@ -58,12 +58,6 @@ public class AnselCharsetTest extends TestCase {
     // done    
   }
   
-  private final static char
-   oe = '\u00f6', 
-   ae = '\u00e4',
-   ue = '\u00fc',
-   ss = '\u00df';
-  
   /**
    * Calculate test strings
    */
@@ -71,8 +65,8 @@ public class AnselCharsetTest extends TestCase {
     
     ArrayList result = new ArrayList(32);
 
-    // {oe}{ae}{ue}{ss}
-    result.add(""+oe+ae+ue+ss);
+    // abcö
+    result.add("öäüß");
     
     // xxx...xz  (8192+1)    
     StringBuffer buf = new StringBuffer(8193);
@@ -84,21 +78,21 @@ public class AnselCharsetTest extends TestCase {
     // abc
     result.add("abc");
       
-    // ab{oe}
-    result.add("ab"+oe);
+    // abö
+    result.add("abö");
       
-    // abc{oe}
-    result.add("abc"+oe);
+    // abcö
+    result.add("abcö");
 
-    // xxx...x{oe} (8191+1)
+    // xxx...xö (8191+1)
     buf.setLength(0);
     for (int i=0;i<8191;i++)
       buf.append('x');
-    buf.append(oe);
+    buf.append('ö');
     result.add(buf.toString());
 
-    // xxx...x{oe}{oe} (8191+2)      
-    buf.append(oe);
+    // xxx...xöö (8191+2)      
+    buf.append('ö');
     result.add(buf.toString());
     
     // done

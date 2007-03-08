@@ -53,9 +53,6 @@ public abstract class PropertyOption extends Option {
   /** property */
   protected String property;
 
-  /** option is for instance */
-  protected Object instance;
-
   /**
    * Get options for given instance 
    */
@@ -140,8 +137,7 @@ public abstract class PropertyOption extends Option {
   /**
    * Constructor
    */
-  protected PropertyOption(Object instance, String property) {
-    this.instance = instance;
+  protected PropertyOption(String property) {
     this.property = property;
   }
 
@@ -168,51 +164,28 @@ public abstract class PropertyOption extends Option {
   }
   
   /**
-   * Accessor - category of this option
-   */
-  public String getCategory() {
-    String result = super.getCategory();
-    if (result==null) {
-      // try to localize?
-      Resources resources = Resources.get(instance);
-      result = resources.getString("options", false);
-      if (result!=null)
-        super.setCategory(result);
-    }
-    return result;
-  }
-  
-  /**
    * A UI for a font
    */
-  private static class FontUI implements OptionUI {
+  private class FontUI implements OptionUI {
     
     /** widgets */
     private FontChooser chooser = new FontChooser();
-    
-    /** option */
-    private PropertyOption option;
-    
-    /** constructor */
-    FontUI(PropertyOption option) {
-      this.option = option;
-    }
       
     /** callback - text representation = none */
     public String getTextRepresentation() {
-      Font font = (Font)option.getValue();
+      Font font = (Font)getValue();
       return font==null ? "..." : font.getFamily() + "," + font.getSize();
     }
     
     /** callback - component representation */
     public JComponent getComponentRepresentation() {
-      chooser.setSelectedFont((Font)option.getValue());
+      chooser.setSelectedFont((Font)getValue());
       return chooser;
     }
 
     /** commit - noop */    
     public void endRepresentation() {
-      option.setValue(chooser.getSelectedFont());
+      setValue(chooser.getSelectedFont());
     }
     
   } //FontUI
@@ -220,18 +193,14 @@ public abstract class PropertyOption extends Option {
   /**
    * A UI for a file
    */
-  private static class FileUI implements OptionUI {
+  private class FileUI implements OptionUI {
     
     /** file chooser */
     private FileChooserWidget chooser = new FileChooserWidget();
     
-    /** option */
-    private PropertyOption option;
-    
     /** constructor */
-    FileUI(PropertyOption option) {
-      this.option = option;
-      chooser.setFile((File)option.getValue());
+    private FileUI() {
+      chooser.setFile((File)getValue());
     }
     
     /** text is file name */
@@ -246,7 +215,7 @@ public abstract class PropertyOption extends Option {
 
     /** end and commit change */
     public void endRepresentation() {
-      option.setValue(chooser.getFile());
+      setValue(chooser.getFile());
     }
 
   } //FileUI
@@ -254,16 +223,12 @@ public abstract class PropertyOption extends Option {
   /**
    * A UI for a boolean 
    */
-  private static class BooleanUI extends JCheckBox implements OptionUI {
-    /** option */
-    private PropertyOption option;
-    
+  private class BooleanUI extends JCheckBox implements OptionUI {
     /** constructor */
-    BooleanUI(PropertyOption option) {
-      this.option = option;
+    private BooleanUI() {
       setOpaque(false);
       setHorizontalAlignment(JCheckBox.LEFT);
-      Boolean value = (Boolean)option.getValue();
+      Boolean value = (Boolean)getValue();
       if (value.booleanValue())
         setSelected(true);
     }
@@ -277,21 +242,17 @@ public abstract class PropertyOption extends Option {
     }
     /** commit */
     public void endRepresentation() {
-      option.setValue(isSelected()?Boolean.TRUE : Boolean.FALSE);
+      setValue(isSelected()?Boolean.TRUE : Boolean.FALSE);
     }
   } //BooleanUI
 
   /**
    * A UI for text, numbers, etc.
    */
-  private static class SimpleUI extends TextFieldWidget implements OptionUI {
-    /** option */
-    private PropertyOption option;
-    
+  private class SimpleUI extends TextFieldWidget implements OptionUI {
     /** constructor */
-    SimpleUI(PropertyOption option) {
-      this.option = option;
-      Object value = option.getValue();
+    private SimpleUI() {
+      Object value = getValue();
       setText(value!=null?value.toString():"");
       setSelectAllOnFocus(true);
       setColumns(12);
@@ -306,7 +267,7 @@ public abstract class PropertyOption extends Option {
     }
     /** commit */
     public void endRepresentation() {
-      option.setValue(getText());
+      setValue(getText());
     }
   } //BooleanUI
   
@@ -315,6 +276,9 @@ public abstract class PropertyOption extends Option {
    */
   private static abstract class Impl extends PropertyOption {
 
+    /** option is for instance */
+    protected Object instance;
+  
     /** type */
     protected Class type;
   
@@ -328,13 +292,29 @@ public abstract class PropertyOption extends Option {
      * Constructor
      */
     protected Impl(Object instance, String property, Class type) {
-      super(instance, property);
+      super(property);
+      this.instance = instance;
       this.type     = type;
       
-      // TODO Options - hardcoded mapper for fonts
+      // FIXME derive mapper automatically
       this.mapper   = type==Font.class ? new FontMapper() : new Mapper();
     }
 
+    /**
+     * Accessor - category of this option
+     */
+    public String getCategory() {
+      String result = super.getCategory();
+      if (result==null) {
+        // try to localize?
+        Resources resources = Resources.get(instance);
+        result = resources.getString("options", false);
+        if (result!=null)
+          super.setCategory(result);
+      }
+      return result;
+    }
+    
     /**
      * Accessor - name of this option
      */
@@ -382,18 +362,18 @@ public abstract class PropertyOption extends Option {
      * Provider a UI for this option
      */  
     public OptionUI getUI(OptionsWidget widget) {
-      // TODO Options - hardcoded UI 
+      // FIXME derive UI automatically
       // a font?
       if (Font.class.isAssignableFrom(type))
-        return new FontUI(this);
+        return new FontUI();
       // a boolean?
       if (type==Boolean.TYPE)
-        return new BooleanUI(this);
+        return new BooleanUI();
       // a file?
       if (type==File.class)
-        return new FileUI(this);
+        return new FileUI();
       // all else
-      return new SimpleUI(this);
+      return new SimpleUI();
     }
   
     /**
@@ -417,17 +397,8 @@ public abstract class PropertyOption extends Option {
      * Accessor - current value of this option
      */
     public final void setValue(Object value) {
-      
-      // a change in value?
       try {
-        Object old = getValueImpl();
-        if (old==value)
-          return;
-        if (old!=null&&value!=null&&old.equals(value))
-          return;
-        
         setValueImpl(mapper.toObject(value, type));
-        
       } catch (Throwable t) {
         // not much we can do about that - ignored
       }

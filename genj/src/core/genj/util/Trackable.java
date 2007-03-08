@@ -20,18 +20,17 @@
 package genj.util;
 
 /**
- * Interface that defines how to track a progressing operation
+ * Interface that defines how to track progressing operation
  */
 public interface Trackable {
 
   /**
    * Cancels operation
    */
-  public void cancelTrackable();
+  public void cancel();
 
   /**
-   * Returns progress of operation in %
-   * @return percent as 0 to 100
+   * Returns progress of operation in % (0-100)
    */
   public int getProgress();
 

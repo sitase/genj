@@ -29,10 +29,8 @@
 package genj.app;
 
 import genj.Version;
-import genj.io.FileAssociation;
 import genj.util.EnvironmentChecker;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
@@ -42,7 +40,6 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -77,7 +74,7 @@ public class AboutWidget extends JPanel{
     JLabel pNorth = new JLabel(resources.getString("cc.about.dialog.northpanel.label"), null, JLabel.CENTER);
     
     // create a center panel
-    JTabbedPane pCenter = new JTabbedPane(SwingConstants.TOP);
+    JTabbedPane pCenter = new JTabbedPane(SwingConstants.LEFT);
     pCenter.addTab(resources.getString("cc.about.dialog.tab1.title"), null, new WelcomePanel());
     pCenter.addTab(resources.getString("cc.about.dialog.tab2.title"), null, new AuthorsPanel());
     pCenter.addTab(resources.getString("cc.about.dialog.tab3.title"), null, new CopyrightPanel());
@@ -89,7 +86,7 @@ public class AboutWidget extends JPanel{
     
     // done    
   }
-  
+
   /**
    * Helper to read text from a file
    */
@@ -100,7 +97,7 @@ public class AboutWidget extends JPanel{
       ta.read(in,null);
       fin.close();
     }
-    catch (Throwable t) {
+    catch (Exception e) {
       ta.setText(fallback);
     }
   }
@@ -143,6 +140,36 @@ public class AboutWidget extends JPanel{
     }      
   } // AuthorsPanel
 
+  /**
+   * Panel - Welcome
+   */  
+  private class WelcomePanel extends JPanel  {
+
+    /**
+     * Constructor
+     */
+    protected WelcomePanel() {
+      
+      super(new BorderLayout());
+        
+      // the text
+      JTextArea text = new JTextArea("\n" + resources.getString("cc.about.tab1.text1") +"\n\n",DEFAULT_ROWS,DEFAULT_COLS);
+      text.setBorder(new EmptyBorder(3, 3, 3, 3));    
+      text.setLineWrap(true);
+      text.setWrapStyleWord(true);
+      text.setEditable(false);
+    
+      // the version
+      JLabel version = new JLabel(resources.getString("app.title")+" "+Version.getInstance().getVersionString());
+    
+      // looks
+      add(text, BorderLayout.CENTER);
+      add(version, BorderLayout.SOUTH);
+      
+    }
+    
+  } // WelcomePanel
+  
   /**
    * Panel - Copyright
    */  
@@ -211,46 +238,6 @@ public class AboutWidget extends JPanel{
     }
   
   } // CopyrightPanel
-
-  /**
-   * Panel - Welcome
-   */  
-  private class WelcomePanel extends JPanel  {
-  
-    /**
-     * Constructor
-     */
-    protected WelcomePanel() {
-      
-      super(new BorderLayout());
-      
-      String msg = resources.getString("cc.about.tab1.text1", Version.getInstance().getVersionString());
-        
-      // the text
-      JTextArea text = new JTextArea(msg,DEFAULT_ROWS,DEFAULT_COLS);
-      text.setBorder(new EmptyBorder(3, 3, 3, 3));    
-      text.setLineWrap(true);
-      text.setWrapStyleWord(true);
-      text.setEditable(false);
-    
-      // looks
-      add(text, BorderLayout.CENTER);
-      add(new JButton(new Log()), BorderLayout.SOUTH);
-      
-    }
-    
-  }
-  
-  private class Log extends Action2 {
-    Log() {
-      setText("Log");
-    }
-    protected void execute() {
-      FileAssociation asso = FileAssociation.get(App.LOGFILE, "GenJ Log", AboutWidget.this);
-      if (asso!=null)
-        asso.execute(App.LOGFILE);
-    }
-  }
   
   
 } //AboutWidget

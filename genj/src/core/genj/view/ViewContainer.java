@@ -19,18 +19,14 @@
  */
 package genj.view;
 
-import genj.edit.actions.Redo;
-import genj.edit.actions.Undo;
-import genj.print.PrintRegistry;
-import genj.print.PrintTask;
+import genj.gedcom.Gedcom;
 import genj.print.Printer;
-import genj.util.swing.Action2;
+import genj.util.ActionDelegate;
+import genj.util.Registry;
 import genj.util.swing.ButtonHelper;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
-import java.util.Iterator;
-import java.util.logging.Level;
 
 import javax.swing.Box;
 import javax.swing.JComponent;
@@ -39,49 +35,54 @@ import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 
 /**
- * A swing container for a view widget 
+ * A wrapper for our views enabling action buttons
  */
 /*package*/ class ViewContainer extends JPanel {
   
-  private final static String
-    ACC_CLOSE = "ctrl W",
-    ACC_UNDO = "ctrl Z",
-    ACC_REDO = "ctrl Y";
-
+  /** the registry this view is for */
+  private Registry registry;
+  
   /** the toolbar we're using */
   private JToolBar bar;
   
-  /** the view's handle */
-  private ViewHandle viewHandle;
+  /** the view we're wrapping */
+  private JComponent view;
+  
+  /** the factory we've used */
+  private ViewFactory factory;
+  
+  /** the gedcom this view looks at */
+  private Gedcom gedcom;
+  
+  /** the manager */
+  private ViewManager manager;
+  
+  /** title */
+  private String title;
+  
+  /** key */
+  private String key;
+  
   
   /** 
    * Constructor
    */
-  /*package*/ ViewContainer(ViewHandle handle) {
-    
-    ViewManager mgr = handle.getManager();
+  /*package*/ ViewContainer(String kEy, String tiTle, Gedcom geDcom, Registry regIstry, ViewFactory facTory, ViewManager manAger) {
     
     // remember
-    viewHandle = handle;
-    JComponent view = viewHandle.getView();
+    manager = manAger;
+    key = kEy;
+    title = tiTle;
+    gedcom = geDcom;
+    registry = regIstry;
+    factory = facTory;
     
+    // create the view component
+    view = factory.createView(title, gedcom, registry, manager);
+
     // setup layout
     setLayout(new BorderLayout());
     add(view, BorderLayout.CENTER);
-    
-    // .. factory accelerators
-    for (Iterator it = mgr.keyStrokes2factories.keySet().iterator(); it.hasNext();) {
-      String keystroke = it.next().toString();
-      ViewFactory factory = (ViewFactory)mgr.keyStrokes2factories.get(keystroke);
-      ActionOpen open = new ActionOpen(factory);
-      open.setAccelerator(keystroke);
-      open.install(view, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    }
-
-    // ... default view accelerators (overwriting anything else)
-    new ActionClose().setAccelerator(ACC_CLOSE).install(view, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    new Undo(viewHandle.getGedcom(), true).setAccelerator(ACC_UNDO).install(view, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    new Redo(viewHandle.getGedcom(), true).setAccelerator(ACC_REDO).install(view, JComponent.WHEN_IN_FOCUSED_WINDOW);
 
     // done
   }
@@ -90,12 +91,18 @@ import javax.swing.SwingConstants;
    * Install toolbar at time of add
    */
   public void addNotify() {
-    
-    // let super do its things
+    // continue
     super.addNotify();
+    // install a toolbar
+    installToolBar(view, factory);
+  }
+  
+  /**
+   * Helper that creates the toolbar for the view
+   */
+  private void installToolBar(JComponent view, ViewFactory factory) {
     
     // only if ToolBarSupport and no bar installed
-    JComponent view = viewHandle.getView();
     if (!(view instanceof ToolBarSupport)||bar!=null) 
       return;
 
@@ -107,44 +114,78 @@ import javax.swing.SwingConstants;
     bar.add(Box.createGlue());
 
     // add our buttons     
-    ButtonHelper bh = new ButtonHelper().setContainer(bar);
-    bh.setInsets(0);
+    ButtonHelper bh = new ButtonHelper()
+      .setFocusable(false)
+      .setResources(ViewManager.resources)
+      .setContainer(bar);
 
     // .. a button for editing the View's settings
     if (SettingsWidget.hasSettings(view))
       bh.create(new ActionOpenSettings());
     
     // .. a button for printing View
-    try {
-      Printer printer = (Printer)Class.forName(view.getClass().getName()+"Printer").newInstance();
-      try {
-        printer.setView(view);
-        PrintTask print = new PrintTask(printer, viewHandle.getTitle(), view,  new PrintRegistry(viewHandle.getRegistry(), "print"));
-        print.setTip(ViewManager.RESOURCES, "view.print.tip");
-        bh.create(print);
-      } catch (Throwable t) {
-        ViewManager.LOG.log(Level.WARNING, "can't setup printing for printer "+printer.getClass().getName());
-      }
-    } catch (Throwable t) {
-    }
+    if (manager.getPrintManager()!=null&&isPrintable()) 
+      bh.create(new ActionPrint());
 
     // .. a button for closing the View
     bh.create(new ActionClose());
 
     // add it
-    add(bar, viewHandle.getRegistry().get("toolbar", BorderLayout.WEST));
+    add(bar, registry.get("toolbar", BorderLayout.WEST));
     
     // done
   }
   
   /**
-   * When adding components we fix a Toolbar's sub-component's orientation
+   * Checks whether this view is printable
+   */
+  /*package*/ boolean isPrintable() {
+    try {
+      if (Printer.class.isAssignableFrom(Class.forName(view.getClass().getName()+"Printer")))
+        return true;
+    } catch (Throwable t) {
+    }
+    return false;
+  }
+  
+  /**
+   * Accessor - the view
+   */
+  /*package*/ JComponent getView() {
+    return view;
+  }
+  
+  /**
+   * Accessor - the gedcom
+   */
+  /*package*/ Gedcom getGedcom() {
+    return gedcom;
+  }
+  
+  /**
+   * Accessor - the title
+   */
+  /*package*/ String getTitle() {
+    return title;
+  }
+  
+  /**
+   * Accessor - the key
+   */
+  /*package*/ String getKey() {
+    return key;
+  }
+  
+  /**
+   * When adding components we fix a Toolbar's sub-component's
+   * orientation
+   * @see java.awt.Container#addImpl(Component, Object, int)
    */
   protected void addImpl(Component comp, Object constraints, int index) {
     // restore toolbar orientation?
     if (comp==bar) {
       // remember
-      viewHandle.getRegistry().put("toolbar", constraints.toString());
+      registry.put("toolbar", constraints.toString());
       // find orientation
       int orientation = SwingConstants.HORIZONTAL;
       if (BorderLayout.WEST.equals(constraints)||BorderLayout.EAST.equals(constraints))
@@ -161,45 +202,48 @@ import javax.swing.SwingConstants;
   /**
    * Action - close view
    */
-  private class ActionClose extends Action2 {
+  private class ActionClose extends ActionDelegate {
     /** constructor */
     protected ActionClose() {
-      setImage(Images.imgClose);
-      setTip(ViewManager.RESOURCES, "view.close.tip");
+      super.setImage(Images.imgClose);
     }
     /** run */
     protected void execute() {
-      viewHandle.getManager().closeView(viewHandle);
+      manager.closeView(key);
     }
   } //ActionClose
   
   /**
-   * Action - open the settings of a view
+   * Action - print view
    */
-  private class ActionOpenSettings extends Action2 {
+  private class ActionPrint extends ActionDelegate {
     /** constructor */
-    protected ActionOpenSettings() {
-      super.setImage(Images.imgSettings).setTip(ViewManager.RESOURCES, "view.settings.tip");
+    protected ActionPrint() {
+      super.setImage(Images.imgPrint).setTip("view.print.tip");
     }
     /** run */
     protected void execute() {
-      viewHandle.getManager().openSettings(viewHandle);
+      try {
+        Printer printer = (Printer)Class.forName(view.getClass().getName()+"Printer").newInstance();
+        printer.setView(view);
+        manager.getPrintManager().print(printer, title, view, registry); 
+      } catch (Throwable t) {
+      }
+    }
+  } //ActionPrint
+  
+  /**
+   * Action - open the settings of a view
+   */
+  private class ActionOpenSettings extends ActionDelegate {
+    /** constructor */
+    protected ActionOpenSettings() {
+      super.setImage(Images.imgSettings).setTip("view.settings.tip");
+    }
+    /** run */
+    protected void execute() {
+      manager.openSettings(ViewContainer.this);
     }
   } //ActionOpenSettings
   
-  /**
-   * Open a view or bring to front
-   */
-  private class ActionOpen extends Action2 {
-    private ViewFactory factory;
-    /** constructor */
-    private ActionOpen(ViewFactory factory) {
-      this.factory = factory;
-    }
-    /** run */
-    protected void execute() {
-      viewHandle.getManager().openView(viewHandle.getGedcom(), factory, 1);
-    }
-  }
-    
 } //ViewWidget

@@ -19,14 +19,14 @@
  */
 package genj.view;
 
-import genj.util.swing.Action2;
+import genj.util.ActionDelegate;
+import genj.util.Resources;
 import genj.util.swing.ButtonHelper;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.util.Map;
+import java.util.Vector;
 import java.util.WeakHashMap;
-import java.util.logging.Level;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -42,8 +42,7 @@ import javax.swing.border.TitledBorder;
   
   /** components */
   private JPanel pSettings,pActions;
-  private ActionApply apply = new ActionApply();
-  private ActionReset reset = new ActionReset();
+  private Vector vButtons = new Vector();
   
   /** settings */
   private Settings settings;
@@ -54,7 +53,7 @@ import javax.swing.border.TitledBorder;
   /**
    * Constructor
    */
-  protected SettingsWidget(ViewManager manager) {
+  protected SettingsWidget(Resources resources, ViewManager manager) {
     
     // remember
     viewManager = manager;
@@ -65,11 +64,17 @@ import javax.swing.border.TitledBorder;
     // Panel for Actions
     JPanel pActions = new JPanel();
 
-    ButtonHelper bh = new ButtonHelper().setContainer(pActions);
-    
-    bh.create(apply);
-    bh.create(reset);
-    bh.create(new ActionClose());
+    ButtonHelper bh = new ButtonHelper()
+      .setResources(resources)
+      .setContainer(pActions)
+      .addCollection(vButtons)
+      .setEnabled(false);
+      
+    bh.create(new ActionApply());
+    bh.create(new ActionReset());
+    bh.removeCollection(vButtons)
+      .setEnabled(true)
+      .create(new ActionClose());
 
     // Layout
     setLayout(new BorderLayout());
@@ -82,24 +87,23 @@ import javax.swing.border.TitledBorder;
   /**
    * Sets the ViewSettingsWidget to display
    */
-  protected void setView(ViewHandle handle) {
+  protected void setViewWidget(ViewContainer vw) {
     
     // clear content
     pSettings.removeAll();
     
     // try to get settings
-    settings = getSettings(handle.getView());
+    settings = getSettings(vw.getView());
     if (settings!=null) {
-      settings.setView(handle.getView());
+      settings.setView(vw.getView());
       JComponent editor = settings.getEditor();
-      editor.setBorder(new TitledBorder(handle.getTitle()));
+      editor.setBorder(new TitledBorder(vw.getTitle()));
       pSettings.add(editor, BorderLayout.CENTER);
       settings.reset();
     }
       
     // enable buttons
-    apply.setEnabled(settings!=null);
-    reset.setEnabled(settings!=null);
+    ButtonHelper.setEnabled(vButtons, settings!=null);
     
     // show
     pSettings.revalidate();
@@ -111,23 +115,20 @@ import javax.swing.border.TitledBorder;
   /**
    * closes the settings
    */
-  private class ActionClose extends Action2 {
+  private class ActionClose extends ActionDelegate {
     private ActionClose() {
-      setText(ViewManager.RESOURCES, "view.close");
+      setText("view.close");
     }
     protected void execute() {
-      WindowManager.getInstance(getTarget()).close("settings");
+      viewManager.getWindowManager().close("settings");
     }
   } //ActionClose
   
   /**
    * Applies the changes currently being done
    */
-  private class ActionApply extends Action2 {
-    protected ActionApply() { 
-      setText(ViewManager.RESOURCES, "view.apply"); 
-      setEnabled(false);
-    }
+  private class ActionApply extends ActionDelegate {
+    protected ActionApply() { super.setText("view.apply"); }
     protected void execute() {
       settings.apply();
     }
@@ -136,11 +137,8 @@ import javax.swing.border.TitledBorder;
   /**
    * Resets any change being done
    */
-  private class ActionReset extends Action2 {
-    protected ActionReset() { 
-      setText(ViewManager.RESOURCES, "view.reset"); 
-      setEnabled(false);
-    }
+  private class ActionReset extends ActionDelegate {
+    protected ActionReset() { super.setText("view.reset"); }
     protected void execute() {
       settings.reset();
     }
@@ -168,14 +166,11 @@ import javax.swing.border.TitledBorder;
     if (result!=null) return result;
     
     // create
-    String type = viewType.getName()+"Settings";
     try {
-      result = (Settings)Class.forName(type).newInstance();
+      result = (Settings)Class.forName(viewType.getName()+"Settings").newInstance();
       result.init(viewManager);
       cache.put(viewType, result);
     } catch (Throwable t) {
-      result = null;
-      ViewManager.LOG.log(Level.WARNING, "couldn't instantiate settings for "+view, t);
     }
     
     // done

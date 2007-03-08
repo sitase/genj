@@ -20,23 +20,38 @@
 package genj.gedcom;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Class for encapsulating a family with parents and children
  */
 public class Fam extends Entity {
   
-  public final static TagPath
+  private final static TagPath
     PATH_FAMMARRDATE = new TagPath("FAM:MARR:DATE"),
-    PATH_FAMMARRPLAC = new TagPath("FAM:MARR:PLAC"),
-    PATH_FAMDIVDATE  = new TagPath("FAM:DIV:DATE"),
-    PATH_FAMDIVPLAC  = new TagPath("FAM:MARR:PLAC");
-  
-  private final static Comparator SORT_SIBLINGS =  new PropertyComparator("INDI:BIRT:DATE");
+    PATH_FAMDIVDATE = new TagPath("FAM:DIV:DATE");
+
+  /**
+   * Adds another child to the family
+   */
+  Fam addChild(Indi newChild) throws GedcomException {
+
+    // Remember Indi who is child
+    PropertyChild pc = new PropertyChild(newChild.getId());
+    addProperty(pc);
+
+    // Link !
+    try {
+      pc.link();
+    } catch (GedcomException ex) {
+      delProperty(pc);
+      throw ex;
+    }
+
+    return this;
+  }
 
   /**
    * Returns child #i
@@ -59,29 +74,16 @@ public class Fam extends Entity {
    * Returns children
    */
   public Indi[] getChildren() {
-    return getChildren(true);
-  }
-  
-  /**
-   * Returns children
-   */
-  public Indi[] getChildren(boolean sorted) {
     
-    ArrayList children = new ArrayList(getNoOfProperties());
+    ArrayList result = new ArrayList(getNoOfProperties());
     
-    List childs = getProperties(PropertyChild.class);
-    for (int i=0,j=childs.size();i<j;i++) {
-      PropertyChild prop = (PropertyChild)childs.get(i);
-      if (prop.isValid()) 
-        children.add(prop.getChild());
+    for (int i=0,j=getNoOfProperties();i<j;i++) {
+      Property prop = getProperty(i);
+      if ("CHIL".equals(prop.getTag())&&prop.isValid()) 
+        result.add(((PropertyChild)prop).getChild());
     }
-    
-    // convert to array & sort
-    Indi[] result = Indi.toIndiArray(children);
-    if (sorted) Arrays.sort(result, SORT_SIBLINGS);
-    
-    // done
-    return result;
+
+    return Indi.toIndiArray(result);
   }
 
   /**
@@ -101,7 +103,7 @@ public class Fam extends Entity {
     int result = 0;
     for (int i=0,j=getNoOfProperties();i<j;i++) {
       Property prop = getProperty(i);
-      if (prop.getClass()==PropertyChild.class&&prop.isValid())
+      if ("CHIL".equals(prop.getTag())&&prop.isValid())
         result++;
     }
     return result;
@@ -116,25 +118,6 @@ public class Fam extends Entity {
     if (getWife   ()!=null) result++;
     return result;
   } 
-  
-  /**
-   * Spouse by index
-   */
-  public Indi getSpouse(int which) {
-    Indi husband = getHusband();
-    if (husband!=null) {
-      if (which==0)
-        return husband;
-      which--;
-    }
-    Indi wife = getWife();
-    if (wife!=null) {
-      if (which==0)
-        return wife;
-      which--;
-    }
-    throw new IllegalArgumentException("No such spouse");
-  }
 
   /**
    * Returns the other parent to the given one
@@ -157,9 +140,60 @@ public class Fam extends Entity {
   }
 
   /**
+   * Calculate a set of ancestors of this family
+   * (husband + wife and their ancestors) 
+   */
+  public Set getAncestors() {
+    return getAncestors(new HashSet());
+  }
+  
+  /*package*/ Set getAncestors(Set collect) {
+    
+    // Husband ?
+    Indi husband = getHusband();
+    if (husband!=null&&!collect.contains(husband)) {
+      collect.add(husband); 
+      husband.getAncestors(collect);
+    }
+  
+    // Wife ?
+    Indi wife = getWife();
+    if (wife!=null&&!collect.contains(wife)) {
+      collect.add(wife); 
+      wife.getAncestors(collect);
+    }
+      
+    // done
+    return collect;
+  }
+  
+  /**
+   * Calculate a set of descendants of this family
+   * (children and their descendants) 
+   */
+  public Set getDescendants() {
+    return getDescendants(new HashSet());
+  }
+  
+  /*package*/ Set getDescendants(Set collect) {
+    
+    // children?
+    Indi[] children = getChildren();
+    for (int c=0; c<children.length; c++) {
+      Indi child = children[c];
+      if (collect.contains(child)) continue;
+      collect.add(child);
+      child.getDescendants(collect);    	
+    }
+    
+    // done
+    return collect;
+  }
+
+  /**
    * Sets the husband of this family
    */
-  public PropertyXRef setHusband(Indi husband) throws GedcomException {
+  private Indi setHusband(Indi husband) throws GedcomException {
     
     // Remove old husband (first valid one would be the one)
     for (int i=0,j=getNoOfProperties();i<j;i++) {
@@ -191,13 +225,13 @@ public class Fam extends Entity {
       husband.setSex(PropertySex.MALE);
 
     // done    
-    return ph;
+    return husband;
   }
 
   /**
    * Sets the wife of the family
    */
-  public PropertyXRef setWife(Indi wife) throws GedcomException {
+  private Indi setWife(Indi wife) throws GedcomException {
 
     // Remove old wife (first valid one would be the one)
     for (int i=0,j=getNoOfProperties();i<j;i++) {
@@ -229,71 +263,51 @@ public class Fam extends Entity {
       wife.setSex(PropertySex.FEMALE);
 
     // Done
-    return pw;
+    return wife;
   }
 
   /**
    * Sets one of the spouses
-   * @param spouse the spouse to set as husband or wife
-   * @return the property pointing to spouse after the change
    */
-  public PropertyXRef setSpouse(Indi spouse) throws GedcomException {  
+  /*package*/ void setSpouse(Indi spouse) throws GedcomException {  
     
     Indi husband = getHusband();
     Indi wife = getWife();
     
     // won't do if husband and wife already known
     if (husband!=null&&wife!=null)
-      throw new GedcomException(resources.getString("error.already.spouses", this));
+      throw new GedcomException("Family already has two spouses");
 
     // check gender of spouse 
-    PropertyXRef HUSBorWIFE;
     switch (spouse.getSex()) {
       default:
       case PropertySex.UNKNOWN:
-        // set as blank spouse
-        HUSBorWIFE = husband!=null ? setWife(spouse) : setHusband(spouse);
+        // remember new spouse
+        if (husband!=null) setWife(spouse);
+        else setHusband(spouse);
+        // done
         break;
       case PropertySex.MALE:
-        // overwrite husband
-        HUSBorWIFE = setHusband(spouse);
+        // remember new husband
+        setHusband(spouse);
         // keep old husband as wife if necessary
         if (husband!=null)
-          setWife(husband);
+          wife = setWife(husband);
+        // done
         break;
       case PropertySex.FEMALE:
-        // overwrite wife
-        HUSBorWIFE = setWife(spouse);
+        // remember new wife
+        setWife(spouse);
         // keep old wife as husband if necessary
         if (wife!=null)
-          setHusband(wife);
+          husband = setHusband(wife);
+        // done
         break;
     }
     
     // done
-    return HUSBorWIFE;
   }
   
-  /**
-   * Adds another child to the family
-   */
-  public PropertyXRef addChild(Indi newChild) throws GedcomException {
-
-    // Remember Indi who is child
-    PropertyChild pc = new PropertyChild(newChild.getId());
-    addProperty(pc);
-
-    // Link !
-    try {
-      pc.link();
-    } catch (GedcomException ex) {
-      delProperty(pc);
-      throw ex;
-    }
-
-    return pc;
-  }
-
   /**
    * list of famas to array
    */
@@ -328,24 +342,11 @@ public class Fam extends Entity {
    * @return date or null
    */
   public PropertyDate getMarriageDate() {
-      return getMarriageDate(false);
     // Calculate MARR|DATE
+    return (PropertyDate)getProperty(PATH_FAMMARRDATE);
   }
 
   /**
-   * returns a PropertyDate view on the marriage date of this family
-   * @param create if true, and the property doesn't already exist,  initialize the Property
-   * @return a PropertyDate or null.  If create is true, this method will not return null
-   */
-  public PropertyDate getMarriageDate(boolean create) {
-      PropertyDate date = (PropertyDate)getProperty(PATH_FAMMARRDATE);
-      if( null != date || !create )
-          return date;
-      setValue(PATH_FAMMARRDATE,"");
-      return (PropertyDate)getProperty(PATH_FAMMARRDATE);
-  }
-
-/**
    * Calculate fam's divorce date
    * @return date or null
    */

@@ -19,87 +19,89 @@
  */
 package genj.edit.beans;
 
+import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyAge;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.gedcom.time.Delta;
+import genj.util.ActionDelegate;
+import genj.util.GridBagHelper;
 import genj.util.Registry;
-import genj.util.swing.Action2;
-import genj.util.swing.NestedBlockLayout;
+import genj.util.swing.ButtonHelper;
 import genj.util.swing.TextFieldWidget;
+import genj.view.ViewManager;
 
-import javax.swing.JButton;
 import javax.swing.JLabel;
 
 /**
- * A bean that lets the user edit AGE
+ * A Proxy knows how to generate interaction components that the user
+ * will use to change a property : AGE
  */
 public class AgeBean extends PropertyBean {
   
   private final static String TEMPLATE = "99y 9m 9d";
 
+  /** age */
+  private PropertyAge age;
+
   /** members */
   private TextFieldWidget tfield;
-  private ActionUpdate update;
-  private String newAge;
-  
+
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    super.commit(property);
+  public void commit(Transaction tx) {
     property.setValue(tfield.getText());
   }
-  
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    tfield = new TextFieldWidget("", TEMPLATE.length());
-    tfield.addChangeListener(changeSupport);
-    
-    setLayout(new NestedBlockLayout("<col><row><value/><template/></row><row><action/></row></col>"));
-    add(tfield);
-    add(new JLabel(TEMPLATE));
-    
-    update =  new ActionUpdate();
-    add(new JButton(update));
-    
-  }
-  
+
   /**
-   * Set context to edit
+   * Start editing a property
    */
-  public void setProperty(PropertyAge age) {
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
 
-    // remember property
-    property = age;
-    
-    // update components
-    tfield.setText(age.getValue());
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
 
-    Delta delta = Delta.get(age.getEarlier(), age.getLater());
-    newAge = delta==null ? null : delta.getValue();
-    update.setEnabled(newAge!=null);
+    // keep age
+    age = (PropertyAge)property;
     
+    // create input
+    tfield = new TextFieldWidget(property.getValue(), TEMPLATE.length());
+    tfield.addChangeListener(changeSupport);
+
+    // layout
+    GridBagHelper gh = new GridBagHelper(this);
+    gh.add(tfield                                       ,0,0);
+    gh.setParameter(GridBagHelper.GROWFILL_HORIZONTAL);
+    gh.add(new JLabel(TEMPLATE)                         ,1,0);
+    gh.setParameter(0);
+    gh.add(new ButtonHelper().create(new ActionUpdate()),2,0);
+    gh.addFiller(1,1);
+
     // Done
   }
   
   /**
    * Action Update age
    */
-  private class ActionUpdate extends Action2 {
-    
+  private class ActionUpdate extends ActionDelegate {
     /**
      * Constructor
      */
     private ActionUpdate() {
-      setImage(PropertyAge.IMG);
+      setImage(property.getImage(false));
       setTip(resources.getString("age.tip"));
+      if (age.getEarlier()==null||age.getLater()==null)
+        setEnabled(false);
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
-      tfield.setText(newAge);
+      Delta delta = Delta.get(age.getEarlier(), age.getLater());
+      if (delta==null)
+        return;
+      tfield.setText(delta.getValue());
     }
   } //ActionUpdate
 

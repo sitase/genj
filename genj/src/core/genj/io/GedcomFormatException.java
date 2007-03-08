@@ -20,7 +20,7 @@
 package genj.io;
 
 /**
- * An exception wrapping a problem with Gedcom data during read operations
+ * An exception wrapping a problem with Gedcom data format
  */
 public class GedcomFormatException extends GedcomIOException {
 

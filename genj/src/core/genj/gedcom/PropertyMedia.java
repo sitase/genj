@@ -31,13 +31,27 @@ import java.util.List;
 public class PropertyMedia extends PropertyXRef implements IconValueAvailable {
 
   /**
+   * Empty Constructor
+   */
+  public PropertyMedia() {
+  }
+  
+  /**
+   * Constructor with reference
+   * @param target reference of property this property links to
+   */
+  public PropertyMedia(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
    * This will be called once when instantiation has
    * happend - it's our chance to substitute this with
    * a read-only value if no reference applicable
    */
   /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
     // expecting NOTE
-    meta.assertTag("OBJE");
+    assume("OBJE".equals(meta.getTag()), UNSUPPORTED_TAG);
     // ONLY for @..@!!!
     if (value.startsWith("@")&&value.endsWith("@"))
       return super.init(meta,value);
@@ -59,15 +73,28 @@ public class PropertyMedia extends PropertyXRef implements IconValueAvailable {
    */
   public void link() throws GedcomException {
 
+    // Get enclosing entity ?
+    Entity entity = getEntity();
+
+    // Something to do ?
+    if (getReferencedEntity()!=null)
+      return;
+
     // Look for media
-    Media media = (Media)getCandidate();
+    String id = getReferencedId();
+    if (id.length()==0)
+      return;
+
+    Media media = (Media)getGedcom().getEntity(Gedcom.OBJE, id);
+    if (media==null)
+      throw new GedcomException("Couldn't find entity with ID "+id);
 
     // Create a back-reference
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     media.addProperty(fxref);
 
     // .. and point to it
-    link(fxref);
+    setTarget(fxref);
 
     // Done
 

@@ -15,9 +15,6 @@ import genj.gedcom.PropertyEvent;
 import genj.gedcom.time.PointInTime;
 import genj.report.Report;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -27,128 +24,117 @@ import java.util.List;
 public class ReportAlmanac extends Report {
 
   /**
-   * main for Gedcom
+   * this report works on gedcom file or individual
    */
-  public void start(Gedcom gedcom) {
-    report(gedcom, gedcom.getEntities(Gedcom.INDI));
+  public String accepts(Object context) {
+    if (context instanceof Gedcom)
+      return i18n("context.ged" , ((Gedcom)context).getName());
+    if (context instanceof Indi)
+      return i18n("context.indi");
+    return null;
   }
 
   /**
-   * main for Indi
+   * main method
    */
-  public void start(Indi indi) {
-    report(indi.getGedcom(), Collections.singletonList(indi));
-  }
-
-  /**
-   * main for Indis
-   */
-  public void start(Indi[] indis) {
-    report(indis[0].getGedcom(), Arrays.asList(indis));
-  }
-
-  /**
-   * main for dates
-   */
-  public void start(PropertyDate[] dates)
-  {
-    // collect 'lifespan'
-    PointInTime
-      from = new PointInTime(),
-      to   = new PointInTime();
-
-    for (int i=0;i<dates.length;i++)
-      getTimespan(dates[i], from, to);
-
-    if (!from.isValid()||!to.isValid())
-      return;
-
-    // report it
-    report(getAlmanac().getEvents(from, to, null));
-
-  }
-
-  /**
-   * Report events for list of individuals
-   */
-  private void report(Gedcom ged, Collection indis) {
-
-    Iterator events = getEvents(ged, indis);
+  public void start(Object context) {
+    
+    Iterator events = getEvents(context);
     if (events==null) {
-      println(translate("norange", indis.size()));
+      println(i18n("norange", context));
       return;
     }
-
-    report(events);
-
-  }
-
-  private void report(Iterator events) {
 
     int num = 0;
     while (events.hasNext()) {
       println(" + "+events.next());
       num++;
     }
-    println(translate("found", new Integer(num)));
-
+    println(i18n("found", new Integer(num)));
+    
     // done
   }
-
+  
   /**
-   * Lookup alamanac events for the given individuals
+   * Lookup events for context
    */
-  private Iterator getEvents(Gedcom gedcom, Collection indis) {
+  private Iterator getEvents(Object context) {
+    if (context instanceof Gedcom)
+      return getEvents((Gedcom)context);
+    if (context instanceof Indi)
+      return getEvents((Indi)context);
+    throw new IllegalArgumentException("context n/a");
+  }
+  
+  /**
+   * Lookup alamanac events range for gedcom
+   */
+  private Iterator getEvents(Gedcom ged) {
 
-    // collect 'lifespan'
-    PointInTime
-      from = new PointInTime(),
-      to   = new PointInTime();
+    PointInTime 
+  	from = new PointInTime(), 
+  	to   = new PointInTime();
 
-    for (Iterator it=indis.iterator(); it.hasNext(); )
-      getLifespan((Indi)it.next(), from, to);
+    Iterator indis = ged.getEntities(Gedcom.INDI).iterator();
+    while (indis.hasNext()) {
+      getLifespan((Indi)indis.next(), from, to);
+    }
 
-    // got something?
+    if (!from.isValid()||!to.isValid())
+      return null;
+    
+    println(i18n("header", new Object[]{ ged, from, to}));
+
+    return getAlmanac().getEvents(from, to, null);
+  }  
+  
+  /**
+   * Lookup alamanac events range for individual
+   */
+  private Iterator getEvents(Indi indi) {
+    
+    PointInTime 
+    	from = new PointInTime(), 
+    	to   = new PointInTime();
+
+    getLifespan(indi, from, to);
+    
     if (!from.isValid()||!to.isValid())
       return null;
 
-    println(translate("header", new Object[]{ gedcom, from, to}));
-
+    println(i18n("header", new Object[]{ indi, from, to}));
+    
     return getAlmanac().getEvents(from, to, null);
-  }
-
+  }  
+  
   /**
    * Get start end of indi
    */
   private void getLifespan(Indi indi, PointInTime from, PointInTime to) {
-
+    
     // look at his events to find start and end
     List events = indi.getProperties(PropertyEvent.class);
     for (int e=0; e<events.size(); e++) {
       Property event = (Property)events.get(e);
       PropertyDate date = (PropertyDate)event.getProperty("DATE");
-      getTimespan(date, from, to);
+      if (date==null||!date.isValid())
+        continue;
+      try {
+	      PointInTime 
+	      	start = date.getStart().getPointInTime(PointInTime.GREGORIAN),
+	      	end   = date.isRange() ? date.getEnd().getPointInTime(PointInTime.GREGORIAN) : start;
+	      if (!from.isValid()||from.compareTo(start)>0)
+	        from.set(start);
+	      if (!to.isValid()||to  .compareTo(end  )<0)
+	        to.set(end);
+      } catch (GedcomException ge) {
+        // ignored
+      }
     }
-
+    
     // done
   }
-
-  private void getTimespan(PropertyDate date, PointInTime from, PointInTime to) {
-    if (date==null||!date.isValid())
-      return;
-    try {
-      PointInTime
-        start = date.getStart().getPointInTime(PointInTime.GREGORIAN),
-        end   = date.isRange() ? date.getEnd().getPointInTime(PointInTime.GREGORIAN) : start;
-      if (!from.isValid()||from.compareTo(start)>0)
-        from.set(start);
-      if (!to.isValid()||to  .compareTo(end  )<0)
-        to.set(end);
-    } catch (GedcomException ge) {
-      // ignored
-    }
-  }
-
+  
   /**
    * Get initialized almanac
    */
@@ -157,5 +143,5 @@ public class ReportAlmanac extends Report {
     almanac.waitLoaded();
     return almanac;
   }
-
+  
 } //ReportAlmanac

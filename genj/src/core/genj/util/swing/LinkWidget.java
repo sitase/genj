@@ -3,103 +3,105 @@
  */
 package genj.util.swing;
 
-
-import java.awt.Color;
 import java.awt.Cursor;
-import java.awt.Graphics;
-import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 
-import javax.swing.Icon;
-import javax.swing.JLabel;
+import javax.swing.JButton;
 import javax.swing.SwingConstants;
 
 /**
  * 
  */
-public class LinkWidget extends JLabel {
+public class LinkWidget extends JButton {
   
   /** status hover */
   private boolean hover = false;
 
-  /** action */
-  private Action2 action;
-  
-  /** normal color */
-  private Color normal;
-  
-  /**
-   * Constructor
-   */
-  public LinkWidget(Action2 action) {
-    this(action.getText(), action.getImage());
-    setToolTipText(action.getTip());
-    this.action = action;
-  }
-  
-  /**
-   * Constructor
-   */
-  public LinkWidget(String text, Icon img) {
-    super(text, img, SwingConstants.LEFT);
-    addMouseListener(new Callback());
-    setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-  }
+  /** text */
+  private String plain, underlined;
   
   /**
    * Constructor
    */
   public LinkWidget(ImageIcon img) {
-    this(null, img);
+    this();
+    setIcon(img);
   }
   
   /**
    * Constructor
    */
   public LinkWidget() {
-    this(null,null);
+
+    // change looks
+    setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    setBorder(null);
+    setBorderPainted(false);
+    try {
+      super.setFocusable(false);
+    } catch (Throwable t) {
+      // try pre 1.4 instead
+      super.setRequestFocusEnabled(false);
+    }
+
+    setFocusPainted(false);
+    setContentAreaFilled(false);
+    setHorizontalAlignment(SwingConstants.LEFT);
+    
+    // listen
+    addMouseListener(new Callback());
+    
+    // done
   }
    
-  /** 
-   * action performed
+  /**
+   * Overriden to try 1.4's super.setFocusable()
+   * @see java.awt.Component#setFocusable(boolean)
    */
-  protected void fireActionPerformed() {
-    if (action!=null)
-      action.actionPerformed(new ActionEvent(this, 0, ""));
+  public void setFocusable(boolean focusable) {
+    try {
+      super.setFocusable(focusable);
+    } catch (Throwable t) {
+      // try pre 1.4 instead
+      super.setRequestFocusEnabled(false);
+    }
+  }
+   
+  /**
+   * @see javax.swing.AbstractButton#setText(java.lang.String)
+   */
+  public void setText(String text) {
+    // remember
+    plain = ("<html>"+text);
+    underlined = ("<html><u>"+text);
+    // continue
+    super.setText(plain);
   }
 
   /**
-   * overridden paint
+   * setText
    */
-  protected void paintComponent(Graphics g) {
-    // let the UI do its thing
-    super.paintComponent(g);
-    // add a line
-    if (!hover) return;
-    g.setColor(getForeground());
-    g.drawLine(1,getHeight()-1,getWidth()-1-1,getHeight()-1);
-    // done
+  private void setTextInternal(String text) {
+    super.setText(text);
   }
   
   /**
    * A private callback code block
    */
   private class Callback extends MouseAdapter {
-    
-    /** click -> action */
-    public void mouseClicked(MouseEvent e) {
-      fireActionPerformed();
-    }
-    /** exit -> plain */
+    /**
+     * @see java.awt.event.MouseAdapter#mouseExited(java.awt.event.MouseEvent)
+     */
     public void mouseExited(MouseEvent e) {
-      hover = false;
-      repaint();
+      setTextInternal(plain);
     }
-    /** exit -> underlined */
+
+    /**
+     * @see java.awt.event.MouseAdapter#mouseEntered(java.awt.event.MouseEvent)
+     */
     public void mouseEntered(MouseEvent e) {
-      hover = true;
-      repaint();
+      setTextInternal(underlined);
     }
     
   } //Callback

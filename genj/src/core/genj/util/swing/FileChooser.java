@@ -113,11 +113,11 @@ public class FileChooser extends JFileChooser {
       int dot = name.lastIndexOf('.');
       if (dot<0)
         return false;
-      String ext = name.substring(dot+1); 
+      String ext = name.substring(dot+1).toLowerCase(); 
         
       // loop
       for (int i=0;i<exts.length;i++) {
-        if (exts[i].equalsIgnoreCase(ext))
+        if (exts[i].equals(ext))
           return true;
       }
       

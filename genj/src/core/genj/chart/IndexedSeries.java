@@ -31,31 +31,7 @@ import org.jfree.data.xy.AbstractXYDataset;
 import org.jfree.data.xy.TableXYDataset;
 
 /**
- * An indexed series is an implementation for index/value pairs and very
- * well suitable for simple category/value statistics. Example:
- * <pre>
- *  IndexedSeries series = new IndexedSeries("DaysInMonths", 12);
- *  series.set( 0,31);
- *  series.set( 1,28); // not a leap year
- *  series.set( 2,31);
- *  series.set( 3,30);
- *  series.set( 4,31);
- *  series.set( 5,30);
- *  series.set( 6,31);
- *  series.set( 7,31);
- *  series.set( 8,30);
- *  series.set( 9,31);
- *  series.set(10,30);
- *  series.set(11,31);
- * </pre>
- * When collecting statistical data, an instance can be created
- * and then used as means of collecting what's analysed:
- * <pre>
- *  IndexedSeries series = new IndexedSeries("BirthInMonths", 12);
- *  series.inc(5-1); // another birth in may 
- *  series.inc(12-1); // found a birth in december
- *  ...
- * </pre>
+ * A series of category/value pairs
  */
 public class IndexedSeries {
 
@@ -69,28 +45,21 @@ public class IndexedSeries {
   private int start;
   
   /**
-   * Create an indexed series with new name but indexes as in template
-   * @param name the name of this index
-   * @param template the template to copy indexe characteristics from
+   * Constructor
    */
   public IndexedSeries(String name, IndexedSeries template) {
     this(name, template.start, template.values.length);
   }
   
   /**
-   * Create an indexed series with new name and number of indexes
-   * @param name the name of this index
-   * @param size number of indexes
+   * Constructor
    */
   public IndexedSeries(String name, int size) {
     this(name,0,size);
   }
   
   /**
-   * Create an indexed series with new name and index characteristics
-   * @param name the name of this index
-   * @param start first index
-   * @param size number of indexes
+   * Constructor
    */
   public IndexedSeries(String name, int start, int size) {
     this.name = name;
@@ -99,23 +68,21 @@ public class IndexedSeries {
   }
   
   /**
-   * Accssor - set current name
-   * @param set the new name
+   * Accssor - name
    */
   public void setName(String set) {
     name = set;
   }
   
   /**
-   * Accssor - get current name
+   * Accssor - name
    */
   public String getName() {
     return name;
   }
   
   /**
-   * Accessor - get current value at given index
-   * @param i the index
+   * Access
    */
   public float get(int i) {
     // apply start offset
@@ -125,9 +92,7 @@ public class IndexedSeries {
   }
   
   /**
-   * Accessor - set current value at given index
-   * @param i the index
-   * @param val the new value
+   * Cell Access
    */
   public void set(int i, float val) {
     // apply start offset
@@ -140,8 +105,7 @@ public class IndexedSeries {
   }
   
   /**
-   * Accessor - increment current value at given index
-   * @param i the index
+   * Cell Access
    */
   public void inc(int i) {
     // apply start offset
@@ -154,8 +118,7 @@ public class IndexedSeries {
   }
   
   /**
-   * Accessor - decrement current value at given index
-   * @param i the index
+   * Cell Access
    */
   public void dec(int i) {
     // apply start offset
@@ -168,8 +131,7 @@ public class IndexedSeries {
   }
   
   /**
-   * Convenient converter to get a list of series from
-   * a dynamic collection containing indexed series
+   * Convenient converter
    */
   public static IndexedSeries[] toArray(Collection c) {
     return (IndexedSeries[])c.toArray(new IndexedSeries[c.size()]);
@@ -178,21 +140,21 @@ public class IndexedSeries {
   /**
    * Wrap into something JFreeChart can use
    */
-  /*package*/ static PieDataset asPieDataset(IndexedSeries series, String[] categories) {
+  public static PieDataset asPieDataset(IndexedSeries series, String[] categories) {
     return new PieDatasetImpl(series, categories);
   }
   
   /**
    * Wrap into something JFreeChart can use
    */
-  /*package*/ static CategoryDataset asCategoryDataset(IndexedSeries[] series, String[] categories) {
+  public static CategoryDataset asCategoryDataset(IndexedSeries[] series, String[] categories) {
     return new CategoryDatasetImpl(series, categories);
   }
   
   /**
    * Wrap into something JFreeChart can use
    */
-  /*package*/ static TableXYDataset asTableXYDataset(IndexedSeries[] series) {
+  public static TableXYDataset asTableXYDataset(IndexedSeries[] series) {
     return new TableXYDatasetImpl(series);
   }
   

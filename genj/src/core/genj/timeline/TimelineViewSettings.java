@@ -20,14 +20,14 @@
 package genj.timeline;
 
 import genj.almanac.Almanac;
-import genj.gedcom.Grammar;
+import genj.gedcom.MetaProperty;
 import genj.gedcom.PropertyEvent;
 import genj.gedcom.TagPath;
 import genj.util.Resources;
 import genj.util.swing.ColorsWidget;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.ListSelectionWidget;
-import genj.util.swing.NestedBlockLayout;
+import genj.util.swing.SpinnerWidget;
 import genj.view.Settings;
 import genj.view.ViewManager;
 
@@ -36,13 +36,13 @@ import java.awt.Color;
 import java.util.Iterator;
 import java.util.List;
 
+import javax.swing.Box;
+import javax.swing.BoxLayout;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
-import javax.swing.SpinnerNumberModel;
 
 /**
  * The ViewInfo representing settings of a TimelineView
@@ -70,7 +70,7 @@ public class TimelineViewSettings extends JTabbedPane implements Settings {
   private ListSelectionWidget pathsList = new ListSelectionWidget() {
     protected ImageIcon getIcon(Object choice) {
       TagPath path = (TagPath)choice;
-      return Grammar.getMeta(path).getImage();
+      return MetaProperty.get(path).getImage();
     }
   };
   
@@ -82,13 +82,16 @@ public class TimelineViewSettings extends JTabbedPane implements Settings {
   };
   
   /** Checkbox for options */
-  private JCheckBox 
-    checkTags = new JCheckBox(resources.getString("info.show.tags" )),
-    checkDates = new JCheckBox(resources.getString("info.show.dates")),
-    checkGrid = new JCheckBox(resources.getString("info.show.grid" ));
+  private JCheckBox[] checkOptions = {
+    new JCheckBox(resources.getString("info.show.tags" )),
+    new JCheckBox(resources.getString("info.show.dates")),
+    new JCheckBox(resources.getString("info.show.grid" ))
+  };
   
-  /** spinners */
-  private JSpinner spinCmBefEvent, spinCmAftEvent;
+  /** models for spinners */
+  private SpinnerWidget.FractionModel
+    modCmBefEvent = new SpinnerWidget.FractionModel(TimelineView.MIN_CM_BEF_EVENT, TimelineView.MAX_CM_BEF_EVENT, 1),
+    modCmAftEvent = new SpinnerWidget.FractionModel(TimelineView.MIN_CM_AFT_EVENT, TimelineView.MAX_CM_AFT_EVENT, 1);
      
   /** colorchooser for colors */
   private ColorsWidget colorWidget;
@@ -98,27 +101,26 @@ public class TimelineViewSettings extends JTabbedPane implements Settings {
    */
   public void init(ViewManager manager) {
     
-    // create a panel for check and cm options
-    JPanel panelOptions = new JPanel(new NestedBlockLayout(
-        "<col><check gx=\"1\"/><check gx=\"1\"/><check gx=\"1\"/><row><label/><spin/></row><row><label/><spin/></row></col>"
-        ));
+    // panel for checkbox options    
+    Box panelOptions = new Box(BoxLayout.Y_AXIS);
+    for (int i=0; i<checkOptions.length; i++) {
+      checkOptions[i].setAlignmentX(0F);
+      panelOptions.add(checkOptions[i]);
+    }
     
-    // ... checkboxes    
-    panelOptions.add(checkTags);
-    panelOptions.add(checkDates);
-    panelOptions.add(checkGrid);
-    
-    spinCmBefEvent = createSpinner(TimelineView.MIN_CM_BEF_EVENT, TimelineView.MAX_CM_BEF_EVENT, resources.getString("info.befevent.tip"));
-    panelOptions.add(new JLabel(resources.getString("info.befevent")));
+    SpinnerWidget spinCmBefEvent = new SpinnerWidget(resources.getString("info.befevent"), 5, modCmBefEvent);
+    spinCmBefEvent.setToolTipText(resources.getString("info.befevent.tip"));
     panelOptions.add(spinCmBefEvent);
-
-    spinCmAftEvent = createSpinner(TimelineView.MIN_CM_AFT_EVENT, TimelineView.MAX_CM_AFT_EVENT, resources.getString("info.aftevent.tip"));
-    panelOptions.add(new JLabel(resources.getString("info.aftevent")));
+    
+    SpinnerWidget spinCmAftEvent = new SpinnerWidget( resources.getString("info.aftevent"), 5, modCmAftEvent );
+    spinCmAftEvent.setToolTipText(resources.getString("info.aftevent.tip"));
     panelOptions.add(spinCmAftEvent);
+    
+    JLabel labelEvents = new JLabel(resources.getString("info.events"));
     
     // panel for main options
     JPanel panelMain = new JPanel(new BorderLayout());
-    panelMain.add(new JLabel(resources.getString("info.events")), BorderLayout.NORTH);
+    panelMain.add(labelEvents , BorderLayout.NORTH);
     panelMain.add(pathsList   , BorderLayout.CENTER);
     panelMain.add(panelOptions, BorderLayout.SOUTH);
     
@@ -136,16 +138,6 @@ public class TimelineViewSettings extends JTabbedPane implements Settings {
 
     // done
   }
-  
-  private JSpinner createSpinner(double min, double max, String tip) {
-    
-    JSpinner result = new JSpinner(new SpinnerNumberModel(min, min, max, 0.1D));
-    JSpinner.NumberEditor editor = new JSpinner.NumberEditor(result, "##0.0");
-    result.setEditor(editor);
-    result.addChangeListener(editor);
-    result.setToolTipText(tip);
-    return result;
-  }
 
   /**
    * Tells the ViewInfo to apply made changes
@@ -156,15 +148,12 @@ public class TimelineViewSettings extends JTabbedPane implements Settings {
     view.getModel().setPaths(pathsList.getSelection());
     
     // checks
-    view.setPaintTags(checkTags.isSelected());
-    view.setPaintDates(checkDates.isSelected());
-    view.setPaintGrid(checkGrid.isSelected());
+    view.setPaintTags(checkOptions[0].isSelected());
+    view.setPaintDates(checkOptions[1].isSelected());
+    view.setPaintGrid(checkOptions[2].isSelected());
     
     // sliders
-    view.setCMPerEvents(
-       ((Double)spinCmBefEvent.getModel().getValue()).doubleValue(), 
-       ((Double)spinCmAftEvent.getModel().getValue()).doubleValue()
-    );
+    view.setCMPerEvents(modCmBefEvent.getDoubleValue(), modCmAftEvent.getDoubleValue());
     
     // colors
     Iterator colors = view.colors.keySet().iterator();
@@ -198,13 +187,13 @@ public class TimelineViewSettings extends JTabbedPane implements Settings {
     pathsList.setSelection(view.getModel().getPaths());
     
     // Checks
-    checkTags.setSelected(view.isPaintTags());
-    checkDates.setSelected(view.isPaintDates());
-    checkGrid.setSelected(view.isPaintGrid());
+    checkOptions[0].setSelected(view.isPaintTags());
+    checkOptions[1].setSelected(view.isPaintDates());
+    checkOptions[2].setSelected(view.isPaintGrid());
 
     // sliders
-    spinCmBefEvent.setValue(new Double(view.getCmBeforeEvents()));
-    spinCmAftEvent.setValue(new Double(view.getCmAfterEvents()));
+    modCmBefEvent.setDoubleValue(view.getCmBeforeEvents());
+    modCmAftEvent.setDoubleValue(view.getCmAfterEvents());
     
     // colors
     colorWidget.removeAllColors();

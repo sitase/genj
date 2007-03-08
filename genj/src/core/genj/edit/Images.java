@@ -35,8 +35,7 @@ final public class Images {
     
     imgStickOn,
     imgStickOff,
-    imgBack,
-    imgForward,
+    imgReturn,
     
     imgUndo,
     imgRedo,
@@ -44,11 +43,9 @@ final public class Images {
     imgCut,
     imgCopy, 
     imgPaste,
-    
-    imgNew,
 	
-    imgDelEntity,
-    imgNewEntity;
+    imgDelete,
+    imgNew;
 
   /**
    * Constructor which pre-loads all images
@@ -60,8 +57,7 @@ final public class Images {
 
     imgStickOn   = new ImageIcon(this,"images/StickOn.gif");
     imgStickOff  = new ImageIcon(this,"images/StickOff.gif");
-    imgBack    = new ImageIcon(this,"images/Return.gif");
-    imgForward  = new ImageIcon(this,"images/Forward.gif");
+    imgReturn    = new ImageIcon(this,"images/Return.gif");
 
     imgUndo      = new ImageIcon(this,"images/Undo.gif");
     imgRedo      = new ImageIcon(this,"images/Redo.gif");
@@ -70,9 +66,7 @@ final public class Images {
     imgCopy      = new ImageIcon(this,"images/Copy.gif");
     imgPaste     = new ImageIcon(this,"images/Paste.gif");
     
-    imgNew     = new ImageIcon(this,"images/New.gif");
-    
-    imgNewEntity   = new ImageIcon(this,"images/entity/New.gif");
-    imgDelEntity    = new ImageIcon(this,"images/entity/Delete.gif");
+    imgNew       = new ImageIcon(this,"images/entity/New.gif");
+    imgDelete    = new ImageIcon(this,"images/entity/Delete.gif");
   }
 }

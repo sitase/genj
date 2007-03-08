@@ -26,7 +26,6 @@ package genj.gedcom;
 public class PropertyHusband extends PropertyXRef {
 
   public final static String TAG = "HUSB";
-  public final static String LABEL_FATHER = Gedcom.resources.getString("HUSB.father");
 
   /**
    * Empty Constructor
@@ -37,8 +36,15 @@ public class PropertyHusband extends PropertyXRef {
   /**
    * Constructor with reference
    */
-  protected PropertyHusband(String target) {
+  public PropertyHusband(String target) {
     setValue(target);
+  }
+
+  /**
+   * Constructor with reference
+   */
+  public PropertyHusband(PropertyXRef target) {
+    super(target);
   }
 
   /**
@@ -47,9 +53,6 @@ public class PropertyHusband extends PropertyXRef {
    * @return warning as <code>String</code>, <code>null</code> when no warning
    */
   public String getDeleteVeto() {
-    // warn if linked
-    if (getTargetEntity()==null) 
-      return null;
     return resources.getString("prop.husb.veto");
   }
 
@@ -57,7 +60,7 @@ public class PropertyHusband extends PropertyXRef {
    * Returns the husband
    */
   public Indi getHusband() {
-    return (Indi)getTargetEntity();
+    return (Indi)getReferencedEntity();
   }
 
   /**
@@ -74,12 +77,17 @@ public class PropertyHusband extends PropertyXRef {
    */
   public void link() throws GedcomException {
 
+    // Something to do ?
+    if (getHusband()!=null) {
+      return;
+    }
+
     // Get enclosing family ?
     Fam fam;
     try {
       fam = (Fam)getEntity();
     } catch (ClassCastException ex) {
-      throw new GedcomException(resources.getString("error.noenclosingfam"));
+      throw new GedcomException("HUSB can't be linked to individual when not in family");
     }
 
     // Prepare some VARs
@@ -88,34 +96,38 @@ public class PropertyHusband extends PropertyXRef {
 
     // Enclosing family has a husband already ?
     if (fam.getHusband()!=null)
-      throw new GedcomException(resources.getString("error.already.spouse", new String[]{ fam.getHusband().toString(), fam.toString()}));
+      throw new GedcomException("Family @"+fam.getId()+"@ can't have two husbands");
 
     // Look for husband (not-existing -> Gedcom throws Exception)
-    Indi husband = (Indi)getCandidate();
+    String id = getReferencedId();
+    Indi husband = (Indi)getGedcom().getEntity(Gedcom.INDI, id);
 
-    // make sure wife isn't also husband
+    if (husband==null)
+      throw new GedcomException("Couldn't find husband with ID "+id);
+
+    // Enclosing family has indi as descendant or wife ?
     if (fam.getWife()==husband)
-      throw new GedcomException(resources.getString("error.already.spouse", new String[]{ husband.toString(), fam.toString()}));
+      throw new GedcomException("Individual @"+id+"@ is already wife in family @"+fam.getId()+"@");
 
-    // make sure the husband isn't descendant of family
-    if (husband.isDescendantOf(fam))
-      throw new GedcomException(resources.getString("error.already.descendant", new String[]{ husband.toString(), fam.toString()}));
-    
+    if (fam.getDescendants().contains(husband))
+      throw new GedcomException("Individual @"+id+"@ is already descendant of family @"+fam.getId()+"@");
+
     // Connect back from husband (maybe using invalid back reference)
     ps = husband.getProperties(new TagPath("INDI:FAMS"));
     PropertyFamilySpouse pfs;
     for (int i=0;i<ps.length;i++) {
       pfs = (PropertyFamilySpouse)ps[i];
-      if (pfs.isCandidate(fam)) {
-        link(pfs);
+      if ( !pfs.isValid() && pfs.getReferencedId().equals(fam.getId()) ) {
+        pfs.setTarget(this); // Changed Oct 23 from pfs.setTarget(pfs);
+        setTarget(pfs);      // Inserted Oct 23
         return;
       }
     }
 
     // .. new back referencing property
-    pfs = new PropertyFamilySpouse();
+    pfs = new PropertyFamilySpouse(this);
     husband.addProperty(pfs);
-    link(pfs);
+    setTarget(pfs);
 
     // Done
   }

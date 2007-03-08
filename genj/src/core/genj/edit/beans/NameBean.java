@@ -19,23 +19,19 @@
  */
 package genj.edit.beans;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.geom.Point2D;
 
+import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyName;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
-import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextFieldWidget;
-import genj.window.WindowManager;
+import genj.view.ViewManager;
 
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
-import javax.swing.border.EmptyBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 /**
  * A Proxy knows how to generate interaction components that the user
@@ -43,123 +39,64 @@ import javax.swing.event.ChangeListener;
  */
 public class NameBean extends PropertyBean {
 
-  private final static NestedBlockLayout LAYOUT = new NestedBlockLayout("<col><row><l/><v wx=\"1\"/></row><row><l/><v wx=\"1\"/><check/></row><row><l/><v wx=\"1\"/></row></col>");
-  
   /** our components */
-  private Property[] sameLastNames;
-  private ChoiceWidget cLast, cFirst;
-  private JCheckBox cAll;
-  private TextFieldWidget tSuff;
-
-  /**
-   * Calculate message for replace all last names
-   */
-  private String getReplaceAllMsg() {
-    if (sameLastNames.length<2)
-      return null;
-    // we're using getDisplayValue() here
-    // because like in PropertyRelationship's case there might be more
-    // in the gedcom value than what we want to display (witness@INDI:BIRT)
-    return resources.getString("choice.global.confirm", new String[]{ ""+sameLastNames.length, ((PropertyName)getProperty()).getLastName(), cLast.getText()});
-  }
-  
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    setLayout(LAYOUT.copy());
-
-    cLast  = new ChoiceWidget();
-    cLast.addChangeListener(changeSupport);
-    cLast.addChangeListener(new ChangeListener() {
-      public void stateChanged(ChangeEvent e) {
-        String msg = getReplaceAllMsg();
-        if (msg!=null) {
-          cAll.setVisible(true);
-          cAll.setToolTipText(msg);
-        }
-      }
-    });
-    cLast.setIgnoreCase(true);
-    cFirst = new ChoiceWidget();
-    cFirst.addChangeListener(changeSupport);
-    cFirst.setIgnoreCase(true);
-    tSuff  = new TextFieldWidget("", 10); 
-    tSuff.addChangeListener(changeSupport);
-
-    cAll = new JCheckBox();
-    cAll.setBorder(new EmptyBorder(1,1,1,1));
-    cAll.setVisible(false);
-    cAll.setRequestFocusEnabled(false);
-    
-    add(new JLabel(PropertyName.getLabelForFirstName()));
-    add(cFirst);
-
-    add(new JLabel(PropertyName.getLabelForLastName()));
-    add(cLast);
-    add(cAll);
-
-    add(new JLabel(PropertyName.getLabelForSuffix()));
-    add(tSuff);
-
-    // listen to selection of global and ask for confirmation
-    cAll.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) {
-        String msg = getReplaceAllMsg();
-        WindowManager wm = WindowManager.getInstance(NameBean.this);
-        if (wm!=null&&msg!=null&&cAll.isSelected()) {
-          int rc = wm.openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), NameBean.this);
-          cAll.setSelected(rc==0);
-        }        
-      }
-    });
-    
-    
-    // we're done aside from declaring the default focus
-    defaultFocus = cFirst;
-
-  }
+  private ChoiceWidget cLast;
+  private TextFieldWidget tFirst, tSuff;
 
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
+  public void commit(Transaction tx) {
 
-    super.commit(property);
-    
     // ... calc texts
-    String first = cFirst.getText().trim();
+    String first = tFirst.getText().trim();
     String last  = cLast .getText().trim();
     String suff  = tSuff .getText().trim();
 
     // ... store changed value
     PropertyName p = (PropertyName) property;
-    p.setName( first, last, suff, cAll.isSelected());
+    p.setName( first, last, suff );
 
     // Done
   }
 
   /**
-   * Set context to edit
+   * Initialize
    */
-  public void setProperty(PropertyName name) {
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
 
-    // remember property
-    property = name;
-    
-    // keep track of who has the same last name
-    sameLastNames = name.getSameLastNames();
-    
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
+
     // first, last, suff
-    cLast.setValues(name.getLastNames(true));
-    cLast.setText(name.getLastName());
-    cFirst.setValues(name.getFirstNames(true));
-    cFirst.setText(name.getFirstName()); 
-    tSuff.setText(name.getSuffix()); 
+    PropertyName pname = (PropertyName)property;
     
-    cAll.setVisible(false);
-    cAll.setSelected(false);
+    cLast  = new ChoiceWidget(PropertyName.getLastNames(setGedcom, true).toArray(), pname.getLastName());
+    cLast.addChangeListener(changeSupport);
+    tFirst = new TextFieldWidget(pname.getFirstName(), 10); 
+    tFirst.addChangeListener(changeSupport);
+    tSuff  = new TextFieldWidget(pname.getSuffix()   , 10); 
+    tSuff.addChangeListener(changeSupport);
+
+    add(new JLabel(PropertyName.getLabelForFirstName()));
+    add(tFirst);
+
+    add(new JLabel(PropertyName.getLabelForLastName()));
+    add(cLast);
+
+    add(new JLabel(PropertyName.getLabelForSuffix()));
+    add(tSuff);
+
+
+    defaultFocus = tFirst;
 
     // done
+  }
+  
+  /**
+   * Grow is ok
+   */
+  public Point2D getWeight() {
+    return new Point2D.Double(0.1,0);
   }
 
 } //ProxyName

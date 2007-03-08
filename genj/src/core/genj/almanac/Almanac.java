@@ -21,7 +21,7 @@ package genj.almanac;
 
 import genj.gedcom.GedcomException;
 import genj.gedcom.time.PointInTime;
-import genj.util.EnvironmentChecker;
+import genj.util.Debug;
 import genj.util.Resources;
 
 import java.io.BufferedReader;
@@ -34,14 +34,11 @@ import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.StringTokenizer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -54,8 +51,6 @@ import javax.swing.event.ChangeListener;
  * A global Almanac for all kinds of historic events
  */
 public class Almanac {
-  
-  private final static Logger LOG = Logger.getLogger("genj.almanac");
   
   private final static Resources RESOURCES = Resources.get(Almanac.class);
   
@@ -72,7 +67,7 @@ public class Almanac {
   private List events = new ArrayList();
   
   /** categories */
-  private Set categories = new HashSet();
+  private List categories = new ArrayList();
   
   /** whether we've loaded all events */
   private boolean isLoaded = false;
@@ -94,13 +89,11 @@ public class Almanac {
     new Thread(new Runnable() {
       public void run() {
         try {
-          if ("fr".equals(Locale.getDefault().getLanguage()))
-            new AlmanacLoader().load();
-          else
-            new WikipediaLoader().load();
+          new WikipediaLoader().load();
+          new AlmanacLoader().load();
         } catch (Throwable t) {
         }
-  	    LOG.info("Loaded "+events.size()+" events");
+  	    Debug.log(Debug.INFO, Almanac.this, "Loaded "+events.size()+" events");
   	    synchronized (events) {
   	      isLoaded = true;
   	      events.notifyAll();
@@ -139,15 +132,24 @@ public class Almanac {
   }
   
   /**
-   * Registers another category
+   * Get a category by name - this effectivly reusee
+   * category strings if the first word in name is a
+   * valid prefix
    */
-  protected String addCategory(String name) {
+  protected String getCategory(String name) {
+    
+    String key = new StringTokenizer(name," ").nextToken().toLowerCase();
     
     synchronized (categories) {
+      for (int i = 0; i < categories.size(); i++) {
+        String old = (String)categories.get(i);
+        if (old.toLowerCase().startsWith(key))
+          return old;
+      }
       categories.add(name);
+      return name;
     }
     
-    return name;
   }
   
   /**
@@ -204,7 +206,7 @@ public class Almanac {
 		    files = dir.listFiles();
 		  
 		  if (files.length==0) {
-		    LOG.info("Found no file(s) in "+dir.getAbsoluteFile());
+		    Debug.log(Debug.INFO, Almanac.this, "Found no file(s) in "+dir.getAbsoluteFile());
 		    return;
 		  }
 		  
@@ -212,11 +214,11 @@ public class Almanac {
 		  for (int f = 0; f < files.length; f++) {
 		    File file = files[f];
 		    if (accept(dir, file.getName())) {
-    	    LOG.info("Loading "+file.getAbsoluteFile());
+    	    Debug.log(Debug.INFO, Almanac.this, "Loading "+file.getAbsoluteFile());
     	    try {
 	          load(file);
 	        } catch (IOException e) {
-	    	    LOG.log(Level.WARNING, "IO Problem reading "+file.getAbsoluteFile(), e);
+	    	    Debug.log(Debug.WARNING, Almanac.this, "IO Problem reading "+file.getAbsoluteFile(), e);
 	        }
 		    }
       }
@@ -285,11 +287,7 @@ public class Almanac {
     }
     /** look into ./contrib/almanac */
     protected File getDirectory() {
-      return new File(EnvironmentChecker.getProperty(this,
-          new String[]{ "genj.almanac.dir", "user.dir/contrib/almanac"},
-          "contrib/almanac",
-          "find almanac files"
-        ));
+      return new File("./contrib/almanac");
     }
     /**
      * get buffered reader from file
@@ -309,9 +307,9 @@ public class Almanac {
       if (date.length()<4)
         return null;
       int year  = Integer.parseInt(date.substring(0, 4));
-      int month = date.length()>=6 ? Integer.parseInt(date.substring(4, 6))-1 : PointInTime.UNKNOWN;
-      int day   = date.length()>=8 ? Integer.parseInt(date.substring(6, 8))-1 : PointInTime.UNKNOWN;
-      PointInTime time = new PointInTime(day, month, year);
+      int month = date.length()>=6 ? Integer.parseInt(date.substring(4, 6)) : 0;
+      int day   = date.length()>=8 ? Integer.parseInt(date.substring(6, 8)) : 0;
+      PointInTime time = new PointInTime(day-1, month-1, year);
       if (!time.isValid())
         return null;
       // #2 date
@@ -360,7 +358,7 @@ public class Almanac {
         String cat = RESOURCES.getString("category."+key, false);
         if (cat==null)
           cat = RESOURCES.getString("category.*");
-        result.add(addCategory(cat));
+        result.add(getCategory(cat));
       }
       
       return result;
@@ -388,7 +386,9 @@ public class Almanac {
     // 19700525\Births\Nils Meier
     private Pattern REGEX_LINE = Pattern.compile("(.*?)\\\\(.*?)\\\\(.*)");
     
-    private String SUFFIX = ".wikipedia.zip";
+    private final String DIR = "./contrib/wikipedia";
+    
+    private final String SUFFIX = ".wikipedia.zip";
     
     private String file;
     
@@ -396,10 +396,7 @@ public class Almanac {
     protected File getDirectory() {
       
       // we know were those are
-      File result = new File(EnvironmentChecker.getProperty(this,
-          new String[]{ "genj.wikipedia.dir", "user.dir/contrib/wikipedia"}, "contrib/wikipedia",
-          "find wikipedia files"
-        ));
+      File result = new File(DIR);
       
       // look for applicable one (language)
       String lang = Locale.getDefault().getLanguage();
@@ -457,7 +454,7 @@ public class Almanac {
         return null;
       
 		  // lookup category
-		  List cats = Collections.singletonList(addCategory(group));
+		  List cats = Collections.singletonList(getCategory(group));
 
       // create event
 		  return new Event(cats, pit, text); 
@@ -479,7 +476,7 @@ public class Almanac {
     
     private Event next;
 
-    private Set cats;
+    private Set categories;
     
     /**
      * Constructor
@@ -516,7 +513,7 @@ public class Almanac {
     
     private void init(Set cats) {
       
-      this.cats = cats;
+      categories = cats;
       
 	    synchronized (events) {
 	      end = events.size();
@@ -554,7 +551,7 @@ public class Almanac {
 	        // here's the next
 		      next = (Event)events.get(start++);
 		      // good category?
-		      if (cats!=null&&!next.isCategory(cats)) 
+		      if (categories!=null&&!next.isCategory(categories)) 
 	          continue;
 		      // before earliest?
 		      PointInTime time = next.getTime();

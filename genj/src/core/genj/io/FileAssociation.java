@@ -19,32 +19,21 @@
  */
 package genj.io;
 
-import genj.util.Resources;
+import genj.util.Debug;
 
-import java.awt.Component;
-import java.io.File;
-import java.net.URL;
+import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.StringTokenizer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import javax.swing.JFileChooser;
 
 /**
  * A file association
  */
 public class FileAssociation {
-  
-  private static Logger LOG = Logger.getLogger("genj.io");
   
   /** instances */
   private static List associations = new LinkedList();
@@ -77,16 +66,6 @@ public class FileAssociation {
     // get name and executable
     name = tokens.nextToken();
     executable = tokens.nextToken();
-    // done
-  }
-  
-  /**
-   * Constructor
-   */
-  public FileAssociation(String suffixes, String name, String executable) throws IllegalArgumentException {
-    setSuffixes(suffixes);
-    this.name = name;
-    this.executable = executable;
     // done
   }
   
@@ -154,122 +133,28 @@ public class FileAssociation {
   /**
    * Execute
    */
-  public void execute(URL url) {
-    new Thread(new Sequence(url.toString())).start();
-  }
-  
-  /**
-   * Execute
-   */
-  public void execute(File file) {
-    // go
-    new Thread(new Sequence(file.getAbsolutePath())).start();
-  }
-  
-  private class Sequence implements Runnable {
-    private String file;
-    Sequence(String file) {
-      this.file = file;
-    }
-    public void run() {
-      runCommands();
-    }
-    
-    private void runCommands() {
-      // loop over commands
-      StringTokenizer cmds =  new StringTokenizer(getExecutable(), "&");
-      while (cmds.hasMoreTokens()) 
-        runCommand(cmds.nextToken().trim());
-    }      
-    
-    private void runCommand(String cmd) {
-      
-      // make sure there's at least one file argument somewhere - quote if necessary
-      if (cmd.indexOf('%')<0) {
-        cmd = cmd + " " + (file.indexOf(' ')<0 ?  "%" : "\"%\"");
+  public boolean execute(String parm) {
+    // run the executable
+    try {
+      String cmd = getExecutable(); 
+      // does executable contain '%'?
+      int i = cmd.indexOf('%');
+      if (i<0) {
+        cmd += ' ' + parm;
+      } else {
+        // 20050522 removed extra spaces around parm since user might have enclosed % in quotes already
+        cmd = cmd.substring(0, i) + parm + cmd.substring(i+1);
       }
+      // exec' it 
+      if (null!=Runtime.getRuntime().exec(cmd)) return true;
+      Debug.log(Debug.WARNING, this, "Couldn't start external application "+getExecutable());
+      return false;
+    } catch (IOException e) {
+      Debug.log(Debug.WARNING, this, "Couldn't start external application "+getExecutable(), e);
+      return false;
+    }
+  }
 
-      // look for % replacements
-      // example - the forward slash is meant to be a backward slash here
-      // file = c:/documents and settings/user/foo.ps
-      // path = c://documents and settings//user//foo.ps
-      // suffix = ps
-      // nosuffix = c://documents and settings//user//foo
-      String suffix = getSuffix(file);
-      String pathRegEx = file.replaceAll("\\\\","\\\\\\\\");
-      String pathNoSuffixRegEx = pathRegEx.substring(0, pathRegEx.length()-suffix.length()-1);
-      
-      // replace file placeholders %.suffix first
-      cmd = Pattern.compile("%(\\.[a-zA-Z]*)").matcher(cmd).replaceAll(pathNoSuffixRegEx+"$1");
-      // replace file placholders % next
-      cmd = Pattern.compile("%").matcher(cmd).replaceAll(pathRegEx);
-      
-      // parse it
-      String[] cmdarray = parse(cmd);
-      
-      // run it
-      LOG.info("Running command: "+Arrays.asList(cmdarray));
-      
-      try {
-        int rc = Runtime.getRuntime().exec(cmdarray).waitFor(); 
-        if (rc!=0) 
-          LOG.log(Level.INFO, "External returned "+rc);
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "External threw "+t.getMessage(), t);
-      }
-      
-    }
-    
-  } // Sequence of Commands run sequentially
-
-  /**
-   * Our own parse cmd into tokens - the Java implementation breaks down the cmd into
-   * strings not minding quotes. The string is re-assembled fine in the windows implementation
-   * but fails to assemble nicely on Linux. This leads to no-quotes and therefore no-spaces
-   * on Linux otherwise.
-   */
-  public static String[] parse(String cmd) {
-    
-    List tokens = new ArrayList();
-    StringBuffer token = new StringBuffer(32);
-    boolean quoted=false;
-    for (int i=0;i<cmd.length();i++) {
-      char c = cmd.charAt(i);
-      switch (c) {
-        case ' ': 
-        case '\t':
-          if (quoted) {
-            token.append(c);
-          } else {
-            if (token.length()>0) tokens.add(token.toString());
-            token.setLength(0);
-          }
-          break;
-        case '\"':
-          if (quoted) {
-            tokens.add(token.toString());
-            token.setLength(0);
-            quoted = false;
-          } else {
-            if (token.length()>0) tokens.add(token.toString());
-            token.setLength(0);
-            quoted = true;
-          }
-          break;
-        default:
-          token.append(c);
-      }
-    }
-    if (quoted) {
-      LOG.warning("Umatched quotes in "+cmd);
-    }
-    if (token.length()>0) tokens.add(token.toString());
-    
-    // done 
-    return (String[])tokens.toArray(new String[tokens.size()]);
-    
-  }
-  
   /**
    * Gets all
    */
@@ -288,70 +173,6 @@ public class FileAssociation {
         result.add(fa);
     }
     return result;
-  }
-  
-  /**
-   * Get the file suffix for given file
-   */
-  public static String getSuffix(File file) {
-    return getSuffix(file.getName());
-  }
-  
-  public static String getSuffix(String file) {
-    
-    // grab extension
-    Matcher m = Pattern.compile(".*\\.(.*)$").matcher(file);
-    
-    // done
-    return m.matches() ? m.group(1) : "";
-  }
-  
-  /**
-   * Gets first available association or asks the user for appropriate one
-   */
-  public static FileAssociation get(File file, String name, Component owner) {
-    String suffix = getSuffix(file);
-    if (suffix.length()==0)
-      return null;
-    return get(suffix, suffix, name, owner);
-  }
-  
-  /**
-   * Gets first available association or asks the user for appropriate one for a browser url and executes it
-   */
-  public static void open(URL url, Component owner) {
-    // find browser capable assoc
-    FileAssociation association = FileAssociation.get("html", "html, htm, xml", "Browse", owner);
-    if (association!=null)  
-      association.execute(url);
-  }
-  
-  /**
-   * Gets first available association or asks the user for appropriate one
-   */
-  public static FileAssociation get(String suffix, String suffixes, String name, Component owner) {
-    // look for it
-    Iterator it = associations.iterator();
-    while (it.hasNext()) {
-      FileAssociation fa = (FileAssociation)it.next();
-      if (fa.suffixes.contains(suffix))
-        return fa;
-    }
-    // not found - ask for it
-    JFileChooser chooser = new JFileChooser();
-    chooser.setDialogTitle(Resources.get(FileAssociation.class).getString("assocation.choose", suffixes));
-    int rc = chooser.showOpenDialog(owner);
-    File file = chooser.getSelectedFile(); 
-    if (rc!=JFileChooser.APPROVE_OPTION||file==null||!file.exists())
-      return null;
-    // find out path
-    String executable =  file.getAbsolutePath();
-    if (executable.indexOf(' ')>=0) executable = "\"" +executable + "\"";
-    // keep it
-    FileAssociation association = new FileAssociation(suffixes, name, executable);
-    add(association);
-    // done
-    return association;
   }
   
   /**

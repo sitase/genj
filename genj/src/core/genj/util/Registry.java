@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.29 $ $Author: nmeier $ $Date: 2007-02-07 20:31:16 $
+ * $Revision: 1.21 $ $Author: nmeier $ $Date: 2004-11-07 01:14:05 $
  */
 package genj.util;
 
@@ -43,14 +43,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Vector;
-import java.util.logging.Logger;
 
 /**
  * Registry - improved java.util.Properties
  */
 public class Registry {
-  
-  private final static Logger LOG = Logger.getLogger("genj.util");
 
   private String view;
   private Properties properties;
@@ -105,13 +102,9 @@ public class Registry {
    * Constructor for registry loaded relative to given Origin
    */
   public Registry(String name, Origin origin) {
-    
     this();
-
     // read all relative to origin
     if (origin!=null) {
-      
-      LOG.fine("Loading registry '"+name+".properties' from origin "+origin);
       try {
         InputStream in = origin.open(name+".properties");
         properties.load(in);
@@ -120,11 +113,21 @@ public class Registry {
       }
     }
     
-    // read all from local registry
+    // read all from local registry (old style)
     try {
-      File file = getFile(name);
-      LOG.fine("Loading registry '"+name+"' from file "+file.getAbsolutePath());
-      FileInputStream in = new FileInputStream(file);
+      File old = getFile(name, false);
+      if (old.exists()) {
+        FileInputStream in = new FileInputStream(old);
+        properties.load(in);
+        in.close();
+        old.delete();
+      }
+    } catch (Throwable t) {
+    }
+    
+    // read all from local registry (new style)
+    try {
+      FileInputStream in = new FileInputStream(getFile(name, true));
       properties.load(in);
       in.close();
     } catch (Throwable t) {
@@ -151,13 +154,6 @@ public class Registry {
     this.parent     = registry;
 
     // Done
-  }
-  
-  /**
-   * Set registry content by other
-   */
-  public void set(Registry registry) {
-    this.properties = (Properties)registry.properties.clone();
   }
   
   /**
@@ -190,13 +186,10 @@ public class Registry {
   }
 
   /**
-   * Returns a registry for given logical name (lazy once instantiation)
+   * Returns a registry for given logical name (might be null)
    */
-  public static Registry lookup(String name, Origin origin) {
-    Registry result = (Registry)registries.get(name);
-    if (result!=null)
-      return result;
-    return new Registry(name, origin);
+  public static Registry lookup(String name) {
+    return (Registry)registries.get(name);
   }
   
   /**
@@ -259,7 +252,7 @@ public class Registry {
 
     // Get size of array
     int size = get(key,-1);
-    if (size<0)
+    if (size==-1)
       return def;
 
     // Gather array
@@ -478,6 +471,7 @@ public class Registry {
     try {
       result = (Collection)def.getClass().newInstance();
     } catch (Throwable t) {
+      Debug.log(Debug.WARNING, this, "Couldn't instantiate new collection of type "+def.getClass().getName());
       return def;
     }
     
@@ -540,10 +534,8 @@ public class Registry {
     else
       result = parent.get(view+"."+key,def);
 
-    // verify it exists
-    // 20060222 NM can't assume length()==0 means default should apply - it could indeed mean an empty value!
-    // 20040523 NM removed trim() to allow for leading/trailing space values
-    if (result==null)
+    // .. existing ? 20040523 removed trim() to allow for leading/trailing space values
+    if (result==null||result.length()==0)
       return def;
       
     // Done
@@ -557,11 +549,9 @@ public class Registry {
 
     // store
     if (parent==null) {
+
       // 20040523 removed check for old value - don't need it imho
-      if (value==null)
-        properties.remove(key);
-      else
-        properties.put(key,value);
+      properties.put(key,value);
     } else {
       parent.put(view+"."+key,value);
     }
@@ -763,17 +753,20 @@ public class Registry {
   /**
    * Calculates a filename for given registry name
    */
-  private static File getFile(String name) {
+  private static File getFile(String name, boolean newStyle) {
     
     name = name+".properties";
     
     String dir = EnvironmentChecker.getProperty(
       Registry.class,
-      new String[]{ "user.home.genj" },
+      new String[]{ "user.home" },
       ".",
       "calculate dir for registry file "+name
     );
     
+    if (newStyle)
+      dir = dir + "/.genj";
+      
     return new File(dir,name);
   }
 
@@ -792,15 +785,14 @@ public class Registry {
 
       // Open known file
       try {
-        File file = getFile(key);
-        
-        LOG.fine("Storing registry in file "+file.getAbsolutePath());
+        File file = getFile(key, true);
         file.getParentFile().mkdirs();
         FileOutputStream out = new FileOutputStream(file);
         registry.properties.store(out,key);
         out.flush();
         out.close();
       } catch (IOException ex) {
+        Debug.log(Debug.ERROR, Registry.class,"Couldn't save registry "+key,ex);
       }
 
     }

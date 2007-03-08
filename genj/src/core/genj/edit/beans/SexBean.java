@@ -19,11 +19,15 @@
  */
 package genj.edit.beans;
 
+import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
+import genj.util.ActionDelegate;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
+import genj.view.ViewManager;
 
 import javax.swing.AbstractButton;
 import javax.swing.BoxLayout;
@@ -41,29 +45,10 @@ public class SexBean extends PropertyBean {
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    
-    super.commit(property);
+  public void commit(Transaction tx) {
     
     PropertySex sex = (PropertySex)property; 
     sex.setSex(getSex());
-  }
-  
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    // use our layout
-    setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-      
-    // create buttons    
-    ButtonHelper bh = new ButtonHelper()
-      .setButtonType(JRadioButton.class)
-      .setContainer(this);
-    bh.createGroup();
-    for (int i=0;i<buttons.length;i++)
-      buttons[i] = bh.create( new Gender(i) );
-    
-    // Done
   }
   
   /**
@@ -82,16 +67,28 @@ public class SexBean extends PropertyBean {
   }
 
   /**
-   * Set context to edit
+   * Initialize
    */
-  public void setProperty(PropertySex sex) {
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
 
-    // remember property
-    property = sex;
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
+  
+    // use our layout
+    setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+      
+    // we know it's PropertySex
+    PropertySex p = (PropertySex) property;
+
+    // create buttons    
+    ButtonHelper bh = new ButtonHelper()
+      .setButtonType(JRadioButton.class)
+      .setContainer(this);
+    bh.createGroup();
+    for (int i=0;i<buttons.length;i++)
+      buttons[i] = bh.create( new Gender(i) );
+    buttons[p.getSex()].setSelected(true);
     
-    // show it
-    buttons[sex.getSex()].setSelected(true);
-    defaultFocus = buttons[0];
+    defaultFocus = buttons[p.getSex()];
 
     // Done
   }
@@ -99,14 +96,14 @@ public class SexBean extends PropertyBean {
   /**
    * Gender change action
    */
-  private class Gender extends Action2 {
+  private class Gender extends ActionDelegate {
     int sex;
     private Gender(int sex) {
       this.sex = sex;
       setText(PropertySex.getLabelForSex(sex));
     }
     protected void execute() {
-      SexBean.this.changeSupport.fireChangeEvent();
+      changeSupport.fireChangeEvent();
     }
 
   } //Gender

@@ -19,6 +19,7 @@
  */
 package genj.window;
 
+import genj.util.ActionDelegate;
 import genj.util.Registry;
 
 import java.awt.Component;
@@ -28,46 +29,37 @@ import java.awt.Frame;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.Window;
-import java.awt.event.ActionEvent;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
 
-import javax.swing.Action;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JMenuBar;
-import javax.swing.JOptionPane;
 
 /**
  * The default 'heavyweight' window manager
  */
-public class DefaultWindowManager extends WindowManager {
+public class DefaultWindowManager extends AbstractWindowManager {
 
   /** screen we're dealing with */
-  private Rectangle screen = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
-  
-  /** a hidden default frame */
-  private JFrame defaultFrame = new JFrame();
+  private Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
   
   /** 
    * Constructor
    */
-  public DefaultWindowManager(Registry registry, ImageIcon defaultDialogImage) {
+  public DefaultWindowManager(Registry registry) {
     super(registry);
-    if (defaultDialogImage!=null) defaultFrame.setIconImage(defaultDialogImage.getImage());
   }
   
   /**
    * Frame implementation
    */
-  protected Component openWindowImpl(final String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized, final Action onClosing) {
+  protected Object openFrameImpl(final String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized, final Runnable close) {
     
     // Create a frame
     final JFrame frame = new JFrame() {
@@ -93,14 +85,14 @@ public class DefaultWindowManager extends WindowManager {
     frame.getContentPane().add(content);
 
     // DISPOSE_ON_CLOSE?
-    if (onClosing==null) {
+    if (close==null) {
       frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
     } else {
       // responsibility to dispose passed to onClosing?
       frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
       frame.addWindowListener(new WindowAdapter() {
         public void windowClosing(WindowEvent e) {
-          onClosing.actionPerformed(new ActionEvent(this, 0, key));
+          close.run();
         }
       });
     }
@@ -110,9 +102,8 @@ public class DefaultWindowManager extends WindowManager {
       frame.pack();
       Dimension dim = frame.getSize();
       bounds = new Rectangle(screen.width/2-dim.width/2, screen.height/2-dim.height/2,dim.width,dim.height);
-      LOG.log(Level.FINE, "Sizing window "+key+" to "+bounds+" after pack()");
     }
-    frame.setBounds(bounds.intersection(screen));
+    frame.setBounds(clip(bounds,screen));
     
     if (maximized)
       frame.setExtendedState(Frame.MAXIMIZED_BOTH);
@@ -127,83 +118,74 @@ public class DefaultWindowManager extends WindowManager {
   /**
    * Dialog implementation
    */
-  protected Component openNonModalDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Component owner, Rectangle bounds) {
+  protected Object openDialogImpl(final String key, String title, Icon image, JComponent content, ActionDelegate[] actions, Component owner, Rectangle bounds, boolean isModal) {
 
-    // create an option pane
-    JOptionPane optionPane = new Content(messageType, content, actions);
+    // Create a dialog 
+    Window parent = getWindowForComponent(owner);
+    JDialog dlg = parent instanceof Dialog ? 
+      (JDialog)new JDialog((Dialog)parent) {
+        /** dispose is our onClose (WindowListener.windowClosed is too late after dispose() */
+        public void dispose() {
+          closeNotify(key, getBounds(), false);
+          // continue
+          super.dispose();
+        }
+      }
+    :
+      (JDialog)new JDialog((Frame)parent) {
+        /** dispose is our onClose (WindowListener.windowClosed is too late after dispose() */
+        public void dispose() {
+          closeNotify(key, getBounds(), false);
+          // continue
+          super.dispose();
+        }
+      }
+    ;
     
-    // let it create the dialog
-    final JDialog dlg = optionPane.createDialog(owner != null ? owner : defaultFrame, title);
+//    dlg.addComponentListener(new ComponentAdapter() {
+//      public void componentMoved(ComponentEvent e) {
+//        System.out.println("moved");
+//      }
+//      public void componentResized(ComponentEvent e) {
+//        System.out.println("resized");
+//      }
+//    });
+    
+    // setup looks
+    dlg.setTitle(title);
     dlg.setResizable(true);
-    dlg.setModal(false);
+    
+    // setup options/modal or non-modal
+    dlg.setModal(isModal);
+    
+    if (actions==null)
+      actions = new ActionDelegate[0];
+    for (int i=0; i<actions.length; i++) {
+      if (actions[i] instanceof CloseWindow)
+        ((CloseWindow)actions[i]).setDialog(dlg);
+    }
+      
+    // assemble content
+    assembleDialogContent(dlg.getRootPane(), dlg.getContentPane(), image, content, actions);
+
+    // DISPOSE_ON_CLOSE?
+    dlg.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+    // place
     if (bounds==null) {
       dlg.pack();
-      if (owner!=null)
-        dlg.setLocationRelativeTo(owner.getParent());
+      dlg.setLocationRelativeTo(owner);
     } else {
-      if (owner==null) {
-        dlg.setBounds(bounds.intersection(screen));
-      } else {
-        dlg.setBounds(new Rectangle(bounds.getSize()).intersection(screen));
-        dlg.setLocationRelativeTo(owner.getParent());
-      }
+      dlg.setBounds(clip(bounds,screen));
     }
-
-    // hook up to the dialog being hidden by the optionpane - that's what is being called after the user selected a button (setValue())
-    dlg.addComponentListener(new ComponentAdapter() {
-      public void componentHidden(ComponentEvent e) {
-        closeNotify(key, dlg.getBounds(), false);
-        dlg.dispose();
-      }
-    });
-    
-    // show it
+      
+    // show
     dlg.setVisible(true);
-    
-    // return result
+
+    // done    
     return dlg;
   }
-  
-  /**
-   * Dialog implementation
-   */
-  protected Object openDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Component owner, Rectangle bounds) {
 
-    // create an option pane
-    JOptionPane optionPane = new Content(messageType, content, actions);
-    
-    // let it create the dialog
-    final JDialog dlg = optionPane.createDialog(owner != null ? owner : defaultFrame, title);
-    dlg.setResizable(true);
-    dlg.setModal(true);
-    if (bounds==null) {
-      dlg.pack();
-      if (owner!=null)
-        dlg.setLocationRelativeTo(owner.getParent());
-    } else {
-      if (owner==null) {
-        dlg.setBounds(bounds.intersection(screen));
-      } else {
-        dlg.setBounds(new Rectangle(bounds.getSize()).intersection(screen));
-        dlg.setLocationRelativeTo(owner.getParent());
-      }
-    }
-
-    // hook up to the dialog being hidden by the optionpane - that's what is being called after the user selected a button (setValue())
-    dlg.addComponentListener(new ComponentAdapter() {
-      public void componentHidden(ComponentEvent e) {
-        closeNotify(key, dlg.getBounds(), false);
-        dlg.dispose();
-      }
-    });
-    
-    // show it
-    dlg.setVisible(true);
-    
-    // return result
-    return optionPane.getValue();
-  }
-  
   /**
    * @see genj.window.WindowManager#show(java.lang.String)
    */
@@ -232,14 +214,12 @@ public class DefaultWindowManager extends WindowManager {
     Object framedlg = recall(key);
     
     if (framedlg instanceof JFrame) {
-      JFrame frame = (JFrame)framedlg;
-      frame.dispose(); 
+      ((JFrame)framedlg).dispose(); 
       return;
     }
 
     if (framedlg instanceof JDialog) {
-      JDialog dlg = (JDialog)framedlg;
-      dlg.setVisible(false); // we're using the optionpane signal for a closing dialog: hide it
+      ((JDialog)framedlg).dispose();
       return;
     }
 

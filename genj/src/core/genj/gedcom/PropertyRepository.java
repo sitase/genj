@@ -29,6 +29,20 @@ public class PropertyRepository extends PropertyXRef {
   private String repository;
 
   /**
+   * Empty Constructor
+   */
+  public PropertyRepository() {
+  }
+  
+  /**
+   * Constructor with reference
+   * @param target reference of property this property links to
+   */
+  public PropertyRepository(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
    * Returns the tag of this property
    */
   public String getTag() {	
@@ -41,15 +55,36 @@ public class PropertyRepository extends PropertyXRef {
    */
   public void link() throws GedcomException {
 
+    // No Property Repository?
+    if (repository!=null) {
+      return;
+    }
+
+    // Get enclosing entity ?
+    Entity entity = getEntity();
+
+    // Something to do ?
+    if (getReferencedEntity()!=null) {
+      return;
+    }
+
     // Look for Repository
-    Repository repository = (Repository)getCandidate();
+    String id = getReferencedId();
+    if (id.length()==0) {
+      return;
+    }
+
+    Repository repository = (Repository)getGedcom().getEntity(Gedcom.REPO, id);
+    if (repository == null) {
+      throw new GedcomException("Couldn't find entity with ID "+id);
+    }
 
     // Create Backlink
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     repository.addProperty(fxref);
 
     // ... and point
-    link(fxref);
+    setTarget(fxref);
 
     // don't delete anything because we may have children, like PAGE
   }

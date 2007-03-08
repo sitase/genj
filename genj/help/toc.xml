@@ -16,7 +16,6 @@
     <tocitem target="v.navigator"   text="@v.navigator@"   image="img.Navigator"/>
     <tocitem target="v.entity"      text="@v.entity@"      image="img.Entity"   />
     <tocitem target="v.search"      text="@v.search@"      image="img.Search"   />
-    <tocitem target="v.geo"         text="@v.geo@"         image="img.Geo"      />
   </tocitem>
   <tocitem target="entities"    text="@entities@">
     <tocitem target="e.indi"        text="@e.indi@"          image="img.Indi"        />
@@ -32,6 +31,6 @@
     <tocitem target="x.report"      text="@x.report@"   />
     <tocitem target="x.translation" text="@x.translation@"   />
     <tocitem target="x.faq"         text="@x.faq@"     />
-    <tocitem target="x.shortcuts"   text="@x.shortcuts@"     />
   </tocitem>
+  <tocitem target="team"        text="@team@"/>
 </toc>

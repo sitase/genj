@@ -24,6 +24,7 @@ import genj.util.ByteArray;
 import genj.util.swing.ImageIcon;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 
 /**
@@ -56,7 +57,7 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
     try {
       content = Base64.decode(content.toString());
     } catch (IllegalArgumentException e) {
-      content = new byte[0];
+      content = "";
     }
 
     return (byte[])content;
@@ -71,6 +72,13 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
   }
 
   /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "File";
+  }
+
+  /**
    * Returns the tag of this property
    */
   public String getTag() {
@@ -81,7 +89,7 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
    * @see genj.gedcom.Property#setTag(java.lang.String)
    */
   /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    meta.assertTag(TAG);
+    assume(TAG.equals(meta.getTag()), UNSUPPORTED_TAG);
     return super.init(meta,value);
   }
 
@@ -170,22 +178,15 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
     isIconChecked = false;
 
     // Remember changed property
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
 
     // Done
   }
   
   /**
-   * Overridden - special file association handling
-   */
-  public boolean addFile(File file) {
-    return load(file.getAbsolutePath(), true);
-  }
-  
-  /**
    * Sets this property's value
    */
-  public boolean load(String file, boolean updateSubs) {
+  public void load(String file, boolean updateSubs) {
     
     String old = getValue();
 
@@ -197,21 +198,21 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
       // Try to open file
       try {
         InputStream in = getGedcom().getOrigin().open(file);
-        byte[] newContent = new ByteArray(in, in.available(), false).getBytes();
+        byte[] newContent = new ByteArray(in, in.available()).getBytes();
         in.close();
         content = newContent;
-      } catch (Throwable t) {
-        return false;
+      } catch (IOException ex) {
+        return;
       }
     }
     
     // Remember changed property
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // check
     Property media = getParent();
     if (!updateSubs||!(media instanceof PropertyMedia||media instanceof Media)) 
-      return true;
+      return;
       
     // title?
     Property title = media.getProperty("TITL");
@@ -226,7 +227,6 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
     format.setValue(PropertyFile.getSuffix(file));
     
     // done  
-    return true;
   }
 
   /**

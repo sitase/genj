@@ -17,14 +17,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.14 $ $Author: daniel-andre $ $Date: 2006-11-15 20:33:49 $
+ * $Revision: 1.10 $ $Author: nmeier $ $Date: 2004-11-19 19:38:46 $
  */
 package genj.report;
 
-import genj.gedcom.PrivacyPolicy;
 import genj.option.OptionProvider;
 import genj.option.PropertyOption;
 
+import java.io.File;
 import java.util.List;
 
 /**
@@ -34,6 +34,9 @@ public class Options extends OptionProvider {
     
     /** 'singleton' instance */
     private static Options instance = new Options();
+    
+    /** option - browser executable */
+    public File browser = new File("");
     
     /** Positions after decimal point */
     private int positions = 2;
@@ -62,23 +65,8 @@ public class Options extends OptionProvider {
     /** burial symbol in reports */
     private String burialSymbol = "[]";
     
-    /** occupation symbol in reports */
-    private String  occuSymbol = "=";
-
-    /** residence symbol in reports */
-    private String  resiSymbol = "^";
-    
     /** child of symbol in reports */
     private String childOfSymbol = "/";
-    
-    /** tag marking private */
-    public  String privateTag = "_PRIV";
-    
-    /** whether information pertaining to deceased people is public */
-    public boolean deceasedIsPublic = true;
-    
-    /** number of years an event is private */
-    public int yearsEventsArePrivate = 0; 
     
     public int getIndentPerLevel() {
         return indentPerLevel;
@@ -173,29 +161,7 @@ public class Options extends OptionProvider {
             burialSymbol = "[]";
     }
     
-    public String getOccuSymbol() {
-		return occuSymbol;
-	}
-
-	public void setOccuSymbol(String set) {
-        if (set!=null&&set.trim().length()>0)
-        	occuSymbol = set;
-        else
-        	occuSymbol = "=";
-	}
-
-	public String getResiSymbol() {
-		return resiSymbol;
-	}
-
-	public void setResiSymbol(String set) {
-        if (set!=null&&set.trim().length()>0)
-        	resiSymbol = set;
-        else
-        	resiSymbol = "^";
-	}
-
-	public String getChildOfSymbol() {
+    public String getChildOfSymbol() {
         return childOfSymbol;
     }
     
@@ -207,25 +173,10 @@ public class Options extends OptionProvider {
     }
     
     /**
-     * accessor - PrivacyPolicy configured by user
-     */
-    public PrivacyPolicy getPrivacyPolicy() {
-      return new PrivacyPolicy(deceasedIsPublic, yearsEventsArePrivate, privateTag);    
-    }
-    
-    /**
-     * callback - provide options during system init
+     * callback - provide options
      */
     public List getOptions() {
-      // load report async
-      new Thread(new Runnable() {
-        public void run() {
-          ReportLoader.getInstance();
-        }
-      }).start();
-      
-      // introspect for options
-      return PropertyOption.introspect(getInstance());
+        return PropertyOption.introspect(getInstance());
     }
     
     /**

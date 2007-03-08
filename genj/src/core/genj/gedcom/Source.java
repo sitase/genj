@@ -40,7 +40,7 @@ public class Source extends Entity {
    */
   public String getTitle() {
     Property title = getProperty("TITL");
-    return title!=null ? title.getValue() : "";
+    return title!=null ? title.getValue() : EMPTY_STRING;
   }
   
   /**
@@ -50,7 +50,7 @@ public class Source extends Entity {
     Property text = getProperty("TEXT");
     if (text!=null) 
       return text.getValue();
-    return "";
+    return EMPTY_STRING;
   }
   
 } //Source

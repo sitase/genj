@@ -19,8 +19,7 @@
  */
 package genj.gedcom;
 
-import java.util.regex.Pattern;
-
+import genj.util.swing.ImageIcon;
 
 
 /**
@@ -32,13 +31,27 @@ public class PropertyNote extends PropertyXRef {
   public static final String TAG = "NOTE";
 
   /**
+   * Empty Constructor
+   */
+  public PropertyNote() {
+  }
+  
+  /**
+   * Constructor with reference
+   * @param target reference of property this property links to
+   */
+  public PropertyNote(PropertyXRef target) {
+    super(target);
+  }
+  
+  /**
    * This will be called once when instantiation has
    * happend - it's our chance to substitute this with
    * a multilinevalue if no reference applicable
    */
   /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
     // expecting NOTE
-    meta.assertTag("NOTE");
+    assume("NOTE".equals(meta.getTag()), UNSUPPORTED_TAG);
     // ONLY for @..@!!!
     if (value.startsWith("@")&&value.endsWith("@"))
       return super.init(meta, value);
@@ -46,19 +59,6 @@ public class PropertyNote extends PropertyXRef {
     return new PropertyMultilineValue().init(meta, value);
   }
 
-  /**
-   * check referenced note when finding properties by tag/value pattern
-   */
-  protected boolean findPropertiesRecursivelyTest(Pattern tag, Pattern value) {
-    // see if we can look inside a target note instead
-    Note note = (Note)getTargetEntity();
-    if (note!=null) {
-      if (tag.matcher(getTag()).matches() && value.matcher(note.getDelegate().getValue()).matches())
-        return true;
-    }
-    // nope
-    return false;
-  }
 
   /**
    * Returns the tag of this property
@@ -73,15 +73,25 @@ public class PropertyNote extends PropertyXRef {
    */
   public void link() throws GedcomException {
     
+    // something to do ?
+    if (getReferencedEntity()!=null) 
+      return;
+
     // Look for Note
-    Note enote = (Note)getCandidate();
+    String id = getReferencedId();
+    if (id.length()==0) return;
+
+    // .. ignore when not found - play inline note
+    Note enote = (Note)getGedcom().getEntity(Gedcom.NOTE, id);
+    if (enote==null) 
+      return;
 
     // Create Backlink
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     enote.addProperty(fxref);
 
     // ... and point
-    link(fxref);
+    setTarget(fxref);
 
     // Done
   }
@@ -93,5 +103,16 @@ public class PropertyNote extends PropertyXRef {
     return Gedcom.NOTE;
   }
   
+  /**
+   * @see genj.gedcom.PropertyXRef#overlay(genj.util.swing.ImageIcon)
+   */
+  protected ImageIcon overlay(ImageIcon img) {
+    // used as a reference? go ahead and overlay!
+    if (super.getReferencedEntity()!=null)
+      return super.overlay(img);
+    // used inline! no overlay!
+    return img;
+  }
+ 
 } //PropertyNote
 

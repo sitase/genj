@@ -23,151 +23,88 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
-import genj.util.MnemonicAndText;
+import genj.print.PrintManager;
+import genj.renderer.BlueprintManager;
+import genj.util.ActionDelegate;
+import genj.util.Debug;
 import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
 import genj.window.WindowManager;
 
-import java.awt.AWTEvent;
-import java.awt.Component;
 import java.awt.Point;
-import java.awt.Toolkit;
-import java.awt.event.AWTEventListener;
-import java.awt.event.MouseEvent;
 import java.lang.reflect.Array;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import javax.swing.FocusManager;
-import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JPopupMenu;
-import javax.swing.KeyStroke;
 import javax.swing.MenuSelectionManager;
-import javax.swing.SwingUtilities;
-
-import sun.misc.Service;
+import javax.swing.Timer;
 
 /**
  * A bridge to open/manage Views
  */
 public class ViewManager {
-  
-  /*package*/ final static Logger LOG = Logger.getLogger("genj.view");
 
   /** resources */
-  /*package*/ static Resources RESOURCES = Resources.get(ViewManager.class);
+  public static Resources resources = Resources.get(ViewManager.class);
   
-  /** global accelerators */
-  /*package*/ Map keyStrokes2factories = new HashMap();
-  
-  /** our context hook */
-  private ContextHook contextHook = new ContextHook();
-  
+  /** registry */
+  private Registry registry;
+
   /** factory instances of views */
   private ViewFactory[] factories = null;
   
   /** open views */
-  private Map gedcom2factory2handles = new HashMap();
-  private LinkedList allHandles = new LinkedList();
+  private Map key2viewwidget = new HashMap();
   
+  /** the currently valid context */
+  private Map gedcom2context = new HashMap();
+  
+  /** a print manager */
+  private PrintManager printManager = null;
+
   /** a window manager */
   private WindowManager windowManager = null;
   
+  /** context listeners */
+  private List contextListeners = new LinkedList();
+  
+  /** a timer for delayed context changes */
+  private Timer propagateContext;
+
   /**
    * Constructor
    */
-  public ViewManager(WindowManager windowManager) {
-
-    // lookup all factories dynamically
-    List factories = new ArrayList();
-    Iterator it = Service.providers(ViewFactory.class);
-    while (it.hasNext()) 
-      factories.add(it.next());
-
-    // continue with init
-    init(windowManager, factories);
-  }
-  
-  /**
-   * Constructor
-   */
-  public ViewManager(WindowManager windowManager, String[] factoryTypes) {
-    
-    // instantiate factories
-    List factories = new ArrayList();
-    for (int f=0;f<factoryTypes.length;f++) {    
-      try {
-        factories.add( (ViewFactory)Class.forName(factoryTypes[f]).newInstance() );
-      } catch (Throwable t) {
-        LOG.log(Level.SEVERE, "Factory of type "+factoryTypes[f]+" cannot be instantiated", t);
-      }
-    }
-    
-    // continue with init
-    init(windowManager, factories);
-  }
-  
-  /**
-   * get all views for given gedcom 
-   */
-  public ViewHandle[] getViews(Gedcom gedcom) {
-    
-    // look for views looking at gedcom    
-    List result = new ArrayList();
-    for (Iterator handles = allHandles.iterator(); handles.hasNext() ; ) {
-      ViewHandle handle = (ViewHandle)handles.next();
-      if (handle.getGedcom()==gedcom)  
-        result.add(handle);
-    }
-    
-    // done
-    return (ViewHandle[])result.toArray(new ViewHandle[result.size()]);
-  }
-  
-  /**
-   * Initialization
-   */
-  private void init(WindowManager setWindowManager, List setFactories) {
+  public ViewManager(Registry reGistry, PrintManager pManager, WindowManager wManager, String[] factoryTypes) {
     
     // remember
-    windowManager = setWindowManager;
+    registry = reGistry;
+    printManager = pManager;
+    windowManager = wManager;
     
-    // keep factories
-    factories = (ViewFactory[])setFactories.toArray(new ViewFactory[setFactories.size()]);
-    
-    // loop over factories, grab keyboard shortcuts and sign up context listeners
+    // creat list of factories
+    factories = new ViewFactory[factoryTypes.length];
     for (int f=0;f<factories.length;f++) {    
-      ViewFactory factory = factories[f];
-      // check shortcut
-      String keystroke = "ctrl "+new MnemonicAndText(factory.getTitle(false)).getMnemonic();
-      if (!keyStrokes2factories.containsKey(keystroke)) {
-        keyStrokes2factories.put(keystroke, factory);
+      try {
+        ViewFactory factory = (ViewFactory)Class.forName(factoryTypes[f]).newInstance();
+        factories[f] = factory;
+        if (factory instanceof ContextListener)
+          addContextListener((ContextListener)factory);
+      } catch (Throwable t) {
+        throw new IllegalArgumentException("Factory of type "+factoryTypes[f]+" cannot be instantiated ("+t.getMessage()+")");
       }
     }
     
     // done
   }
-  
-  /**
-   * Installs global key accelerators for given component
-   */
-   
-  
+
   /**
    * Returns all known view factories
    */
@@ -176,24 +113,117 @@ public class ViewManager {
   }
   
   /**
+   * Returns the last set context for given gedcom
+   * @return the context
+   */
+  public Context getContext(Gedcom gedcom) {
+    
+    // grab one from map
+    Context result = (Context)gedcom2context.get(gedcom);
+    
+    // fallback to last stored?
+    if (result==null) {
+      try {
+        result = new Context(gedcom.getEntity(getRegistry(gedcom).get("lastEntity", (String)null)));
+      } catch (Throwable t) {
+      }
+    } else {
+      // still in valid entity?
+      Entity entity = result.getEntity();
+      // 20040305 make sure entity isn't null by now
+      if (entity==null||!gedcom.getEntities(entity.getTag()).contains(entity)) {
+        // remove from map 
+        gedcom2context.remove(gedcom);
+        // reset
+        result=null;
+      }
+    }
+    
+    // fallback to first indi 
+    if (result==null)
+      result = new Context(gedcom, gedcom.getAnyEntity(Gedcom.INDI), null);
+
+    // remember
+    gedcom2context.put(gedcom, result);
+    
+    // done here
+    return result;
+  }
+
+  /**
+   * Sets the current context
+   */
+  public void setContext(Context context) {
+    
+    // valid?
+    if (!context.isValid())
+      return;
+
+    // remember context
+    Gedcom gedcom = context.getGedcom();
+    gedcom2context.put(gedcom, context);
+    if (context.getEntity()!=null)
+      getRegistry(gedcom).put("lastEntity", context.getEntity().getId());
+    
+    // clear any menu selections
+    MenuSelectionManager.defaultManager().clearSelectedPath();
+
+    // initiate context propagation
+    if (propagateContext==null)
+      propagateContext = new Timer(100, new PropagateContext());
+    propagateContext.stop();
+    propagateContext.start();
+    
+    // done
+  }
+
+  /** 
+   * Accessor - DPI
+   */  
+  public Point getDPI() {
+    return Options.getInstance().getDPI();
+  }
+  
+  /**
+   * The print manager
+   */
+  public PrintManager getPrintManager() {
+    return printManager;
+  }
+  
+  /**
+   * The window manager
+   */
+  public WindowManager getWindowManager() {
+    return windowManager;
+  }
+  
+  /**
+   * The blueprint manager
+   */
+  public BlueprintManager getBlueprintManager() {
+    return BlueprintManager.getInstance();
+  }
+  
+  /**
    * Opens settings for given view settings component
    */
-  /*package*/ void openSettings(ViewHandle handle) {
+  /*package*/ void openSettings(ViewContainer viewWidget) {
     
     // Frame already open?
     SettingsWidget settings = (SettingsWidget)windowManager.getContent("settings");
     if (settings==null) {
-      settings = new SettingsWidget(this);
-      settings.setView(handle);
-      windowManager.openWindow(
+      settings = new SettingsWidget(resources, this);
+      settings.setViewWidget(viewWidget);
+      windowManager.openFrame(
         "settings", 
-        RESOURCES.getString("view.edit.title"),
+        resources.getString("view.edit.title"),
         Images.imgSettings,
         settings,
         null, null
       );
     } else {
-      settings.setView(handle);
+      settings.setViewWidget(viewWidget);
     }
     // done
   }
@@ -201,74 +231,83 @@ public class ViewManager {
   /**
    * Helper that returns registry for gedcom
    */
-  public static Registry getRegistry(Gedcom gedcom) {
+  private Registry getRegistry(Gedcom gedcom) {
     Origin origin = gedcom.getOrigin();
     String name = origin.getFileName();
-    return Registry.lookup(name, origin);
-  }
-  
-  /**
-   * Get the package name of a Factory
-   */
-  /*package*/ String getPackage(ViewFactory factory) {
-    
-    Matcher m = Pattern.compile(".*\\.(.*)\\..*").matcher(factory.getClass().getName());
-    if (!m.find())
-      throw new IllegalArgumentException("can't resolve package for "+factory);
-    return m.group(1);
-    
+    Registry registry = Registry.lookup(name);
+    if (registry==null) 
+      registry = new Registry(name, origin);
+    return registry;
   }
 
   /**
-   * Next in the number of views for given factory
+   * Helper that returns the next logical registry-view
+   * for given gedcom and name of view
    */
-  private int getNextInSequence(Gedcom gedcom, ViewFactory factory) {
-    
-    // check handles for factory
-    Map factories2handles = (Map)gedcom2factory2handles.get(gedcom);
-    if (factories2handles==null)
-      return 1;
-    List handles = (List)factories2handles.get(factory.getClass());
-    if (handles==null)
-      return 1;
-    
-    // find first empty spot
-    int result = 1;
-    for (Iterator it = handles.iterator(); it.hasNext(); ) {
-      ViewHandle handle = (ViewHandle)it.next();
-      if (handle==null) break;
-      result++;
+  private Registry getNextRegistry(Gedcom gedcom, String nameOfView) {
+
+    // Check which iteration number is available next
+    String name = gedcom.getOrigin().getFileName();
+    int number;
+    for (number=1;;number++) {
+      if (!key2viewwidget.containsKey(name+"."+nameOfView+"."+number)) 
+        break;
     }
+
+    // create the view
+    return new Registry(getRegistry(gedcom), nameOfView+"."+number);
+  }
+  
+  
+  /**
+   * Calculate a logical key for given factory
+   */
+  private String getKey(ViewFactory factory) {
     
-    return result;
+    String key = factory.getClass().getName();
+    
+    // get rid of classname
+    int lastdot = key.lastIndexOf('.');
+    if (lastdot>0) key = key.substring(0, lastdot);
+    
+    // get rid of pre-packages
+    while (true) {
+      int dot = key.indexOf('.');
+      if (dot<0) break;
+      key = key.substring(dot+1);
+    }
+
+    return key.toLowerCase();    
+// 20030521 interestingly getPackage() doesn't
+// always seem to return something (e.g. Konqueror applet)
+//    String pkg = factory.getClass().getPackage().getName();
+//    int lastdot = pkg.lastIndexOf('.');
+//    return lastdot<0 ? pkg : pkg.substring(lastdot+1);
   }
   
   /**
    * Closes a view
    */
-  protected void closeView(ViewHandle handle) {
+  protected void closeView(String key) {
     // close property editor if open and showing settings
     windowManager.close("settings");
     // now close view
-    windowManager.close(handle.getKey());
+    windowManager.close(key);
     // 20021017 @see note at the bottom of file
     MenuSelectionManager.defaultManager().clearSelectedPath();
     // forget about it
-    Map factory2handles = (Map)gedcom2factory2handles.get(handle.getGedcom());
-    List handles = (List)factory2handles.get(handle.getFactory().getClass());
-    handles.set(handle.getSequence()-1, null);
-    allHandles.remove(handle);
+    key2viewwidget.remove(key);
     // done
   }
-  
+
   /**
    * Opens a view on a gedcom file
    * @return the view component
    */
-  public ViewHandle openView(Class factory, Gedcom gedcom) {
+  public JComponent openView(Class factory, Gedcom gedcom) {
     for (int f=0; f<factories.length; f++) {
       if (factories[f].getClass().equals(factory)) 
-        return openView(gedcom, factories[f]);   	
+        return openView(factories[f], gedcom);   	
     }
     throw new IllegalArgumentException("Unknown factory "+factory.getName());
   }
@@ -277,76 +316,42 @@ public class ViewManager {
    * Opens a view on a gedcom file
    * @return the view component
    */
-  public ViewHandle openView(Gedcom gedcom, ViewFactory factory) {
-    return openView(gedcom, factory, -1);
-  }
-  
-  /**
-   * Opens a view on a gedcom file
-   * @return the view component
-   */
-  protected ViewHandle openView(final Gedcom gedcom, ViewFactory factory, int sequence) {
-    
-    // figure out what sequence # this view will get
-    if (sequence<0)
-      sequence = getNextInSequence(gedcom, factory);
-    Map factory2handles = (Map)gedcom2factory2handles.get(gedcom);
-    if (factory2handles==null) {
-      factory2handles = new HashMap();
-      gedcom2factory2handles.put(gedcom, factory2handles);
-    }
-    Vector handles = (Vector)factory2handles.get(factory.getClass());
-    if (handles==null) {
-      handles = new Vector(10);
-      factory2handles.put(factory.getClass(), handles);
-    }
-    handles.setSize(Math.max(handles.size(), sequence));
-    
-    // already open?
-    if (handles.get(sequence-1)!=null) {
-      ViewHandle old = (ViewHandle)handles.get(sequence-1);
-      windowManager.show(old.getKey());
-      return old;
-    }
+  public JComponent openView(ViewFactory factory, final Gedcom gedcom) {
     
     // get a registry 
-    Registry registry = new Registry( getRegistry(gedcom), getPackage(factory)+"."+sequence) ;
-
-    // title 
-    String title = gedcom.getName()+" - "+factory.getTitle(false)+" ("+registry.getViewSuffix()+")";
-
-    // create the view
-    JComponent view = factory.createView(title, gedcom, registry, this);
+    Registry registry = getNextRegistry(gedcom, getKey(factory));
     
-    // create a handle for it
-    final ViewHandle handle = new ViewHandle(this, gedcom, title, registry, factory, view, sequence);
+    // title & key
+    final String 
+      title = gedcom.getName()+" - "+factory.getTitle(false)+" ("+registry.getViewSuffix()+")",
+      key = gedcom.getName() + "." + registry.getView();
     
-    // wrap it into a container
-    ViewContainer container = new ViewContainer(handle);
-
-    // add context hook for keyboard shortcuts
-    InputMap inputs = view.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-    inputs.put(KeyStroke.getKeyStroke("shift F10"), contextHook);
-    inputs.put(KeyStroke.getKeyStroke("CONTEXT_MENU"), contextHook); // this only works in Tiger 1.5 on Windows
-    view.getActionMap().put(contextHook, contextHook);
+    // the viewwidget
+    final ViewContainer viewWidget = new ViewContainer(key,title,gedcom,registry,factory, this);
 
     // remember
-    handles.set(handle.getSequence()-1, handle);
-    allHandles.add(handle);
+    key2viewwidget.put(key, viewWidget);
 
     // prepare to forget
-    Action2 close = new Action2() {
-      protected void execute() {
+    Runnable close = new Runnable() {
+      public void run() {
         // let us handle close
-        closeView(handle);
+        closeView(key);
       }
     };
     
     // open frame
-    windowManager.openWindow(handle.getKey(), title, factory.getImage(), container, null,  close);
+    windowManager.openFrame(
+      key, 
+      title, 
+      factory.getImage(),
+      viewWidget,
+      null, 
+      close
+    );
         
     // done
-    return handle;
+    return viewWidget.getView();
   }
   
   /**
@@ -355,12 +360,15 @@ public class ViewManager {
   public void closeViews(Gedcom gedcom) {
     
     // look for views looking at gedcom    
-    ViewHandle[] handles = (ViewHandle[])allHandles.toArray(new ViewHandle[allHandles.size()]);
-    for (int i=0;i<handles.length;i++) {
-      if (handles[i].getGedcom()==gedcom) 
-        closeView(handles[i]);
+    ViewContainer[] vws = (ViewContainer[])key2viewwidget.values().toArray(new ViewContainer[key2viewwidget.size()]);
+    for (int i=0;i<vws.length;i++) {
+      if (vws[i].getGedcom()==gedcom) 
+        closeView(vws[i].getKey());
     }
     
+    // remove its key from gedcom2current
+    gedcom2context.remove(gedcom);
+
     // done
   }
   
@@ -370,10 +378,11 @@ public class ViewManager {
   public void showView(JComponent view) {
 
     // loop through views
-    for (Iterator handles = allHandles.iterator(); handles.hasNext(); ) {
-      ViewHandle handle = (ViewHandle)handles.next();
-      if (handle.getView()==view) {
-        windowManager.show(handle.getKey());
+    Iterator vws = key2viewwidget.values().iterator();
+    while (vws.hasNext()) {
+      ViewContainer vw = (ViewContainer)vws.next();
+      if (vw.getView()==view) {
+        windowManager.show(vw.getKey());
         break;
       }
     }
@@ -384,7 +393,7 @@ public class ViewManager {
   /**
    * Returns views and factories with given support 
    */
-  public Object[] getViews(Class of, Gedcom gedcom) {
+  public Object[] getInstances(Class of, Gedcom gedcom) {
     
     List result = new ArrayList(16);
     
@@ -394,10 +403,11 @@ public class ViewManager {
         result.add(factories[f]);
     }
     // loop through views
-    for (Iterator handles = allHandles.iterator(); handles.hasNext(); ) {
-      ViewHandle handle = (ViewHandle)handles.next();
-      if (handle.getGedcom()==gedcom && of.isAssignableFrom(handle.getView().getClass()))
-        result.add(handle.getView());
+    Iterator views = key2viewwidget.values().iterator();
+    while (views.hasNext()) {
+      ViewContainer view = (ViewContainer)views.next();
+      if (view.getGedcom()==gedcom && of.isAssignableFrom(view.getView().getClass()))
+        result.add(view.getView());
     }
     
     // done
@@ -405,82 +415,65 @@ public class ViewManager {
   }
   
   /**
+   * Register a listener
+   */
+  public void addContextListener(ContextListener listener) {
+    contextListeners.add(listener);
+  }
+  
+  /**
+   * Deregister a listener
+   */
+  public void removeContextListener(ContextListener listener) {
+    contextListeners.remove(listener);
+  }
+  
+  /**
    * Get a context menu
    */
-  public JPopupMenu getContextMenu(ViewContext context, Component target) {
+  public JPopupMenu getContextMenu(Context context, List actions, JComponent target) {
     
     // make sure context is valid
-    if (context==null)
+    if (!context.isValid())
       return null;
     
-    Property[] properties = context.getProperties();
-    Entity[] entities = context.getEntities();
+    Property property = context.getProperty();
+    Entity entity = context.getEntity();
     Gedcom gedcom = context.getGedcom();
 
     // make sure any existing popup is cleared
     MenuSelectionManager.defaultManager().clearSelectedPath();
-    
-    // hook up context menu to toplevel component - child components are more likely to have been 
-    // removed already by the time any of the associated actions are run
-    while (target.getParent()!=null) target = target.getParent();
 
+    // hook up context's source
+    context.setSource(target);
+    
     // create a popup
     MenuHelper mh = new MenuHelper().setTarget(target);
     JPopupMenu popup = mh.createPopup();
 
     // popup local actions?
-    mh.createItems(context.getActions());
-    mh.createSeparator(); // it's lazy
+    if (actions!=null&&!actions.isEmpty())
+      mh.createItems(actions, false);
   
     // find ActionSupport implementors
-    ActionProvider[] as = (ActionProvider[])getViews(ActionProvider.class, context.getGedcom());
-    
-    // items for set or single property?
-    if (properties.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
-      for (int i = 0; i < as.length; i++) try {
-        mh.createSeparator();
-        mh.createItems(as[i].createActions(properties, this));
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Action Provider threw "+t.getClass()+" on createActions(Property[])", t);
+    ActionProvider[] as = (ActionProvider[])getInstances(ActionProvider.class, context.getGedcom());
+
+    // items for property
+    if (property!=null&&property!=entity) {
+      String title = Property.LABEL+" '"+TagPath.get(property)+'\'';
+      mh.createMenu(title, property.getImage(false));
+      for (int i = 0; i < as.length; i++) {
+        mh.createItems(as[i].createActions(property, this), true);
       }
       mh.popMenu();
-    }
-    if (properties.length==1) {
-      Property property = properties[0];
-      while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
-        // a sub-menu with appropriate actions
-        mh.createMenu(Property.LABEL+" '"+TagPath.get(property).getName() + '\'' , property.getImage(false));
-        for (int i = 0; i < as.length; i++) try {
-          mh.createItems(as[i].createActions(property, this));
-        } catch (Throwable t) {
-          LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Property)", t);
-        }
-        mh.popMenu();
-        // recursively for parents
-        property = property.getParent();
-      }
     }
         
-    // items for set or single entity
-    if (entities.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
-      for (int i = 0; i < as.length; i++) try {
-        mh.createSeparator();
-        mh.createItems(as[i].createActions(entities, this));
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Action Provider threw "+t.getClass()+" on createActions(Entity[])", t);
-      }
-      mh.popMenu();
-    }
-    if (entities.length==1) {
-      Entity entity = entities[0];
+    // items for entity
+    if (entity!=null) {
       String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
       mh.createMenu(title, entity.getImage(false));
-      for (int i = 0; i < as.length; i++) try {
-        mh.createItems(as[i].createActions(entity, this));
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Entity)", t);
+      for (int i = 0; i < as.length; i++) {
+        mh.createItems(as[i].createActions(entity, this), true);
       }
       mh.popMenu();
     }
@@ -488,10 +481,8 @@ public class ViewManager {
     // items for gedcom
     String title = "Gedcom '"+gedcom.getName()+'\'';
     mh.createMenu(title, Gedcom.getImage());
-    for (int i = 0; i < as.length; i++) try {
-      mh.createItems(as[i].createActions(gedcom, this));
-    } catch (Throwable t) {
-      LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Gedcom", t);
+    for (int i = 0; i < as.length; i++) {
+      mh.createItems(as[i].createActions(gedcom, this), true);
     }
     mh.popMenu();
 
@@ -500,109 +491,84 @@ public class ViewManager {
   }
   
   /**
-   * Our hook into keyboard and mouse operated context changes / menues
+   * Show a context menu
    */
-  private class ContextHook extends Action2 implements AWTEventListener {
-    
-    /** constructor */
-    private ContextHook() {
-      try {
-        AccessController.doPrivileged(new PrivilegedAction() {
-          public Object run() {
-            Toolkit.getDefaultToolkit().addAWTEventListener(ContextHook.this, AWTEvent.MOUSE_EVENT_MASK);
-            return null;
-          }
-        });
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Cannot install ContextHook ("+t.getMessage()+")");
-      }
-    }
+  public void showContextMenu(Context context, List actions, JComponent component, Point pos) {
+    JPopupMenu popup = getContextMenu(context, actions, component);
+    if (popup!=null)
+      popup.show(component, pos.x, pos.y);
+  }
+  
+  /**
+   * Propagate context change(s)
+   */
+  private class PropagateContext extends ActionDelegate {
     
     /**
-     * Resolve context for given component
-     */
-    private ViewContext getContext(Component component) {
-      ViewContext context;
-      // find context provider in component hierarchy
-      while (component!=null) {
-        // component can provide context?
-        if (component instanceof ContextProvider) {
-          ContextProvider provider = (ContextProvider)component;
-          context = provider.getContext();
-          if (context!=null)
-            return context;
-        }
-        // try parent
-        component = component.getParent();
-      }
-      // not found
-      return null;
-    }
-    
-    /**
-     * A Key press initiation of the context menu
+     * propagate
      */
     protected void execute() {
-      // only for jcomponents with focus
-      Component focus = FocusManager.getCurrentManager().getFocusOwner();
-      if (!(focus instanceof JComponent))
-        return;
-      // look for ContextProvider and show menu if appropriate
-      ViewContext context = getContext(focus);
-      if (context!=null) {
-        JPopupMenu popup = getContextMenu(context, focus);
-        if (popup!=null)
-          popup.show(focus, 0, 0);
+      
+      // check current contexts
+      Iterator contexts = gedcom2context.values().iterator();
+      while (contexts.hasNext()) {
+        Context context = (Context)contexts.next();
+        if (!context.isPropagated()) {
+          propagate(context);
+        }
       }
+      
       // done
     }
     
     /**
-     * A mouse click initiation of the context menu
+     * propagate
      */
-    public void eventDispatched(AWTEvent event) {
+    private void propagate(Context context) {
       
-      // a mouse popup/click event?
-      if (!(event instanceof MouseEvent)) 
-        return;
-      MouseEvent me = (MouseEvent) event;
-      if (!(me.isPopupTrigger()||me.getID()==MouseEvent.MOUSE_CLICKED))
-        return;
+      Gedcom gedcom = context.getGedcom();
       
-      // find deepest component (since components without attached listeners
-      // won't be the source for this event)
-      Component component  = SwingUtilities.getDeepestComponentAt(me.getComponent(), me.getX(), me.getY());
-      if (!(component instanceof JComponent))
-        return;
-      Point point = SwingUtilities.convertPoint(me.getComponent(), me.getX(), me.getY(), component );
+      // connect to us
+      context.setManager(ViewManager.this);
       
-      // try to identify context
-      ViewContext context = getContext(component);
-      if (context==null) 
-        return;
-
-      // a popup?
-      if(me.isPopupTrigger())  {
-        
-        // cancel any menu
-        MenuSelectionManager.defaultManager().clearSelectedPath();
-        
-        // show context menu
-        JPopupMenu popup = getContextMenu(context, (JComponent)component);
-        if (popup!=null)
-          popup.show((JComponent)component, point.x, point.y);
-        
+      // see if source is a view which will get context message first
+      JComponent view = context.getView();
+      if (view!=null&&view instanceof ContextListener) {
+        try {
+          ((ContextListener)view).setContext(context);
+        } catch (Throwable t) {
+          Debug.log(Debug.WARNING, view, "threw "+t+" on setContext()");
+        }
       }
       
-      // a double-click on provider?
-      if (me.getButton()==MouseEvent.BUTTON1&&me.getID()==MouseEvent.MOUSE_CLICKED&&me.getClickCount()>1) {
-        WindowManager.broadcast(new ContextSelectionEvent(context, component, true));
+      // loop and tell to views
+      Iterator it = key2viewwidget.values().iterator();
+      while (it.hasNext()) {
+        ViewContainer vw = (ViewContainer)it.next();
+        // only if view on same gedcom
+        if (vw.getGedcom()!= gedcom) continue;
+        // and context supported
+        if (vw.getView() instanceof ContextListener) try {
+          ((ContextListener)vw.getView()).setContext(context);
+        } catch (Throwable t) {
+          Debug.log(Debug.WARNING, vw.getView(), "ContextListener threw throwable", t);
+        }
+        // next
       }
-        
+      
+      // loop and tell to context listeners
+      ContextListener[] ls = (ContextListener[])contextListeners.toArray(new ContextListener[contextListeners.size()]);
+      for (int l=0;l<ls.length;l++)
+        try {      
+          ls[l].setContext(context);
+        } catch (Throwable t) {
+          Debug.log(Debug.WARNING, ls[l], "ContextListener threw throwable", t);
+        }
+      
       // done
+      context.setPropagated();
     }
     
-  } //ContextMenuHook
+  } //ContextChange
   
-
 } //ViewManager

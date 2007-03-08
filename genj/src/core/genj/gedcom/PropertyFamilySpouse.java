@@ -25,6 +25,10 @@ package genj.gedcom;
  */
 public class PropertyFamilySpouse extends PropertyXRef {
 
+  private final static TagPath
+    PATH_FAMHUSB = new TagPath("FAM:HUSB"),
+    PATH_FAMWIFE = new TagPath("FAM:WIFE");
+
   /**
    * Empty Constructor
    */
@@ -32,14 +36,25 @@ public class PropertyFamilySpouse extends PropertyXRef {
   }
   
   /**
+   * Constructor with reference
+   */
+  public PropertyFamilySpouse(String target) {
+    setValue(target);
+  }
+
+  /**
+   * Constructor with reference
+   */
+  public PropertyFamilySpouse(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
    * Returns a warning string that describes what happens when this
    * property would be deleted
    * @return warning as <code>String</code>, <code>null</code> when no warning
    */
   public String getDeleteVeto() {
-    // warn if linked
-    if (getTargetEntity()==null) 
-      return null;
     return resources.getString("prop.fams.veto");
   }
 
@@ -47,7 +62,7 @@ public class PropertyFamilySpouse extends PropertyXRef {
    * Returns the reference to family
    */
   public Fam getFamily() {
-    return (Fam)getTargetEntity();
+    return (Fam)getReferencedEntity();
   }
 
   /**
@@ -65,61 +80,65 @@ public class PropertyFamilySpouse extends PropertyXRef {
    */
   public void link() throws GedcomException {
 
+    // Something to do ?
+    if (getFamily()!=null) {
+      return;
+    }
+
     // Get enclosing individual ?
     Indi indi;
     try {
       indi = (Indi)getEntity();
     } catch (ClassCastException ex) {
-      throw new GedcomException(resources.getString("error.noenclosingindi"));
+      throw new GedcomException("FAMS can't be linked to family when not in individual");
     }
 
     // Prepare some VARs
     Property p;
-    Gedcom gedcom = getGedcom();
 
     // Look for family (not-existing -> Gedcom throws Exception)
-    Fam fam = (Fam)getCandidate();
+    String id = getReferencedId();
+    Fam fam = (Fam)getGedcom().getEntity(Gedcom.FAM, id);
+    if (fam==null)
+      throw new GedcomException("Couldn't find family with ID "+id);
 
     // Enclosing individual is Husband/Wife in family ?
     Indi husband = fam.getHusband();
     Indi wife    = fam.getWife();
 
     if ((husband!=null)&&(wife!=null))
-      throw new GedcomException(resources.getString("error.already.spouses", fam));
+      throw new GedcomException("Family @"+fam.getId()+"@ already has husband and wife");
 
     if ((husband==indi)||(wife==indi))
-      throw new GedcomException(resources.getString("error.already.spouse", new String[]{ indi.toString(), fam.toString()}));
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already spouse in family @"+id+"@");
 
-    Fam[] familiesWhereChild = indi.getFamiliesWhereChild();
-    for (int i=0; i<familiesWhereChild.length; i++) {
-      if (familiesWhereChild[i]==fam)
-        throw new GedcomException(resources.getString("error.already.child", new String[]{ indi.toString(), fam.toString()}));
-    }
-    
-    // Make sure indi isn't already descendant of family 
-    if (indi.isDescendantOf(fam)) 
-      throw new GedcomException(resources.getString("error.already.descendant", new String[]{ indi.toString(), fam.toString()}));
-    
+    if (indi.getFamc()==fam)
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already child in family @"+id+"@");
+      
+    // Enclosing individual is descendant of family
+    if (fam.getDescendants().contains(indi)) 
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already descendant of family @"+id+"@");
+
     // place as husband or wife according to gender
     if (indi.getSex()==PropertySex.UNKNOWN) 
       indi.setSex(husband==null ? PropertySex.MALE : PropertySex.FEMALE);
 
     // check for already existing back reference which takes precedence
-    // NM 20070128 don't use tag paths for simple sub-property get - it's expensive
-    Property[] husbands = fam.getProperties("HUSB", false);
+    Property[] husbands = fam.getProperties(PATH_FAMHUSB);
     for (int i=0;i<husbands.length;i++) {
       PropertyHusband ph = (PropertyHusband)husbands[i];
-      if (ph.isCandidate(indi)) {
-        link(ph);
+      if ( !ph.isValid() && ph.getReferencedId().equals(indi.getId()) ) {
+        ph.setTarget(this);
+        setTarget(ph);
         return;
       }
     }
-    // NM 20070128 don't use tag paths for simple sub-property get - it's expensive
-    Property[] wifes = fam.getProperties("WIFE", false);
+    Property[] wifes = fam.getProperties(PATH_FAMWIFE);
     for (int i=0;i<wifes.length;i++) {
       PropertyWife pw = (PropertyWife)wifes[i];
-      if (pw.isCandidate(indi)) {
-        link(pw);
+      if ( !pw.isValid() && pw.getReferencedId().equals(indi.getId()) ) {
+        pw.setTarget(this);
+        setTarget(pw);
         return;
       }
     }
@@ -130,17 +149,17 @@ public class PropertyFamilySpouse extends PropertyXRef {
       if (husband!=null)
         fam.swapSpouses();
       // create new back ref
-      PropertyXRef backref = new PropertyHusband();
+      PropertyXRef backref = new PropertyHusband(this);
       fam.addProperty(backref);
-      link(backref);
+      setTarget(backref);
     } else {
       // swap if necessary
       if (wife!=null)
         fam.swapSpouses();
       // create new back ref
-      PropertyXRef backref = new PropertyWife();
+      PropertyXRef backref = new PropertyWife(this);
       fam.addProperty(backref);
-      link(backref);
+      setTarget(backref);
     }
 
     // Done

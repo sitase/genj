@@ -23,11 +23,9 @@ import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomListenerAdapter;
-import genj.gedcom.GedcomMetaListener;
 import genj.gedcom.Indi;
-import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
+import genj.gedcom.Transaction;
 import gj.layout.LayoutException;
 import gj.layout.tree.TreeLayout;
 import gj.model.Node;
@@ -46,15 +44,10 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 
-import spin.Spin;
-
 /**
  * Model of our tree
  */
-/*package*/ class Model {
-  
-  /** our gedcom callback */
-  private Callback callback = new Callback();
+/*package*/ class Model implements GedcomListener {
   
   /** listeners */
   private List listeners = new ArrayList(3);
@@ -112,7 +105,23 @@ import spin.Spin;
    * Constructor
    */
   public Model(Gedcom ged) {
-    gedcom = ged;
+    setGedcom(ged);
+  }
+  
+  /**
+   * Set the gedcom to work on
+   */
+  public void setGedcom(Gedcom set) {
+    // old?
+    if (gedcom!=null) {
+      gedcom.removeGedcomListener(this);
+      gedcom = null;
+    }
+    // new?
+    if (set!=null) {
+      gedcom = set;
+      gedcom.addGedcomListener(this);
+    }
   }
   
   /**
@@ -244,10 +253,6 @@ import spin.Spin;
    */
   public void addListener(ModelListener l) {
     listeners.add(l);
-    
-    // first?
-    if (listeners.size()==1)
-      gedcom.addGedcomListener((GedcomListener)Spin.over((GedcomListener)callback));
   }
   
   /**
@@ -255,11 +260,7 @@ import spin.Spin;
    */
   public void removeListener(ModelListener l) {
     listeners.remove(l);
-    
-    // last?
-    if (listeners.isEmpty())
-      gedcom.removeGedcomListener((GedcomListener)Spin.over((GedcomListener)callback));
- }
+  }
   
   /**
    * Nodes by range
@@ -408,6 +409,60 @@ import spin.Spin;
   }
   
   /**
+   * @see genj.gedcom.GedcomListener#handleChange(Change)
+   */
+  public void handleChange(Transaction tx) {
+    // was any entity deleted?
+    Set deleted = tx.get(Transaction.ENTITIES_DELETED);
+    if (deleted.size()>0) {
+      // root has to change?
+      if (deleted.contains(root)) 
+        root = gedcom.getAnyEntity(Gedcom.INDI);
+      // bookmarks?
+      ListIterator it = bookmarks.listIterator();
+      while (it.hasNext()) {
+        Bookmark b = (Bookmark)it.next();
+        if (deleted.contains(b.getEntity())) it.remove();
+      }
+      // indi2fam?
+      indi2fam.keySet().removeAll(deleted);
+      // parse now
+      update();
+      // done
+      return;
+    }
+    // was a relationship property deleted, added or changed?
+    for (Iterator pmods=tx.get(Transaction.PROPERTIES_MODIFIED).iterator();pmods.hasNext();) {
+      if (pmods.next() instanceof PropertyXRef) {
+        update();
+        return;
+      }
+    }
+    // was an individual or family created and we're without root
+    if (root==null) {
+      for (Iterator eadds=tx.get(Transaction.ENTITIES_ADDED).iterator();eadds.hasNext();) {
+        Entity e = (Entity)eadds.next();
+        if (e instanceof Fam || e instanceof Indi) {
+          setRoot(e);
+          return;
+        }
+      }
+    }
+    // was a property changed that we should notify about?
+    Set emods = tx.get(Transaction.ENTITIES_MODIFIED);
+    if (!emods.isEmpty()) {
+      ArrayList nodes = new ArrayList(emods.size());
+      for (Iterator es=emods.iterator();es.hasNext();) {
+        Node node = getNode((Entity)es.next());
+        if (node!=null) nodes.add(node);
+      } 
+      fireNodesChanged(new ArrayList(nodes));
+    }
+    
+    // done
+  }
+  
+  /**
    * Whether we're hiding descendants of given entity
    */
   /*package*/ boolean isHideDescendants(Indi indi) {
@@ -547,7 +602,7 @@ import spin.Spin;
   /**
    * Fire event
    */
-  private void fireNodesChanged(Collection nodes) {
+  private void fireNodesChanged(List nodes) {
     for (int l=listeners.size()-1; l>=0; l--) {
       ((ModelListener)listeners.get(l)).nodesChanged(this, nodes);
     }
@@ -604,91 +659,5 @@ import spin.Spin;
       update();
     }
   } //FoldUnfold
-
-  /**
-   * Our gedcom Callbacks 
-   */
-  private class Callback extends GedcomListenerAdapter implements GedcomMetaListener {
-    
-    private Set repaint = new HashSet();
-    private boolean update = false;
-    private Entity added;
-    
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-      added = null;
-      repaint.clear();
-    }
-    
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
-        
-      // we're without root we could set now?
-      if (root==null) {
-        if (added==null||!gedcom.contains(added))
-          added = gedcom.getFirstEntity(Gedcom.INDI);
-        root = added;
-        update();
-        return;
-      }
-      
-      // update necessary?
-      if (update) {
-        update();
-        return;
-      }
-
-      // signal repaint 
-      if (!repaint.isEmpty()) 
-        fireNodesChanged(repaint);
-   
-    }
-    
-    public void gedcomEntityAdded(Gedcom gedcom, Entity added) {
-      if (added instanceof Fam || added instanceof Indi) {
-        if ( !(this.added instanceof Indi) || added instanceof Indi)
-          this.added = added;
-      }
-    }
   
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      // clear root?
-      if (entity == root) 
-        root = null;
-      
-      // clear bookmarks?
-      ListIterator it = bookmarks.listIterator();
-      while (it.hasNext()) {
-        Bookmark b = (Bookmark)it.next();
-        if (entity == b.getEntity()) it.remove();
-      }
-      
-      // clear indi2fam?
-      indi2fam.keySet().remove(entity);
-      
-    }
-  
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      gedcomPropertyChanged(gedcom, added);
-    }
-  
-    public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      // a reference update?
-      if (property instanceof PropertyXRef) {
-        update = true;
-        return;
-      }
-      // something visible?
-      Node node = getNode(property.getEntity());
-      if (node!=null) 
-        fireNodesChanged(Collections.singletonList(node));
-    }
-  
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
-      // a reference update?
-      if (deleted instanceof PropertyXRef)
-        update = true;
-      // repaint still makes sense?
-      if (root!=null)
-        repaint.add(getNode(property.getEntity()));
-    }
-  } // Callback
 } //Model

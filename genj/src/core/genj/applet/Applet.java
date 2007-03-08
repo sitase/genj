@@ -23,24 +23,21 @@ import genj.Version;
 import genj.gedcom.Gedcom;
 import genj.io.GedcomReader;
 import genj.option.OptionProvider;
+import genj.util.ActionDelegate;
+import genj.util.Debug;
 import genj.util.EnvironmentChecker;
 import genj.util.Origin;
 import genj.util.Registry;
-import genj.util.Resources;
 import genj.util.Trackable;
-import genj.util.swing.Action2;
 import genj.util.swing.ProgressWidget;
 import genj.view.ViewManager;
+import genj.window.CloseWindow;
 import genj.window.DefaultWindowManager;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import javax.swing.Action;
 import javax.swing.JLabel;
 import javax.swing.UIManager;
 
@@ -48,11 +45,7 @@ import javax.swing.UIManager;
  * THE GenJ Applet
  */
 public class Applet extends java.applet.Applet {
-  
-  private final static Resources RESOURCES = Resources.get(Applet.class);
 
-  private final static Logger LOG = Logger.getLogger("genj");
-  
   /** views we offer */
   static final private String[] FACTORIES = new String[]{
     "genj.table.TableViewFactory",
@@ -90,7 +83,7 @@ public class Applet extends java.applet.Applet {
     isInitialized = true;
 
     // disclaimer
-    LOG.info(getAppletInfo());
+    Debug.log(Debug.INFO, this, getAppletInfo());
 
     EnvironmentChecker.log();
 
@@ -98,43 +91,33 @@ public class Applet extends java.applet.Applet {
     setLayout(new BorderLayout());
 
     // calculate gedcom url
-    String gedcom = getParameter("gedcom");
-    if (gedcom==null) {
-      log(RESOURCES.getString("applet.missing"));
-      return;
-    }
-    
-    URL url;
-    try {
-      log("document base="+getDocumentBase());
-      log("gedcom="+gedcom);
-      url = new URL(getDocumentBase(), gedcom);
-    } catch (MalformedURLException e) {
-      log(RESOURCES.getString("applet.missing"));
-      return;
-    }
+    String url = getParameter("gedcom");
+    if (url!=null&&url.indexOf(':')<0) {
+      String base = getDocumentBase().toString();
+      url = base.substring(0, base.lastIndexOf('/')+1)+url;
+    } 
 
     // Log
-    log(RESOURCES.getString("applet.loading", url));
+    String msg = "Loading Gedcom "+url;
+
+    showStatus(msg);
+    
+    Debug.log(Debug.INFO, this, msg);
+    Debug.flush();
 
     // try load gedcom
     new Init(url).trigger();
 
     // done 
   }
-  
-  private void log(String msg) {
-    showStatus(msg);
-    LOG.info(msg);
-  }
     
   /**
    * load
    */
-  private class Init extends Action2 implements Trackable {
+  private class Init extends ActionDelegate implements Trackable {
 
     /** url we're loading from */
-    private URL url;
+    private String url;
 
     /** reader we're working with */
     private GedcomReader reader;
@@ -151,7 +134,7 @@ public class Applet extends java.applet.Applet {
     /**
      * Constructor
      */
-    private Init(URL url) {
+    private Init(String url) {
 
       // keep url
       this.url = url;
@@ -163,7 +146,7 @@ public class Applet extends java.applet.Applet {
     }
     
     /**
-     * @see genj.util.swing.Action2#preExecute()
+     * @see genj.util.ActionDelegate#preExecute()
      */
     protected boolean preExecute() {
 
@@ -183,7 +166,7 @@ public class Applet extends java.applet.Applet {
     }
     
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
 
@@ -191,7 +174,7 @@ public class Applet extends java.applet.Applet {
       try {
         
         // the origin we're loading from
-        Origin origin = Origin.create(url);
+        Origin origin = Origin.create(new URL(url));
         
         // the registry and some options
         try {
@@ -200,7 +183,7 @@ public class Applet extends java.applet.Applet {
           // we can't use our OptionProvider service lookup method in an applet
           // because of security restrictions (no sun.misc access)
           OptionProvider.setOptionProviders(OPTIONPROVIDERS);
-          OptionProvider.getAllOptions(registry);
+          OptionProvider.restoreAll(registry);
           
         } catch (Throwable t) {
           registry = new Registry();
@@ -221,34 +204,35 @@ public class Applet extends java.applet.Applet {
         
       } catch (Throwable t) {
         throwable = t;
-        LOG.log(Level.SEVERE, "Encountered throwable", throwable);
+        Debug.log(Debug.ERROR, Applet.this, "Encountered throwable", throwable);
       }
 
       // back to sync   
     }
     
     /**
-     * @see genj.util.swing.Action2#postExecute(boolean)
+     * @see genj.util.ActionDelegate#postExecute()
      */
-    protected void postExecute(boolean preExecuteResult) {
+    protected void postExecute() {
 
       // prepare window manager
-      WindowManager winMgr = new DefaultWindowManager(registry, Gedcom.getImage());
+      WindowManager winMgr = new DefaultWindowManager(registry);
       
       // check load status      
       if (throwable!=null) {
         
-        Action[] actions = { new Action2("Retry"),  Action2.cancel() };
-        int rc = winMgr.openDialog(null, "Error", WindowManager.ERROR_MESSAGE, url+"\n"+throwable.getMessage(), actions, Applet.this);        
+        ActionDelegate[] actions = {
+          new CloseWindow("Retry"), 
+          new CloseWindow(CloseWindow.TXT_CANCEL)
+        };
+        int rc = winMgr.openDialog(null, "Error", WindowManager.IMG_ERROR, url+"\n"+throwable.getMessage(), actions, Applet.this);        
         
         if (rc==0) trigger();
         
       } else {
         
-        log(RESOURCES.getString("applet.ready"));
-        
         // prepare view manager
-        ViewManager vmanager = new ViewManager(winMgr, FACTORIES);
+        ViewManager vmanager = new ViewManager(new Registry(registry, "views"), null, winMgr, FACTORIES);
 
         // change what we show
         removeAll();
@@ -263,10 +247,10 @@ public class Applet extends java.applet.Applet {
     }
 
     /**
-     * @see genj.util.Trackable#cancelTrackable()
+     * @see genj.util.Trackable#cancel()
      */
-    public void cancelTrackable() {
-      if (reader!=null) reader.cancelTrackable();
+    public void cancel() {
+      if (reader!=null) reader.cancel();
     }
     
     /**
@@ -280,7 +264,7 @@ public class Applet extends java.applet.Applet {
      * @see genj.util.Trackable#getState()
      */
     public String getState() {
-      return reader!=null ? reader.getState() : RESOURCES.getString("applet.connecting");
+      return reader!=null ? reader.getState() : "Connecting";
     }
 
     

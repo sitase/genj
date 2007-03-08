@@ -20,20 +20,12 @@
 package genj.edit;
 
 import genj.crypto.Enigma;
-import genj.edit.actions.CreateAlias;
-import genj.edit.actions.CreateAssociation;
-import genj.edit.actions.CreateChild;
 import genj.edit.actions.CreateEntity;
-import genj.edit.actions.CreateParent;
-import genj.edit.actions.CreateSibling;
-import genj.edit.actions.CreateSpouse;
-import genj.edit.actions.CreateXReference;
+import genj.edit.actions.CreateRelationship;
 import genj.edit.actions.DelEntity;
-import genj.edit.actions.DelProperty;
 import genj.edit.actions.OpenForEdit;
 import genj.edit.actions.Redo;
 import genj.edit.actions.RunExternal;
-import genj.edit.actions.SetPlaceHierarchy;
 import genj.edit.actions.SetSubmitter;
 import genj.edit.actions.SwapSpouses;
 import genj.edit.actions.TogglePrivate;
@@ -44,28 +36,27 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.Indi;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
-import genj.gedcom.PropertyEvent;
 import genj.gedcom.PropertyFamilyChild;
 import genj.gedcom.PropertyFile;
-import genj.gedcom.PropertyMedia;
 import genj.gedcom.PropertyNote;
-import genj.gedcom.PropertyPlace;
 import genj.gedcom.PropertyRepository;
 import genj.gedcom.PropertySource;
 import genj.gedcom.PropertySubmitter;
+import genj.gedcom.PropertyXRef;
+import genj.gedcom.Relationship;
 import genj.gedcom.Submitter;
+import genj.gedcom.Relationship.XRefBy;
 import genj.io.FileAssociation;
+import genj.util.ActionDelegate;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.ActionProvider;
-import genj.view.ViewContext;
+import genj.view.Context;
+import genj.view.ContextListener;
 import genj.view.ViewFactory;
 import genj.view.ViewManager;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -74,10 +65,10 @@ import javax.swing.JComponent;
 /**
  * The factory for the TableView
  */
-public class EditViewFactory implements ViewFactory, ActionProvider {
+public class EditViewFactory implements ViewFactory, ActionProvider, ContextListener {
     
   /** a noop is used for separators in returning actions */  
-  private final static Action2 aNOOP = Action2.NOOP;
+  private final static ActionDelegate aNOOP = ActionDelegate.NOOP;
   
   /**
    * @see genj.view.ViewFactory#createView(genj.gedcom.Gedcom, genj.util.Registry, java.awt.Frame)
@@ -99,53 +90,33 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   public String getTitle(boolean abbreviate) {
     return EditView.resources.getString("title" + (abbreviate?".short":""));
   }
-
-// FIXME need to provide for auto-open edit on selection
-//  /**
-//   * Callback - context change information
-//   */
-//  public void handleContextSelectionEvent(ContextSelectionEvent event) {
-//    ViewContext context = event.getContext();
-//    ViewManager manager = context.getManager();
-//    // editor needed?
-//    if (!Options.getInstance().isOpenEditor)
-//      return;
-//    // what's the entity
-//    Entity[] entities = context.getEntities();
-//    if (entities.length!=1)
-//      return;
-//    Entity entity = entities[0];
-//    // noop if EditView non-sticky or current is open
-//    EditView[] edits = EditView.getInstances(context.getGedcom());
-//    for (int i=0;i<edits.length;i++) {
-//      if (!edits[i].isSticky()||edits[i].getEntity()==entity) 
-//        return;
-//    }
-//    // open
-//    new OpenForEdit(context, manager).trigger();
-//  }
   
   /**
-   * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
+   * Callback - context change information
    */
-  public List createActions(Property[] properties, ViewManager manager) {
-    List result = new ArrayList();
-    // not accepting any entities here
-    for (int i = 0; i < properties.length; i++) 
-      if (properties[i] instanceof Entity) return result;
-    // Toggle "Private"
-    if (Enigma.isAvailable())
-      result.add(new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties), manager));
-    // Delete
-    result.add(new DelProperty(properties, manager));
-    // done
-    return result;
+  public void setContext(Context context) {
+    ViewManager manager = context.getManager();
+    // editor needed?
+    if (!Options.getInstance().isOpenEditor)
+      return;
+    // what's the entity
+    Entity entity = context.getEntity();
+    // noop if EditView non-sticky or current is open
+    EditView[] edits = EditView.getInstances(context.getGedcom());
+    for (int i=0;i<edits.length;i++) {
+      if (!edits[i].isSticky()||edits[i].getEntity()==entity) 
+        return;
+    }
+    // open
+    new OpenForEdit(context, manager).trigger();
   }
 
   /**
    * @see genj.view.ContextSupport#createActions(Property)
    */
   public List createActions(Property property, ViewManager manager) {
+    
+    // TODO would be great if this wasn't hardcoded
     
     // create the actions
     List result = new ArrayList();
@@ -154,40 +125,35 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     if (property instanceof PropertyFile)  
       createActions(result, (PropertyFile)property); 
       
-    // Place format for PropertyFile
-    if (property instanceof PropertyPlace)  
-      result.add(new SetPlaceHierarchy((PropertyPlace)property, manager)); 
-      
     // Check what xrefs can be added
-    MetaProperty[] subs = property.getNestedMetaProperties(0);
+    MetaProperty[] subs = property.getSubMetaProperties(0);
     for (int s=0;s<subs.length;s++) {
-      // NOTE REPO SOUR SUBM (BIRT|ADOP)FAMC
+      // NOTE||REPO||SOUR||SUBM
       Class type = subs[s].getType();
       if (type==PropertyNote.class||
           type==PropertyRepository.class||
           type==PropertySource.class||
-          type==PropertySubmitter.class||
-          type==PropertyFamilyChild.class||
-          (type==PropertyMedia.class&&genj.gedcom.Options.getInstance().isAllowNewOBJEctEntities) 
-        ) {
+          type==PropertySubmitter.class) {
         // .. make sure @@ forces a non-substitute!
-        result.add(new CreateXReference(property,subs[s].getTag(), manager));
+        result.add(new CreateRelationship(new XRefBy(property, (PropertyXRef)subs[s].create("@@")), manager));
+        // continue
+        continue;
+      }
+      // TODO works with ADOP|FAMC only
+      if (type==PropertyFamilyChild.class) {
+        result.add(new CreateRelationship(new XRefBy(property, (PropertyXRef)subs[s].create("@@")), manager));
         // continue
         continue;
       }
     }
     
-    // Add Association to this one (*only* for events)
-    if (property instanceof PropertyEvent)
-      result.add(new CreateAssociation(property, manager));
+    // Add Association to this one ...
+    if (!property.isTransient())
+      result.add(new CreateRelationship(new Relationship.Association(property), manager));
     
     // Toggle "Private"
     if (Enigma.isAvailable())
-      result.add(new TogglePrivate(property.getGedcom(), Collections.singletonList(property), manager));
-    
-    // Delete
-    if (!property.isTransient()) 
-      result.add(new DelProperty(property, manager));
+      result.add(new TogglePrivate(property, manager));
 
     // done
     return result;
@@ -208,32 +174,31 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     if (entity instanceof Submitter) createActions(result, (Submitter)entity, manager);
     
     // separator
-    result.add(Action2.NOOP);
+    result.add(ActionDelegate.NOOP);
 
     // Check what xrefs can be added
-    MetaProperty[] subs = entity.getNestedMetaProperties(0);
+    MetaProperty[] subs = entity.getSubMetaProperties(0);
     for (int s=0;s<subs.length;s++) {
       // NOTE||REPO||SOUR||SUBM
       Class type = subs[s].getType();
       if (type==PropertyNote.class||
           type==PropertyRepository.class||
           type==PropertySource.class||
-          type==PropertySubmitter.class||
-          (type==PropertyMedia.class&&genj.gedcom.Options.getInstance().isAllowNewOBJEctEntities) 
-          ) {
-        result.add(new CreateXReference(entity,subs[s].getTag(), manager));
+          type==PropertySubmitter.class) {
+        // .. make sure @@ forces a non-substitute!
+        result.add(new CreateRelationship(new Relationship.XRefBy(entity, (PropertyXRef)subs[s].create("@@")), manager));
       }
     }
 
     // add delete
-    result.add(Action2.NOOP);
+    result.add(ActionDelegate.NOOP);
     result.add(new DelEntity(entity, manager));
     
     // add an "edit in EditView"
     EditView[] edits = EditView.getInstances(entity.getGedcom());
     if (edits.length==0) {
-      result.add(Action2.NOOP);
-      result.add(new OpenForEdit(new ViewContext(entity), manager));
+      result.add(ActionDelegate.NOOP);
+      result.add(new OpenForEdit(new Context(entity), manager));
     }
     // done
     return result;
@@ -248,15 +213,14 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     result.add(new CreateEntity(gedcom, Gedcom.INDI, manager));
     result.add(new CreateEntity(gedcom, Gedcom.FAM , manager));
     result.add(new CreateEntity(gedcom, Gedcom.NOTE, manager));
-    if (genj.gedcom.Options.getInstance().isAllowNewOBJEctEntities)
-      result.add(new CreateEntity(gedcom, Gedcom.OBJE, manager));
+    result.add(new CreateEntity(gedcom, Gedcom.OBJE, manager));
     result.add(new CreateEntity(gedcom, Gedcom.REPO, manager));
     result.add(new CreateEntity(gedcom, Gedcom.SOUR, manager));
     result.add(new CreateEntity(gedcom, Gedcom.SUBM, manager));
 
-    result.add(Action2.NOOP);
-    result.add(new Undo(gedcom));
-    result.add(new Redo(gedcom));
+    result.add(ActionDelegate.NOOP);
+    result.add(new Undo(gedcom, manager));
+    result.add(new Redo(gedcom, manager));
 
     // done
     return result;
@@ -266,21 +230,20 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
    * Create actions for Individual
    */
   private void createActions(List result, Indi indi, ViewManager manager) {
-    result.add(new CreateChild(indi, manager));
-    result.add(new CreateParent(indi, manager));
-    result.add(new CreateSpouse(indi, manager));
-    result.add(new CreateSibling(indi, manager, true));
-    result.add(new CreateSibling(indi, manager, false));
-    result.add(new CreateAlias(indi, manager));
+    result.add(new CreateRelationship(new Relationship.ChildOf(indi), manager));
+    if (indi.getNoOfParents()<2)
+      result.add(new CreateRelationship(new Relationship.ParentOf(indi), manager));
+    result.add(new CreateRelationship(new Relationship.SpouseOf(indi), manager));
+    result.add(new CreateRelationship(new Relationship.SiblingOf(indi), manager));
   }
   
   /**
    * Create actions for Families
    */
   private void createActions(List result, Fam fam, ViewManager manager) {
-    result.add(new CreateChild(fam, manager));
+    result.add(new CreateRelationship(new Relationship.ChildIn(fam), manager));
     if (fam.getNoOfSpouses()<2)
-      result.add(new CreateParent(fam, manager));
+      result.add(new CreateRelationship(new Relationship.ParentIn(fam), manager));
     if (fam.getNoOfSpouses()!=0)
       result.add(new SwapSpouses(fam, manager));
   }
@@ -301,14 +264,10 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     String suffix = file.getSuffix();
       
     // lookup associations
-    List assocs = FileAssociation.getAll(suffix);
-    if (assocs.isEmpty()) {
-      result.add(new RunExternal(file));
-    } else {
-      for (Iterator it = assocs.iterator(); it.hasNext(); ) {
-        FileAssociation fa = (FileAssociation)it.next(); 
-        result.add(new RunExternal(file,fa));
-      }
+    Iterator it = FileAssociation.getAll(suffix).iterator();
+    while (it.hasNext()) {
+      FileAssociation fa = (FileAssociation)it.next(); 
+      result.add(new RunExternal(file,fa));
     }
     // done
   }

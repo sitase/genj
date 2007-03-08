@@ -20,6 +20,7 @@
 package genj.util.swing;
 
 import genj.util.ByteArray;
+import genj.util.Debug;
 import genj.util.Dimension2d;
 import genj.util.ImageSniffer;
 
@@ -178,15 +179,16 @@ public class ImageIcon extends javax.swing.ImageIcon {
    */
   private static byte[] read(String name, InputStream in) {
     // check null (e.g. if resource wasn't found)
-    if (in==null) 
-      throw new IllegalArgumentException("no stream for "+name);
+    if (in==null) {
+      Debug.log(Debug.WARNING, ImageIcon.class, "no stream for "+name);
+      throw new IllegalArgumentException("no stream for "+in);
+    }
     // try to read it
     try {
       return new ByteArray(in).getBytes();
     } catch (IOException ex) {
-      throw new IllegalArgumentException("can't read "+name+": "+ex.getMessage());
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("interrupted while reading "+name);
+      Debug.log(Debug.WARNING, ImageIcon.class, "loading "+name+": "+ex.getMessage());
+      throw new IllegalArgumentException("loading "+name+": "+ex.getMessage());
     }
   }
 

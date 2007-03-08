@@ -19,8 +19,6 @@
  */
 package genj.gedcom;
 
-import java.util.ArrayList;
-
 /**
  * Gedcom Property with multiple lines
  */
@@ -31,6 +29,13 @@ public class PropertyMultilineValue extends Property implements MultiLinePropert
   
   /** our value */
   private String lines = "";
+  
+  /**
+   * Which Proxy to use for this property
+   */
+  public String getProxy() {
+    return "MLE";
+  }
   
   /**
    * @see genj.gedcom.Property#getTag()
@@ -54,14 +59,15 @@ public class PropertyMultilineValue extends Property implements MultiLinePropert
   public void setValue(String setValue) {
     String old = getValue();
     lines = setValue;
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
   }
   
   /**
    * A display value containing no newlines
    */
   public String getDisplayValue() {
-    return getValue();
+    int dots = lines.indexOf('\n');
+    return dots<0 ? lines : lines.substring(0, dots)+"...";
   }
 
   /**
@@ -69,18 +75,6 @@ public class PropertyMultilineValue extends Property implements MultiLinePropert
    */
   public String getValue() {
     return lines.toString();
-  }
-  
-  /**
-   * Accessor Value as lines
-   */
-  public String[] getLines() {
-     ArrayList result = new ArrayList();
-     Iterator it = getLineIterator();
-     do {
-       result.add(it.getValue());
-     } while (it.next());
-     return (String[])result.toArray(new String[result.size()]);
   }
   
   /**

@@ -28,13 +28,27 @@ import genj.util.swing.ImageIcon;
 public class PropertySource extends PropertyXRef {
 
   /**
+   * Empty Constructor
+   */
+  public PropertySource() {
+  }
+  
+  /**
+   * Constructor with reference
+   * @param target reference of property this property links to
+   */
+  public PropertySource(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
    * This will be called once when instantiation has
    * happend - it's our chance to substitute this with
    * a multilinevalue if no reference applicable
    */
   /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    // expecting SOUR
-    meta.assertTag("SOUR");
+    // expecting NOTE
+    assume("SOUR".equals(meta.getTag()), UNSUPPORTED_TAG);
     // ONLY for @..@!!!
     if (value.startsWith("@")&&value.endsWith("@"))
       return super.init(meta,value);
@@ -56,15 +70,24 @@ public class PropertySource extends PropertyXRef {
    */
   public void link() throws GedcomException {
 
+    // something to do ?
+    if (getReferencedEntity()!=null) return;
+
+
     // Look for Source
-    Source source = (Source)getCandidate();
+    String id = getReferencedId();
+    if (id.length()==0) return;
+
+    Source source = (Source)getGedcom().getEntity(Gedcom.SOUR, id);
+    if (source == null)
+      return;
 
     // Create Backlink
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     source.addProperty(fxref);
 
     // ... and point
-    link(fxref);
+    setTarget(fxref);
 
     // done
   }
@@ -81,7 +104,7 @@ public class PropertySource extends PropertyXRef {
    */
   protected ImageIcon overlay(ImageIcon img) {
     // used as a reference? go ahead and overlay!
-    if (super.getTargetEntity()!=null)
+    if (super.getReferencedEntity()!=null)
       return super.overlay(img);
     // used inline! no overlay!
     return img;

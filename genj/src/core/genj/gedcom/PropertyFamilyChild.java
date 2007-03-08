@@ -19,8 +19,6 @@
  */
 package genj.gedcom;
 
-import java.util.List;
-
 /**
  * Gedcom Property : FAMC
  * A property wrapping the condition of being a child in a family
@@ -33,33 +31,18 @@ public class PropertyFamilyChild extends PropertyXRef {
   public PropertyFamilyChild() {
   }
   
-  static int 
-    NOT_BIOLOGICAL = 0,
-    MAYBE_BIOLOGICAL = 1,
-    CONFIRMED_BIOLOGICAL = 2;
-  
   /**
-   * Check if this is a biological link (not necessarily deterministic)
+   * Constructor with reference
    */
-  protected int isBiological() {
-    // certainly not if contained in ADOPtion event
-    String parent = getParent().getTag();
-    if ("ADOP".equals(parent))
-      return NOT_BIOLOGICAL;
-    // certainly yes if contained in BIRTh event
-    if ("BIRT".equals(parent))
-      return CONFIRMED_BIOLOGICAL;
-    // check for PEDI? could be if not present
-    Property pedi = getProperty("PEDI");
-    if (pedi==null)
-      return MAYBE_BIOLOGICAL;
-    // check well known keywords
-    String value = pedi.getValue();
-    if ("birth".equals(value)) return CONFIRMED_BIOLOGICAL;
-    if ("adopted".equals(value)) return NOT_BIOLOGICAL;
-    if ("foster".equals(value)) return NOT_BIOLOGICAL; 
-    if ("sealing".equals(value)) return NOT_BIOLOGICAL;
-    return MAYBE_BIOLOGICAL;
+  public PropertyFamilyChild(String target) {
+    setValue(target);
+  }
+
+  /**
+   * Constructor with reference
+   */
+  public PropertyFamilyChild(PropertyXRef target) {
+    super(target);
   }
 
   /**
@@ -78,7 +61,7 @@ public class PropertyFamilyChild extends PropertyXRef {
    * Returns the reference to family
    */
   public Fam getFamily() {
-    return (Fam)getTargetEntity();
+    return (Fam)getReferencedEntity();
   }
 
   
@@ -99,46 +82,71 @@ public class PropertyFamilyChild extends PropertyXRef {
    */
   public void link() throws GedcomException {
 
+    // Something to do ?
+    if (getFamily()!=null) 
+      return;
+
     // Get enclosing individual ?
     Indi indi;
     try {
       indi = (Indi)getEntity();
     } catch (ClassCastException ex) {
-      throw new GedcomException(resources.getString("error.noenclosingindi"));
+      throw new GedcomException("FAMS can't be linked to family when not in individual");
     }
     
-    // Look for family
-    Fam fam = (Fam)getCandidate();
-    Indi father = fam.getHusband();
-    Indi mother = fam.getWife();
+    // check if this is an adoption
+    boolean adoption = getParent().getClass()==PropertyEvent.class && getParent().getTag().equals("ADOP");
+    
+    // Enclosing individual has a childhood already (in case of non-adoption)?
+    if (!adoption&&indi.getFamc()!=null)
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already child of a family");
 
-    // Make sure the child is not ancestor of the family (father,grandfather,grandgrandfather,...)
-    // .. that would introduce a circle
-    if (indi.isAncestorOf(fam))
-      throw new GedcomException(resources.getString("error.already.ancestor", new String[]{ indi.toString(), fam.toString() }));
-    
-    // Make sure we're not child already - no need for duplicates here
-    // NM 20070128 don't sort for checking existance
-    Indi children[] = fam.getChildren(false);
-    for (int i=0;i<children.length;i++) {
-      if ( children[i] == indi) 
-        throw new GedcomException(resources.getString("error.already.child", new String[]{ indi.toString(), fam.toString()}));
+    // Look for family (not-existing -> Gedcom throws Exception)
+    String id = getReferencedId();
+    Fam fam = (Fam)getGedcom().getEntity(Gedcom.FAM, id);
+    if (fam==null)
+      throw new GedcomException("Couldn't find family with ID "+id);
+
+    // Enclosing individual is child in family  (in case of non-adoption)?
+    if (!adoption) {
+	    Indi cindi[] = fam.getChildren();
+	    for (int inx=0; inx < cindi.length; inx++) {
+        if (cindi[inx]==indi)
+          throw new GedcomException("Family @"+id+"@ already contains Individual @"+indi.getId()+"@ as a child");
+	    }
     }
-    
-    // Connect back from family (maybe using invalid back reference) 
-    List childs = fam.getProperties(PropertyChild.class);
-    for (int i=0,j=childs.size();i<j;i++) {
-      PropertyChild prop = (PropertyChild)childs.get(i);
-      if (prop.isCandidate(indi)) {
-        link(prop);
-        return;
-      }
+
+    // Enclosing individual is Husband/Wife in family ?
+    if ((fam.getHusband()==indi)||(fam.getWife()==indi))
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already spouse in family @"+id+"@");
+
+    // Family is descendant of indi ?
+    if (fam.getAncestors().contains(indi))
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already ancestor of family @"+fam.getId()+"@");
+
+    // Connect back from family (maybe using invalid back reference) if !adoption
+    if (!adoption) {
+	    for (int i=0,j=fam.getNoOfProperties();i<j;i++) {
+	      Property prop = fam.getProperty(i);
+	      if (!"CHIL".equals(prop.getTag()))
+	        continue;
+	      PropertyChild pc = (PropertyChild)prop;
+	      if ( !pc.isValid() && pc.getReferencedId().equals(indi.getId()) ) {
+	        pc.setTarget(this);
+	        setTarget(pc);
+	        return;
+	      }
+	    }
     }
 
     // .. new back referencing property
-    PropertyXRef xref = new PropertyChild();
+    PropertyXRef xref;
+    if (adoption)
+      xref = new PropertyForeignXRef(this);
+    else
+      xref = new PropertyChild(this);
     fam.addProperty(xref);
-    link(xref);
+    setTarget(xref);
 
     // Done
   }

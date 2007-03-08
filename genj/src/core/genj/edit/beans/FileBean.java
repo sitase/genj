@@ -19,31 +19,44 @@
  */
 package genj.edit.beans;
 
+import genj.edit.actions.RunExternal;
+import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyBlob;
 import genj.gedcom.PropertyFile;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
+import genj.io.FileAssociation;
+import genj.util.ActionDelegate;
 import genj.util.Origin;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.FileChooserWidget;
-import genj.util.swing.ImageWidget;
-import genj.view.ViewContext;
+import genj.util.swing.ImageIcon;
+import genj.util.swing.MenuHelper;
+import genj.util.swing.UnitGraphics;
+import genj.view.ViewManager;
+import genj.window.CloseWindow;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
+import java.awt.Cursor;
 import java.awt.Dimension;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.dnd.DropTarget;
-import java.awt.dnd.DropTargetAdapter;
-import java.awt.dnd.DropTargetDragEvent;
-import java.awt.dnd.DropTargetDropEvent;
+import java.awt.Graphics;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.geom.Point2D;
 import java.io.FilePermission;
-import java.util.List;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 import javax.swing.JCheckBox;
+import javax.swing.JComponent;
+import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
 
 /**
  * A Proxy knows how to generate interaction components that the user
@@ -52,7 +65,7 @@ import javax.swing.JCheckBox;
 public class FileBean extends PropertyBean {
   
   /** preview */
-  private ImageWidget preview = new ImageWidget();
+  private Preview preview;
   
   /** a checkbox as accessory */
   private JCheckBox updateFormatAndTitle = new JCheckBox(resources.getString("file.update"), false);
@@ -60,101 +73,53 @@ public class FileBean extends PropertyBean {
   /** file chooser  */
   private FileChooserWidget chooser = new FileChooserWidget();
   
-  private ActionListener doPreview = new ActionListener() {
-    public void actionPerformed(ActionEvent e) {
-      
-      // remember directory
-      registry.put("bean.file.dir", chooser.getDirectory());
-      
-      // show file
-      File file = getProperty().getGedcom().getOrigin().getFile(chooser.getFile().toString());
-      if (file==null) {
-        preview.setSource(null);
-        return;
-      }
-      preview.setSource(new ImageWidget.FileSource(file));
-      
-      // calculate relative
-      String relative = getProperty().getGedcom().getOrigin().calcRelativeLocation(file.getAbsolutePath());
-      if (relative!=null)
-        chooser.setFile(relative);
-      
-      // and warn about size
-      WindowManager wm = WindowManager.getInstance(FileBean.this);
-      if (wm!=null&&file.exists()&&file.length()>PropertyFile.getMaxValueAsIconSize(false)) {
-      
-        String txt = resources.getString("file.max", new String[]{
-          file.getName(),
-          String.valueOf(file.length()/1024+1),
-          String.valueOf(PropertyFile.getMaxValueAsIconSize(true)),
-        }); 
-      
-        wm.openDialog(null,null,WindowManager.INFORMATION_MESSAGE,txt,Action2.okOnly(), FileBean.this);
-      }
-
-      // done
-    }
-  };
-  
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    setLayout(new BorderLayout());
-    
-    // setup chooser
-    chooser.setAccessory(updateFormatAndTitle);
-    chooser.addChangeListener(changeSupport);
-    chooser.addActionListener(doPreview);
-
-    add(chooser, BorderLayout.NORTH);      
-    
-    // setup review
-    add(preview, BorderLayout.CENTER);
-    
-    // setup a reasonable preferred size
-    setPreferredSize(new Dimension(128,128));
-    
-    // setup drag'n'drop
-    new DropTarget(this, new DropHandler());
-    
-    // done
-  }
+  /** a loader per rootpane*/
+  private static Map root2loader = new WeakHashMap();
   
   /**
-   * Set context to edit
+   * Initialize
    */
-  public void setProperty(PropertyFile file) {
-    set(file);
-  }
-  
-  public void setProperty(PropertyBlob blob) {
-    set(blob);
-  }
-  
-  private void set(Property property) {
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
 
-    // remember property
-    this.property = property;
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
+    setLayout(new BorderLayout());
     
     // calc directory
-    Origin origin = property.getGedcom().getOrigin();
-    String dir = origin.getFile()!=null ? origin.getFile().getParent() : null;
+    Origin origin = gedcom.getOrigin();
+    String dir = origin.isFile() ? origin.getFile().getParent() : null;
     
-    // check if showing file chooser makes sense
+    // connect file chooser with change support
+    chooser.setAccessory(updateFormatAndTitle);
+    chooser.setImage(setProp.getImage(false));
+    chooser.setDirectory(dir);
+    chooser.addChangeListener(changeSupport);
+    chooser.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        load(chooser.getFile().toString(), true);
+      }
+    });
+
+    defaultFocus = chooser;
+
+    // add filechooser if permissions are ok
     if (dir!=null) try {
       
       SecurityManager sm = System.getSecurityManager();
       if (sm!=null) 
         sm.checkPermission( new FilePermission(dir, "read"));      
 
-      chooser.setDirectory(registry.get("bean.file.dir", dir));
-      chooser.setVisible(true);
-      defaultFocus = chooser;
+      add(chooser, BorderLayout.NORTH);      
 
     } catch (SecurityException se) {
-      chooser.setVisible(false);
-      defaultFocus = null;
     }
+
+    // Any graphical information that could be shown ?
+    preview = new Preview();
+    
+    add(new JScrollPane(preview), BorderLayout.CENTER);
+    
+    // setup a reasonable preferred size
+    setPreferredSize(new Dimension(128,128));
 
     // case FILE
     if (property instanceof PropertyFile) {
@@ -165,11 +130,8 @@ public class FileBean extends PropertyBean {
       chooser.setTemplate(false);
       chooser.setFile(file.getValue());
 
-      if (property.getValue().length()>0)
-        preview.setSource(new ImageWidget.RelativeSource(property.getGedcom().getOrigin(), property.getValue()));
-      else
-        preview.setSource(null);
-      
+      load(file.getValue(), false);
+
       // done
     }
 
@@ -183,60 +145,69 @@ public class FileBean extends PropertyBean {
       chooser.setTemplate(true);
 
       // .. preview
-      preview.setSource(new ImageWidget.ByteArraySource( ((PropertyBlob)property).getBlobData() ));
+      try {
+        preview.setImage(new ImageIcon(blob.getTitle(), blob.getBlobData()));
+      } catch (Throwable t) {
+      }
 
     }
       
-    new ActionZoom(registry.get("file.zoom", 100)).trigger();
-    
     // Done
   }
 
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    
-    super.commit(property);
+  public void commit(Transaction tx) {
     
     // propagate
-    String value = chooser.getFile().toString();
+    String file = chooser.getFile().toString();
     
     if (property instanceof PropertyFile)
-      ((PropertyFile)property).setValue(value, updateFormatAndTitle.isSelected());
+      ((PropertyFile)property).setValue(file, updateFormatAndTitle.isSelected());
     
     if (property instanceof PropertyBlob) 
-      ((PropertyBlob)property).load(value, updateFormatAndTitle.isSelected());
+      ((PropertyBlob)property).load(file, updateFormatAndTitle.isSelected());
 
-    // update preview
-    File file = getProperty().getGedcom().getOrigin().getFile(value);
-    preview.setSource(file!=null?new ImageWidget.FileSource(file):null);
-    
+    // update chooser
+    chooser.setFile(property.getValue());
+
+    // and preview if necessary
+    ImageIcon img = preview.getImage();
+    if (img==null||!img.getDescription().equals(file))
+      load(file, false);
+
     // done
   }
-
+  
   /**
-   * ContextProvider callback 
+   * trigger a load - we currently only allow one concurrent loader
+   * per RootPane
    */
-  public ViewContext getContext() {
-    ViewContext result = super.getContext();
-    if (result!=null) {
-      result.addAction(new ActionZoom( 10));
-      result.addAction(new ActionZoom( 25));
-      result.addAction(new ActionZoom( 50));
-      result.addAction(new ActionZoom(100));
-      result.addAction(new ActionZoom(150));
-      result.addAction(new ActionZoom(200));
-      result.addAction(new ActionZoom(  0));
+  private void load(String file, boolean warnAboutSize) {
+
+    // create new loader
+    Loader loader = new Loader(file, warnAboutSize);
+
+    // cancel current loader and keep new
+    synchronized (root2loader) {
+      Object root = getRootPane();
+      if (root!=null) {
+        Loader old = (Loader)root2loader.get(root);
+        if (old!=null)
+          old.cancel(true);
+      }
+      root2loader.put(root, loader);
     }
-    // all done
-    return result;
+
+    // start loading      
+    loader.trigger();
   }
   
   /**
    * Action - zoom
    */
-  private class ActionZoom extends Action2 {
+  private class ActionZoom extends ActionDelegate {
     /** the level of zoom */
     private int zoom;
     /**
@@ -247,46 +218,247 @@ public class FileBean extends PropertyBean {
       setText(zoom==0?"1:1":zoom+"%");
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
-      preview.setZoom(zoom/100F);
-      preview.setToolTipText(zoom==0 ? "1:1" : zoom+"%");
-      registry.put("file.zoom", zoom);
+      preview.setZoom(zoom);
     }
   } //ActionZoom
+  
+  /**
+   * Preview
+   */
+  private class Preview extends JComponent implements MouseListener {
+    /** our image */
+    private ImageIcon img;
+    /** our zoom */
+    private int zoom;
+    /**
+     * Constructor
+     */
+    protected Preview() {
+      addMouseListener(this);
+      setZoom(registry.get("file.zoom", 100));
+    }
+    /**
+     * Sets the zoom level
+     */
+    protected void setZoom(int zOOm) {
+      
+      // remember
+      zoom = zOOm;
+      registry.put("file.zoom", zoom);
+      
+      // calc tooltip
+      setToolTipText(zoom==0 ? "1:1" : zoom+"%");
+      
+      // show
+      revalidate();
+      repaint();
+    }
+    /**
+     * Sets the image to preview
+     */
+    protected void setImage(ImageIcon set) {
+      // remember
+      img = set;
+      // show
+      setZoom(zoom);
+    }
+    /**
+     * Access current image
+     */
+    protected ImageIcon getImage() {
+      return img;
+    }
+    /**
+     * @see javax.swing.JComponent#paintComponent(java.awt.Graphics)
+     */
+    protected void paintComponent(Graphics g) {
+      // no image?
+      if (img==null) return;
+      // Maybe we'll paint in physical size
+      UnitGraphics ug = new UnitGraphics(g, 1, 1);
+      // not 1:1?
+      if (zoom!=0) {
+        // calculate factor - the image's dpi might be
+        // different than that of the rendered surface
+        float factor = (float)zoom/100;
+        double 
+          scalex = factor,
+          scaley = factor;
+          
+        Point idpi = img.getResolution();
+        if (idpi!=null) {
+          Point dpi = viewManager.getDPI();
+          
+          scalex *= (double)dpi.x/idpi.x;
+          scaley *= (double)dpi.y/idpi.y;
+        }
+        
+        ug.scale(scalex,scaley);
+      }
+      // paint
+      ug.draw(img, 0, 0, 0, 0);
+      // done
+    }
+    /**
+     * @see javax.swing.JComponent#getPreferredSize()
+     */
+    public Dimension getPreferredSize() {
+      // no image?
+      if (img==null) return new Dimension(32,32);
+      // 1:1?
+      if (zoom==0)
+        return new Dimension(img.getIconWidth(), img.getIconHeight());
+      // check physical size
+      Dimension dim = img.getSizeInPoints(viewManager.getDPI());
+      float factor = (float)zoom/100;
+      dim.width *= factor;
+      dim.height *= factor;
+      return dim;
+    }
+    /**
+     * callback - mouse pressed
+     */
+    public void mousePressed(MouseEvent e) {
+      mouseReleased(e);
+    }
+    /**
+     * callback - mouse released
+     */
+    public void mouseReleased(MouseEvent e) {
+      // no popup trigger no action
+      if (!e.isPopupTrigger()) 
+        return;
+      // show a context menu for file
+      String file = chooser.getFile().toString();
+      MenuHelper mh = new MenuHelper().setTarget(this);
+      JPopupMenu popup = mh.createPopup();
+      // zoom levels for images
+      if (img!=null) {
+        mh.createItem(new ActionZoom( 10));
+        mh.createItem(new ActionZoom( 25));
+        mh.createItem(new ActionZoom( 50));
+        mh.createItem(new ActionZoom(100));
+        mh.createItem(new ActionZoom(150));
+        mh.createItem(new ActionZoom(200));
+        mh.createItem(new ActionZoom(  0));
+      }
+      // lookup associations
+      String suffix = PropertyFile.getSuffix(file);
+      Iterator it = FileAssociation.getAll(suffix).iterator();
+      while (it.hasNext()) {
+        FileAssociation fa = (FileAssociation)it.next(); 
+        mh.createItem(new RunExternal(gedcom,file,fa));
+      }
+      // show
+      if (popup.getComponentCount()>0)
+        popup.show(this, e.getPoint().x, e.getPoint().y);
+      // done
+    }
+    /**
+     * @see java.awt.event.MouseListener#mouseExited(java.awt.event.MouseEvent)
+     */
+    public void mouseExited(MouseEvent e) {
+      // ignored
+    }
+    /**
+     * @see java.awt.event.MouseListener#mouseEntered(java.awt.event.MouseEvent)
+     */
+    public void mouseEntered(MouseEvent e) {
+      // ignored
+    }
+    /**
+     * @see java.awt.event.MouseListener#mouseClicked(java.awt.event.MouseEvent)
+     */
+    public void mouseClicked(MouseEvent e) {
+      // ignored
+    }
+
+  } //Preview
 
   /**
-   * Our DnD support
+   * Async Image Loader
    */
-  private class DropHandler extends DropTargetAdapter {
-    
-    /** callback - dragged  */
-    public void dragEnter(DropTargetDragEvent dtde) {
-      if (dtde.isDataFlavorSupported(DataFlavor.javaFileListFlavor))
-        dtde.acceptDrag(dtde.getDropAction());
-      else
-        dtde.rejectDrag();
+  private class Loader extends ActionDelegate {
+    /** warn about filesize */
+    private boolean warn;
+    /** file to load */
+    private String file;
+    /** the result */
+    private ImageIcon result;
+    /**
+     * constructor
+     */
+    private Loader(String setFile, boolean setWarn) {
+      warn = setWarn;
+      file = setFile;
+      setAsync(super.ASYNC_SAME_INSTANCE);
     }
-     
-    /** callback - dropped */
-    public void drop(DropTargetDropEvent dtde) {
+    /**
+     * @see genj.util.ActionDelegate#preExecute()
+     */
+    protected boolean preExecute() {
+      // kill current
+      preview.setImage(null);
+      // show wait
+      preview.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+      // continue
+      return true;
+    }
+
+    /** 
+     * async load
+     */
+    protected void execute() {
+      
+      // load it
       try {
-        dtde.acceptDrop(dtde.getDropAction());
-        
-        List files = (List)dtde.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
-        File file = (File)files.get(0);
-        chooser.setFile(file);
-        
-        preview.setSource(new ImageWidget.FileSource(file));
-        
-        dtde.dropComplete(true);
-        
+          result = new ImageIcon(file, gedcom.getOrigin().open(file));
       } catch (Throwable t) {
-        dtde.dropComplete(false);
       }
+      // continue
     }
-    
+    /**
+     * sync show result
+     */
+    protected void postExecute() {
+
+      // check 
+      preview.setCursor(null);
+      if (result==null)
+        return;
+        
+      // warn about size
+      if (warn&&result.getByteSize()>PropertyFile.getMaxValueAsIconSize(false)) {
+        
+        String txt = resources.getString("file.max", new String[]{
+          result.getDescription(),
+          String.valueOf(result.getByteSize()/1024+1),
+          String.valueOf(PropertyFile.getMaxValueAsIconSize(true)),
+        }); 
+        
+        // open dlg
+        viewManager.getWindowManager().openDialog(null,null,WindowManager.IMG_INFORMATION,txt,CloseWindow.OK(), FileBean.this);
+      }
+      
+      // show
+      preview.setImage(result);
+      revalidate();
+      
+      result = null;
+      
+      // done
+    }
+
+  } //Loader
+  
+  /**
+   * growth is good
+   */
+  public Point2D getWeight() {
+    return new Point2D.Double(1,1);
   }
 
-} //FileBean
+} //ProxyFile

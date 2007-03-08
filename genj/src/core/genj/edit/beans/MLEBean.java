@@ -19,12 +19,16 @@
  */
 package genj.edit.beans;
 
+import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
-import genj.gedcom.PropertyMultilineValue;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.util.Registry;
 import genj.util.swing.TextAreaWidget;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
+import java.awt.geom.Point2D;
 
 import javax.swing.JScrollPane;
 
@@ -37,43 +41,45 @@ public class MLEBean extends PropertyBean {
   /** members */
   private TextAreaWidget tarea;
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    tarea = new TextAreaWidget("",3,20);
+  /**
+   * Finish editing a property through proxy
+   */
+  public void commit(Transaction tx) {
+    property.setValue(tarea.getText());
+  }
+
+  /**
+   * Initialize
+   */
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
+
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
+
+    // Calculate value to show
+    String value = property.getValue();
+
+    tarea = new TextAreaWidget(value,3,20);
     tarea.addChangeListener(changeSupport);
     tarea.setLineWrap(true);
     tarea.setWrapStyleWord(true);
 
     setLayout(new BorderLayout());
-    add(BorderLayout.CENTER, new JScrollPane(tarea));
     
+    // 20040701 added forgotten scrollpane - makes bean behave
+    // correctly in layouted environment like BasicEditor's bean panel
+    add(BorderLayout.CENTER, new JScrollPane(tarea));
+
     defaultFocus = tarea;
 
+    // Done
   }
   
   /**
-   * Finish editing a property through proxy
+   * growth is good
    */
-  public void commit(Property property) {
-    
-    super.commit(property);
-    
-    property.setValue(tarea.getText());
+  public Point2D getWeight() {
+    // patched to give only NOTE a weight of 1
+    return new Point2D.Double("NOTE".equals(property.getTag())?1:0.1,1);
   }
 
-  /**
-   * Set context to edit
-   */
-  public void setProperty(PropertyMultilineValue property) {
-
-    // remember property
-    this.property = property;
-    
-    // show value
-    tarea.setText(property.getValue());
-
-    // done
-  }
-
-} //MLEBean
+} //ProxyMLE

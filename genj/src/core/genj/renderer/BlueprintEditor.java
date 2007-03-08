@@ -19,18 +19,17 @@
  */
 package genj.renderer;
 
-import genj.common.PathTreeWidget;
+import genj.gedcom.Change;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomException;
-import genj.gedcom.Grammar;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
-import genj.gedcom.PropertySimpleReadOnly;
-import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
+import genj.util.ActionDelegate;
 import genj.util.Resources;
-import genj.util.swing.Action2;
+import genj.util.swing.ButtonHelper;
+import genj.view.widgets.PathTreeWidget;
+import genj.window.CloseWindow;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -40,13 +39,11 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -83,14 +80,18 @@ public class BlueprintEditor extends JSplitPane {
   /** whether we've changed */
   private boolean isChanged = false;
   
+  /** the window manager */
+  private WindowManager windowManager;
+
   /** the blueprint manager */
   private BlueprintManager blueprintManager;
     
   /**
    * Constructor   */
-  public BlueprintEditor(BlueprintManager bpMgr) { 
+  public BlueprintEditor(BlueprintManager bpMgr, WindowManager winMgr) { 
     // remember
     blueprintManager = bpMgr;
+    windowManager = winMgr;
     // preview
     preview = new Preview();
     preview.setBorder(BorderFactory.createTitledBorder(resources.getString("blueprint.preview")));
@@ -102,7 +103,8 @@ public class BlueprintEditor extends JSplitPane {
       JScrollPane scroll = new JScrollPane(html);
       scroll.setBorder(BorderFactory.createTitledBorder("HTML"));
       // buttons
-      bInsert = new JButton(new ActionInsert());
+      ButtonHelper helper = new ButtonHelper().setResources(resources);
+      bInsert = helper.create(new ActionInsert());
     edit.setMinimumSize(new Dimension(0,0));
     edit.add(scroll, BorderLayout.CENTER);
     edit.add(bInsert, BorderLayout.SOUTH);
@@ -158,13 +160,8 @@ public class BlueprintEditor extends JSplitPane {
   public void commit() {
     if (blueprint!=null&&isChanged) {
       blueprint.setHTML(html.getText());
-      try {
-        blueprintManager.saveBlueprint(blueprint);
-        // mark unchanged
-        isChanged = false;
-      } catch (IOException e) {
-        // TODO add a user warning
-      }
+      // mark unchanged
+      isChanged = false;
     }
   }
   
@@ -225,23 +222,22 @@ public class BlueprintEditor extends JSplitPane {
 
   /**
    * Insert a property   */
-  private class ActionInsert extends Action2 {
+  private class ActionInsert extends ActionDelegate {
     /** constructor */
     private ActionInsert() {
-      super.setText(resources.getString("prop.insert"));
-      super.setTip(resources.getString("prop.insert.tip"));
-      super.setTarget(BlueprintEditor.this);
+      super.setText("prop.insert");
+      super.setTip("prop.insert.tip");
     }
-    /** @see genj.util.swing.Action2#execute() */
+    /** @see genj.util.ActionDelegate#execute() */
     protected void execute() {
       // only if gedcom is valid
       if (gedcom==null) return;
       // create a tree of available TagPaths
       PathTreeWidget tree = new PathTreeWidget();
-      TagPath[] paths = Grammar.getAllPaths(blueprint.getTag(), Property.class);
+      TagPath[] paths = MetaProperty.getPaths(blueprint.getTag(), Property.class);
       tree.setPaths(paths, new TagPath[0]);
       // Recheck with the user
-      int option =  WindowManager.getInstance(getTarget()).openDialog(null,resources.getString("prop.insert.tip"),WindowManager.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
+      int option =  windowManager.openDialog(null,resources.getString("prop.insert.tip"),WindowManager.IMG_QUESTION,tree,CloseWindow.OKandCANCEL(),BlueprintEditor.this);        
       // .. OK?
       if (option!=0) return;
       // add those properties
@@ -291,32 +287,47 @@ public class BlueprintEditor extends JSplitPane {
      * @see genj.gedcom.PropertyIndi#getTag()
      */
     public String getTag() {
-      return blueprint==null ? "INDI" : blueprint.getTag();
+      return blueprint==null ? 
+        super.getTag() : 
+        blueprint.getTag();
     }
     /**
      * @see genj.gedcom.Property#getProperty(genj.gedcom.TagPath)
      */
     public Property getProperty(TagPath path) {
       // safety check for root-tag
-      if (!path.get(0).equals(getTag())) 
+      if (!path.equals(0, getTag())) 
         return null;
-      // this?
-      if (path.length()==1)
-        return this;
       // fake it
-      Object value = tag2value.get(path.getLast());
-      if (value==null) 
-        value = "Something";
-      MetaProperty meta = Grammar.getMeta(path, false);
-      if (PropertyXRef.class.isAssignableFrom(meta.getType()))
-        value = "@...@";
-      try {
-        return meta.create(value.toString());
-      } catch (GedcomException e) {
-        return new PropertySimpleReadOnly(path.getLast(), value.toString());
-      }
+      return fakeProperty(this, path, 0);
     }
     
+    /**
+     * Fake having a property
+     */
+    private Property fakeProperty(Property prop, TagPath path, int pos) {
+
+      // me?
+      if (path.length()-1==pos) return prop;
+
+      // check if we have a property for tag at pos in path
+      String tag = path.get(++pos);
+      Property result = prop.getProperty(tag);
+      if (result==null) {
+        // otherwise create it
+        Object value = tag2value.get(tag);
+        if (value==null) value = "Something";
+        result = prop.addProperty(prop.getMetaProperty().get(tag, false).create(value.toString()));
+      }      
+      // done
+      return fakeProperty(result, path, pos);
+    }
+    
+    /**
+     * no gedcom - override and ignore
+     */
+    protected void propagateChange(Change change) {
+    }
   } //ExampleIndi
   
 } //RenderingSchemeEditor

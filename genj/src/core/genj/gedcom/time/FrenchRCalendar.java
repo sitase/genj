@@ -137,11 +137,11 @@ public class FrenchRCalendar extends Calendar {
   }
   
   /**
-   * @see genj.gedcom.time.Calendar#getDisplayYear(int)
+   * @see genj.gedcom.time.Calendar#getYear(int, boolean)
    */
-  public String getDisplayYear(int year) {
-    if (year<1||year>FrenchRCalendar.YEARS.length)
-      return super.getDisplayYear(year);
+  public String getYear(int year, boolean localize) {
+    if (!localize||year<1||year>FrenchRCalendar.YEARS.length)
+      return super.getYear(year, localize);
     return YEARS_PREFIX+FrenchRCalendar.YEARS[year-1];
   }
 
@@ -151,7 +151,7 @@ public class FrenchRCalendar extends Calendar {
    */
   public int getYear(String year) throws GedcomException {
     // strip any 'An '
-    if (year.length()>YEARS_PREFIX.length() && year.substring(0, YEARS_PREFIX.length()).equalsIgnoreCase(YEARS_PREFIX))
+    if (year.startsWith(YEARS_PREFIX))
       year = year.substring(YEARS_PREFIX.length());
     // look for years
     for (int y=0;y<YEARS.length;y++)

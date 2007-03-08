@@ -19,6 +19,7 @@
  */
 package genj.lnf;
 
+import genj.util.Debug;
 import genj.util.EnvironmentChecker;
 import genj.util.Registry;
 
@@ -32,7 +33,6 @@ import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Logger;
 
 import javax.swing.LookAndFeel;
 import javax.swing.SwingUtilities;
@@ -43,8 +43,6 @@ import javax.swing.UnsupportedLookAndFeelException;
  * A Look&Feel
  */
 public class LnF {
-  
-  private static Logger LOG = Logger.getLogger("genj.lnf");
   
   /** constants */
   static private final String 
@@ -93,9 +91,6 @@ public class LnF {
           url     = r.get(prefix+".url",""),
           version = r.get(prefix+".version",""),
           archive = r.get(prefix+".jar",(String)null);
-        
-        if (name.length()==0)
-          continue;
       
         // patch name (don't want it to be too long)
         int i = name.indexOf('(');
@@ -149,7 +144,7 @@ public class LnF {
     this.theme = theme;      
     
     // debug
-    LOG.info("Found Look&Feel "+name+" version="+version+" url="+url+" archive="+archive+" theme="+theme);
+    Debug.log(Debug.INFO, this, "Found Look&Feel "+name+" version="+version+" url="+url+" archive="+archive+" theme="+theme);
     
     // done
   }
@@ -175,9 +170,12 @@ public class LnF {
       
       // calc theme jar       
       String themejar =  new File(getLnFDir(), getTheme()).getAbsolutePath();
-      
+    
       // HACK: for www.lfprod.com's SkinLookAndFeel ONLY right now
-      System.setProperty("skinlf.themepack", themejar);
+      UIManager.put(
+        "SkinLookAndFeel.Skin", 
+        instance.getClass().getMethod("loadThemePack", new Class[]{String.class}).invoke(instance, new Object[]{themejar})
+      );
     
       // Done
     }
@@ -195,7 +193,7 @@ public class LnF {
       cl = getClass().getClassLoader();
     } else {
       URL urlArchive = new URL("file", "", new File(getLnFDir(), archive).getAbsolutePath());
-      cl = new URLClassLoader(new URL[]{urlArchive}, getClass().getClassLoader());
+      cl = new URLClassLoader(new URL[]{urlArchive});
     }
     return cl;
   }
@@ -260,19 +258,19 @@ public class LnF {
       UIManager.setLookAndFeel(getInstance());
       
     } catch (ClassNotFoundException cnfe) {
-      LOG.warning(prefix+" is not accessible (ClassNotFoundException)");
+      Debug.log(Debug.WARNING, this,prefix+" is not accessible (ClassNotFoundException)");
       return false;
     } catch (ClassCastException cce) {
-      LOG.warning(prefix+" is not a valid LookAndFeel (ClassCastException)");
+      Debug.log(Debug.WARNING, this,prefix+" is not a valid LookAndFeel (ClassCastException)");
       return false;
     } catch (MalformedURLException mue) {
-      LOG.warning(prefix+" doesn't point to a valid archive (MalformedURLException)");
+      Debug.log(Debug.WARNING, this,prefix+" doesn't point to a valid archive (MalformedURLException)");
       return false;
     } catch (UnsupportedLookAndFeelException e) {
-      LOG.warning(prefix+" is not supported on this platform (UnsupportedLookAndFeelException)");
+      Debug.log(Debug.WARNING, this,prefix+" is not supported on this platform (UnsupportedLookAndFeelException)");
       return false;
     } catch (Throwable t) {
-      LOG.warning(prefix+" couldn't be set ("+t.getClass()+")");
+      Debug.log(Debug.WARNING, this,prefix+" couldn't be set ("+t.getClass()+")");
       return false;
     }
     

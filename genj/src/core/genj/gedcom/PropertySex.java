@@ -30,9 +30,9 @@ public class PropertySex extends Property {
   
   /** images */
   private final static ImageIcon
-    IMG_UNKNOWN= Grammar.getMeta(new TagPath("INDI:SEX")).getImage(),
-    IMG_MALE   = Grammar.getMeta(new TagPath("INDI:SEX")).getImage("male"),
-    IMG_FEMALE = Grammar.getMeta(new TagPath("INDI:SEX")).getImage("female");
+    IMG_UNKNOWN= MetaProperty.get(new TagPath("INDI:SEX")).getImage(),
+    IMG_MALE   = MetaProperty.get(new TagPath("INDI:SEX")).getImage("male"),
+    IMG_FEMALE = MetaProperty.get(new TagPath("INDI:SEX")).getImage("female");
 
   /** txts */
   public final static String
@@ -116,6 +116,15 @@ public class PropertySex extends Property {
   }
 
   /**
+   * Returns the logical proxy to render/edit this property
+   */
+  public String getProxy() {
+    if (sexAsString!=null)
+      return "Unknown";
+    return "Sex";
+  }
+
+  /**
    * Accessor for Sex
    */
   public int getSex() {
@@ -133,7 +142,7 @@ public class PropertySex extends Property {
    * @see genj.gedcom.Property#setTag(java.lang.String)
    */
   /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    meta.assertTag(TAG);
+    assume(TAG.equals(meta.getTag()), UNSUPPORTED_TAG);
     return super.init(meta, value);
   }
 
@@ -147,14 +156,21 @@ public class PropertySex extends Property {
       return "M";
     if (sex == FEMALE)
       return "F";
-    return "";
+    return EMPTY_STRING;
   }
   
   /**
-   * A value meant for display
+   * String representation
    */
-  public String getDisplayValue() {
-    return getLabelForSex(sex);
+  public String toString() {
+    return toString(true);
+  }
+
+  /**
+   * String representation
+   */
+  public String toString(boolean localize) {
+    return localize ? getLabelForSex(sex) : getValue();
   }
 
   /**
@@ -164,7 +180,7 @@ public class PropertySex extends Property {
     String old = getValue();
     sexAsString = null;
     sex = newSex;
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     // Done
   }
 
@@ -176,7 +192,7 @@ public class PropertySex extends Property {
     String old = getValue();
 
     // Cannot parse anything longer than 1
-    if (newValue.trim().length()>1) {
+    if (newValue.length()>1) {
       sexAsString=newValue;
     } else {
 	    // zero length -> unknown
@@ -203,7 +219,7 @@ public class PropertySex extends Property {
 	    }
     }
     // notify
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     // done
   }
 

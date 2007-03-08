@@ -19,47 +19,29 @@
  */
 package genj.edit.beans;
 
-import genj.gedcom.PropertyXRef;
-import genj.util.Registry;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
-import genj.window.WindowManager;
-
-import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+
+import genj.gedcom.Gedcom;
+import genj.gedcom.Property;
+import genj.gedcom.PropertyXRef;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
+import genj.util.Registry;
+import genj.view.ViewManager;
 
 /**
  * A proxy for a property that links entities
  */
 public class XRefBean extends PropertyBean {
 
-  private Preview preview;
+  /** xref */
+  private PropertyXRef xref;
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    preview = new Preview();
-    
-    setLayout(new BorderLayout());
-    add(BorderLayout.CENTER, preview);
-    
-    preview.addMouseListener(new MouseAdapter() {
-      public void mouseClicked(MouseEvent e) {
-        // no double-click?
-        if (e.getClickCount()<2)
-          return;
-        // property good? (should)
-        if (property==null)
-          return;
-        // tell about it
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(property), preview, true));
-      }
-    });
+  /**
+   * Finish editing a property through proxy
+   */
+  public void commit(Transaction tx) {
   }
-  
-  
   
   /**
    * Nothing to edit
@@ -69,18 +51,20 @@ public class XRefBean extends PropertyBean {
   }
   
   /**
-   * Set context to edit
+   * Initialize
    */
-  public void setProperty(PropertyXRef xref) {
-    
-    // remember property
-    property = xref;
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
 
-    // set preview
-    if (xref!=null&&xref.getTargetEntity()!=null) 
-      preview.setEntity(xref.getTargetEntity());
-    else
-      preview.setEntity(null);
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
+
+    // remember xref
+    xref = (PropertyXRef)setProp;
+
+    // setup content
+    if (xref.getReferencedEntity()!=null)
+      add(new Preview(xref.getReferencedEntity()));
+    
+    // done
   }
   
   /**

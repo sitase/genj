@@ -19,7 +19,6 @@
  */
 package genj.tree;
 
-import genj.common.SelectEntityWidget;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
@@ -30,10 +29,9 @@ import genj.io.Filter;
 import genj.renderer.Blueprint;
 import genj.renderer.BlueprintManager;
 import genj.renderer.EntityRenderer;
-import genj.renderer.Options;
+import genj.util.ActionDelegate;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
@@ -42,13 +40,11 @@ import genj.util.swing.UnitGraphics;
 import genj.util.swing.ViewPortAdapter;
 import genj.util.swing.ViewPortOverview;
 import genj.view.ActionProvider;
-import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
+import genj.view.Context;
+import genj.view.ContextListener;
+import genj.view.FilterSupport;
 import genj.view.ToolBarSupport;
-import genj.view.ViewContext;
 import genj.view.ViewManager;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
 
 import java.awt.Color;
@@ -63,8 +59,8 @@ import java.awt.event.MouseListener;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +76,7 @@ import javax.swing.event.ChangeListener;
 /**
  * TreeView
  */
-public class TreeView extends JPanel implements ContextProvider, WindowBroadcastListener, ToolBarSupport, ActionProvider, Filter {
+public class TreeView extends JPanel implements ContextListener, ToolBarSupport, ActionProvider, FilterSupport {
   
   /** an icon for bookmarking */
   private final static ImageIcon BOOKMARK_ICON = new ImageIcon(TreeView.class, "images/Bookmark.gif");      
@@ -142,17 +138,17 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   
   /** current centered position */
   private Point2D.Double center = new Point2D.Double(0,0);
-  
+
   /**
    * Constructor
    */
-  public TreeView(String titl, Gedcom gedcom, Registry regIstry, ViewManager manAger) {
+  public TreeView(String titl, Gedcom gedcm, Registry regIstry, ViewManager manAger) {
     
     // remember
     registry = regIstry;
     title = titl;
     manager = manAger;
-    DPI = Options.getInstance().getDPI();
+    DPI = manager.getDPI();
     DPMM = new Point2D.Float(
       DPI.x / 2.54F / 10,
       DPI.y / 2.54F / 10
@@ -171,14 +167,14 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     isAdjustFonts = registry.get("adjust", isAdjustFonts);
     
     // grab blueprints
-    BlueprintManager bpm = BlueprintManager.getInstance();
+    BlueprintManager bpm = manager.getBlueprintManager();
     for (int t=0;t<Gedcom.ENTITIES.length;t++) {
       String tag = Gedcom.ENTITIES[t];
-      tag2blueprint.put(tag, bpm.getBlueprint(gedcom.getOrigin(), tag, registry.get("blueprint."+tag, "")));
+      tag2blueprint.put(tag, bpm.getBlueprint(tag, registry.get("blueprint."+tag, "")));
     }
     
     // setup model
-    model = new Model(gedcom);
+    model = new Model(gedcm);
     model.setVertical(registry.get("vertical",true));
     model.setFamilies(registry.get("families",true));
     model.setBendArcs(registry.get("bend"    ,true));
@@ -196,13 +192,20 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     model.setHideDescendantsIDs(registry.get("hide.descendants", new ArrayList()));
  
     // root
-    Entity root = gedcom.getEntity(registry.get("root",""));
-    if (root==null) 
-      root = gedcom.getFirstEntity(Gedcom.INDI);
+    Entity root = null;
+    try { 
+      root = gedcm.getEntity(registry.get("root",(String)null));
+    } catch (Exception e) {
+    }
+    if (root==null) {
+      Context context = manager.getContext(gedcm);
+      if (context.getEntity()!=null) 
+        root = context.getEntity();  
+    } 
     model.setRoot(root);
     
     try { 
-      currentEntity = gedcom.getEntity(registry.get("current",(String)null));
+      currentEntity = gedcm.getEntity(registry.get("current",(String)null));
     } catch (Exception e) {
       currentEntity = model.getRoot();
     }
@@ -212,7 +215,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     List bookmarks = new ArrayList();
     for (int i=0;i<bs.length;i++) {
       try {
-        bookmarks.add(new Bookmark(this, gedcom, bs[i]));
+        bookmarks.add(new Bookmark(this, gedcm, bs[i]));
       } catch (Throwable t) {
       }
     }
@@ -245,6 +248,8 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
    * @see javax.swing.JComponent#removeNotify()
    */
   public void removeNotify() {
+    // make sure our model is not connecting to gedcom model anymore
+    model.setGedcom(null);
     // settings
     registry.put("overview", overview.isVisible());
     registry.put("overview", overview.getSize());
@@ -286,13 +291,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     
     // done
     super.removeNotify();
-  }
-  
-  /**
-   * ContextProvider callback
-   */
-  public ViewContext getContext() {
-    return new ViewContext(model.getGedcom());
   }
   
   /**
@@ -410,44 +408,13 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * view callback
    */
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
-    
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, model.getGedcom());
-    if (cse==null)
-      return true;
-    
-    // need to get entity and no property
-    ViewContext context = cse.getContext();
+  public void setContext(Context context) {
+    // anything new?
     Entity entity = context.getEntity();
-    Property prop = context.getProperty();
-    if (entity==null )
-      return true;
-    
-    // context property an entity?
-    if (prop instanceof Entity)
-      prop = null;
-    
-    // change root on action performed
-    if (cse.isActionPerformed()&&prop==null) {
-      // .. only if coming from ourselves (outbound) or inbound from a !TreeView 
-      if (cse.isOutbound() || !(cse.getSource() instanceof Content))  {
-        setRoot(entity);
-        return true;
-      }
-    }
-    
-    // context a link?
-    if (prop instanceof PropertyXRef && ((PropertyXRef)prop).isValid()) {
-      entity = ((PropertyXRef)prop).getTargetEntity();
-      prop = null;
-    }
-    
-    // try to change selection
-    if (entity!=currentEntity)
-      setCurrent(entity);
-    
-    // done
-    return true;
+    if (entity==null||entity==currentEntity) 
+      return;
+    // do it
+    setCurrent(entity);
   }
   
   /**
@@ -524,7 +491,10 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     bar.add(sliderZoom);
     
     // overview
-    ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
+    ButtonHelper bh = new ButtonHelper()
+      .setContainer(bar)
+      .setResources(resources)
+      .setFocusable(false);
     bh.create(new ActionOverview(), null, overview.isVisible());
     
     // gap
@@ -555,14 +525,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     bar.add(pb);
     
     // done
-  }
-
-  /**
-   * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
-   */
-  public List createActions(Property[] properties, ViewManager manager) {
-    // not supported
-    return null;
   }
 
   /**
@@ -624,7 +586,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /*package*/ Blueprint getBlueprint(String tag) {
     Blueprint result = (Blueprint)tag2blueprint.get(tag);
     if (result==null) {
-      result = BlueprintManager.getInstance().getBlueprint(model.getGedcom().getOrigin(),tag,"");
+      result = manager.getBlueprintManager().getBlueprint(tag,"");
       tag2blueprint.put(tag, result);
     }
     return result;
@@ -650,36 +612,59 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     return new EntityRenderer(getBlueprint(tag), contentFont);
   }
 
-  /**
-   * @see genj.io.Filter#accept(Property)
+  /** 
+   * @see genj.view.FilterSupport#getFilter()
    */
-  public boolean checkFilter(Property prop) {
-    // all non-entities are fine
-    if (!(prop instanceof Entity))
-      return true;
-    Entity ent = (Entity)prop;
-    Set ents = model.getEntities();
-    // fam/indi
-    if (Gedcom.INDI.equals(ent.getTag())||(Gedcom.FAM.equals(ent.getTag())&&model.isFamilies()))
-      return ents.contains(ent);
-    // let submitter through if it's THE one
-    if (model.getGedcom().getSubmitter()==ent)
-      return true;
-    // maybe a referenced other type?
-    Entity[] refs = PropertyXRef.getReferences(ent);
-    for (int r=0; r<refs.length; r++) {
-      if (ents.contains(refs[r])) return true;
-    }
-    // not
-    return false;
+  public Filter getFilter() {
+    return new VisibleFilter(model);
   }
-
+  
   /**
-   * A string representation of this view as a filter
+   * @see genj.view.FilterSupport#getFilterName()
    */
   public String getFilterName() {
     return model.getEntities().size()+" nodes in "+title;
   }
+
+  /**
+   * A filter that includes visible indis/families
+   */
+  private static class VisibleFilter implements Filter {
+    /** entities that are 'in' */
+    private Set ents;
+    /** whether we're showing families */
+    private boolean fams;
+    /**
+     * Constructor
+     */
+    private VisibleFilter(Model model) {
+      // all ents from the model
+      ents = new HashSet(model.getEntities());
+      fams = model.isFamilies();
+      // done
+    }
+    /**
+     * @see genj.io.Filter#accept(genj.gedcom.Entity)
+     */
+    public boolean accept(Entity ent) {
+      // fam/indi
+      if (Gedcom.INDI.equals(ent.getTag())||(Gedcom.FAM.equals(ent.getTag())&&fams))
+        return ents.contains(ent);
+      // maybe a referenced other type?
+      Entity[] refs = PropertyXRef.getReferences(ent);
+      for (int r=0; r<refs.length; r++) {
+        if (ents.contains(refs[r])) return true;
+      }
+      // not
+      return false;
+    }
+    /**
+     * @see genj.io.Filter#accept(genj.gedcom.Property)
+     */
+    public boolean accept(Property property) {
+      return true;
+    }
+  } //VisibleFilter
 
   /**
    * Overview   */
@@ -689,21 +674,8 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     private Overview(JScrollPane scroll) {
       super(scroll.getViewport());
       super.setSize(new Dimension(TreeView.this.getWidth()/4,TreeView.this.getHeight()/4));
-    }
-    
-    public void addNotify() {
-      // cont
-      super.addNotify();
-      // listen to model events
       model.addListener(this);
     }
-    
-    public void removeNotify() {
-      model.removeListener(this);
-      // cont
-      super.removeNotify();
-    }
-    
     /**
      * @see java.awt.Component#setSize(int, int)
      */
@@ -745,7 +717,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     /**
      * @see genj.tree.ModelListener#nodesChanged(genj.tree.Model, java.util.List)
      */
-    public void nodesChanged(Model arg0, Collection arg1) {
+    public void nodesChanged(Model arg0, List arg1) {
       repaint();
     }
     /**
@@ -759,7 +731,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * The content we use for drawing
    */
-  private class Content extends JComponent implements ModelListener, MouseListener, ContextProvider  {
+  private class Content extends JComponent implements ModelListener, MouseListener {
 
     /**
      * Constructor
@@ -767,34 +739,8 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     private Content() {
       // listen to mouse events
       addMouseListener(this);
-    }
-    
-    public void addNotify() {
-      // cont
-      super.addNotify();
       // listen to model events
       model.addListener(this);
-    }
-    
-    public void removeNotify() {
-      model.removeListener(this);
-      // cont
-      super.removeNotify();
-    }
-    
-    /**
-     * ContextProvider - callback
-     */
-    public ViewContext getContext() {
-      ViewContext result;
-      if (currentEntity==null) {
-        result = new ViewContext(model.getGedcom());
-        result.addAction(new ActionChooseRoot());
-      } else {
-        result = new ViewContext(currentEntity);
-        result.addAction(new ActionBookmark(currentEntity, true));
-      }
-      return result;
     }
     
     /**
@@ -817,7 +763,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     /**
      * @see genj.tree.ModelListener#nodesChanged(Model, List)
      */
-    public void nodesChanged(Model model, Collection nodes) {
+    public void nodesChanged(Model model, List nodes) {
       repaint();
     }
     
@@ -863,13 +809,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       // check node
       Point p = view2model(e.getPoint());
       Object content = model.getContentAt(p.x, p.y);
-      // nothing?
-      if (content==null) {
-        currentEntity = null;
-        repaint();
-        overview.repaint();
-        return;
-      }
       // entity?
       if (content instanceof Entity) {
         // change current!
@@ -877,14 +816,14 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
         repaint();
         overview.repaint();
         // propagate it
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(currentEntity), this));
-        return;
+        manager.setContext(new Context(currentEntity));
       }
       // runnable?
       if (content instanceof Runnable) {
         ((Runnable)content).run();
-        return;
       }
+      // go through released as well for context menu
+      mouseReleased(e);
       // done
     }
     
@@ -892,6 +831,14 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
      * @see java.awt.event.MouseAdapter#mouseClicked(MouseEvent)
      */
     public void mouseClicked(MouseEvent e) {
+      // double click
+      if (e.getClickCount()>1) {
+        Point p = view2model(e.getPoint());
+        Object content = model.getContentAt(p.x, p.y);
+        if (content instanceof Entity)
+          setRoot((Entity)content);
+      } 
+      // done
     }
     /**
      * @see java.awt.event.MouseListener#mouseEntered(java.awt.event.MouseEvent)
@@ -907,6 +854,27 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
      * @see java.awt.event.MouseListener#mouseReleased(java.awt.event.MouseEvent)
      */
     public void mouseReleased(MouseEvent evt) {
+      
+      // no popup trigger no action
+      if (!evt.isPopupTrigger()) 
+        return;
+
+      // grab context
+      Point p = view2model(evt.getPoint());
+      Entity e = model.getEntityAt(p.x, p.y);
+
+      List actions = new ArrayList();
+      Context context;
+      if (e==null) {
+        context = new Context(model.getGedcom());
+      } else {
+        context = new Context(e);
+        actions.add(new ActionBookmark(e, true));
+      }
+        
+      // show context menu
+      manager.showContextMenu(context, actions, this, evt.getPoint());
+      
     }
   } //Content
 
@@ -929,16 +897,15 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * Action for opening overview
    */
-  private class ActionOverview extends Action2 {
+  private class ActionOverview extends ActionDelegate {
     /**
      * Constructor
      */
     private ActionOverview() {
-      setImage(Images.imgOverview);
-      setTip(resources, "overview.tip");
+      super.setImage(Images.imgOverview);
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       overview.setVisible(!overview.isVisible());
@@ -948,7 +915,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * ActionTree
    */
-  private class ActionRoot extends Action2 {
+  private class ActionRoot extends ActionDelegate {
     /** entity */
     private Entity root;
     /**
@@ -961,7 +928,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     }
     
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       setRoot(root);
@@ -970,15 +937,15 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
 
   /**
    * Action Orientation change   */
-  private class ActionOrientation extends Action2 {
+  private class ActionOrientation extends ActionDelegate {
     /**
      * Constructor     */
     private ActionOrientation() {
       super.setImage(Images.imgHori);
-      super.setTip(resources, "orientation.tip");
+      super.setTip("orientation.tip");
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       model.setVertical(!model.isVertical());
@@ -989,16 +956,16 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * Action Families n Spouses
    */
-  private class ActionFamsAndSpouses extends Action2 {
+  private class ActionFamsAndSpouses extends ActionDelegate {
     /**
      * Constructor
      */
     private ActionFamsAndSpouses() {
       super.setImage(Images.imgDontFams);
-      super.setTip(resources, "families.tip");
+      super.setTip("families.tip");
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       model.setFamilies(!model.isFamilies());
@@ -1009,51 +976,27 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * Action FoldSymbols on/off
    */
-  private class ActionFoldSymbols extends Action2 {
+  private class ActionFoldSymbols extends ActionDelegate {
     /**
      * Constructor
      */
     private ActionFoldSymbols() {
       super.setImage(Images.imgFoldSymbols);
-      super.setTip(resources, "foldsymbols.tip");
+      super.setTip("foldsymbols.tip");
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       model.setFoldSymbols(!model.isFoldSymbols());
       scrollToCurrent();
     }
   } //ActionFolding
-  
-  /**
-   * Action - choose a root through dialog
-   */
-  private class ActionChooseRoot extends Action2 {
-
-    /** constructor */
-    private ActionChooseRoot() {
-      setText(resources, "select.root");
-    }
-
-    /** do the choosin' */
-    protected void execute() {
-      
-      // let the user choose an individual
-      SelectEntityWidget select = new SelectEntityWidget(model.getGedcom(), Gedcom.INDI, null);
-      int rc = WindowManager.getInstance(getTarget()).openDialog("select.root", getText(), WindowManager.QUESTION_MESSAGE, select, Action2.okCancel(), TreeView.this);
-      if (rc==0) 
-        setRoot(select.getSelection());
-      
-      // done
-    }
-    
-  } //ActionChooseRoot
 
   /**
    * Action - bookmark something
    */
-  private class ActionBookmark extends Action2 {
+  private class ActionBookmark extends ActionDelegate {
     /** the entity */
     private Entity entity;
     /** 
@@ -1062,7 +1005,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     private ActionBookmark(Entity e, boolean local) {
       entity = e;
       if (local) {
-        setText(resources, "bookmark.add");
+        setText(resources.getString("bookmark.add"));
         setImage(BOOKMARK_ICON);
       } else {
         setText(resources.getString("bookmark.in",title));
@@ -1070,7 +1013,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       }
     } 
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       
@@ -1086,8 +1029,8 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       }
       
       // Ask for name of bookmark
-      name = WindowManager.getInstance(getTarget()).openDialog(
-        null, title, WindowManager.QUESTION_MESSAGE, resources.getString("bookmark.name"), name, TreeView.this
+      name = manager.getWindowManager().openDialog(
+        null, title, WindowManager.IMG_QUESTION, resources.getString("bookmark.name"), name, TreeView.this
       );
       
       if (name==null) return;

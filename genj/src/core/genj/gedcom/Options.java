@@ -21,37 +21,16 @@ package genj.gedcom;
 
 import genj.option.OptionProvider;
 import genj.option.PropertyOption;
-import genj.util.Resources;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Application options
  */
 public class Options extends OptionProvider {
   
-  private final static Resources RESOURCES = Resources.get(Options.class);
-  
   /** singleton */
   private final static Options instance = new Options();
-  
-  /** option - whether creating OBJEct entities should be enabled */
-  public boolean isAllowNewOBJEctEntities = false;
-
-  /** option - whether to use spaces in separating places */
-  public boolean isUseSpacedPlaces = true;
-  
-  /** option - whether id-gaps should be filled */
-  public boolean isFillGapsInIDs = false;
-  
-  /** option - whether to convert last names to uppercase */
-  public boolean isUpperCaseNames = false;
-  
-  /** option - wether to set wife lastname when indi is created */
-  public boolean setWifeLastname = true;
 
   /** option - maximum image files size to be loaded */  
   private int maxImageFileSizeKB = 128;
@@ -64,27 +43,6 @@ public class Options extends OptionProvider {
 
   /** option - number of undos */
   protected int numberOfUndos = 10;
-  
-  /** option - place hierarchy keys for city NOT EDITABLE ATM */
-  protected Set placeHierarchyCityKeys = new HashSet(Arrays.asList(new String[]{ "city", "commune", "ville", "stadt"}));
-  
-  /** option - private information mask */
-  public String maskPrivate = "...";
-    
-  /** option - default encoding */
-  public int defaultEncoding = 0;
-  
-  public final static String[] defaultEncodings = Gedcom.ENCODINGS;
-  
-  /** option - how to display dates */
-  public int dateFormat = 1;
-  
-  public final static String[] dateFormats = {
-      RESOURCES.getString("option.dateFormat.gedcom"),
-      RESOURCES.getString("option.dateFormat.short"),
-      RESOURCES.getString("option.dateFormat.long"),
-      RESOURCES.getString("option.dateFormat.numeric")
-  };
 
   /**
    * Singleton access
@@ -133,9 +91,9 @@ public class Options extends OptionProvider {
    */
   public void setTxtMarriageSymbol(String set) {
     if (set!=null&&set.trim().length()>0)
-      txtMarriageSymbol = ' '+set.trim()+' ';
+      txtMarriageSymbol = set;
     else
-      txtMarriageSymbol = " + ";
+      txtMarriageSymbol = "+";
   }
 
   /**

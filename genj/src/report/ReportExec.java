@@ -5,7 +5,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
-import genj.gedcom.Gedcom;
 import genj.report.Report;
 
 import java.io.BufferedReader;
@@ -20,16 +19,44 @@ import java.io.InputStreamReader;
 public class ReportExec extends Report {
 
   /**
-   * Main method
+   * @see genj.report.Report#getAuthor()
    */
-  public void start(Gedcom gedcom) {
+  public String getAuthor() {
+    return "Nils Meier <nils@meiers.net>";
+  }
 
+  /**
+   * @see genj.report.Report#getInfo()
+   */
+  public String getInfo() {
+    return i18n("info");
+  }
+
+  /**
+   * @see genj.report.Report#getName()
+   */
+  public String getName() {
+    return i18n("script_name");
+  }
+
+  /**
+   * @see genj.report.Report#getVersion()
+   */
+  public String getVersion() {
+    return "0.1";
+  }
+
+  /**
+   * @see genj.report.Report#start(java.lang.Object)
+   */
+  public void start(Object context) {
+    
     // get the name of the executable
-    String cmd = getValueFromUser( "executables", translate("WhichExecutable"), new String[0]);
+    String cmd = getValueFromUser( "executables", i18n("WhichExecutable"), new String[0]);
 
-    if(cmd == null)
+    if(cmd == null) 
       return;
-
+    
     // run it
     try {
       Process process = Runtime.getRuntime().exec(cmd);
@@ -40,9 +67,9 @@ public class ReportExec extends Report {
         println(line);
       }
     } catch (IOException ioe) {
-      println(translate("Error")+ioe.getMessage());
+      println(i18n("Error")+ioe.getMessage());
     }
-
+    
     // done
   }
 

@@ -35,31 +35,19 @@ public class ByteArray {
 
   /** the bits */
   private byte[] bits = EMPTY;
-  
-  private boolean isAllowInterrupts;
 
   /**
    * Constructor
    */
-  public ByteArray(InputStream in) throws InterruptedException, IOException {
+  public ByteArray(InputStream in) throws IOException {
     // 20030519 check available 
-    this(in, Math.max(in.available(), CLUSTER), false);
+    this(in, Math.max(in.available(), CLUSTER));
   }
 
   /**
    * Constructor
    */
-  public ByteArray(InputStream in, boolean allowInterrupts) throws InterruptedException, IOException {
-    // 20030519 check available 
-    this(in, Math.max(in.available(), CLUSTER), allowInterrupts);
-  }
-
-  /**
-   * Constructor
-   */
-  public ByteArray(InputStream in, int cluster, boolean allowInterrupts) throws InterruptedException, IOException {
-    
-    isAllowInterrupts = allowInterrupts;
+  public ByteArray(InputStream in, int cluster) throws IOException {
 
     // Read from stream - if the callee knows the size of the
     // file it might be passed in as 'cluster'. So we increase
@@ -73,8 +61,8 @@ public class ByteArray {
       len = in.read(buffer,total,buffer.length-total);
 
       // Interrupted?
-      if (isAllowInterrupts&&Thread.currentThread().isInterrupted())
-        throw new InterruptedException();
+      if (Thread.currentThread().isInterrupted())
+        throw new IOException("interrupted");
 
       // End of stream ?
       if (len<0) break;

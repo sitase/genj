@@ -23,7 +23,7 @@ import java.io.IOException;
 
 
 /**
- * Exception for problems during Gedcom read/write operations
+ * Exception for IO problems during Gedcom operations
  */
 public class GedcomIOException extends IOException {
 
@@ -39,8 +39,7 @@ public class GedcomIOException extends IOException {
   }
 
   /**
-   * Accessor - the gedcom line number that the problem was encountered at
-   * @return line number if applicable
+   * Accessor: line
    */
   public int getLine() {
     return line;

@@ -20,25 +20,16 @@
 package genj.gedcom.time;
 
 import genj.gedcom.GedcomException;
-import genj.gedcom.Options;
-import genj.util.DirectAccessTokenizer;
 import genj.util.Resources;
 import genj.util.WordBuffer;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
+import java.util.StringTokenizer;
 
 /**
  * A point in time - either hebrew, roman, frenchr, gregorian or julian
  */
 public class PointInTime implements Comparable {
   
-  public final static int
-    FORMAT_GEDCOM = 0,
-    FORMAT_SHORT = 1,
-    FORMAT_LONG = 2,
-    FORMAT_NUMERIC = 3;
-
   /** resources */
   /*package*/ final static Resources resources = Resources.get(PointInTime.class);
 
@@ -101,7 +92,7 @@ public class PointInTime implements Comparable {
   public PointInTime(String yyyymmdd) throws GedcomException {
     
     if (yyyymmdd==null||yyyymmdd.length()!=8)
-      throw new GedcomException(resources.getString("pit.noyyyymmdd", yyyymmdd));
+      throw new GedcomException("no valid yyyymmdd: "+yyyymmdd);
     
     // check date
     try {
@@ -109,7 +100,7 @@ public class PointInTime implements Comparable {
       month = Integer.parseInt(yyyymmdd.substring(4, 6))-1;
       day   = Integer.parseInt(yyyymmdd.substring(6, 8))-1;
     } catch (NumberFormatException e) {
-      throw new GedcomException(resources.getString("pit.noyyyymmdd", yyyymmdd));
+      throw new GedcomException("no valid yyyymmdd: "+yyyymmdd);
     }
 
     // done
@@ -161,7 +152,7 @@ public class PointInTime implements Comparable {
    */
   public static PointInTime getPointInTime(String string) {
     PointInTime result = new PointInTime(UNKNOWN,UNKNOWN,UNKNOWN,GREGORIAN);
-    result.set(string);
+    result.set(new StringTokenizer(string));
     return result;
   }
   
@@ -201,13 +192,6 @@ public class PointInTime implements Comparable {
     if (jd==UNKNOWN)
       jd = calendar.toJulianDay(this);
     return jd;
-  }
-  
-  /**
-   * Setter
-   */
-  public void reset() {
-    set(UNKNOWN,UNKNOWN,UNKNOWN);
   }
   
   /**
@@ -265,82 +249,79 @@ public class PointInTime implements Comparable {
   }
   
   /**
-   * Parse text into this PIT
+   * Parse tokens into this PIT
    */
-  public boolean set(String txt) {
+  public boolean set(StringTokenizer tokens) {
 
-    txt = txt.trim();
+    // no tokens no joy
+    if (!tokens.hasMoreTokens())
+      return false;
+
+    // first token might be calendar indicator @#....@
+    String first = tokens.nextToken();
     
-    // assume gregorian
-    calendar = GREGORIAN;
-    
-    // check for leading calendar indicator  @#....@
-    if (txt.startsWith("@#")) {
-      int i = txt.indexOf("@", 1);
-      if (i<0)  return false;
-      String esc = txt.substring(0,i+1);
-      txt = txt.substring(i+1);
+    if (first.startsWith("@#")) {
       
       // .. has to be one of our calendar escapes
       for (int c=0;c<CALENDARS.length;c++) {
         Calendar cal = CALENDARS[c]; 
-        if (cal.escape.equalsIgnoreCase(esc)) {
-        // 20060109 made this ignore case - before was: if (cal.escape.startsWith(first)) {
+        if (cal.escape.startsWith(first)) {
           calendar = cal;
           break;
         }
       }
+
+      // since one of the calendar escape contains a space we
+      // might have to skip another token (until we find the
+      // token ending in "@"       
+      while (!first.endsWith("@")&&tokens.hasMoreTokens()) 
+        first = tokens.nextToken();
+      
+      // switch to next 'first'
+      if (!tokens.hasMoreTokens())
+        return true;  // calendar only is fine - empty pit
+      first = tokens.nextToken();
+
     }
     
-    // no tokens - fine - no info
-    DirectAccessTokenizer tokens = new DirectAccessTokenizer(txt, " ", true);
-    String first = tokens.get(0);
-    if (first==null) {
-      reset();
-      return true;
-    }
-    int cont = 1;
-
-    // grab second
-    String second = tokens.get(cont++);
-        
-    // only one token? gotta be YYYY
-    if (second==null) {
+    // first is YYYY
+    if (!tokens.hasMoreTokens()) {
         try {
-          set(UNKNOWN, UNKNOWN, calendar.getYear(first));
-        } catch (Throwable t) {
+          set(UNKNOWN,UNKNOWN,Integer.parseInt(first));
+        } catch (NumberFormatException e) {
           return false;
         }
         return getYear()!=UNKNOWN;
     }
     
-    // grab third
-    String third = tokens.get(cont++);
+    // have second
+    String second = tokens.nextToken();
     
-    // only two tokens? either MMM YYYY or french R calendar 'An Y'
-    if (third==null) {
+    // first and second are MMM YYYY
+    if (!tokens.hasMoreTokens()) {
       try {
-        if (calendar==FRENCHR) set(UNKNOWN, UNKNOWN, calendar.getYear(first + ' ' + second));
-      } catch (Throwable t) {
-      }
-      try {
-        set(UNKNOWN, calendar.parseMonth(first),  calendar.getYear(second));
-      } catch (Throwable t) {
+        set(UNKNOWN, calendar.parseMonth(first), Integer.parseInt(second));
+      } catch (NumberFormatException e) {
         return false;
       }
       return getYear()!=UNKNOWN&&getMonth()!=UNKNOWN;
     }
 
-    // everything after third is now combined to YYYY
-    third = txt.substring(tokens.getStart());
+    // have third
+    String third = tokens.nextToken();
     
-    try {
-      set( Integer.parseInt(first) - 1, calendar.parseMonth(second), calendar.getYear(third));
-    } catch (Throwable t) {
-      return false;
+    // first, second and third are DD MMM YYYY
+    if (!tokens.hasMoreTokens()) {
+      try {
+        set( Integer.parseInt(first) - 1, calendar.parseMonth(second), Integer.parseInt(third));
+      } catch (NumberFormatException e) {
+        return false;
+      }
+      return getYear()!=UNKNOWN&&getMonth()!=UNKNOWN&&getDay()!=UNKNOWN;
     }
-    return getYear()!=UNKNOWN&&getMonth()!=UNKNOWN&&getDay()!=UNKNOWN;
-    
+
+    // wrong number of tokens
+    return false;
   }
   
   /**
@@ -425,7 +406,7 @@ public class PointInTime implements Comparable {
   public WordBuffer getValue(WordBuffer buffer) {
     if (calendar!=GREGORIAN)
       buffer.append(calendar.escape);
-    toString(buffer, FORMAT_GEDCOM);
+    toString(buffer, false);
     return buffer;
   }
     
@@ -433,75 +414,28 @@ public class PointInTime implements Comparable {
    * String representation
    */
   public String toString() {
-    return toString(new WordBuffer()).toString();
+    return toString(new WordBuffer(),true).toString();
   }
 
   /**
    * String representation
    */
-  public WordBuffer toString(WordBuffer buffer) {
-    return toString(buffer, Options.getInstance().dateFormat);
-  }
-  
-  /** our numeric format */
-  private static DateFormat NUMERICDATEFORMAT = initNumericDateFormat();
-  
-  private static DateFormat initNumericDateFormat() {
-    DateFormat result = DateFormat.getDateInstance(DateFormat.SHORT);
-    try {
-      // check SHORT pattern
-      String pattern = ((SimpleDateFormat)DateFormat.getDateInstance(DateFormat.SHORT)).toPattern();
-      // patch yy to yyyy if necessary
-      int yyyy = pattern.indexOf("yyyy");
-      if (yyyy<0) 
-        result = new SimpleDateFormat(pattern.replaceAll("yy", "yyyy"));
-    } catch (Throwable t) {
-    }
-    return result;
-  }
-  
-  /**
-   * Notifies all PointInTimes of a change in locale. This is exposed for
-   * testing purposes only.
-   */
-  public static void localeChangedNotify() {
-    NUMERICDATEFORMAT = initNumericDateFormat();
-  }
-  
-  /**
-   * String representation
-   */
-  public WordBuffer toString(WordBuffer buffer, int format) {
+  public WordBuffer toString(WordBuffer buffer, boolean localize) {
     
-    // numeric && gregorian && complete
-    if (format==FORMAT_NUMERIC) {
-      if (calendar==GREGORIAN&&isComplete()) {
-        java.util.Calendar c = java.util.Calendar.getInstance();
-        c.set(year, month, day+1);
-        buffer.append(NUMERICDATEFORMAT.format(c.getTime()));
-        return buffer;
-      }
-      
-      // fallback to short
-      format = FORMAT_SHORT;
-    }
-        
-    // non-gregorian, Gedcom, short or long
     if (year!=UNKNOWN) {
       if (month!=UNKNOWN) {
         if (day!=UNKNOWN) {
           buffer.append(new Integer(day+1));
         }
-        buffer.append(format==FORMAT_GEDCOM ? calendar.getMonth(month) : calendar.getDisplayMonth(month, format==FORMAT_SHORT));
+        buffer.append(calendar.getMonth(month, localize));
       }
-      buffer.append(format==FORMAT_GEDCOM ? calendar.getYear(year) : calendar.getDisplayYear(year));
+          
+      buffer.append(calendar.getYear(year, localize));
       
-      // add calendar indicator for julian
-      if (format!=FORMAT_GEDCOM&&calendar==JULIAN)
+      if (localize&&calendar==JULIAN)
         buffer.append("(j)");
-    }      
+    }
     
-    // done
     return buffer;
   }
 

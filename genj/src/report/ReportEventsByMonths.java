@@ -16,33 +16,16 @@ import genj.gedcom.time.Calendar;
 import genj.gedcom.time.PointInTime;
 import genj.report.Report;
 
-import java.awt.BorderLayout;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 
-import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
 /**
  * A report that shows pie charts with events by months
  */
 public class ReportEventsByMonths extends Report {
-
-  /** whether we give a Chart for births - default is true */
-  public boolean BirthsChart = true;
-  /** whether we give a Chart for baptisms - default is false */
-  public boolean BaptismsChart = false;
-  /** whether we give a Chart for adoptions - default is false  */
-  public boolean AdoptionsChart = false;
-  /** whether we give a Chart for deaths - default is true */
-  public boolean DeathsChart = true;
-  /** whether we give a Chart for marriages - default is true */
-  public boolean MarriagesChart = true;
-  /** whether we give a Chart for divorces - default is true */
-  public boolean DivorcesChart = true;
-
+  
   /** calendar we use */
   private int calendar;
 
@@ -58,78 +41,64 @@ public class ReportEventsByMonths extends Report {
   public int getCalendar() {
     return calendar;
   }
-
+  
   /** accessor - calendar */
   public void setCalendar(int set) {
     calendar = Math.max(0, Math.min(CALENDARS.length-1, set));
   }
-
+  
   /** accessor - calendars */
   public Calendar[] getCalendars() {
     return CALENDARS;
   }
-
+  
   /**
    * No STDOUT necessary
    */
   public boolean usesStandardOut() {
     return false;
   }
-
+  
   /**
    * Report's main
    */
-  public void start(Gedcom gedcom) {
-
+  public void start(Object context) {
+    
+    // cast to what we expect
+    Gedcom gedcom = (Gedcom)context;
+    
     // look for events we consider
-    List series = new ArrayList();
-    if (BirthsChart) {
-    series.add(analyze(gedcom.getEntities("INDI"), "BIRT"));
-    }
-    if (BaptismsChart) {
-    series.add(analyze(gedcom.getEntities("INDI"), "BAPM"));
-    }
-    if (AdoptionsChart) {
-    series.add(analyze(gedcom.getEntities("INDI"), "ADOP"));
-    }
-    if (DeathsChart) {
-    series.add(analyze(gedcom.getEntities("INDI"), "DEAT"));
-    }
-    if (MarriagesChart) {
-    series.add(analyze(gedcom.getEntities("FAM" ), "MARR"));
-    }
-    if (DivorcesChart) {
-    series.add(analyze(gedcom.getEntities("FAM" ), "DIV"));
-    }
-
+    IndexedSeries[] series = {
+      analyze(gedcom.getEntities("INDI"), "BIRT"),  
+      analyze(gedcom.getEntities("INDI"), "DEAT"),
+      analyze(gedcom.getEntities("FAM" ), "MARR")
+    };
+    
     // show it in a chart per series
     String[] categories = CALENDARS[calendar].getMonths(true);
-
+    
     JTabbedPane charts = new JTabbedPane();
-    for (Iterator it=series.iterator(); it.hasNext(); ) {
-      IndexedSeries is = (IndexedSeries)it.next();
-      String label = Gedcom.getName(is.getName());
-      Chart chart = new Chart(null, is, categories, false);
+    for (int i=0;i<series.length;i++) {
+      String label = Gedcom.getName(series[i].getName());
+      Chart chart = new Chart(null, series[i], categories, false);
       charts.addTab(label, chart);
     }
-    JPanel panel = new JPanel(new BorderLayout());
-    panel.add(BorderLayout.CENTER, charts);
 
-    showComponentToUser(panel);
-
+    showComponentToUser(charts);
+    
     // done
   }
-
+  
   private IndexedSeries analyze(Collection entities, String tag) {
-
+    
     int months = CALENDARS[calendar].getMonths(true).length;
-
+    
     IndexedSeries series = new IndexedSeries(tag, months);
-
+    
     // loop over entities
     Iterator it = entities.iterator();
     while (it.hasNext()) {
-
+      
       Entity e = (Entity)it.next();
 
       // check it out
@@ -137,7 +106,7 @@ public class ReportEventsByMonths extends Report {
       if (!(event instanceof PropertyEvent))
         continue;
       PropertyDate date = ((PropertyEvent)event).getDate();
-      if (date==null)
+      if (date==null) 
         continue;
 
       // inc appropriate month
@@ -145,12 +114,12 @@ public class ReportEventsByMonths extends Report {
         series.inc(date.getStart().getPointInTime(CALENDARS[calendar]).getMonth());
       } catch (Throwable t) {
       }
-
+      
       // next
     }
-
+    
     // done
     return series;
   }
-
+  
 } //ReportBirthMonths

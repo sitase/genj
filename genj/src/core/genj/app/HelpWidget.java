@@ -19,15 +19,16 @@
  */
 package genj.app;
 
+import genj.util.Debug;
 import genj.util.EnvironmentChecker;
 import genj.util.Resources;
+import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.io.File;
 import java.net.URL;
 import java.util.Locale;
-import java.util.logging.Level;
 
 import javax.help.HelpSet;
 import javax.help.JHelp;
@@ -41,8 +42,6 @@ import javax.swing.border.EmptyBorder;
  * A bridge to javax Help System
  */
 class HelpWidget extends JPanel {
-  
-  private final static Resources RESOURCES = Resources.get(HelpWidget.class);
 
   /**
    * Constructor
@@ -55,7 +54,11 @@ class HelpWidget extends JPanel {
     // create center component
     JComponent pCenter = getContent();
     if (pCenter==null) {
-      pCenter = new JLabel(RESOURCES.getString("cc.help.help_file_missing", Locale.getDefault().getLanguage().toLowerCase()), SwingConstants.CENTER);
+      pCenter = new JLabel(
+        Resources.get(this).getString("cc.help.help_file_missing"),
+        WindowManager.IMG_ERROR,
+        SwingConstants.CENTER
+      );
       pCenter.setBorder(new EmptyBorder(16,16,16,16));
     }
     
@@ -79,10 +82,10 @@ class HelpWidget extends JPanel {
     
     // Open the Help Set        
     String file = calcHelpBase() + "/helpset.xml";
-    App.LOG.info("Trying to use help in " + file );
+    Debug.log(Debug.INFO, this,"Trying to use help in " + file );
     // safety check
     if (!new File(file).exists()) {
-      App.LOG.log(Level.WARNING, "No help found in "+file);
+      Debug.log(Debug.WARNING, this,"No help found");
       return null;
     }
 
@@ -94,7 +97,7 @@ class HelpWidget extends JPanel {
         .newInstance(new Object[]{null,new URL("file","", file)});
       return (JComponent)JHelp.class.getConstructor(new Class[]{set.getClass()}).newInstance(new Object[]{set});
     } catch (Throwable t) {
-      App.LOG.log(Level.WARNING, "Problem reading help", t);
+      Debug.log(Debug.WARNING, this,"Problem reading help", t);
     }
     
     // default - none

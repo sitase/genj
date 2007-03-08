@@ -35,7 +35,7 @@ public abstract class MultipleChoiceOption extends PropertyOption {
   
   /** constructor */
   protected MultipleChoiceOption(PropertyOption option) {
-    super(option.instance, option.getProperty());
+    super(option.getProperty());
     this.option = option;
   }
   
@@ -111,12 +111,8 @@ public abstract class MultipleChoiceOption extends PropertyOption {
 
     /** constructor */
     private UI() {
-      Object[] choices = getChoices();
-      setModel(new DefaultComboBoxModel(choices));
-      int index = getIndex();
-      if (index<0||index>choices.length-1)
-        index = -1;
-      setSelectedIndex(index);
+      setModel(new DefaultComboBoxModel(getChoices()));
+      setSelectedIndex(getIndex());
     }
     
     /** component representation */

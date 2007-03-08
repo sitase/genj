@@ -20,7 +20,6 @@
 package genj.util.swing;
 
 import genj.util.ChangeSupport;
-import genj.util.EnvironmentChecker;
 
 import java.awt.Dimension;
 import java.awt.event.FocusEvent;
@@ -116,28 +115,21 @@ public class TextFieldWidget extends JTextField {
    */
   protected void processFocusEvent(FocusEvent e) {
     
-    // catch focus gained to preselect all for easy overwrite/editing (only on windows though 
-    // since auto-select auto-copies!)
-    if (EnvironmentChecker.isWindows()&&e.getID()==FocusEvent.FOCUS_GAINED) {
-      if (isTemplate||isSelectAllOnFocus) 
-        selectAll();
+    // catch focus gained
+    if (e.getID()==FocusEvent.FOCUS_GAINED) {
+      if (isTemplate||isSelectAllOnFocus) {
+        // 20040307 wrote my own selectAll() so that the
+        // caret is at position 0 after selection - this
+        // makes sure the beginning of the text is visible
+        if (getDocument() != null) {
+          setCaretPosition(getDocument().getLength());
+          moveCaretPosition(0);
+        }
+      }
     }
     
     // continue
     super.processFocusEvent(e);
-  }
-  
-  /**
-   * Our own selection that places the cursor at the beginning instead of the end
-   */
-  public void selectAll() {
-    // 20040307 wrote my own selectAll() so that the
-    // caret is at position 0 after selection - this
-    // makes sure the beginning of the text is visible
-    if (getDocument() != null) {
-      setCaretPosition(getDocument().getLength());
-      moveCaretPosition(0);
-    }
   }
     
   /**

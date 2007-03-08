@@ -14,7 +14,6 @@ import genj.gedcom.TagPath;
 import genj.gedcom.time.Delta;
 import genj.gedcom.time.PointInTime;
 import genj.util.WordBuffer;
-import genj.view.ViewContext;
 
 import java.util.List;
 
@@ -114,20 +113,8 @@ public class TestAge extends Test {
       return;
       
     // test it 
-    if (isError(delta.getYears()))  {
-      
-      WordBuffer words = new WordBuffer();
-      String[] format = new String[]{ indi.toString(), String.valueOf(years)}; 
-      if (comparison==UNDER) {
-        words.append(report.translate("err.age.under", format));
-      } else {
-        words.append(report.translate("err.age.over", format));
-      }
-      words.append("-");
-      words.append(report.translate(explanation));
-
-      issues.add(new ViewContext(prop).setText(words.toString()).setImage(prop instanceof PropertyDate ? prop.getParent().getImage(false) : prop.getImage(false)));
-    }
+    if (isError(delta.getYears())) 
+      issues.add(getError(indi, prop, report));
     
     // done
   }
@@ -145,4 +132,26 @@ public class TestAge extends Test {
     return false;
   }
 
+  /**
+   * Calculate issue
+   */
+  private Issue getError(Indi indi, Property prop, ReportValidate report) {
+    
+    WordBuffer words = new WordBuffer();
+    String[] format = new String[]{ indi.toString(), String.valueOf(years)}; 
+    if (comparison==UNDER) {
+      words.append(report.i18n("err.age.under", format));
+    } else {
+      words.append(report.i18n("err.age.over", format));
+    }
+    words.append("-");
+    words.append(report.i18n(explanation));
+    
+    return new Issue(
+      words.toString(),
+      prop instanceof PropertyDate ? prop.getParent().getImage(false) : prop.getImage(false),
+      prop
+    );
+  }
+  
 } //TestAge

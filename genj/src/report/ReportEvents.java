@@ -9,27 +9,19 @@
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomException;
 import genj.gedcom.Indi;
-import genj.gedcom.Property;
 import genj.gedcom.PropertyDate;
-import genj.gedcom.PropertyEvent;
 import genj.gedcom.PropertySex;
+import genj.gedcom.TagPath;
 import genj.gedcom.time.Delta;
 import genj.gedcom.time.PointInTime;
 import genj.report.Report;
-import genj.util.WordBuffer;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
+import java.util.GregorianCalendar;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.StringTokenizer;
-import java.util.TimeZone;
 
 /**
  * GenJ - Report
@@ -37,325 +29,377 @@ import java.util.TimeZone;
  * @author Carsten Muessig carsten.muessig@gmx.net
  */
 public class ReportEvents extends Report {
-  
+    
     /** whether we sort by day-of-month or date */
-    public boolean isSortDay = true;
+    public boolean isSortDay = true;    
     /** wether dead persons' events should be considered */
-    public boolean isShowDead = true;
+    public boolean isShowDead = true;    
     /** whether births should be reported */
-    public boolean reportBirth = true;
+    public boolean reportBirth = true;    
     /** whether baptisms should be reported */
-    public boolean reportBaptism = true;
+    public boolean reportBaptism = true;    
     /** whether marriages should be reported */
-    public boolean reportMarriage = true;
+    public boolean reportMarriage = true;    
     /** whether divorces should be reported */
-    public boolean reportDivorce = true;
+    public boolean reportDivorce = true;    
     /** whether emigration should be reported */
-    public boolean reportEmigration = true;
+    public boolean reportEmigration = true;    
     /** whether immigration should be reported */
-    public boolean reportImmigration = true;
+    public boolean reportImmigration = true;    
     /** whether naturalization should be reported */
-    public boolean reportNaturalization = true;
+    public boolean reportNaturalization = true;    
     /** whether deaths should be reported */
     public boolean reportDeath = true;
-    /** whether the output should be in icalendar format */
-    public boolean isOutputICal = false;
-
+    
     public int sex = 3;
-    public String[] sexs = {PropertySex.TXT_MALE, PropertySex.TXT_FEMALE, PropertySex.TXT_UNKNOWN, ""};
-
+    public String[] sexs = {PropertySex.TXT_MALE, PropertySex.TXT_FEMALE, PropertySex.TXT_UNKNOWN, i18n("criteria.ignore")};
+    
     /** day of the date limit */
-    public String day = "";
-
+    public int day = new GregorianCalendar().get(Calendar.DAY_OF_MONTH);
+    public String[] days = { "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31" };
+    
     /** month of the date limit */
-    public String month = "";
-
+    public int month = new GregorianCalendar().get(Calendar.MONTH) + 1;
+    public String[] months = PointInTime.GREGORIAN.getMonths(true);
+    
     /** year of the date limit */
-    public String year = "";
-
+    public int year = new GregorianCalendar().get(Calendar.YEAR);
+    
+    /** how the day should be handled */
+    public int handleDay = 3;
+    public String[] handleDays = { i18n("criteria.min"), i18n("criteria.max"), i18n("criteria.fix"), i18n("criteria.ignore")};
+    
+    /** how the day should be handled */
+    public int handleMonth = 3;
+    public String[] handleMonths = handleDays;
+    
+    /** how the day should be handled */
+    public int handleYear = 3;
+    public String[] handleYears = handleDays;
+    
     /** the marriage symbol */
     private final static String TXT_MARR_SYMBOL = genj.gedcom.Options.getInstance().getTxtMarriageSymbol();
-    
-    /** time reporting variables */
-    private String timestamp;
-    private final static SimpleDateFormat 
-      formatDTSTAMP = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'"),
-      formatDTSTART = new SimpleDateFormat("yyyyMMdd");
-
 
     /**
-     * Main for argument Gedcom
+     * @see genj.report.Report#accepts(java.lang.Object)
      */
-    public void start(Gedcom gedcom) throws GedcomException {
-
+    public String accepts(Object context) {
+        // we accept only GEDCOM
+        return context instanceof Gedcom ? getName() : null;
+    }
+    
+    /**
+     * Entry point into this report - by default reports are only run on a
+     * context of type Gedcom. Depending on the logic in accepts either
+     * an instance of Gedcom, Entity or Property can be passed in though.
+     */
+    public void start(Object context) {
+        
         // check that something is selected
         if ((!reportBirth) && (!reportBaptism) && (!reportDeath) && (!reportMarriage) && (!reportDivorce) && (!reportEmigration) && (!reportImmigration) && (!reportNaturalization))
             return;
         
-        // initialize timestamp
-        timestamp = toISO(System.currentTimeMillis(), true);
-        formatDTSTART.setTimeZone(TimeZone.getTimeZone("GMT")); // make sure all event timestamps are considered to be GMT
-        formatDTSTAMP.setTimeZone(TimeZone.getDefault()); // apply local timezone to dtstamp formatting (it's considered Z)
-
-        // collect evens for all individuals/families
-        Map tag2events = new HashMap();
-        if (reportBirth) tag2events.put("BIRT", new ArrayList());
-        if (reportBaptism) tag2events.put("BAPM|BAPL|CHR|CHRA",  new ArrayList());
-        if (reportMarriage) tag2events.put("MARR", new ArrayList());
-        if (reportDivorce) tag2events.put("DIV", new ArrayList());
-        if (reportEmigration) tag2events.put("EMI", new ArrayList());
-        if (reportImmigration) tag2events.put("IMMI", new ArrayList());
-        if (reportNaturalization) tag2events.put("NATU", new ArrayList());
-        if (reportDeath) tag2events.put("DEAT", new ArrayList());
-
+        // assuming Gedcom
+        Gedcom gedcom = (Gedcom) context;
+        
+        // collect all individuals/families per event
+        ArrayList
+        births = new ArrayList(),
+        baptisms = new ArrayList(),
+        marriages = new ArrayList(),
+        divorces = new ArrayList(),
+        emigrations = new ArrayList(),
+        immigrations = new ArrayList(),
+        naturalizations = new ArrayList(),
+        deaths = new ArrayList();
+        
+        
         // loop individuals
         for (Iterator indis = gedcom.getEntities(Gedcom.INDI).iterator(); indis.hasNext(); ) {
-            analyze((Indi)indis.next(), tag2events);
+            analyze((Indi)indis.next(), births, baptisms, marriages, divorces, emigrations, immigrations, naturalizations, deaths);
         }
         
-        // output header
-        if (isOutputICal) {
-          println("BEGIN:VCALENDAR");
-          println("PRODID:-//Genealogy//ReportEvents/EN");
-          println("VERSION:2.0");
-          println("METHOD:PUBLISH");
-        } else {
-          println(PropertySex.TXT_SEX + ": " + (sex==3?"*":sexs[sex]));
-          println(Delta.TXT_DAY + ": " + (day.length()==0?"*":day));
-          println(Delta.TXT_MONTH + ": " + (month.length()==0?"*":month));
-          println(Delta.TXT_YEAR + ": " + (year.length()==0?"*":year));
-          println();
+        
+        // output results
+        println(PropertySex.TXT_SEX + ": " + sexs[sex]);
+        println(i18n("dateLimit", new String[] { Delta.TXT_DAY, Integer.toString(day+1), handleDays[handleDay] } ));
+        println(i18n("dateLimit", new String[] { Delta.TXT_MONTH, Integer.toString(month+1), handleMonths[handleMonth] } ));
+        println(i18n("dateLimit", new String[] { Delta.TXT_YEAR, Integer.toString(year), handleYears[handleYear] } ));
+        println();
+        
+        if (reportBirth&&!births.isEmpty()) {
+            println(getIndent(2) + Gedcom.getName("BIRT"));
+            report(births);
+            println();
+        }
+        if (reportBaptism&&!baptisms.isEmpty()) {
+            println(getIndent(2) + Gedcom.getName("BAPM"));
+            report(baptisms);
+            println();
+        }
+        if (reportMarriage&&!marriages.isEmpty()) {
+            println(getIndent(2) + Gedcom.getName("MARR"));
+            report(marriages);
+            println();
+        }
+        if (reportDivorce&&!divorces.isEmpty()) {
+            println(getIndent(2) + Gedcom.getName("DIV"));
+            report(divorces);
+            println();
+        }
+        if (reportEmigration&&!emigrations.isEmpty()) {
+            println(getIndent(2) + Gedcom.getName("EMIG"));
+            report(emigrations);
+            println();
+        }
+        if (reportImmigration&&!immigrations.isEmpty()) {
+            println(getIndent(2) + Gedcom.getName("IMMI"));
+            report(immigrations);
+            println();
+        }
+        if (reportNaturalization&&!naturalizations.isEmpty()) {
+            println(getIndent(2) + Gedcom.getName("NATU"));
+            report(naturalizations);
+            println();
+        }
+        if (reportDeath&&!deaths.isEmpty()) {
+            println(getIndent(2) + Gedcom.getName("DEAT"));
+            report(deaths);
         }
         
-        // ... output events type by type
-        for (Iterator tags=tag2events.keySet().iterator(); tags.hasNext(); ) {
-          String tag = (String)tags.next();
-          List events = (List)tag2events.get(tag);
-          if (!events.isEmpty()) {
-            
-            Collections.sort(events);
-            
-            if (!isOutputICal) 
-              println(getIndent(2) + Gedcom.getName(new StringTokenizer(tag, "|").nextToken()));
-
-            for (Iterator it=events.iterator();it.hasNext();) 
-              println(it.next());
-            
-            if (!isOutputICal) 
-              println();
-            
-            events.clear();
-          }
-        }
-        
-        // output footer
-        if (isOutputICal) {
-          println("END:VCALENDAR");
-        }
-
         // done
     }
-
+    
     /**
      * Analyze one individual
      */
-    private void analyze(Indi indi, Map tag2events) {
-
+    private void analyze(Indi indi, ArrayList births, ArrayList baptisms, ArrayList marriages, ArrayList divorces, ArrayList emigrations, ArrayList immigrations, ArrayList naturalizations, ArrayList deaths) {
+        
         // consider dead?
         if (!isShowDead && indi.getDeathDate() != null && indi.getDeathDate().isValid())
             return;
-
+        
         if(checkSex(indi)==false)
             return;
-
-        // look for events
-        analyzeEvents(indi, tag2events);
         
-        // check all marriages
-        Fam[] fams = indi.getFamiliesWhereSpouse();
-        for (int f = 0; f < fams.length; f++) {
-          Fam fam = fams[f];
-          analyzeEvents(fam, tag2events);
+        // look for births?
+        if (reportBirth) {
+            if (checkDate(indi.getBirthDate()))
+                births.add(new Hit(indi.getBirthDate(), indi, ""));
         }
-
+        
+        if(reportBaptism) {
+            analyzeTag(indi, "INDI:BAPM", baptisms, true);
+            analyzeTag(indi, "INDI:BAPL", baptisms, true);
+            analyzeTag(indi, "INDI:CHR", baptisms, true);
+            analyzeTag(indi, "INDI:CHRA", baptisms, true);
+        }
+        
+        // look for marriages?
+        if (reportMarriage) {
+            Fam[] fams = indi.getFamilies();
+            for (int j = 0; j < fams.length; j++) {
+                Fam fam = fams[j];
+                if (checkDate(fam.getMarriageDate())) {
+                  Hit hit = new Hit(fam.getMarriageDate(), fam, "");
+                  if (!marriages.contains(hit)) marriages.add(hit);
+                }
+            }
+        }
+        
+        // look for divorces?
+        if (reportDivorce) {
+            Fam[] fams = indi.getFamilies();
+            for (int j = 0; j < fams.length; j++) {
+                Fam fam = fams[j];
+                if (checkDate(fam.getDivorceDate())) {
+                  Hit hit = new Hit(fam.getDivorceDate(), fam, "");
+                  if (!divorces.contains(hit)) divorces.add(hit);
+                }
+            }
+        }
+        
+        if(reportEmigration)
+            analyzeTag(indi, "INDI:EMIG", emigrations, false);
+        
+        if(reportImmigration)
+            analyzeTag(indi, "INDI:IMMI", immigrations, false);
+        
+        if(reportNaturalization)
+            analyzeTag(indi, "INDI:NATU", naturalizations, false);
+        
+        // look for deaths?
+        if (reportDeath) {
+            if (checkDate(indi.getDeathDate()))
+                deaths.add(new Hit(indi.getDeathDate(), indi, ""));
+        }
+        
         // done
     }
     
-    private void analyzeEvents(Entity entity, Map tag2events) {
-      
-      for (Iterator tags = tag2events.keySet().iterator(); tags.hasNext(); ) {
-        String tag = (String)tags.next();
-        List events = (List)tag2events.get(tag);
-        
-        Property[] props = getProperties(entity, tag);
-        for (int i = 0; i < props.length; i++) {
-          Property event = props[i];
-          if (event instanceof PropertyEvent) {
-            Property date = event.getProperty("DATE");
-            if (date instanceof PropertyDate) {
-              Hit hit = new Hit(entity, (PropertyEvent)event, i, (PropertyDate)date);
-              if(checkDate((PropertyDate)date)&&!events.contains(hit)) events.add(hit); 
+    private void analyzeTag(Indi indi, String tag, ArrayList list, boolean saveTag) {
+        if((indi.getProperty(new TagPath(tag))!=null) && (indi.getProperty(new TagPath(tag+":DATE"))!=null)) {
+            PropertyDate prop = (PropertyDate)indi.getProperty(new TagPath(tag+":DATE"));
+            if(checkDate(prop)) {
+                if(saveTag)
+                    list.add(new Hit(prop, indi, tag));
+                else
+                    list.add(new Hit(prop, indi, ""));
             }
-          }
         }
-      }
-      
     }
     
-    private Property[] getProperties(Entity entity, String tag) {
-      ArrayList result = new ArrayList();
-      for (int i=0, j = entity.getNoOfProperties(); i<j ; i++) {
-        Property prop = entity.getProperty(i);
-        if (prop.getTag().matches(tag))
-          result.add(prop);
-      }
-      return Property.toArray(result);
+    /**
+     * Output a list of hits
+     */
+    private void report(ArrayList hits) {
+        
+        // sort the hits either by
+        //  year/month/day or
+        //  month/day
+        Collections.sort(hits);
+        
+        // print 'em
+        for (Iterator it=hits.iterator();it.hasNext();) {
+            report((Hit)it.next());
+        }
+        
     }
+    
+    /**
+     * Print a hit
+     */
+    private void report(Hit hit) {
 
+        if (hit.who instanceof Indi) {
+            Indi indi = (Indi) hit.who;
+            String tag = "";
+            if(hit.tag.length() > 0)
+                tag = hit.tag+": ";
+            println(getIndent(3) + tag + hit.when + " "+i18n("entity", new String[] {indi.getId(), indi.getName()} ));
+        }
+        if (hit.who instanceof Fam) {
+            Fam fam = (Fam) hit.who;
+            println(getIndent(3) + hit.when + " "+i18n("entity", new String[] {fam.getId(), fam.toString()})+" (@" + fam.getHusband().getId() + "@" + TXT_MARR_SYMBOL + "@" + fam.getWife().getId() + "@)");
+        }
+    }
+    
     /** checks if the sex of an indi matches the user choice
      * @param indi to check
      * @return boolean the result
      */
     private boolean checkSex(Indi indi) {
-
+        
         if(sex==3)
             return true;
-
+        
         switch(indi.getSex()) {
-
+            
             case PropertySex.MALE:
                 if(sex!=0)
                     return false;
                 else
                     return true;
-
+                
             case PropertySex.FEMALE:
                 if(sex!=1)
                     return false;
                 else
                     return true;
-
+                
             case PropertySex.UNKNOWN:
                 if(sex!=2)
                     return false;
                 else
                     return true;
-
+                
             default: return false;
         }
     }
-
+    
     /**
      * checks if the date of an event matches the given values of the user (fix, max, min, ...)
      * @return boolean to indicate the result
      */
     private boolean checkDate(PropertyDate date) {
-
+        
         // has to be valid
         if (date==null||!date.isValid())
             return false;
-
+        
         PointInTime start = date.getStart();
         if (start.getCalendar()!=PointInTime.GREGORIAN)
             return false;
         
-        if (checkValue(start.getDay()+1, day) && checkValue(start.getMonth()+1, month) && checkValue(start.getYear(), year))
-          return true;
-
-        return false; 
+        // check criteria
+        boolean d = false, m = false, y = false;
+        
+        if ((handleDay == 0) && (day <= start.getDay())) // day = minimum
+            d = true;
+        else if ((handleDay == 1) && (day >= start.getDay())) // day = maximum
+            d = true;
+        else if ((handleDay == 2) && (day == start.getDay())) // day = fix
+            d = true;
+        else if (handleDay == 3) // day = ignore
+            d = true;
+        
+        if ((handleMonth == 0) && (month <= start.getMonth())) // month = minimum
+            m = true;
+        else if ((handleMonth == 1) && (month >= start.getMonth())) // month = maximum
+            m = true;
+        else if ((handleMonth == 2) && (month == start.getMonth())) // month = fix
+            m = true;
+        else if (handleMonth == 3) // month = ignore
+            m = true;
+        
+        if ((handleYear == 0) && (year <= start.getYear())) // year = minimum
+            y = true;
+        else if ((handleYear == 1) && (year >= start.getYear())) // year = maximum
+            y = true;
+        else if ((handleYear == 2) && (year == start.getYear())) // year = fix
+            y = true;
+        else if (handleYear == 3) // year = ignore
+            y = true;
+        
+        return d&m&y;
     }
     
-    private boolean checkValue(int value, String filter) {
-      // no filter - matched!
-      if (filter.length()==0)
-        return true;
-      // parse filter
-      try {
-        // filter '>'
-        if (filter.startsWith(">"))
-          return Integer.parseInt(filter.substring(1)) < value;
-        // filter '<'
-        if (filter.charAt(0)=='<')
-          return Integer.parseInt(filter.substring(1)) > value;
-        // filter '='
-        if (filter.charAt(0)=='=')
-          return Integer.parseInt(filter.substring(1)) == value;
-        return Integer.parseInt(filter) == value;
-      } catch (NumberFormatException e) {
-        return false;
-      }
+        /**
+     * Return an indented string for given level
+     */
+    private String getIndent(int level) {
+        return super.getIndent(level, OPTIONS.getIndentPerLevel(), null);
     }
     
-    private String toISO(long timeMillis, boolean time) {
-      Date date = new Date(timeMillis);
-      return time ? formatDTSTAMP.format(date) : formatDTSTART.format(date);
-    }        
-
     /**
      * Wrapping an Event hit
      */
     private class Hit implements Comparable {
-      
-      Entity who;
-      int num;
-      Property event;
-      PropertyDate date;
-      PointInTime compare;
-        
-      /** Constructor*/
-      Hit(Entity entity, PropertyEvent event, int num, PropertyDate date) {
-        this.who = entity;
-        this.event = event;
-        this.num = num;
-        this.date = date;
-        PointInTime when = date.getStart();
-        if (isSortDay)
-          // blocking out year (to a Gregorian LEAP 4 - don't want to make it invalid) so that month and day count
-          compare = new PointInTime(when.getDay(), when.getMonth(), 4, when.getCalendar());
-        else
-          compare = when;
-      }
-      // comparison
-      public int compareTo(Object object) {
-          return compare.compareTo(((Hit)object).compare);
-      }
-      // equals
-      public boolean equals(Object that) {
-        return event==((Hit)that).event;
-      }
-      // toString
-      public String toString() {
-        try {
-          if (isOutputICal) {
-            WordBuffer result = new WordBuffer("\n");
-            result.append("BEGIN:VEVENT");
-            result.append("DTSTART:"+toISO(date.getStart().getTimeMillis(), false));
-            result.append("UID:"+who.getGedcom().getName()+"|"+who.getId()+"|"+event.getTag()+"|"+num);
-            result.append("DTSTAMP:"+timestamp);
-            result.append("SUMMARY:"+Gedcom.getName(event.getTag())+" "+icalescape(who.toString()));
-            Property where  = event.getProperty("PLAC");
-            if (where!=null)
-              result.append("LOCATION:"+icalescape(where.getDisplayValue()));
-            if (event.getTag().equals("BIRT"))
-              result.append("RRULE:FREQ=YEARLY");
-            result.append("DESCRIPTION:");
-            result.append("END:VEVENT");
-            return result.toString();
-          } else {
-            StringBuffer result = new StringBuffer();
-            result.append(getIndent(3));
-            result.append(date);
-            result.append(" ");
-            result.append(who);
-            return result.toString();
-          }
-        } catch (Throwable t) {
-          throw new RuntimeException();
+        String tag;
+        PropertyDate date;
+        PointInTime when;
+        Entity who;
+        PointInTime compare;
+        // Constructor
+        Hit(PropertyDate d, Entity e, String p) {
+          date = d;          
+          tag = p;
+          when = date.getStart();
+          if (isSortDay)
+            // blocking out year (to a Gregorian LEAP 4 - don't want to make it invalid) so that month and day count
+            compare = new PointInTime(when.getDay(), when.getMonth(), 4, when.getCalendar());
+          else
+            compare = when;
+          who = e;
         }
-      }
-      private String icalescape(String string) {
-        return string.replaceAll(",", "\\\\,");
-      }
+        // comparison
+        public int compareTo(Object object) {
+            return compare.compareTo(((Hit)object).compare);
+        }
+        // equals
+        public boolean equals(Object that) {
+          return date==((Hit)that).date;
+        }
     } //Hit
-
+    
 } //ReportEvents

@@ -26,7 +26,6 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.event.KeyEvent;
 import java.awt.font.FontRenderContext;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,7 +39,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTree;
-import javax.swing.KeyStroke;
 import javax.swing.tree.TreeCellEditor;
 import javax.swing.tree.TreeCellRenderer;
 import javax.swing.tree.TreePath;
@@ -58,28 +56,28 @@ public class OptionsWidget extends JPanel {
   /** tree we're using */
   private JTree tree;
   
+  /** reference to window manager */
+  private WindowManager manager;
+  
   /** tree model */
   private Model model = new Model();
   
   /** first column width */
   private int widthOf1stColumn = 32;
   
-  /** a title for the options we're looking at - is used as default category */
-  private String title;
-  
   /**
    * Constructor
    */
-  public OptionsWidget(String title) {
-    this(title, null);
+  public OptionsWidget(WindowManager manager) {
+    this(manager, null);
   }
   
   /**
    * Constructor
    */
-  public OptionsWidget(String title, List options) {
+  public OptionsWidget(WindowManager manager, List options) {
 
-    this.title = title;
+    this.manager = manager;
         
     // setup
     tree = new JTree(model) {
@@ -165,7 +163,7 @@ public class OptionsWidget extends JPanel {
    * Access to window manager
    */  
   public WindowManager getWindowManager() {
-    return WindowManager.getInstance(this);
+    return manager;
   } 
   
   /**
@@ -174,19 +172,10 @@ public class OptionsWidget extends JPanel {
   private class Cell extends AbstractCellEditor implements TreeCellRenderer, TreeCellEditor {
     
     /** current ui */
-    private OptionUI optionUi;
+    private OptionUI ui;
     
     /** panel container */
-    private JPanel panel = new JPanel() {
-      // override key binding process - intercept enter as end of edit
-      protected boolean processKeyBinding(KeyStroke ks, KeyEvent e, int condition, boolean pressed) {
-        if (ks.getKeyCode()==KeyEvent.VK_ENTER)
-          stopCellEditing();
-        if (ks.getKeyCode()==KeyEvent.VK_ESCAPE)
-          cancelCellEditing();
-        return true;
-      }
-    };
+    private JPanel panel = new JPanel();
     
     /** label for option name */
     private JLabel labelForName = new JLabel();
@@ -221,18 +210,18 @@ public class OptionsWidget extends JPanel {
       if (panel.getComponentCount()>1) 
         panel.remove(1);
       // lookup option and ui
-      optionUi = option.getUI(OptionsWidget.this);
+      ui = option.getUI(OptionsWidget.this);
       // prepare name
       labelForName.setText(option.getName());
       labelForName.setPreferredSize(new Dimension(widthOf1stColumn,16));
       // and value (either text or ui)
       JComponent compForValue;
-      String text = optionUi.getTextRepresentation();
+      String text = ui.getTextRepresentation();
       if (text!=null&&!forceUI) {
         labelForValue.setText(text);
         compForValue = labelForValue;
       } else {
-        compForValue = optionUi.getComponentRepresentation();
+        compForValue = ui.getComponentRepresentation();
       }
       panel.add(compForValue, BorderLayout.CENTER);
       
@@ -256,14 +245,14 @@ public class OptionsWidget extends JPanel {
 
     /** callback - cancel editing */     
     public void cancelCellEditing() {
-      optionUi = null;
+      ui = null;
       super.cancelCellEditing();
     }
   
     /** callback - stop editing = commit */     
     public boolean stopCellEditing() {
-      if (optionUi!=null)
-        optionUi.endRepresentation();
+      if (ui!=null)
+        ui.endRepresentation();
       return super.stopCellEditing();
     }
 
@@ -286,13 +275,12 @@ public class OptionsWidget extends JPanel {
     }
     
     private List getCategory(String cat) {
-      if (cat==null)
-        cat = title;
       List result = (List)cat2options.get(cat);
       if (result==null) {
         result = new ArrayList();
         cat2options.put(cat, result);
-        categories.add(cat);
+        if (cat!=null)
+          categories.add(cat);
       }
       return result;
     }
@@ -306,13 +294,15 @@ public class OptionsWidget extends JPanel {
       cat2options.clear();
       categories.clear();
       
+      HashMap categories = new HashMap();
       for (int i = 0; i < set.size(); i++) {
         Option option = (Option)set.get(i);
-        getCategory(option.getCategory()).add(option);
+        String cat = option.getCategory();
+        getCategory(cat).add(option);
       }
       
       // notify
-      fireTreeStructureChanged(this, new Object[] {this}, null, null);
+      fireTreeStructureChanged(this, new TreePath(this), null, null);
     }
     
     /**
@@ -327,7 +317,7 @@ public class OptionsWidget extends JPanel {
      */
     public int getChildCount(Object parent) {
       if (parent==this)
-        return categories.size();
+        return getCategory(null).size() + cat2options.size()-1;
       return getCategory((String)parent).size();
     }
   
@@ -342,8 +332,12 @@ public class OptionsWidget extends JPanel {
      * option by index
      */
     public Object getChild(Object parent, int index) {
-      if (parent==this) 
-        return categories.get(index);
+      if (parent==this) {
+        List toplevel = getCategory(null);
+        if (index<toplevel.size())
+          return toplevel.get(index);
+        return categories.get(index - toplevel.size());
+      }
       return getCategory((String)parent).get(index);
     }
   

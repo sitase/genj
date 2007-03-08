@@ -27,14 +27,15 @@ import genj.option.OptionProvider;
 import genj.option.OptionUI;
 import genj.option.OptionsWidget;
 import genj.option.PropertyOption;
-import genj.util.EnvironmentChecker;
+import genj.util.ActionDelegate;
+import genj.util.Debug;
 import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.FileChooserWidget;
 import genj.util.swing.PopupWidget;
 import genj.util.swing.TextFieldWidget;
+import genj.window.CloseWindow;
 import genj.window.WindowManager;
 
 import java.io.File;
@@ -44,11 +45,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TreeSet;
 
-import javax.swing.Action;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.UIManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
@@ -56,9 +55,6 @@ import javax.swing.event.ChangeListener;
  * Application options
  */
 public class Options extends OptionProvider {
-
-  /** constants */
-  private final static String SWING_RESOURCES_KEY_PREFIX = "swing.";
 
   /** singleton */
   private final static Options instance = new Options();
@@ -70,7 +66,7 @@ public class Options extends OptionProvider {
   private Resources resources;
  
   /** maximum log file size */
-  private int maxLogSizeKB = 128;
+  private long maxLogSizeKB = 16;
   
   /** the current looknfeel */
   private int lookAndFeel = -1;
@@ -78,12 +74,9 @@ public class Options extends OptionProvider {
   /** the current language code */    
   private int language = -1;
   
-  /** restore views during startup */
-  public boolean isRestoreViews = true;
-  
   /** all available language codes */
   private static String[] languages;
-  
+
   /** all available language codes */
   private final static String[] codes = findCodes();
   
@@ -94,8 +87,8 @@ public class Options extends OptionProvider {
     TreeSet result = new TreeSet();
     result.add("en");
 
-    // look for development mode -Dgenj.language.dir or in  ./language/xy (except 'CVS')
-    File[] dirs = new File(EnvironmentChecker.getProperty(Options.class, "genj.language.dir", "./language", "Dev-time language directory switch")).listFiles();
+    // look for development mode ./language/xy (except 'CVS')
+    File[] dirs = new File("./language").listFiles();
     if (dirs!=null) {
       for (int i = 0; i < dirs.length; i++) {
         String dir = dirs[i].getName();
@@ -175,11 +168,15 @@ public class Options extends OptionProvider {
    */
   public void setLanguage(int language) {
     
-    // set locale if applicable
-    if (language>=0&&language<codes.length) {
+    // check bounds
+    if (language<0||language>codes.length-1)
+      return;
+
+    // set locale if applicable - only from unknown
+    if (this.language==-1) {
       String lang = codes[language];
       if (lang.length()>0) {
-        App.LOG.info("Switching language to "+lang);
+        Debug.log(Debug.INFO, this, "Switching language to "+lang);
         String country = Locale.getDefault().getCountry();
         int i = lang.indexOf('_');
         if (i>0) {
@@ -195,19 +192,6 @@ public class Options extends OptionProvider {
     // remember
     this.language = language;
 
-    // set swing resource strings (ok, cancel, etc.)
-    Resources resources = Resources.get(this);
-    Iterator keys = resources.getKeys().iterator();
-    while (keys.hasNext()) {
-      String key = (String)keys.next();
-      if (key.indexOf(SWING_RESOURCES_KEY_PREFIX)==0) {
-        UIManager.put(
-          key.substring(SWING_RESOURCES_KEY_PREFIX.length()),
-          resources.getString(key)
-        );
-      }
-    }
-    
     // done
   }
   
@@ -215,7 +199,7 @@ public class Options extends OptionProvider {
    * Getter - language
    */
   public int getLanguage() {
-    return language;
+    return Math.max(0,language);
   }
   
   /**
@@ -241,38 +225,15 @@ public class Options extends OptionProvider {
   /** 
    * Getter - maximum log size
    */
-  public int getMaxLogSizeKB() {
+  public long getMaxLogSizeKB() {
     return maxLogSizeKB;
   }
   
   /** 
    * Setter - maximum log size
    */
-  public void setMaxLogSizeKB(int set) {
-    maxLogSizeKB = Math.max(128, set);
-  }
-  
-  /** 
-   * Getter - http proxy
-   */
-  public String getHttpProxy() {
-    String host = System.getProperty("http.proxyHost");
-    String port = System.getProperty("http.proxyPort");
-    if (host==null)
-      return "";
-    return port!=null&&port.length()>0 ? host+":"+port : host;
-  }
-  
-  /** 
-   * Setter - http proxy
-   */
-  public void setHttpProxy(String set) {
-    int colon = set.indexOf(":");
-    String port = colon>=0 ? set.substring(colon+1) : "";
-    String host = colon>=0 ? set.substring(0,colon) : set;
-    if (host.length()==0) port = "";
-    System.setProperty("http.proxyHost", host);
-    System.setProperty("http.proxyPort", port);
+  public void setMaxLogSizeKB(long set) {
+    maxLogSizeKB = Math.max(4, set);
   }
   
   /**
@@ -352,8 +313,8 @@ public class Options extends OptionProvider {
       List result = new ArrayList(10);
       Iterator it = FileAssociation.getAll().iterator();
       for (int i=1;it.hasNext();i++)
-        result.add(new Edit(i, (FileAssociation)it.next()));
-      result.add(new Edit(0, null));
+        result.add(new Action(i, (FileAssociation)it.next()));
+      result.add(new Action(0, null));
       // done
       return result;
     }
@@ -366,11 +327,11 @@ public class Options extends OptionProvider {
     /**
      * Action for UI
      */
-    private class Edit extends Action2 { 
+    private class Action extends ActionDelegate { 
       /** file association */
       private FileAssociation association;
       /** constructor */
-      private Edit(int i, FileAssociation fa) {
+      private Action(int i, FileAssociation fa) {
         association = fa;
         setImage(PropertyFile.DEFAULT_IMAGE);
         setText(fa!=null ? i+" "+fa.getName()+" ("+fa.getSuffixes()+')' : localize("new"));
@@ -404,16 +365,18 @@ public class Options extends OptionProvider {
           executable.setFile(association.getExecutable());
         }
         
-        // prepare some actions
-        final Action
-          ok = Action2.ok(),
-          delete = new Action2(localize("delete"), association!=null),
-          cancel = Action2.cancel();
+        // create actions for dialog
+        final ActionDelegate[] actions = {
+          new CloseWindow(CloseWindow.TXT_OK), 
+          new CloseWindow(localize("delete")).setEnabled(association!=null), 
+          new CloseWindow(CloseWindow.TXT_CANCEL)
+        };
         
         // track changes
         ChangeListener l = new ChangeListener() {
           public void stateChanged(ChangeEvent e) {
-            ok.setEnabled( !suffixes.isEmpty() && !name.isEmpty() && !executable.isEmpty() );
+            boolean ok = !suffixes.isEmpty() && !name.isEmpty() && !executable.isEmpty();
+            actions[0].setEnabled(ok);
           }
         };
         suffixes.addChangeListener(l);
@@ -423,12 +386,15 @@ public class Options extends OptionProvider {
         
         // show a dialog with file association fields
         WindowManager mgr = widget.getWindowManager();
-        int rc = mgr.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, panel, new Action[]{ ok, delete, cancel }, widget);
-        if (rc==-1||rc==2)
-          return;
-        
-        // ok'd?
-        if (rc==0) {
+        int rc = mgr.openDialog(null, getName(), WindowManager.IMG_QUESTION, panel, actions, widget);
+
+        // analyze option
+        switch (rc) {
+          // cancel?
+          case 2:
+            return;
+          // ok?
+          case 0:
             // create new?
             if (association==null)
               association = FileAssociation.add(new FileAssociation());
@@ -436,8 +402,11 @@ public class Options extends OptionProvider {
             association.setSuffixes(suffixes.getText());
             association.setName(name.getText());
             association.setExecutable(executable.getFile().toString());
-        } else { // delete
-          FileAssociation.del(association);
+            break;
+          // delete?
+          case 1:
+            FileAssociation.del(association);
+            break;
         }
         
         // update actions

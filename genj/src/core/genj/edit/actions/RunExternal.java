@@ -22,29 +22,20 @@ package genj.edit.actions;
 import genj.gedcom.Gedcom;
 import genj.gedcom.PropertyFile;
 import genj.io.FileAssociation;
-import genj.util.swing.Action2;
+import genj.util.ActionDelegate;
 
 import java.io.File;
 
 /**
  * External action 
  */
-public class RunExternal extends Action2 {
+public class RunExternal extends ActionDelegate {
   
   /** the wrapped association */
   private FileAssociation association;
   
   /** the wrapped file */
   private File file;
-  
-  /**
-   * Constructor
-   */
-  public RunExternal(PropertyFile f) {
-    file = f.getFile();
-    super.setImage(f.getImage(false));
-    super.setText("Open...");
-  }
   
   /**
    * Constructor
@@ -66,15 +57,10 @@ public class RunExternal extends Action2 {
   }
   
   /**
-   * @see genj.util.swing.Action2#execute()
+   * @see genj.util.ActionDelegate#execute()
    */
   protected void execute() {
-    if (file==null)
-      return;
-    if (association==null)
-      association = FileAssociation.get(file, "View", getTarget());
-    if (association!=null)
-      association.execute(file);
+    if (file!=null) association.execute(file.toString());
   }
   
 } //RunExternal

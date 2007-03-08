@@ -21,16 +21,14 @@ package genj.app;
 
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.Indi;
 import genj.gedcom.Property;
-import genj.gedcom.PropertyDate;
 import genj.gedcom.TagPath;
-import genj.gedcom.time.PointInTime;
 import genj.io.Filter;
 import genj.util.Resources;
 import genj.util.swing.ChoiceWidget;
-import genj.util.swing.DateWidget;
 import genj.util.swing.TextFieldWidget;
+import genj.view.FilterSupport;
+import genj.view.ViewManager;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -53,20 +51,19 @@ import javax.swing.JTextField;
   
   /** components */
   private JCheckBox[] checkEntities = new JCheckBox[Gedcom.ENTITIES.length];
-  private JCheckBox[] checkFilters;
+  private JCheckBox[] checkViews;
   private JTextField  textTags, textValues;
   private TextFieldWidget textPassword;
   private JComboBox   comboEncodings;
   private Resources resources = Resources.get(this);
-  private DateWidget dateEventsAfter, dateBirthsAfter;
   
   /** filters */
-  private Filter[] filters;
+  private FilterSupport[] filterViews;
 
   /**
    * Constructor
    */    
-  /*package*/ SaveOptionsWidget(Gedcom gedcom, Filter[] filters) {
+  /*package*/ SaveOptionsWidget(Gedcom gedcom, ViewManager manager) {
     
     // Options
     Box options = new Box(BoxLayout.Y_AXIS);
@@ -95,20 +92,14 @@ import javax.swing.JTextField;
     props.add(new JLabel(resources.getString("save.options.exclude.values")));
     textValues = new TextFieldWidget(resources.getString("save.options.exclude.values.eg"), 10).setTemplate(true);
     props.add(textValues);
-    props.add(new JLabel(resources.getString("save.options.exclude.events")));
-    dateEventsAfter = new DateWidget();
-    props.add(dateEventsAfter);
-    props.add(new JLabel(resources.getString("save.options.exclude.indis")));
-    dateBirthsAfter = new DateWidget();
-    props.add(dateBirthsAfter);
-        
+    
     // others filter
     Box others = new Box(BoxLayout.Y_AXIS);
-    this.filters = filters;
-    this.checkFilters = new JCheckBox[filters.length];
-    for (int i=0; i<checkFilters.length; i++) {
-      checkFilters[i] = new JCheckBox(filters[i].getFilterName(), false);
-      others.add(checkFilters[i]);
+    filterViews = (FilterSupport[])manager.getInstances(FilterSupport.class, gedcom);
+    checkViews = new JCheckBox[filterViews.length];
+    for (int i=0; i<checkViews.length; i++) {
+      checkViews[i] = new JCheckBox(filterViews[i].getFilterName(), false);
+      others.add(checkViews[i]);
     }
     
     // layout
@@ -150,75 +141,14 @@ import javax.swing.JTextField;
     FilterProperties fp = FilterProperties.get(textTags.getText(), textValues.getText());
     if (fp!=null) result.add(fp);
     
-    // create one for events
-    PointInTime eventsAfter = dateEventsAfter.getValue();
-    if (eventsAfter!=null&&eventsAfter.isValid())
-      result.add(new FilterEventsAfter(eventsAfter));
-    
-    // create one for births
-    PointInTime birthsAfter = dateBirthsAfter.getValue();
-    if (birthsAfter!=null&&birthsAfter.isValid())
-      result.add(new FilterIndividualsBornAfter(birthsAfter));
-    
     // create one for every other
-    for (int f=0; f<filters.length; f++) {
-      if (checkFilters[f].isSelected())
-    	 result.add(filters[f]);
+    for (int f=0; f<filterViews.length; f++) {
+      if (checkViews[f].isSelected())
+    	 result.add(filterViews[f].getFilter());
     }
     
     // done
     return (Filter[])result.toArray(new Filter[result.size()]);
-  }
-  
-  /**
-   * Filter individuals if born after pit
-   */
-  private static class FilterIndividualsBornAfter implements Filter {
-    
-    private PointInTime after;
-    
-    /** constructor */
-    private FilterIndividualsBornAfter(PointInTime after) {
-      this.after = after;
-    }
-    
-    /** callback */
-    public boolean checkFilter(Property property) {
-      if (property instanceof Indi) {
-        Indi indi = (Indi)property;
-        PropertyDate birth = indi.getBirthDate();
-        if (birth!=null) return birth.getStart().compareTo(after)<0;
-      }
-        
-      // fine
-      return true;
-    }
-    
-    public String getFilterName() {
-      return toString();
-    }
-  }
-  
-  /**
-   * Filter properties if concerning events after pit
-   */
-  private static class FilterEventsAfter implements Filter {
-    
-    private PointInTime after;
-    
-    /** constructor */
-    private FilterEventsAfter(PointInTime after) {
-      this.after = after;
-    }
-    
-    /** callback */
-    public boolean checkFilter(Property property) {
-      PropertyDate when = property.getWhen();
-      return when==null || when.getStart().compareTo(after)<0;
-    }
-    public String getFilterName() {
-      return toString();
-    }
   }
   
   /**
@@ -278,12 +208,16 @@ import javax.swing.JTextField;
     }
     
     /**
+     * @see genj.io.Filter#accept(genj.gedcom.Entity)
+     */
+    public boolean accept(Entity entity) {
+      return true;
+    }
+
+    /**
      * @see genj.io.Filter#accept(genj.gedcom.Property)
      */
-    public boolean checkFilter(Property property) {
-      // allow all entities
-      if (property instanceof Entity)
-        return true;
+    public boolean accept(Property property) {
       // check if tag is applying
       if (tags.contains(property.getTag())) return false;
       // check if path is applying
@@ -303,9 +237,6 @@ import javax.swing.JTextField;
       return true;
     }
 
-    public String getFilterName() {
-      return toString();
-    }
   } //FilterProperty
   
   /**
@@ -330,16 +261,18 @@ import javax.swing.JTextField;
       return result.types.size()<Gedcom.ENTITIES.length ? result : null;
     }
     /**
-     * accepting all properties, limit to entities of parameterized types
+     * accepting only specific entity types
+     * @see genj.io.Filter#accept(genj.gedcom.Entity)
+     */
+    public boolean accept(Entity entity) {
+      return types.contains(entity.getTag());
+    }
+    /**
+     * accepting all properties
      * @see genj.io.Filter#accept(genj.gedcom.Property)
      */
-    public boolean checkFilter(Property property) {
-      if (property instanceof Entity && !types.contains(property.getTag()))
-          return false;
+    public boolean accept(Property property) {
       return true;
-    }
-    public String getFilterName() {
-      return toString();
     }
   } //FilterByType
 

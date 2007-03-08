@@ -32,8 +32,12 @@ import java.lang.ref.SoftReference;
 public class PropertyFile extends Property implements IconValueAvailable {
 
   /** standard image */
-  public final static ImageIcon DEFAULT_IMAGE = Grammar.getMeta(new TagPath("INDI:OBJE:FILE")).getImage();
+  public final static ImageIcon DEFAULT_IMAGE = MetaProperty.get(new TagPath("INDI:OBJE:FILE")).getImage();
 
+
+  /** static configuration */
+  private static final Options options = new Options();
+  
   /** expected tag */
   private final static String TAG = "FILE";
   
@@ -47,6 +51,13 @@ public class PropertyFile extends Property implements IconValueAvailable {
   private Object valueAsIcon = null;
 
   /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "File";
+  }
+
+  /**
    * Returns the tag of this property
    */
   public String getTag() {
@@ -57,16 +68,8 @@ public class PropertyFile extends Property implements IconValueAvailable {
    * @see genj.gedcom.Property#setTag(java.lang.String)
    */
   /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    meta.assertTag(TAG);
+    assume(TAG.equals(meta.getTag()), UNSUPPORTED_TAG);
     return super.init(meta, value);
-  }
-  
-  /**
-   * Overriden - file association is easy for a PropertyFile
-   */
-  public boolean addFile(File file) {
-    setValue(file.getAbsolutePath(), true);
-    return true;
   }
 
   /**
@@ -75,7 +78,7 @@ public class PropertyFile extends Property implements IconValueAvailable {
   public String getValue() {
 
     if (file==null)
-      return "";
+      return EMPTY_STRING;
 
     // we're checking the value for relative here because
     // in setValue() the parent might not be set yet so
@@ -180,7 +183,7 @@ public class PropertyFile extends Property implements IconValueAvailable {
     // will be prompted in ProxyFile
     
     // Remember the change
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // done    
   }
@@ -201,13 +204,13 @@ public class PropertyFile extends Property implements IconValueAvailable {
     // title?
     Property title = media.getProperty("TITL");
     if (title==null) 
-      title = media.addProperty(new PropertySimpleValue("TITL"));
+      title = media.addProperty(new PropertySimpleValue());
     title.setValue(new File(file).getName());
       
     // format?
     Property format = media.getProperty("FORM");
     if (format==null)
-      format = media.addProperty(new PropertySimpleValue("FORM")); 
+      format = media.addProperty(new PropertySimpleValue()); 
     format.setValue(PropertyFile.getSuffix(file));
     
     // done  
@@ -231,7 +234,7 @@ public class PropertyFile extends Property implements IconValueAvailable {
   /**
    * Resolve the maximum load (whether to return kb)   */
   public static int getMaxValueAsIconSize(boolean kb) {
-    return (kb ? 1 : 1024) * Options.getInstance().getMaxImageFileSizeKB();
+    return (kb ? 1 : 1024) * options.getMaxImageFileSizeKB();
   }
 
   /**

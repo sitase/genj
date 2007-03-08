@@ -19,18 +19,22 @@
  */
 package genj.util.swing;
 
+import genj.util.ActionDelegate;
 import genj.util.MnemonicAndText;
+import genj.util.Resources;
 
 import java.awt.Component;
 import java.awt.Font;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Stack;
+import java.util.Vector;
 
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -42,28 +46,30 @@ import javax.swing.JPopupMenu;
  */
 public class MenuHelper  {
   
-  private Stack menus            = new Stack();  // JMenu or JPopupMenu or JMenuBar
-  private Component target       = null;
+  private String text             = null;
+  private String action           = null;
+  private ImageIcon image         = null;
+  private Vector menus            = new Vector();  // JMenu or JPopupMenu or JMenuBar
+  private ActionListener listener = null;
+  private Vector collection       = null;
+  private Resources resources     = null;
+  private boolean enabled         = true;
+  private JComponent target       = null;
 
   /** Setters */    
-  public MenuHelper popMenu() { 
-    // pop it of the stack
-    JMenu menu = (JMenu)menus.pop(); 
-    // remove it if empty
-    if (menu.getMenuComponentCount()==0)
-      menu.getParent().remove(menu);
-    // done
-    return this; 
-  }
-  public MenuHelper pushMenu(JPopupMenu popup) { menus.push(popup); return this; }
-  public MenuHelper setTarget(Component set) { target=set; return this; }
+  public MenuHelper popMenu() { menus.removeElement(menus.lastElement()); return this; }
+  public MenuHelper pushMenu(Object set) { menus.addElement(set); return this; }
+  public MenuHelper setCollection(Vector set) { collection=set; return this; }
+  public MenuHelper setResources(Resources set) { resources=set; return this; }
+  public MenuHelper setEnabled(boolean set) { enabled=set; return this; }
+  public MenuHelper setTarget(JComponent set) { target=set; return this; }
 
   /**
    * Creates a menubar
    */
   public JMenuBar createBar() {
     JMenuBar result = new JMenuBar();
-    menus.push(result);
+    pushMenu(result);
     return result;
   }
   
@@ -79,13 +85,7 @@ public class MenuHelper  {
    */
   public JMenu createMenu(String text, Icon img) {
     JMenu result = new JMenu();
-    
-    // no text?
-    if (text!=null&&text.length()>0) {
-      MnemonicAndText mat = new MnemonicAndText(text);
-      result.setText(mat.getText());
-      result.setMnemonic(mat.getMnemonic());
-    }
+    set(text, result);
     if (img!=null) 
       result.setIcon(img);
     Object menu = peekMenu();
@@ -96,7 +96,7 @@ public class MenuHelper  {
     if (menu instanceof JMenuBar)
       ((JMenuBar)menu).add(result);
 
-    menus.push(result);
+    pushMenu(result);
     return result;
   }
   
@@ -146,11 +146,6 @@ public class MenuHelper  {
     if (emphasized) {
       item.setFont(item.getFont().deriveFont(Font.BOLD));
     }
-    createItem(item);
-    return item;
-  }
-  
-  private void createItem(Component item) {
 
     Object menu = peekMenu();
     if (menu instanceof JMenu)
@@ -160,6 +155,7 @@ public class MenuHelper  {
     if (menu instanceof JMenuBar)
       ((JMenuBar)menu).add(item);
     
+    return item;
   }
 
   /**
@@ -167,40 +163,27 @@ public class MenuHelper  {
    * @param actions either ActionDelegates or lists of ActionDelegates that
    * will be separated visually by createSeparator
    */
-  public void createItems(List actions) {
+  public void createItems(List actions, boolean addLeadingSeparator) {
     // nothing to do?
     if (actions==null||actions.isEmpty())
       return;
-    createSeparator();
+    // add separator
+    if (addLeadingSeparator)
+      createSeparator(false);      
     // Loop through list
     Iterator it = actions.iterator();
     while (it.hasNext()) {
+      // either ActionDelegate or list
       Object o = it.next();
-      // an action group?
-      if (o instanceof Action2.Group) {
-        createMenu(((Action2.Group)o).getName());
-        createItems((List)o);
-        popMenu();
-        continue;
-      }
-      // a nested list ?
       if (o instanceof List) {
-        createSeparator();
-        createItems((List)o);
-        continue;
+        // a separator
+        createSeparator(false);
+        // recurse
+        createItems((List)o, false);
+      } else {
+        // create
+        createItem((ActionDelegate)o);
       }
-      // a component?
-      if (o instanceof Component) {
-        createItem((Component)o);
-        continue;
-      }
-      // an action?
-      if (o instanceof Action2) {
-        createItem((Action2)o);
-        continue;
-      }
-      // n/a
-      throw new IllegalArgumentException("type "+o.getClass()+" n/a");
     }
     // done
   }
@@ -208,21 +191,22 @@ public class MenuHelper  {
   /**
    * Creates an item
    */
-  public JMenuItem createItem(Action2 action) {
+  public JMenuItem createItem(ActionDelegate action) {
     
     // a NOOP results in separator
-    if (action == Action2.NOOP) {
-      createSeparator();
+    if (action == ActionDelegate.NOOP) {
+      createSeparator(false);
       return null;
     }
     
     // create a menu item
     JMenuItem result = new JMenuItem();
-    result.setAction(action);
-
-    // patch it up
-    if (action.getAccelerator()!=null)
-      result.setAccelerator(action.getAccelerator());
+    result.addActionListener(action);
+    if (action.getText()!=null) 
+      set(action.getText(), result);
+    if (action.getImage()!=null) 
+      result.setIcon(action.getImage());
+    result.setEnabled(enabled&&action.isEnabled());
   
     // add it to current menu on stack  
     Object menu = peekMenu();
@@ -233,6 +217,9 @@ public class MenuHelper  {
     if (menu instanceof JMenuBar)
       ((JMenuBar)menu).add(result);
       
+    // put it in collection if applicable
+    if (collection!=null) collection.addElement(result);
+
     // propagate target
     if (target!=null) action.setTarget(target);
     
@@ -244,18 +231,25 @@ public class MenuHelper  {
    * Creates an separator
    */
   public MenuHelper createSeparator() {
+    return createSeparator(true);
+  }
+  
+  /**
+   * Creates an separator
+   * @param force whether to force the separator even though the current
+   * menu is empty
+   */
+  public MenuHelper createSeparator(boolean force) {
     // try to create one
     Object menu = peekMenu();
     if (menu instanceof JMenu) {
       JMenu jmenu = (JMenu)menu;
-      int count = jmenu.getMenuComponentCount();
-      if (count>0 && jmenu.getMenuComponent(count-1).getClass() != JPopupMenu.Separator.class)
+      if (force||jmenu.getItemCount()>0)
         jmenu.addSeparator();
     }
     if (menu instanceof JPopupMenu) {
       JPopupMenu pmenu = (JPopupMenu)menu;
-      int count = pmenu.getComponentCount();
-      if (count>0 && pmenu.getComponent(count-1).getClass() != JPopupMenu.Separator.class)
+      if (force||pmenu.getComponentCount()>0)
         pmenu.addSeparator();
     }
     // done      
@@ -267,8 +261,29 @@ public class MenuHelper  {
    */  
   private Object peekMenu() {
     if (menus.size()==0) return null;
-    return menus.peek();
+    return menus.lastElement();
   }
   
+  /**
+   * Set text taking mnemonic into account
+   */
+  private void set(String txt, JMenuItem item) {
+
+    // no text?
+    if (txt==null) 
+      return;
+    // localize?
+    if (resources!=null) {
+      txt = resources.getString(txt);  
+    }
+    // safety check on ""
+    if (txt.length()==0)
+      return;
+    // calc mnemonic 
+    MnemonicAndText mat = new MnemonicAndText(txt);
+    item.setText(mat.getText());
+    item.setMnemonic(mat.getMnemonic());
+  }
+
 } //MenuHelper
 

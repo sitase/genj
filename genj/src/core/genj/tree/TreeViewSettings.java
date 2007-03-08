@@ -20,37 +20,35 @@
 package genj.tree;
 
 import genj.renderer.BlueprintList;
-import genj.renderer.BlueprintManager;
+import genj.util.ActionDelegate;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.ColorsWidget;
 import genj.util.swing.FontChooser;
 import genj.util.swing.ListWidget;
-import genj.util.swing.NestedBlockLayout;
+import genj.util.swing.SpinnerWidget;
 import genj.view.Settings;
 import genj.view.ViewManager;
 
 import java.awt.Color;
 import java.awt.Container;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSpinner;
 import javax.swing.JTabbedPane;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
-import javax.swing.SpinnerNumberModel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
@@ -61,8 +59,8 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
   /** keeping track of tree these settings are for */
   private TreeView view;
 
-  /** spinners */
-  private JSpinner[] spinners = new JSpinner[5]; 
+  /** models for spinners */
+  private SpinnerWidget.FractionModel[] spinModels = new SpinnerWidget.FractionModel[5]; 
   
   /** colorchooser for colors */
   private ColorsWidget colorWidget;
@@ -82,10 +80,8 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
   ;
   
   /** buttons */
-  private Action2 
-    bookmarkUp = new ActionMove(-1), 
-    bookmarkDown = new ActionMove( 1), 
-    bookmarkDelete =  new ActionDelete(); 
+  private AbstractButton 
+    bUp, bDown, bDelete;
   
   /** font chooser */
   private FontChooser fontChooser = new FontChooser();
@@ -93,48 +89,37 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
   /** bookmark list */
   private JList bookmarkList;
 
+
   /**
    * @see genj.view.Settings#init(genj.view.ViewManager)
    */
   public void init(ViewManager manager) {
     
     // panel for checkbox options    
-    JPanel options = new JPanel(new NestedBlockLayout(
-        "<col>"+
-         "<check gx=\"1\"/>"+
-         "<check gx=\"1\"/>"+
-         "<check gx=\"1\"/>"+
-         "<check gx=\"1\"/>"+
-         "<font gx=\"1\"/>"+
-         "<row><label/><spinner/></row>"+
-         "<row><label/><spinner/></row>"+
-         "<row><label/><spinner/></row>"+
-         "<row><label/><spinner/></row>"+
-         "<row><label/><spinner/></row>"+
-         "</col>"
-     ));
+    Box options = new Box(BoxLayout.Y_AXIS);
 
-    checkBending       .setToolTipText(resources.getString("bend.tip"));
-    checkAntialiasing  .setToolTipText(resources.getString("antialiasing.tip"));
-    checkAdjustFonts .setToolTipText(resources.getString("adjustfonts.tip"));
-    checkMarrSymbols.setToolTipText(resources.getString("marrsymbols.tip"));
+    checkBending.setToolTipText(resources.getString("bend.tip"));
     options.add(checkBending);
+    checkAntialiasing.setToolTipText(resources.getString("antialiasing.tip"));
     options.add(checkAntialiasing);
+    checkAdjustFonts.setToolTipText(resources.getString("adjustfonts.tip"));
     options.add(checkAdjustFonts);
+    checkMarrSymbols.setToolTipText(resources.getString("marrsymbols.tip"));
     options.add(checkMarrSymbols);
+    
     options.add(fontChooser);    
     
-    spinners[0] = createSpinner("indiwidth",  options, 1.0, 16.0);
-    spinners[1] = createSpinner("indiheight", options, 0.4, 16.0);
-    spinners[2] = createSpinner("famwidth",   options, 1.0, 16.0);
-    spinners[3] = createSpinner("famheight",  options, 0.4, 16.0);
-    spinners[4] = createSpinner("padding",    options, 1.0,  4.0);
+    spinModels[0] = createSpinner("indiwidth",  options, 1.0, 16.0);
+    spinModels[1] = createSpinner("indiheight", options, 0.4, 16.0);
+    spinModels[2] = createSpinner("famwidth",   options, 1.0, 16.0);
+    spinModels[3] = createSpinner("famheight",  options, 0.4, 16.0);
+    spinModels[4] = createSpinner("padding",    options, 1.0,  4.0);
     
     // color chooser
     colorWidget = new ColorsWidget();
     
     // blueprint options
-    blueprintList = new BlueprintList(BlueprintManager.getInstance());
+    blueprintList = new BlueprintList(manager.getBlueprintManager(), manager.getWindowManager());
     
     // bookmarks
     Box bookmarks = new Box(BoxLayout.Y_AXIS);
@@ -143,10 +128,10 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
     bookmarks.add(new JScrollPane(bookmarkList));
     
     JPanel bookmarkActions = new JPanel();
-    ButtonHelper bh = new ButtonHelper().setContainer(bookmarkActions);
-    bh.create(bookmarkUp);
-    bh.create(bookmarkDown);
-    bh.create(bookmarkDelete);
+    ButtonHelper bh = new ButtonHelper().setContainer(bookmarkActions).setEnabled(false);
+    bUp     = bh.create(new ActionMove(-1));
+    bDown   = bh.create(new ActionMove( 1));
+    bDelete = bh.create(new ActionDelete());
     bookmarkList.addListSelectionListener(new ListSelectionListener() {
       /** update buttons */
       public void valueChanged(ListSelectionEvent e) {
@@ -154,9 +139,9 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
           i = bookmarkList.getSelectedIndex(),
           n = bookmarkList.getModel().getSize();
       
-        bookmarkUp.setEnabled(i>0);
-        bookmarkDown.setEnabled(i>=0&&i<n-1);
-        bookmarkDelete.setEnabled(i>=0);
+        bUp.setEnabled(i>0);
+        bDown.setEnabled(i>=0&&i<n-1);
+        bDelete.setEnabled(i>=0);
       }
     });
     bookmarks.add(bookmarkActions);
@@ -173,16 +158,25 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
   /**
    * Create a spinner
    */
-  private JSpinner createSpinner(String key, Container c, double min, double max) {
+  private SpinnerWidget.FractionModel createSpinner(String key, Container c, double min, double max) {
     
-    JSpinner result = new JSpinner(new SpinnerNumberModel(1D, min, max, 0.1D));
-    JSpinner.NumberEditor editor = new JSpinner.NumberEditor(result, "##0.0");
-    result.setEditor(editor);
-    result.addChangeListener(editor);
-    result.setToolTipText(resources.getString("info."+key+".tip"));
-    
-    c.add(new JLabel(resources.getString("info."+key)));
-    c.add(result);
+    // prepare data
+    String 
+      txt = resources.getString("info."+key),
+      tip = resources.getString("info."+key+".tip");
+
+    // prepare format
+    NumberFormat format = NumberFormat.getInstance();
+    format.setMinimumFractionDigits(1);
+    format.setMaximumFractionDigits(1);
+
+    // create
+    SpinnerWidget.FractionModel result = new SpinnerWidget.FractionModel(min, max, 1);
+        
+    SpinnerWidget sw = new SpinnerWidget(txt, 5, result);
+    sw.setToolTipText(tip);
+    sw.setFormat(format);
+    c.add(sw);
     
     // done
     return result;
@@ -224,11 +218,11 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
     view.getModel().setBookmarks(bookmarks);
     // metrics
     view.getModel().setMetrics(new TreeMetrics(
-      (int)(((Double)spinners[0].getModel().getValue()).doubleValue()*10),
-      (int)(((Double)spinners[1].getModel().getValue()).doubleValue()*10),
-      (int)(((Double)spinners[2].getModel().getValue()).doubleValue()*10),
-      (int)(((Double)spinners[3].getModel().getValue()).doubleValue()*10),
-      (int)(((Double)spinners[4].getModel().getValue()).doubleValue()*10)
+      (int)(spinModels[0].getDoubleValue()*10),
+      (int)(spinModels[1].getDoubleValue()*10),
+      (int)(spinModels[2].getDoubleValue()*10),
+      (int)(spinModels[3].getDoubleValue()*10),
+      (int)(spinModels[4].getDoubleValue()*10)
     ));
     // blueprints
     view.setBlueprints(blueprintList.getSelection());
@@ -262,7 +256,7 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
       m.wIndis, m.hIndis, m.wFams, m.hFams, m.pad   
     };
     for (int i=0;i<values.length;i++) {
-      spinners[i].setValue(new Double(values[i]*0.1D));
+      spinModels[i].setDoubleValue(values[i]*0.1D);
     }
     // blueprints
     blueprintList.setSelection(view.getBlueprints());
@@ -279,7 +273,7 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
   /**
    * Action - move a bookmark
    */
-  private class ActionMove extends Action2 {
+  private class ActionMove extends ActionDelegate {
     /** by how much to move */
     private int by;
     /**
@@ -287,11 +281,10 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
      */
     private ActionMove(int how) {
       setText(resources.getString("bookmark.move."+how));
-      setEnabled(false);
       by = how;
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       int i = bookmarkList.getSelectedIndex();
@@ -306,16 +299,15 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
   /**
    * Action - delete a bookmark
    */
-  private class ActionDelete extends Action2 {
+  private class ActionDelete extends ActionDelegate {
     /**
      * Constructor
      */
     private ActionDelete() {
       setText(resources.getString("bookmark.del"));
-      setEnabled(false);
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       int i = bookmarkList.getSelectedIndex();

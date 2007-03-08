@@ -20,21 +20,16 @@
 package genj.edit.actions;
 
 import genj.edit.Images;
-import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomMetaListener;
-import genj.gedcom.Property;
-import genj.util.swing.Action2;
-
-import java.beans.PropertyChangeListener;
-
-import spin.Spin;
+import genj.gedcom.Transaction;
+import genj.util.ActionDelegate;
+import genj.view.ViewManager;
 
 /**
  * Redo on Gedcom
  */  
-public class Undo extends Action2 implements GedcomMetaListener {
+public class Undo extends ActionDelegate implements GedcomListener {
   
   /** the gedcom */
   private Gedcom gedcom;
@@ -42,80 +37,26 @@ public class Undo extends Action2 implements GedcomMetaListener {
   /**
    * Constructor
    */
-  public Undo(Gedcom gedcom) {
-    this(gedcom, gedcom.canUndo());
-  }
-
-  /**
-   * Constructor
-   */
-  public Undo(Gedcom gedcom, boolean enabled) {
-    
-    // setup looks
+  public Undo(Gedcom gedcom, ViewManager mgr) {
     setImage(Images.imgUndo);
     setText(AbstractChange.resources.getString("undo"));    
-    setTip(getText());
-    setEnabled(enabled);
-    
-    // remember
+    setEnabled(gedcom.canUndo());
     this.gedcom = gedcom;
-    
-  }
-
-  public synchronized void addPropertyChangeListener(PropertyChangeListener listener) {
-    super.addPropertyChangeListener(listener);
-    // hook up to events
-    if (getPropertyChangeListeners().length==1) {
-      gedcom.addGedcomListener((GedcomListener)Spin.over(this));
-      setEnabled(gedcom.canUndo());
-    }
-  }
-  
-  public synchronized void removePropertyChangeListener(PropertyChangeListener listener) {
-    super.removePropertyChangeListener(listener);
-    // unhook from events
-    if (getPropertyChangeListeners().length==0)
-      gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
   }
 
   /**
    * Undo changes from last transaction
    */
   protected void execute() {
-    if (gedcom.canUndo())
-      gedcom.undoUnitOfWork();
+    gedcom.undo();
   }
   
-  public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-    // ignored
-  }
-
-  public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-    // ignored
-  }
-
-  public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-    // ignored
-  }
-
-  public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
-    // ignored
-  }
-
-  public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-    // ignored
-  }
-
-  public void gedcomHeaderChanged(Gedcom gedcom) {
-    // ignored
-  }
-
-  public void gedcomWriteLockAcquired(Gedcom gedcom) {
-    // ignored
-  }
-
-  public void gedcomWriteLockReleased(Gedcom gedcom) {
+  /**
+   * Callback for gedcom events
+   */
+  public void handleChange(Transaction tx) {
     setEnabled(gedcom.canUndo());
   }
+  
 } //Undo
 

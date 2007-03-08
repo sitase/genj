@@ -22,127 +22,76 @@ package genj.app;
 import genj.Version;
 import genj.gedcom.Gedcom;
 import genj.option.OptionProvider;
+import genj.util.Debug;
 import genj.util.EnvironmentChecker;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
+import genj.window.CloseWindow;
 import genj.window.DefaultWindowManager;
 import genj.window.WindowManager;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.text.MessageFormat;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.logging.FileHandler;
-import java.util.logging.Formatter;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
-import java.util.logging.StreamHandler;
+import java.util.Iterator;
 
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
  * Main Class for GenJ Application
  */
 public class App {
   
-  /*package*/ static Logger LOG;
-  
-  /*package*/ static File LOGFILE; 
-  
+  /** constants */
+  private final static String SWING_RESOURCES_KEY_PREFIX = "swing.";
+
   /**
    * GenJ Main Method
    */
   public static void main(java.lang.String[] args) {
-    
-    // we're ready to be run twice
-    if (LOG!=null) {
-      LOG.info("GenJ.main() being called a second time with arguments "+Arrays.asList(args));
-      return;
-    }
 
     // Catch anything that might happen
     try {
       
-      // prepare our master log and own LogManager for GenJ
-      System.setProperty("java.util.logging.manager", "genj.app.App$PatchedLogManager");
-      LOG = Logger.getLogger("genj");
-      
-      // prepare some basic logging for now
-      Formatter formatter = new LogFormatter();
-      Logger root = Logger.getLogger("");
-      
-      try {
-        // allow command line override of debug level - set non-genj level a tad higher
-        Level level = Level.parse(System.getProperty("genj.debug.level"));
-        LOG.setLevel(level);
-        if (Integer.MAX_VALUE!=level.intValue())
-          root.setLevel(new Level("genj.debug.level+1", level.intValue()+1) {} );
-      } catch (Throwable t) {
-      }
-      
-      Handler[] handlers = root.getHandlers();
-      for (int i=0;i<handlers.length;i++) root.removeHandler(handlers[i]);
-      root.addHandler(new FlushingHandler(new StreamHandler(System.out, formatter)));
-      System.setOut(new PrintStream(new LogOutputStream(Level.INFO, "System", "out")));
-      System.setErr(new PrintStream(new LogOutputStream(Level.WARNING, "System", "err")));
-      
-      // create our home directory
-      File home = new File(EnvironmentChecker.getProperty(App.class, "user.home.genj", null, "determining home directory"));
-      home.mkdirs();
-      if (!home.exists()||!home.isDirectory()) 
-        throw new IOException("Can't initialize home directoy "+home);
+      // Startup Information
+      Debug.log(Debug.INFO, App.class, "GenJ App - Build "+Version.getInstance().getBuildString()+" started at "+new Date());
       
       // init our data
       Registry registry = new Registry("genj");
       
-      // initialize options first
-      OptionProvider.getAllOptions(registry);
-      
-      // Setup File Logging and check environment
-      LOGFILE = new File(home, "genj.log");
-      Handler handler = new FileHandler(LOGFILE.getAbsolutePath(), Options.getInstance().getMaxLogSizeKB()*1024, 1, true);
-      handler.setLevel(Level.ALL);
-      handler.setFormatter(formatter);
-      LOG.addHandler(handler);
-      
-      // Startup Information
-      LOG.info("version = "+Version.getInstance().getBuildString());
-      LOG.info("date = "+new Date());
-      EnvironmentChecker.log();
-      
-      // patch up GenJ for Mac if applicable
-      if (EnvironmentChecker.isMac()) {
-        LOG.info("Setting up MacOs adjustments");
-        System.setProperty("apple.laf.useScreenMenuBar","true");
-        System.setProperty("com.apple.mrj.application.apple.menu.about.name","GenealogyJ");
+      // initialize options
+      OptionProvider.restoreAll(registry);
+
+      // Setup Log
+      String log = EnvironmentChecker.getProperty(App.class, new String[]{"genj.debug.file", "user.home/.genj/genj.log"}, "", "choose log-file");
+      if (log.length()>0) {
+        File file = new File(log);
+        if (file.exists()&&file.length()>Options.getInstance().getMaxLogSizeKB()*1024)
+          file.delete();
+        Debug.setFile(file);
       }
+      EnvironmentChecker.log();
       
       // check VM version
       if (!EnvironmentChecker.isJava14(App.class)) {
         if (EnvironmentChecker.getProperty(App.class, "genj.forcevm", null, "Check force of VM")==null) {
-          LOG.severe("Need Java 1.4 to run GenJ");
+          Debug.log(Debug.ERROR, App.class, "Need Java 1.4 to run GenJ");
           System.exit(1);
           return;
         }
       }
       
-      // run startup and hook up shutdown
-      SwingUtilities.invokeLater(new Startup(registry, args));
+      // Startup the UI
+      SwingUtilities.invokeLater(new Startup(registry));
+      
+      // Hook into Shutdown
       Runtime.getRuntime().addShutdownHook(new Thread(new Shutdown(registry)));
 
       // Done
       
     } catch (Throwable t) {
-      LOG.log(Level.SEVERE, "Cannot instantiate App", t);
+      Debug.log(Debug.ERROR, App.class, "Cannot instantiate App", t);
+      Debug.flush();
       System.exit(1);
     }
   }
@@ -153,14 +102,12 @@ public class App {
   private static class Startup implements Runnable {
     
     private Registry registry;
-    private String[] args;
     
     /**
      * Constructor
      */
-    private Startup(Registry registry, String[] args) {
+    private Startup(Registry registry) {
       this.registry = registry;
-      this.args = args;
     }
     
     /**
@@ -168,13 +115,16 @@ public class App {
      */
     public void run() {
       
-      LOG.info("Startup");
+      Debug.log(Debug.INFO, this, "Startup");
       
       // get app resources now
       Resources resources = Resources.get(App.class);
 
+      // Make sure that Swing shows our localized texts
+      initSwing(resources);
+
       // create window manager
-      WindowManager winMgr = new DefaultWindowManager(new Registry(registry, "window"), Gedcom.getImage());
+      WindowManager winMgr = new DefaultWindowManager(new Registry(registry, "window"));
       
       // Disclaimer - check version and registry value
       String version = Version.getInstance().getVersionString();
@@ -182,17 +132,34 @@ public class App {
         // keep it      
         registry.put("disclaimer", version);
         // show disclaimer
-        winMgr.openDialog("disclaimer", "Disclaimer", WindowManager.INFORMATION_MESSAGE, resources.getString("app.disclaimer"), Action2.okOnly(), null);    
+        winMgr.openDialog("disclaimer", "Disclaimer", WindowManager.IMG_INFORMATION, resources.getString("app.disclaimer"), CloseWindow.OK(), null);    
       }
       
       // setup control center
-      ControlCenter center = new ControlCenter(registry, winMgr, args);
+      ControlCenter center = new ControlCenter(registry, winMgr);
 
       // show it
-      winMgr.openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());
+      winMgr.openFrame("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());
 
       // done
-      LOG.info("/Startup");
+      Debug.log(Debug.INFO, this, "/Startup");
+    }
+    
+    /**
+     * Initialize Swing resources
+     */  
+    private static void initSwing(Resources resources) {
+      
+      Iterator keys = resources.getKeys();
+      while (keys.hasNext()) {
+        String key = (String)keys.next();
+        if (key.indexOf(SWING_RESOURCES_KEY_PREFIX)==0) {
+          UIManager.put(
+            key.substring(SWING_RESOURCES_KEY_PREFIX.length()),
+            resources.getString(key)
+          );
+        }
+      }
       
     }
     
@@ -215,130 +182,16 @@ public class App {
      * do the shutdown
      */
     public void run() {
-      LOG.info("Shutdown");
+      Debug.log(Debug.INFO, this, "Shutdown");
 	    // persist options
 	    OptionProvider.persistAll(registry);
 	    // Store registry 
 	    Registry.persist();      
 	    // done
-      LOG.info("/Shutdown");
-      // shutdown our patched log manager now
-      LogManager mgr = LogManager.getLogManager();
-      if (mgr instanceof PatchedLogManager)
-        ((PatchedLogManager)mgr).doReset();
-      // done
+      Debug.log(Debug.INFO, this, "/Shutdown");
+	    // Flush Debug
+	    Debug.flush();
     }
-    
   } //Shutdown
-
-  /**
-   * a log handler that flushes on publish
-   */
-  private static class FlushingHandler extends Handler {
-    private Handler wrapped;
-    private FlushingHandler(Handler wrapped) {
-      this.wrapped = wrapped;
-      wrapped.setLevel(Level.ALL);
-      setLevel(Level.ALL);
-    }
-    public void publish(LogRecord record) {
-      wrapped.publish(record);
-      flush();
-    }
-    public void flush() {
-      wrapped.flush();
-    }
-    public void close() throws SecurityException {
-      flush();
-      wrapped.close();
-    }
-  }
-  
-  /**
-   * Our own log format
-   */
-  private static class LogFormatter extends Formatter {
-    public String format(LogRecord record) {
-      StringBuffer result = new StringBuffer(80);
-      result.append(record.getLevel());
-      result.append(":");
-      result.append(record.getSourceClassName());
-      result.append(".");
-      result.append(record.getSourceMethodName());
-      result.append(":");
-      String msg = record.getMessage();
-      Object[] parms = record.getParameters();
-      if (parms==null||parms.length==0)
-        result.append(record.getMessage());
-      else 
-        result.append(MessageFormat.format(msg, parms));
-      result.append(System.getProperty("line.separator"));
-
-      if (record.getThrown()!= null) {
-        
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        try {
-            record.getThrown().printStackTrace(pw);
-        } catch (Throwable t) {
-        }
-        pw.close();
-        result.append(sw.toString());
-      }      
-      
-      return result.toString();
-    }
-  }
-  
-  /**
-   * Our STDOUT/ STDERR log outputstream
-   */
-  private static class LogOutputStream extends OutputStream {
-    
-    private char[] buffer = new char[256];
-    private int size = 0;
-    private Level level;
-    private String sourceClass, sourceMethod;
-    
-    /**
-     * Constructor
-     */
-    public LogOutputStream(Level level, String sourceClass, String sourceMethod) {
-      this.level = level;
-      this.sourceClass = sourceClass;
-      this.sourceMethod = sourceMethod;
-    }
-    
-    /**
-     * collect up to limit characters 
-     */
-    public void write(int b) throws IOException {
-      if (b!='\n') {
-       buffer[size++] = (char)b;
-       if (size<buffer.length) 
-         return;
-      }
-      flush();
-    }
-
-    /**
-     * 
-     */
-    public void flush() throws IOException {
-      if (size>0) {
-        LOG.logp(level, sourceClass, sourceMethod, String.valueOf(buffer, 0, size).trim());
-        size = 0;
-      }
-    }
-  }
-  
-  public static class PatchedLogManager extends LogManager {
-    public void reset() throws SecurityException {
-      // noop
-    }
-    public void doReset() throws SecurityException {
-      super.reset();
-    }
-  }
   
 } //App

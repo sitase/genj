@@ -36,69 +36,72 @@ public abstract class PropertyXRef extends Property {
   private PropertyXRef target = null;
 
   /** the value for a broken xref */
-  private String  value  = "";
+  private String       value  = null;
 
   /**
    * Empty Constructor
    */
-  protected PropertyXRef() {
+  public PropertyXRef() {
+  }
+
+  /**
+   * Constructor with reference
+   * @param target reference of property this property links to
+   */
+  public PropertyXRef(PropertyXRef target) {
+    setTarget(target);
   }
 
   /**
    * Method for notifying being removed from another parent
    */
-  /*package*/ void delNotify(Property parent, int pos) {
-
-    // are we referencing something that points back?
-    if (target!=null) {
-      PropertyXRef other = target;
-      Property pother = other.getParent();
-      unlink();
-      
-      // delete target as well
-      pother.delProperty(other);
-    }
+  /*package*/ void delNotify(Property oldParent) {
 
     // Let it through
-    super.delNotify(parent, pos);
+    super.delNotify(oldParent);
     
-    // done
+    // are we referencing something that points back?
+    if (target==null)
+      return;
+
+    // is it owned by a parent?
+    if (target.getParent()==null)
+      return;
+      
+    // ... delete back referencing property unless this is a rollback.
+    // We have to use oldParent for transaction resolution since 
+    // parent is already set to null by super
+    Transaction tx = oldParent.getTransaction();
+    if (tx!=null&&!tx.isRollback())
+      target.getParent().delProperty(target);
+
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   * @return proxy's logical name
+   */
+  public String getProxy() {
+    return "XRef";
   }
 
   /**
    * Returns the entity this reference points to
    * @return entity this property links to
    */
-  public Entity getTargetEntity() {
-    return target==null ? null : target.getEntity();
-  }
-  
-  /**
-   * Tries to find candidate entity to link to
-   */
-  protected Entity getCandidate() throws GedcomException {
-    // no good if already linked
-    if (target!=null)
-      throw new IllegalArgumentException("Already linked");
-    
-    Entity entity = getGedcom().getEntity(getTargetType(), value);
-    if (entity==null)
-      // Can't find {0} {1} ({2} in {3})
-      throw new GedcomException(resources.getString("error.notfound", new String[]{
-          Gedcom.getName(getTargetType()), value
-        }));
-    return entity;
+  public Entity getReferencedEntity() {
+    if (target==null) {
+      return null;
+    }
+    return target.getEntity();
   }
 
   /**
-   * Checks whether an entity is a candidate to link to 
+   * Returns the id of the referenced entity
+   * @return referenced entity's id
    */
-  protected boolean isCandidate(Entity entity) {
-    // can't be linked yet
-    if (target!=null)
-      return false;
-    // if it's an empty id or the entity's id matches
-    return value.length()==0 || entity.getId().equals(value);
+  public String getReferencedId() {
+    return value==null ? EMPTY_STRING : value;
   }
 
   /**
@@ -106,7 +109,7 @@ public abstract class PropertyXRef extends Property {
    * @return value of this property as <code>String</code>
    */
   public String getValue() {
-    return target!=null ? '@'+target.getEntity().getId()+'@' : '@'+value+'@';
+    return value==null ? EMPTY_STRING : '@'+value+'@';
   }
 
   /**
@@ -122,39 +125,13 @@ public abstract class PropertyXRef extends Property {
    * @exception GedcomException when processing link would result in inconsistent state
    */
   public abstract void link() throws GedcomException;
-  
-  /**
-   * links to other xref
-   */
-  protected void link(PropertyXRef target) {
-    if (this.target!=null)
-      throw new IllegalArgumentException("can't link while target!=null");
-    if (target==null)
-      throw new IllegalArgumentException("can't link to targe null");
-    this.target = target;
-    target.target = this;
-    propagateXRefLinked(this, target);
-  }
-  
-  
-  /**
-   * Unlinks from other xref
-   */
-  public void unlink() {
-    if (target==null)
-      throw new IllegalArgumentException("can't unlink without target");
-    PropertyXRef old = target;
-    target.target = null;
-    target = null;
-    propagateXRefUnlinked(this, old);
-  }
 
   /**
    * @see genj.gedcom.Property#getDisplayValue()
    */
   public String getDisplayValue() {
     if (target==null)
-      return getValue();
+      return "";
     return target.getEntity().toString();
   }
   
@@ -167,12 +144,28 @@ public abstract class PropertyXRef extends Property {
    * PropertyAssociation "Witness: John Doe")
    */
   protected String getForeignDisplayValue() {
-    Entity entity = getEntity();
-    Property parent = getParent();
-    String by = parent!=entity ? entity.toString() + " - " + parent.getPropertyName() : entity.toString();
-    return resources.getString("foreign.xref", by);
+    return resources.getString("foreign.xref", getEntity().toString());
   }
   
+  /**
+   * Sets the entity's property this reference points to
+   * @param target referenced entity's property
+   */
+  protected void setTarget(PropertyXRef target) {
+
+    String old = getValue();
+    
+    // Do it
+    this.target=target;
+    this.value =target.getEntity().getId();
+
+    // Remember change
+    propagateChange(old);
+
+    // Done
+  }
+  
+
   /**
    * Returns this reference's target
    * @return target or null
@@ -190,14 +183,13 @@ public abstract class PropertyXRef extends Property {
     if (target!=null)
       return;
       
-    // 20070128 don't bother with calculating old if this is happening in init()
-    String old = getParent()==null?null:getValue();
+    String old = getValue();
 
     // remember value
     value = set.replace('@',' ').trim();
 
     // remember change
-    if (old!=null) propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // done
   }
@@ -206,13 +198,7 @@ public abstract class PropertyXRef extends Property {
    * @see genj.gedcom.Property#setTag(java.lang.String)
    */
   /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    meta.assertTag(getTag());
-    // 20070104 since values are not trimmed by loaders we do this here - a value of '@..@ ' (note
-    // the trailing space) should be accepted
-    value = value.trim();
-    // check format
-    if (!(value.startsWith("@")&&value.endsWith("@")))
-      throw new GedcomException(resources.getString("error.norefvalue", new String[]{ value, Gedcom.getName(getTag()) }));
+    assume(getTag().equals(meta.getTag()), UNSUPPORTED_TAG);
     return super.init(meta, value);
   }
 
@@ -220,7 +206,7 @@ public abstract class PropertyXRef extends Property {
    * This property as a verbose string
    */
   public String toString() {
-    Entity e = getTargetEntity();
+    Entity e = getReferencedEntity();
     if (e==null) {
       return super.toString();
     }
@@ -237,7 +223,7 @@ public abstract class PropertyXRef extends Property {
    */
   public String getDeleteVeto() {
     // warn if linked
-    if (getTargetEntity()==null) 
+    if (getReferencedEntity()==null) 
       return null;
     // a specialized message?
     String key = "prop."+getTag().toLowerCase()+".veto";
@@ -267,10 +253,10 @@ public abstract class PropertyXRef extends Property {
   /**
    * overriden to make sure we always look for sub-meta-properties
    * with FILTER_XREF
-   * @see genj.gedcom.Property#getNestedMetaProperties(int)
+   * @see genj.gedcom.Property#getMetaProperties(int)
    */
-  public MetaProperty[] getNestedMetaProperties(int filter) {
-    return super.getNestedMetaProperties(MetaProperty.FILTER_XREF|filter);
+  public MetaProperty[] getSubMetaProperties(int filter) {
+    return super.getSubMetaProperties(MetaProperty.FILTER_XREF|filter);
   }
   
   /**
@@ -309,13 +295,13 @@ public abstract class PropertyXRef extends Property {
     PropertyXRef that = (PropertyXRef)o;
     
     // got the references?
-    if (this.getTargetEntity()==null||that.getTargetEntity()==null)
+    if (this.getReferencedEntity()==null||that.getReferencedEntity()==null)
       return super.compareTo(that);
 
     // compare references - using toString() but it should really depend
     // on what the renderer renders
     
-    return compare(getTargetEntity().toString(), that.getTargetEntity().toString());
+    return compare(getReferencedEntity().toString(), that.getReferencedEntity().toString());
   }
 
 } //PropertyXRef

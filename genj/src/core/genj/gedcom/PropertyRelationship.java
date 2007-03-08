@@ -20,15 +20,7 @@
 package genj.gedcom;
 
 /**
- * RELA property as sub-property for ASSOciation - it contains
- * a textual RELAtionship description for that ASSOciation. We
- * also use it to store the path to the ASSOciation's target 
- * (the anchor) because ASSOciations are represented with
- * back-pointing properties in Gedcom. The anchor contains the
- * path to the ASSOciation's ForeignXRef's parent, e.g.
- * INDI:BIRT or FAM:MARR. On load we can provide the ASSOciation
- * with that anchor for reconstruction of the old appropriate
- * link.
+ * RELA property as sub-property for ASSOciation
  */
 public class PropertyRelationship extends PropertyChoiceValue {
 
@@ -58,17 +50,9 @@ public class PropertyRelationship extends PropertyChoiceValue {
     // parse anchor if one is still needed
     int i = value.lastIndexOf('@');
     if (i>=0) {
-      try {
+      if (getTarget()==null) try {
         anchor = new TagPath(value.substring(i+1));
-        // relink association if anchor is still different (means, we're linked)
-        if (!getAnchor().equals(anchor)) {
-          PropertyAssociation asso = (PropertyAssociation)getParent();
-          Property target = asso.getTarget();
-          asso.unlink();
-          target.getParent().delProperty(target);
-          asso.link();
-        }
-      } catch (Throwable t) {
+      } catch (IllegalArgumentException e) {
       }
       value = value.substring(0,i);
     }
@@ -93,21 +77,13 @@ public class PropertyRelationship extends PropertyChoiceValue {
    */
   /*package*/ TagPath getAnchor() {
 
-    // try to find accurate target base on target's parent
+    // fallback to target?
     Property target = getTarget();
-    if (target!=null) {
-      Property panchor = target.getParent();
-      if (!(panchor instanceof Entity)&&panchor!=null) {
-        // try non-unique path first - this is the simplest case e.g. INDI:BIRT:DATE
-        TagPath result = panchor.getPath(false);
-        // .. fallback to unique path if necessary INDI:BIRT#2:DATE
-        return panchor.getEntity().getProperty(result) == panchor ? result : panchor.getPath(true); 
-      }
-    }
-    
-    // fallback to current cached anchor
-    return anchor;
+    if (target==null||target instanceof PropertyForeignXRef)
+      return anchor;
 
+    // use target's path
+    return target.getPath();
   }
 
 } //PropertyRelationship

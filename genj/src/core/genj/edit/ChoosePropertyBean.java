@@ -25,16 +25,9 @@ import genj.util.GridBagHelper;
 import genj.util.Resources;
 
 import java.awt.Component;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
 
 import javax.swing.ButtonGroup;
 import javax.swing.DefaultListCellRenderer;
@@ -51,7 +44,7 @@ import javax.swing.event.ListSelectionListener;
 /**
  * A bean that allows to choose a property from a list of properties
  */
-public class ChoosePropertyBean extends JComponent {
+public class ChoosePropertyBean extends JComponent implements ItemListener, ListSelectionListener {
 
   private JRadioButton rbChoose,rbNew;
   private JTextField tfNew;
@@ -59,8 +52,6 @@ public class ChoosePropertyBean extends JComponent {
   private JScrollPane spInfo;
   private JTextPane tpInfo;
   private Property parent;
-  private List listeners = new ArrayList();
-  private Callback callback = new Callback();
 
   /**
    * Constructor
@@ -69,8 +60,8 @@ public class ChoosePropertyBean extends JComponent {
     
     // keep parent and calculate possible properties
     parent = pArent;
-    MetaProperty[] defs = parent.getNestedMetaProperties(MetaProperty.FILTER_NOT_HIDDEN);
-    Arrays.sort(defs, callback);
+    MetaProperty[] defs = parent.getSubMetaProperties(MetaProperty.FILTER_NOT_HIDDEN);
+    Arrays.sort(defs);
         
     // Layout
     GridBagHelper gh = new GridBagHelper(this);
@@ -78,7 +69,7 @@ public class ChoosePropertyBean extends JComponent {
     // Checkbox for known props
     rbChoose = new JRadioButton(resources.getString("choose.known"),defs.length>0);
     rbChoose.setEnabled(defs.length>0);
-    rbChoose.addItemListener(callback);
+    rbChoose.addItemListener(this);
     rbChoose.setAlignmentX(0);
     gh.add(rbChoose,1,1,2,1, GridBagHelper.GROWFILL_HORIZONTAL);
 
@@ -87,8 +78,7 @@ public class ChoosePropertyBean extends JComponent {
     lChoose.setVisibleRowCount(4);
     lChoose.setEnabled(defs.length>0);
     lChoose.setCellRenderer(new MetaDefRenderer());
-    lChoose.addListSelectionListener(callback);
-    lChoose.addMouseListener(callback);
+    lChoose.addListSelectionListener(this);
     JScrollPane sp = new JScrollPane(lChoose);
     // 20030527 grrrrrrr why is this necessary
     sp.setMinimumSize(sp.getPreferredSize());
@@ -103,7 +93,7 @@ public class ChoosePropertyBean extends JComponent {
 
     // RadioButton for new props
     rbNew = new JRadioButton(resources.getString("choose.new"),defs.length==0);
-    rbNew.addItemListener(callback);
+    rbNew.addItemListener(this);
     rbNew.setAlignmentX(0);
     gh.add(rbNew,1,3,2,1, GridBagHelper.GROWFILL_HORIZONTAL);
 
@@ -124,41 +114,91 @@ public class ChoosePropertyBean extends JComponent {
     
     // Done
   }
+  
+//  /**
+//   * Helper method that adds components to a container with gridbaglayout
+//   */
+//  private void add(Component c,int x,int y,int w,int h,boolean grow) {
+//    add(c);
+//
+//    GridBagConstraints s = new GridBagConstraints();
+//    s.gridx = x;
+//    s.gridy = y;
+//    s.gridwidth = w;
+//    s.gridheight= h;
+//    s.weightx = grow ? 1 : 0;
+//    s.weighty = grow ? 1 : 0;
+//    s.fill = grow ? GridBagConstraints.BOTH : GridBagConstraints.HORIZONTAL;
+//
+//    ((GridBagLayout)getLayout()).setConstraints(c,s);
+//  }
 
   /**
-   * Returns the selected tags
+   * Returns the resulting properties
    */
-  public String[] getSelectedTags() {
+  public Property[] getResultingProperties() {
 
-    String[] result = null;
+    Property[] result = null;
 
     // list of selected properties
     if (rbChoose.isSelected() == true) {
       Object[] objs = lChoose.getSelectedValues();
-      result = new String[objs.length];
+      result = new Property[objs.length];
       for (int i=0;i<objs.length;i++) {
-        result[i] = ((MetaProperty)objs[i]).getTag();
+        result[i] = ((MetaProperty)objs[i]).create("");
       }
       return result;
     }
     
-    // single entered tag
-    String tag = tfNew.getText();
-    return tag!=null ? new String[] { tag } : new String[0];
+    // single entered property
+    if (tfNew.getText().equals("")) 
+      return new Property[0];
+
+    result = new Property[1];
+    result[0] = parent.getMetaProperty().get(tfNew.getText(), true).create("");
+    
+    // done
+    return result;
   }
 
   /**
-   * add action listener
+   * RadioButtons have been changed
    */
-  public void addActionListener(ActionListener listener) {
-    listeners.add(listener);
+  public void itemStateChanged(ItemEvent e) {
+    if (e.getSource() == rbChoose) {
+      lChoose.setEnabled(true);
+      tfNew.setEnabled(false);
+      lChoose.requestFocusInWindow();
+    }
+    if (e.getSource() == rbNew) {
+      lChoose.clearSelection();
+      lChoose.setEnabled(false);
+      tfNew.setEnabled(true);
+      tfNew.requestFocusInWindow();
+    }
   }
 
   /**
-   * remove action listener
+   * One of the tag-items in the item list has been (de-)selected
    */
-  public void removeActionListener(ActionListener listener) {
-    listeners.remove(listener);
+  public void valueChanged(ListSelectionEvent e) {
+
+    // Check selection
+    Object[] selection = lChoose.getSelectedValues();
+
+    // None selected
+    if ((selection==null)||(selection.length==0)) {
+      tpInfo.setText("");
+      return;
+    }
+
+    // Show info of last selected
+    MetaProperty meta = (MetaProperty)selection[selection.length-1];
+    tpInfo.setText(meta.getInfo());
+    if (!rbChoose.isSelected())
+      rbChoose.doClick();
+
+    // Done
   }
 
   /**
@@ -172,76 +212,12 @@ public class ChoosePropertyBean extends JComponent {
     public Component getListCellRendererComponent(JList list,Object value,int index,boolean isSelected,boolean cellHasFocus) {
       super.getListCellRendererComponent(list,value,index,isSelected,cellHasFocus);
         MetaProperty def = (MetaProperty)value;
-        setText(def.getTag()+" ("+def.getName()+")");
+        setText(def.getTag());
         setIcon(def.getImage());
       return this;
     }
 
   } //MetaDefRenderer
-  
-  /**
-   * Internal Callback
-   */
-  private class Callback extends MouseAdapter implements ItemListener, ListSelectionListener, Comparator  {
-    
-    /** compare meta properties for alphabetic sorting */
-    public int compare(Object o1, Object o2) {
-      MetaProperty m1 = (MetaProperty)o1, m2 = (MetaProperty)o2;
-      return m1.getTag().compareTo(m2.getTag());
-    }
-    
-    /** check double clicks */
-    public void mouseClicked(MouseEvent event) {
-      if (event.getClickCount()>1) {
-        ActionEvent e = new ActionEvent(ChoosePropertyBean.this, 0, null);
-        ActionListener[] as = (ActionListener[])listeners.toArray(new ActionListener[listeners.size()]);
-        for (int i = 0; i < as.length; i++) {
-          as[i].actionPerformed(e);
-        }
-      }
-    }
-    
-    /**
-     * RadioButtons have been changed
-     */
-    public void itemStateChanged(ItemEvent e) {
-      if (e.getSource() == rbChoose) {
-        lChoose.setEnabled(true);
-        tfNew.setEnabled(false);
-        lChoose.requestFocusInWindow();
-      }
-      if (e.getSource() == rbNew) {
-        lChoose.clearSelection();
-        lChoose.setEnabled(false);
-        tfNew.setEnabled(true);
-        tfNew.requestFocusInWindow();
-      }
-    }
-
-    /**
-     * One of the tag-items in the item list has been (de-)selected
-     */
-    public void valueChanged(ListSelectionEvent e) {
-    
-      // Check selection
-      Object[] selection = lChoose.getSelectedValues();
-    
-      // None selected
-      if ((selection==null)||(selection.length==0)) {
-        tpInfo.setText("");
-        return;
-      }
-    
-      // Show info of last selected
-      MetaProperty meta = (MetaProperty)selection[selection.length-1];
-      tpInfo.setText(meta.getInfo());
-      if (!rbChoose.isSelected())
-        rbChoose.doClick();
-    
-      // Done
-    }
-    
-  }
 
 } //ChoosePropertyBean
 

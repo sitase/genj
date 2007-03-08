@@ -19,21 +19,9 @@
  */
 package genj.edit.actions;
 
-import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
-import genj.util.swing.NestedBlockLayout;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
 import genj.view.ViewManager;
-import genj.window.WindowManager;
-
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-
-import javax.swing.JCheckBox;
-import javax.swing.JPanel;
-import javax.swing.JTextField;
 
 /**
  * Add a new entity  
@@ -43,42 +31,12 @@ public class CreateEntity extends AbstractChange {
   /** the type of the added entity*/
   private String etag;
   
-  /** text field for entering id */
-  private JTextField requestID;
-  
   /**
    * Constructor
    */
   public CreateEntity(Gedcom ged, String tag, ViewManager manager) {
     super(ged, Gedcom.getEntityImage(tag).getOverLayed(imgNew), resources.getString("new", Gedcom.getName(tag, false) ), manager);
     etag = tag;
-  }
-  
-  /**
-   * Override content components to show to user 
-   */
-  protected JPanel getDialogContent() {
-    
-    JPanel result = new JPanel(new NestedBlockLayout("<col><row><text wx=\"1\" wy=\"1\"/></row><row><check/><text/></row></col>"));
-
-    // prepare id checkbox and textfield
-    requestID = new JTextField(gedcom.getNextAvailableID(etag), 8);
-    requestID.setEditable(false);
-    
-    final JCheckBox check = new JCheckBox(resources.getString("assign_id"));
-    check.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) {
-        requestID.setEditable(check.isSelected());
-        if (check.isSelected())  requestID.requestFocusInWindow();
-      }
-    });
-    
-    result.add(getConfirmComponent());
-    result.add(check);
-    result.add(requestID);
-    
-    // done
-    return result;
   }
   
   /**
@@ -98,19 +56,10 @@ public class CreateEntity extends AbstractChange {
   /**
    * @see genj.edit.EditViewFactory.Change#change()
    */
-  public void perform(Gedcom gedcom) throws GedcomException {
-    // check id
-    String id = null;
-    if (requestID.isEditable()) {
-      id = requestID.getText();
-      if (gedcom.getEntity(etag, id)!=null)
-        throw new GedcomException(resources.getString("assign_id_error", id));
-    }
+  protected void change() throws GedcomException {
     // create the entity
-    Entity entity = gedcom.createEntity(etag, id);
-    entity.addDefaultProperties();
-    // set focus
-    WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(entity), getTarget(), true));
+    focus = gedcom.createEntity(etag);
+    focus.addDefaultProperties();
     // done
   }
   

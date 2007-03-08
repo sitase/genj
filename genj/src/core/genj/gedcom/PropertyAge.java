@@ -19,8 +19,6 @@
  */
 package genj.gedcom;
 
-import javax.swing.ImageIcon;
-
 import genj.gedcom.time.Delta;
 import genj.gedcom.time.PointInTime;
 
@@ -30,8 +28,7 @@ import genj.gedcom.time.PointInTime;
 public class PropertyAge extends Property {
 
   public final static String TAG = "AGE";
-  public final static ImageIcon IMG = Grammar.getMeta(new TagPath("INDI:BIRT:AGE")).getImage();
-  
+
   /** the age */
   private Delta age = new Delta(0, 0, 0);
 
@@ -48,9 +45,9 @@ public class PropertyAge extends Property {
   /**
    * @see genj.gedcom.Property#addNotify(genj.gedcom.Property)
    */
-  /*package*/ void addNotify(Property parent, int pos) {
+  /*package*/ void addNotify(Property parent) {
     // continue
-    super.addNotify(parent, pos);
+    super.addNotify(parent);
     // try to update age
     updateAge();
     // done
@@ -74,7 +71,7 @@ public class PropertyAge extends Property {
    * @see genj.gedcom.Property#setTag(java.lang.String)
    */
   Property init(MetaProperty meta, String value) throws GedcomException {
-    meta.assertTag(TAG);
+    assume(TAG.equals(meta.getTag()), UNSUPPORTED_TAG);
     return super.init(meta, value);
   }
 
@@ -102,7 +99,7 @@ public class PropertyAge extends Property {
     else
       ageAsString = newValue;
     // notify
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     // Done
   }
 
@@ -131,6 +128,13 @@ public class PropertyAge extends Property {
     if (!isValid()||!other.isValid())
       return super.compareTo(o);
     return age.compareTo(other.age);
+  }
+
+  /**
+   * @see genj.gedcom.Property#getProxy()
+   */
+  public String getProxy() {
+    return "Age";
   }
 
   /**

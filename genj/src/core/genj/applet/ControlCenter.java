@@ -20,10 +20,11 @@
 package genj.applet;
 
 import genj.gedcom.Gedcom;
+import genj.util.ActionDelegate;
+import genj.util.Debug;
 import genj.util.GridBagHelper;
-import genj.util.MnemonicAndText;
 import genj.util.WordBuffer;
-import genj.util.swing.Action2;
+import genj.util.swing.ButtonHelper;
 import genj.util.swing.LinkWidget;
 import genj.view.ViewFactory;
 import genj.view.ViewManager;
@@ -97,8 +98,9 @@ public class ControlCenter extends JPanel {
     JPanel p = new JPanel(new GridLayout(vfactories.length, 1));
     p.setOpaque(false);
     
+    ButtonHelper bh = new ButtonHelper().setContainer(p).setButtonType(LinkWidget.class);
     for (int v=0; v<vfactories.length; v++) {
-      p.add(new LinkWidget(new ActionView(vfactories[v])));
+      bh.create(new ActionView(vfactories[v]));
     }
     
     // done
@@ -109,7 +111,7 @@ public class ControlCenter extends JPanel {
   /**
    * Action to open view
    */
-  private class ActionView extends Action2 {
+  private class ActionView extends ActionDelegate {
     /** factory */
     private ViewFactory factory;
     /**
@@ -117,14 +119,15 @@ public class ControlCenter extends JPanel {
      */
     private ActionView(ViewFactory vfactory) {
       factory = vfactory;
-      setText(new MnemonicAndText(vfactory.getTitle(false)).getText());
+      setText(vfactory.getTitle(false));
       setImage(vfactory.getImage());
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
-      viewManager.openView(gedcom, factory);
+      Debug.log(Debug.INFO, ControlCenter.this, "factory="+factory);
+      viewManager.openView(factory, gedcom);
     }
   } //ActionView
   

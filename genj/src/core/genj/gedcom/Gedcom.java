@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.123 $ $Author: nmeier $ $Date: 2007-03-07 21:33:59 $
+ * $Revision: 1.75 $ $Author: nmeier $ $Date: 2004-11-19 23:21:53 $
  */
 package genj.gedcom;
 
@@ -40,15 +40,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
 import java.util.StringTokenizer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * The object-representation of a Gedom file
  */
-public class Gedcom implements Comparable {
-  
-  /*package*/ final static Logger LOG = Logger.getLogger("genj.gedcom");
+public class Gedcom {
   
   /** static resourcs */
   static private Random seed = new Random();
@@ -57,18 +53,18 @@ public class Gedcom implements Comparable {
   public static final String
    // standard Gedcom encodings 
     UNICODE  = "UNICODE", 
-    ASCII    = "ASCII",      // we're using ISO-8859-1 actually to make extended characters possible - the spec is grayish on that one
+    ASCII    = "ASCII",      // a.k.a US-ASCII
     ANSEL    = "ANSEL",
    // non-standard encodings
     LATIN1   = "LATIN1",     // a.k.a ISO-8859-1
     ANSI     = "ANSI";       // a.k.a. Windows-1252 (@see http://www.hclrss.demon.co.uk/demos/ansi.html)
   
-  /** encodings including the non Gedcom-standard encodings LATIN1 and ANSI */  
+  /** encodings - LATIN1 and ANSI Are non-standard gedcom encodings */  
   public static final String[] ENCODINGS = { 
     ANSEL, UNICODE, ASCII, LATIN1, ANSI 
   };
 
-  /** languages as defined by the Gedcom standard */  
+  /** languages - as defined by the Gedcom 5.5. standard */  
   public static final String[] LANGUAGES = {
     "Afrikaans","Albanian","Amharic","Anglo-Saxon","Arabic","Armenian","Assamese",
     "Belorusian","Bengali","Braj","Bulgarian","Burmese", 
@@ -144,24 +140,19 @@ public class Gedcom implements Comparable {
   /** origin of this Gedcom */
   private Origin origin;
   
-  /** maximum ID length in file */
-  private int maxIDLength = 0;
-  
   /** entities */
-  private LinkedList allEntities = new LinkedList();
-  private Map tag2id2entity = new HashMap();
+  private LinkedList entities = new LinkedList();
+  private Map e2entities = new HashMap(); // values are maps id->entitiy
+  private int minIDStringLen = 4; //lenght of ids e.g. I001
   
-  /** currently collected undos and redos */
-  private List 
-    undoHistory = new ArrayList(),
-    redoHistory = new ArrayList();
+  /** transaction support */
+  private Transaction transaction = null;
+  private boolean hasUnsavedChanges;
 
-  /** a semaphore we're using for syncing */
-  private Object writeSemaphore = new Object();
-  
-  /** current lock */
-  private Lock lock = null;
-  
+  private ArrayList 
+    undos = new ArrayList(),
+    redos = new ArrayList();
+
   /** listeners */
   private List listeners = new ArrayList(10);
   
@@ -169,7 +160,7 @@ public class Gedcom implements Comparable {
   private Map tags2refsets = new HashMap();
 
   /** encoding */
-  private String encoding = ENCODINGS[Options.getInstance().defaultEncoding];
+  private String encoding = ANSEL;
   
   /** language */
   private String language = null;
@@ -179,9 +170,6 @@ public class Gedcom implements Comparable {
 
   /** cached collator */
   private Collator cachedCollator = null;
-  
-  /** global place format */
-  private String placeFormat = "";
 
   /** password for private information */
   private String password = PASSWORD_NOT_SET;
@@ -193,16 +181,29 @@ public class Gedcom implements Comparable {
   /**
    * Gedcom's Constructor
    */
-  public Gedcom() {
-    this(null);
+  public Gedcom(Origin origin) {
+    this(origin, false);
   }
 
   /**
    * Gedcom's Constructor
    */
-  public Gedcom(Origin origin) {
+  public Gedcom(Origin origin, boolean createAdam) {
+    // safety check
+    if (origin==null)
+      throw new IllegalArgumentException("Origin has to specified");
     // remember
     this.origin = origin;
+    // create Adam
+    if (createAdam) {
+      try {
+        Indi adam = (Indi) createEntity(Gedcom.INDI);
+        adam.addDefaultProperties();
+        adam.setName("Adam","");
+        adam.setSex(PropertySex.MALE);
+      } catch (GedcomException e) {
+      }
+    }
     // Done
   }
 
@@ -217,8 +218,6 @@ public class Gedcom implements Comparable {
    * Returns the submitter of this gedcom (might be null)
    */
   public Submitter getSubmitter() {
-    if (submitter==null)
-      return (Submitter)getFirstEntity(Gedcom.SUBM);
     return submitter;
   }
   
@@ -226,38 +225,13 @@ public class Gedcom implements Comparable {
    * Sets the submitter of this gedcom
    */
   public void setSubmitter(Submitter set) {
-    
-    // change it
-    if (set!=null&&!getEntityMap(SUBM).containsValue(set))
+    if (!getEntityMap(SUBM).containsValue(set))
       throw new IllegalArgumentException("Submitter is not part of this gedcom");
-
-    // flip it
-    final Submitter old = submitter;
     submitter = set;
     
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-      void undo() {
-          setSubmitter(old);
-      }
-    });
-    
-    // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomHeaderChanged(this);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-    
-    // done
+    // propagate modified on submitter
+    submitter.propagateChange(submitter.getValue());
+
   }
   
   /**
@@ -270,406 +244,48 @@ public class Gedcom implements Comparable {
   /**
    * Adds a Listener which will be notified when data changes
    */
-  public void addGedcomListener(GedcomListener listener) {
-    if (listener==null)
-      throw new IllegalArgumentException("listener can't be null");
-    synchronized (listeners) {
-      if (!listeners.add(listener))
-        throw new IllegalArgumentException("can't add gedcom listener "+listener+"twice");
-    }
-    LOG.log(Level.FINER, "addGedcomListener() from "+new Throwable().getStackTrace()[1]);
-    
+  public synchronized void addGedcomListener(GedcomListener which) {
+    listeners.add(which);
   }
 
   /**
    * Removes a Listener from receiving notifications
    */
-  public void removeGedcomListener(GedcomListener listener) {
-    synchronized (listeners) {
-      // 20060101 apparently window lifecycle mgmt including removeNotify() can be called multiple times (for windows
-      // owning windows for example) .. so down the line the same listener might unregister twice - we'll just ignore that
-      // for now
-      listeners.remove(listener);
-    }
-    LOG.log(Level.FINER, "removeGedcomListener() from "+new Throwable().getStackTrace()[1]);
+  public synchronized void removeGedcomListener(GedcomListener which) {
+    listeners.remove(which);
   }
   
   /**
-   * the current undo set
+   * Notify Listeners of possible changes through given transaction
    */
-  private List getCurrentUndoSet() {
-    return (List)undoHistory.get(undoHistory.size()-1);
-  }
-  
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagateXRefLinked(final PropertyXRef property1, final PropertyXRef property2) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+property1.getTag()+" and "+property2.getTag()+" linked");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-      void undo() {
-        property1.unlink();
-      }
-    });
-    
-    // let listeners know
+  private void notifyGedcomListeners(Transaction tx) {
+    // send message to all listeners
     GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
     for (int l=0;l<gls.length;l++) {
       try {
-        gls[l].gedcomPropertyChanged(this, property1);
-        gls[l].gedcomPropertyChanged(this, property2);
+        gls[l].handleChange(transaction);
       } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
       }
     }
-
     // done
   }
   
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagateXRefUnlinked(final PropertyXRef property1, final PropertyXRef property2) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+property1.getTag()+" and "+property2.getTag()+" unlinked");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          property1.link(property2);
-        }
-      });
-    
-    // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      try {
-        gls[l].gedcomPropertyChanged(this, property1);
-        gls[l].gedcomPropertyChanged(this, property2);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-
-    // done
-  }
-
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagateEntityAdded(final Entity entity) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Entity "+entity.getId()+" added");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-      void undo() {
-        deleteEntity(entity);
-      }
-    });
-    
-    // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      try {
-        gls[l].gedcomEntityAdded(this, entity);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-
-    // done
-  }
-  
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagateEntityDeleted(final Entity entity) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Entity "+entity.getId()+" deleted");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-    
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() throws GedcomException  {
-          addEntity(entity);
-        }
-      });
-    
-    // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      try {
-        gls[l].gedcomEntityDeleted(this, entity);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-
-    // done
-  }
-  
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagatePropertyAdded(Entity entity, final Property container, final int pos, Property added) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+added.getTag()+" added to "+container.getTag()+" at position "+pos+" (entity "+entity.getId()+")");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          container.delProperty(pos);
-        }
-      });
-    
-    // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      try {
-        gls[l].gedcomPropertyAdded(this, container, pos, added);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-
-    // done
-  }
-  
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagatePropertyDeleted(Entity entity, final Property container, final int pos, final Property deleted) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+deleted.getTag()+" deleted from "+container.getTag()+" at position "+pos+" (entity "+entity.getId()+")");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          container.addProperty(deleted, pos);
-        }
-      });
-    
-    // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      try {
-        gls[l].gedcomPropertyDeleted(this, container, pos, deleted);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-    
-    // done
-  }
-  
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagatePropertyChanged(Entity entity, final Property property, final String oldValue) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+property.getTag()+" changed in (entity "+entity.getId()+")");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          property.setValue(oldValue);
-        }
-      });
-    
-    // notify
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      try {
-        gls[l].gedcomPropertyChanged(this, property);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-
-    // done
-  }
-
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagatePropertyMoved(final Property property, final Property moved, final int from, final int to) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+property.getTag()+" moved from "+from+" to "+to+" (entity "+property.getEntity().getId()+")");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          property.moveProperty(moved, from<to ? from : from+1);
-        }
-      });
-    
-    // notify
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      try {
-          gls[l].gedcomPropertyDeleted(this, property, from, moved);
-          gls[l].gedcomPropertyAdded(this, property, to, moved);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-
-    // done
-  }
-  
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagateWriteLockAqcuired() {
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomWriteLockAcquired(this);
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-  }
-  
-  /**
-   * Propagate a change to listeners
-   */
-  protected void propagateWriteLockReleased() {
-    
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomWriteLockReleased(this);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-  }  
-  
-  /**
-   * An ID change is in progress
-   */
-  protected void propagateEntityIDChanged(final Entity entity, final String old) throws GedcomException {
-    
-    Map id2entity = getEntityMap(entity.getTag());
-    
-    // known?
-    if (!id2entity.containsValue(entity))
-      throw new GedcomException("Can't change ID of entity not part of this Gedcom instance");
-    
-    // valid prefix/id?
-    String id = entity.getId();
-    if (id==null||id.length()==0)
-      throw new GedcomException("Need valid ID length");
-    
-    // dup?
-    if (getEntity(id)!=null)
-      throw new GedcomException("Duplicate ID is not allowed");
-
-    // do the housekeeping
-    id2entity.remove(old);
-    id2entity.put(entity.getId(), entity);
-    
-    // remember maximum ID length
-    maxIDLength = Math.max(id.length(), maxIDLength);
-    
-    // log it
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Entity's ID changed from  "+old+" to "+entity.getId());
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() throws GedcomException {
-          entity.setId(old);
-        }
-      });
-    
-    // notify
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      try {
-        gls[l].gedcomPropertyChanged(this, entity);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-
-    // done
-  }
-
   /**
    * Add entity 
    */
-  private void addEntity(Entity entity) throws GedcomException {
+  /*package*/ void addEntity(Entity entity) {
     
+    // remember id2entity
     String id = entity.getId();
-    
-    // some entities (event definitions for example) don't have an
-    // id - we'll keep them in our global list but not mapped id->entity
-    if (id.length()>0) {
-      Map id2entity = getEntityMap(entity.getTag());
-      if (id2entity.containsKey(id))
-        throw new GedcomException(resources.getString("error.entity.dupe", id));
-      
-      // remember id2entity
-      id2entity.put(id, entity);
-    }
-    
+    if (id.length()>0)
+      getEntityMap(entity.getTag()).put(id, entity);
+     
     // remember entity
-    allEntities.add(entity);
+    entities.add(entity);
     
     // notify
     entity.addNotify(this);
-    
+
   }
 
   /**
@@ -685,18 +301,18 @@ public class Gedcom implements Comparable {
    */
   public Entity createEntity(String tag, String id) throws GedcomException {
     
-    // generate new id if necessary - otherwise trim it
+    // Generate id if necessary
     if (id==null)
-      id = getNextAvailableID(tag);
-    
-    // remember maximum ID length
-    maxIDLength = Math.max(id.length(), maxIDLength);
+      id = createEntityId(tag);
+      
+    // update minIDStringLen
+    minIDStringLen = Math.max(id.length(), minIDStringLen);
 
     // lookup a type - all well known types need id
     Class clazz = (Class)E2TYPE.get(tag);
     if (clazz!=null) {
       if (id.length()==0)
-        throw new GedcomException(resources.getString("entity.error.noid", tag));
+        throw new GedcomException("Entity "+tag+" requires id");
     } else {
       clazz = Entity.class;
     }
@@ -706,7 +322,7 @@ public class Gedcom implements Comparable {
     try {
       result = (Entity)clazz.newInstance();
     } catch (Throwable t) {
-      throw new RuntimeException("Can't instantiate "+clazz);
+      throw new GedcomException("Unexpected problem creating instance of "+tag);
     }
 
     // initialize
@@ -717,7 +333,7 @@ public class Gedcom implements Comparable {
 
     // Done
     return result;
-  }  
+  }
 
   /**
    * Deletes entity
@@ -725,27 +341,20 @@ public class Gedcom implements Comparable {
    */
   public void deleteEntity(Entity which) {
 
-    // Some entities dont' have ids (event definitions for example) - for
-    // all others we check the id once more
-    String id = which.getId();
-    if (id.length()>0) {
-      
-      // Lookup entity map
-      Map id2entity = getEntityMap(which.getTag());
-  
-      // id exists ?
-      if (!id2entity.containsKey(id))
-        throw new IllegalArgumentException("Unknown entity with id "+which.getId());
+    // Lookup entity map
+    Map ents = getEntityMap(which.getTag());
 
-      // forget id
-      id2entity.remove(id);
-    }
-    
+    // Entity exists ?
+    String id = which.getId();
+    if (!ents.containsKey(id))
+      throw new IllegalArgumentException("Unknown entity with id "+which.getId());
+
     // Tell it
     which.delNotify();
 
-    // Forget it now
-    allEntities.remove(which);
+    // Delete it
+    ents.remove(id);
+    entities.remove(which);
 
     // was it the submitter?    
     if (submitter==which) submitter = null;
@@ -758,33 +367,20 @@ public class Gedcom implements Comparable {
    */
   private Map getEntityMap(String tag) {
     // lookup map of entities for tag
-    Map id2entity = (Map)tag2id2entity.get(tag);
-    if (id2entity==null) {
-      id2entity = new HashMap();
-      tag2id2entity.put(tag, id2entity);
+    Map ents = (Map)e2entities.get(tag);
+    if (ents==null) {
+      ents = new HashMap();
+      e2entities.put(tag, ents);
     }
     // done
-    return id2entity;
+    return ents;
   }
-  
-  /**
-   * Returns all properties for given path
-   */
-  public Property[] getProperties(TagPath path) {
-    ArrayList result = new ArrayList(100);
-    for (Iterator it=getEntities(path.getFirst()).iterator(); it.hasNext(); ) {
-      Entity ent = (Entity)it.next();
-      Property[] props = ent.getProperties(path);
-      for (int i = 0; i < props.length; i++) result.add(props[i]);
-    }
-    return Property.toArray(result);
-  }
-  
+
   /**
    * Returns all entities
    */
-  public List getEntities() {
-    return Collections.unmodifiableList(allEntities);
+  public Collection getEntities() {
+    return Collections.unmodifiableCollection(entities);
   }
 
   /**
@@ -820,9 +416,13 @@ public class Gedcom implements Comparable {
    * Returns the entity with given id (or null)
    */
   public Entity getEntity(String id) {
+    // arg check
+    if (id==null) 
+      throw new IllegalArgumentException("id cannot be null");
     // loop all types
-    for (Iterator tags=tag2id2entity.keySet().iterator();tags.hasNext();) {
-      Entity result = (Entity)getEntityMap((String)tags.next()).get(id);
+    for (Iterator tags=e2entities.keySet().iterator();tags.hasNext();) {
+      String tag = (String)tags.next();
+      Entity result = getEntity(tag, id);
       if (result!=null)
         return result;
     }
@@ -835,295 +435,230 @@ public class Gedcom implements Comparable {
    * Returns the entity with given id of given type or null if not exists
    */
   public Entity getEntity(String tag, String id) {
-    // check back in appropriate type map
+    // arg check
+    if (id==null) 
+      throw new IllegalArgumentException("id cannot be null");
     return (Entity)getEntityMap(tag).get(id);
-  }
-  
-  /**
-   * Returns a type for given tag
-   */
-  public static Class getEntityType(String tag) {
-    Class result =(Class)E2TYPE.get(tag);
-    if (result==null)
-      throw new IllegalArgumentException("no such type");
-    return result;
+    
   }
   
   /**
    * Returns any instance of entity with given type if exists
    */
-  public Entity getFirstEntity(String tag) {
-    // loop over entities and return first of given type
-    for (Iterator it = allEntities.iterator(); it.hasNext(); ) {
-      Entity e = (Entity)it.next();
-      if (e.getTag().equals(tag))
-        return e;
-    }
-    // can't help 
-    return null;
+  public Entity getAnyEntity(String tag) {
+    Map ents = getEntityMap(tag);
+    return ents.isEmpty() ? null : (Entity)ents.values().iterator().next();
   }
 
   /**
-   * Return the next available ID for given type of entity
+   * Creates a random ID for given type of entity which is free in this Gedcom
    */
-  public String getNextAvailableID(String entity) {
+  private String createEntityId(String tag) {
     
     // Lookup current entities of type
-    Map id2entity = getEntityMap(entity);
+    Map ents = getEntityMap(tag);
     
-    // Look for an available ID
-    // 20060124 used to start with id2entity.size()+1 for !isFillGapsInIDs since
-    // n people already there should optimistically cover 1..n so we can continue
-    // with n+1. IF the user started id'ing with 0 then the covered range is 
-    // 0..(n-1) though (Philip reported a file like that). So just for that case 
-    // let's start at n and let the loop for checking existing IDs move forward
-    // once if necessary
-    int id = Options.getInstance().isFillGapsInIDs ? 1 : id2entity.size();
-    
-    StringBuffer buf = new StringBuffer(maxIDLength);
-    
+    // We might to do this several times
+    String prefix = getEntityPrefix(tag);
+    int id = ents.size();
     search: while (true) {
-      
-      // 20050619 back to checking all IDs with max id length padding
-      // since we don't want to assign I1 if there's a I01 already - got
-      // a file from Anton written by Gramps that has these kinds of
-      // 'duplicates' all over
-      buf.setLength(0);
-      buf.append(getEntityPrefix(entity));
-      buf.append(id);
-      
+      // next one
+      id ++;
+      // calc result
+      String suffix = Integer.toString(id);
+      // check against longest id string length
+      // we don't want to use I001 if there's a I00001
       while (true) {
-        if (id2entity.containsKey(buf.toString())) break;
-        if (buf.length()>=maxIDLength) break search;
-        buf.insert(1, '0');
-      } 
-      
-      // try next
-      id++;
+        String candidate = prefix + suffix;
+        // already used?
+        if (ents.containsKey(candidate))
+          continue search;
+        // long enough?
+        if (candidate.length()>=minIDStringLen) 
+          break search;
+        // increase length
+        suffix = '0'+suffix;
+      }
     }
-    
-    // 20050509 not patching IDs with zeros anymore - since we now have alignment
-    // in tableview there's not really a need to add leading zeros for readability.
-    return getEntityPrefix(entity) + id;
+    // calculate id we use
+    String result;
+    if (id<10) {
+      result = "00"+id;
+    } else if (id<100) {
+      result = "0"+id;
+    } else {
+      result = ""+id;
+    }
+    // done
+    return prefix + result;
   }
-  
+
   /**
    * Has the gedcom unsaved changes ?
    */
   public boolean hasUnsavedChanges() {
-    return !undoHistory.isEmpty();
+    return hasUnsavedChanges;
   }
 
   /**
    * Clears flag for unsaved changes
    */
   public void setUnchanged() {
-    
-    // do it
-    undoHistory.clear();
-    
-    // no lock? we're done
-    if (lock==null)
-      return;
-    
-    // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomHeaderChanged(this);
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-
-    // done
-  }
-  
-  /**
-   * Test for write lock
-   */
-  public boolean isWriteLocked() {
-    return lock!=null;
-  }
-  
-  /**
-   * Perform a unit of work - don't throw any exception as they can't be handled
-   */
-  public void doMuteUnitOfWork(UnitOfWork uow) {
-    try {
-      doUnitOfWork(uow);
-    } catch (GedcomException e) {
-      LOG.log(Level.WARNING, "Unexpected gedcom exception", e);
-    }
+    hasUnsavedChanges=false;
   }
   
   /**
    * Starts a transaction
    */
-  public void doUnitOfWork(UnitOfWork uow) throws GedcomException {
-    
-    PropertyChange.Monitor updater;
-    
-    // grab lock
-    synchronized (writeSemaphore) {
-      
-      if (lock!=null)
-        throw new GedcomException("Cannot obtain write lock");
-      lock = new Lock(uow);
+  public synchronized Transaction startTransaction() throws IllegalStateException {
 
-      // hook up updater for changes
-      updater = new PropertyChange.Monitor();
-      addGedcomListener(updater);
+    // Is there a transaction running?
+    if (transaction!=null)
+      throw new IllegalStateException("Cannot start transaction for changes while concurrent transaction is active");
 
-      // reset redos
-      redoHistory.clear();
-      
-    }
-
-    // let listeners know
-    propagateWriteLockAqcuired();
-    
-    // run the runnable
-    Throwable rethrow = null;
-    try {
-      uow.perform(this);
-    } catch (Throwable t) {
-      rethrow = t;
-    }
-    
-    synchronized (writeSemaphore) {
-
-      // keep undos (within limits)
-      if (!lock.undos.isEmpty()) {
-        undoHistory.add(lock.undos);
-        while (undoHistory.size()>Options.getInstance().getNumberOfUndos())
-          undoHistory.remove(0);
-      }
-      
-      // let listeners know
-      propagateWriteLockReleased();
-        
-      // release
-      lock = null;
-      
-      // unhook updater for changes
-      removeGedcomListener(updater);
-    }
+    // start one
+    transaction = new Transaction(this);
 
     // done
-    if (rethrow!=null) {
-      if (rethrow instanceof GedcomException)
-        throw (GedcomException)rethrow;
-      throw new RuntimeException(rethrow);
+    return transaction;
+  }
+  
+  /**
+   * Test for transaction going on
+   */
+  public synchronized boolean isTransaction() {
+    return transaction!=null;
+  }
+  
+  /**
+   * Access current transaction
+   */
+  /*package*/ synchronized Transaction getTransaction() {
+    // check for no transaction while listeners present
+    if (transaction==null&&!listeners.isEmpty())
+      throw new IllegalStateException("No active transaction but listeners present");
+    // return it
+    return transaction;
+  }
+
+  /**
+   * Ends Transaction
+   */
+  public synchronized Transaction endTransaction() {
+
+    // any changes?
+    if (transaction!=null&&transaction.hasChanges()) {
+
+      // remember change
+      hasUnsavedChanges = true;
+
+      // keep it for undo
+      undos.add(transaction);
+      redos.clear();
+      
+      // check number of undos
+      while (undos.size()>Options.getInstance().getNumberOfUndos())
+        undos.remove(0);
+    
+      // let everyone know
+      notifyGedcomListeners(transaction);
+
     }
+    
+    // forget current
+    Transaction result = transaction;
+    transaction = null;
+    
+    // done
+    return result;
   }
 
   /**
    * Test for undo
    */
   public boolean canUndo() {
-    return !undoHistory.isEmpty();
+    return !undos.isEmpty();
   }
   
   /**
    * Performs an undo
    */
-  public void undoUnitOfWork() {
+  public synchronized void undo() {
     
     // there?
-    if (undoHistory.isEmpty())
-      throw new IllegalArgumentException("undo n/a");
+    if (undos.isEmpty())
+      throw new IllegalArgumentException("undo not possible");
 
-    synchronized (writeSemaphore) {
-      
-      if (lock!=null)
-        throw new IllegalStateException("Cannot obtain write lock");
-      lock = new Lock();
-  
-    }
-    
-    // let listeners know
-    propagateWriteLockAqcuired();
-    
-    // run through undos
-    List todo = (List)undoHistory.remove(undoHistory.size()-1);
-    for (int i=todo.size()-1;i>=0;i--) {
-      Undo undo = (Undo)todo.remove(i);
-      try {
-        undo.undo();
-      } catch (Throwable t) {
-        LOG.log(Level.SEVERE, "Unexpected throwable during undo()", t);
-      }
-    }
-    
-    synchronized (writeSemaphore) {
+    // Is there a transaction running?
+    if (transaction!=null)
+      throw new IllegalStateException("Cannot undo while concurrent transaction is active");
 
-      // keep redos
-      redoHistory.add(lock.undos);
-      
-      // let listeners know
-      propagateWriteLockReleased();
-      
-      // release
-      lock = null;
-    }
+    Transaction undo = (Transaction)undos.remove(undos.size()-1);
+
+    // start one
+    transaction = new Transaction(this);
+    transaction.setRollback(true);
+
+    // rollback changes of last transaction
+    Change[] changes = undo.getChanges();
+    for (int i=changes.length-1;i>=0;i--)
+      changes[i].undo();
+
+    // reset change status
+    hasUnsavedChanges = undo.hasUnsavedChangesBefore;
+
+    // keep undos as redo
+    redos.add(transaction);
     
+    // let everyone know
+    notifyGedcomListeners(transaction);
+
     // done
+    transaction = null;
+
   }
     
   /**
    * Test for redo
    */
   public boolean canRedo() {
-    return !redoHistory.isEmpty();
+    return !redos.isEmpty();
   }
   
   /**
    * Performs a redo
    */
-  public void redoUnitOfWork() {
-    
+  public synchronized void redo() {
+
     // there?
-    if (redoHistory.isEmpty())
-      throw new IllegalArgumentException("redo n/a");
+    if (redos.isEmpty())
+      throw new IllegalArgumentException("redo not possible");
+    Transaction redo = (Transaction)redos.remove(redos.size()-1);
 
-    synchronized (writeSemaphore) {
-      
-      if (lock!=null)
-        throw new IllegalStateException("Cannot obtain write lock");
-      lock = new Lock();
-  
-    }
-    
-    // let listeners know
-    propagateWriteLockAqcuired();
-    
-    // run the redos
-    List todo = (List)redoHistory.remove(redoHistory.size()-1);
-    for (int i=todo.size()-1;i>=0;i--) {
-      Undo undo = (Undo)todo.remove(i);
-      try {
-        undo.undo();
-      } catch (Throwable t) {
-        LOG.log(Level.SEVERE, "Unexpected throwable during undo()", t);
-      }
-    }
-    
-    // release
-    synchronized (writeSemaphore) {
-      
-      // keep undos
-      undoHistory.add(lock.undos);
+    // Is there a transaction running?
+    if (transaction!=null)
+      throw new IllegalStateException("Cannot redo while concurrent transaction is active");
 
-      // let listeners know
-      propagateWriteLockReleased();
-      
-      // clear
-      lock = null;
-    }
+    // start one
+    transaction = new Transaction(this);
+    transaction.setRollback(true);
+
+    // rollback changes of last undo (reverse order again)
+    Change[] changes = redo.getChanges();
+    for (int i=changes.length-1;i>=0;i--)
+      changes[i].undo();
+
+    // keep change status
+    hasUnsavedChanges = changes.length>0;
+
+    // keep transaction as undo
+    undos.add(transaction);
+    
+    // let everyone know
+    notifyGedcomListeners(transaction);
 
     // done
+    transaction = null;
     
   }
   
@@ -1138,21 +673,18 @@ public class Gedcom implements Comparable {
       result = new ReferenceSet();
       tags2refsets.put(tag, result);
       // .. and pre-fill
-      String defaults = Gedcom.resources.getString(tag+".vals",false);
-      if (defaults!=null) {
-        StringTokenizer tokens = new StringTokenizer(defaults,",");
-        while (tokens.hasMoreElements()) result.add(tokens.nextToken().trim(), null);
-      }
+      StringTokenizer tokens = new StringTokenizer(Gedcom.resources.getString(tag+".vals",""),",");
+      while (tokens.hasMoreElements()) result.add(tokens.nextToken().trim(), null);
     }
     // done
     return result;
   }
 
   /**
-   * Returns the name of this gedcom or null if unnamed
+   * Returns the name of this gedcom
    */
   public String getName() {
-    return origin==null ? null : origin.getName();
+    return origin.getName();
   }
 
   /**
@@ -1166,7 +698,7 @@ public class Gedcom implements Comparable {
    */
   public static String getName(String tag, boolean plural) {
     if (plural) {
-      String name = resources.getString(tag+".s.name", false);
+      String name = resources.getString(tag+"s.name", false);
       if (name!=null)
         return name;
     }
@@ -1197,7 +729,7 @@ public class Gedcom implements Comparable {
   public static ImageIcon getEntityImage(String tag) {
     ImageIcon result = (ImageIcon)E2IMAGE.get(tag);
     if (result==null) {
-      result = Grammar.getMeta(new TagPath(tag)).getImage();
+      result = MetaProperty.get(new TagPath(tag)).getImage();
       E2IMAGE.put(tag, result);
     }
     return result;
@@ -1213,13 +745,6 @@ public class Gedcom implements Comparable {
   /**
    * Accessor - encoding
    */
-  public String getEncoding() {
-    return encoding;
-  }
-  
-  /**
-   * Accessor - encoding
-   */
   public void setEncoding(String set) {
     for (int e=0;e<ENCODINGS.length;e++) {
       if (ENCODINGS[e].equals(set)) {
@@ -1227,20 +752,6 @@ public class Gedcom implements Comparable {
         return;
       }
     }
-  }
-  
-  /**
-   * Accessor - place format
-   */
-  public String getPlaceFormat() {
-    return placeFormat;
-  }
-  
-  /**
-   * Accessor - place format
-   */
-  public void setPlaceFormat(String set) {
-    placeFormat = set.trim();
   }
   
   /**
@@ -1255,6 +766,13 @@ public class Gedcom implements Comparable {
    */
   public void setLanguage(String set) {
     language = set;
+  }
+  
+  /**
+   * Accessor - encoding
+   */
+  public String getEncoding() {
+    return encoding;
   }
   
   /**
@@ -1285,7 +803,7 @@ public class Gedcom implements Comparable {
    * Check for containment
    */
   public boolean contains(Entity entity) {
-    return getEntityMap(entity.getTag()).containsValue(entity);
+    return getEntities(entity.getTag()).contains(entity);
   }
   
   /**
@@ -1302,9 +820,10 @@ public class Gedcom implements Comparable {
         // look for it
         Locale[] locales = Locale.getAvailableLocales();
         for (int i = 0; i < locales.length; i++) {
-          if (locales[i].getDisplayLanguage(Locale.ENGLISH).equalsIgnoreCase(language)) {
-            cachedLocale = new Locale(locales[i].getLanguage(), Locale.getDefault().getCountry());
-            break;
+          // same display language name - shortest one is best fit (e.g. 'en' instead of 'en_AU' for plain english)
+          if (locales[i].getDisplayLanguage(Locale.ENGLISH).equals(language)) {
+            if (cachedLocale==null||locales[i].toString().length()<cachedLocale.toString().length())
+              cachedLocale = locales[i];
           }
         }
         
@@ -1326,58 +845,11 @@ public class Gedcom implements Comparable {
   public Collator getCollator() {
     
     // not known?
-    if (cachedCollator==null) {
+    if (cachedCollator==null) 
       cachedCollator = Collator.getInstance(getLocale());
-      
-      // 20050505 when comparing gedcom values we really don't want it to be
-      // done case sensitive. It surfaces in many places (namely for example
-      // in prefix matching in PropertyTableWidget) so I'm restricting comparison
-      // criterias to PRIMARY from now on
-      cachedCollator.setStrength(Collator.PRIMARY);
-    }
     
     // done
     return cachedCollator;
-  }
-  
-  /**
-   * can be compared by name
-   */
-  public int compareTo(Object other) {
-    Gedcom that = (Gedcom)other;
-    return getName().compareTo(that.getName());
-  };
-  
-  /**
-   * Undo
-   */
-  private abstract class Undo {
-    abstract void undo() throws GedcomException;
-  }
-  
-  /**
-   * Our locking mechanism is based on one writer at a time
-   */
-  private class Lock implements UnitOfWork {
-    UnitOfWork uow;
-    List undos = new ArrayList();
-    
-    Lock() {
-      this.uow = this;
-    }
-    
-    Lock(UnitOfWork uow) {
-      this.uow = uow;
-    }
-    
-    public void perform(Gedcom gedcom) {
-      // it's just a fake UOW for undo/redos
-    }
-    
-    void addChange(Undo run) {
-      undos.add(run);
-    }
-    
   }
   
 } //Gedcom

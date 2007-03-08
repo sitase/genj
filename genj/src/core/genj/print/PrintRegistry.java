@@ -19,6 +19,7 @@
  */
 package genj.print;
 
+import genj.util.Debug;
 import genj.util.Registry;
 import genj.util.WordBuffer;
 
@@ -27,7 +28,6 @@ import java.lang.reflect.Modifier;
 import java.net.URI;
 import java.util.Locale;
 import java.util.StringTokenizer;
-import java.util.logging.Level;
 
 import javax.print.PrintService;
 import javax.print.PrintServiceLookup;
@@ -96,7 +96,7 @@ public class PrintRegistry extends Registry {
       try {
         set.add(get(Class.forName(attribute), null));
       } catch (Throwable t) {
-        PrintTask.LOG.log(Level.INFO, "Couldn't restore print attribute "+attribute, t);
+        Debug.log(Debug.INFO, this, "Couldn't restore print attribute "+attribute, t);
       }
     }
     

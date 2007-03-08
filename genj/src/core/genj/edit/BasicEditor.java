@@ -19,87 +19,193 @@
  */
 package genj.edit;
 
-import genj.edit.beans.BeanFactory;
 import genj.edit.beans.PropertyBean;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomListenerAdapter;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
-import genj.gedcom.PropertyVisitor;
+import genj.gedcom.PropertyNote;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
-import genj.gedcom.UnitOfWork;
+import genj.gedcom.Transaction;
+import genj.util.ActionDelegate;
+import genj.util.Debug;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.ImageIcon;
-import genj.util.swing.LinkWidget;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.PopupWidget;
-import genj.view.ContextProvider;
-import genj.view.ViewContext;
+import genj.view.Context;
+import genj.window.CloseWindow;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.ContainerOrderFocusTraversalPolicy;
-import java.awt.Dimension;
 import java.awt.FlowLayout;
-import java.io.IOException;
-import java.io.InputStream;
+import java.awt.KeyboardFocusManager;
+import java.awt.Point;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.logging.Level;
+import java.util.StringTokenizer;
 
-import javax.swing.FocusManager;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTabbedPane;
 import javax.swing.LayoutFocusTraversalPolicy;
+import javax.swing.Popup;
+import javax.swing.PopupFactory;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-
-import spin.Spin;
 
 /**
  * The basic version of an editor for a entity. Tries to hide Gedcom complexity from the user while being flexible in what it offers to edit information pertaining to an entity.
  */
-/* package */class BasicEditor extends Editor implements ContextProvider {
+/* package */class BasicEditor extends Editor implements GedcomListener {
 
-  /** keep a cache of descriptors */
-  private static Map FILE2DESCRIPTOR = new HashMap();
+  // templates for entities
+  //
+  //  'INDI'           - label        - Individual
+  //   INDI:BIRT:DATE  - bean         - date of birth
+  //  (INDI:BIRT:NOTE) - wrapped bean - note for birth 
+  //  (?INDI:RESI:PLAC) - wrapped bean - place of residence (if exists)
+  //
+  private final static HashMap TEMPLATES = new HashMap();
   
+  
+  static {
+    
+    TEMPLATES.put(Gedcom.INDI,
+     "'INDI'\n"+
+     " INDI:NAME INDI:SEX\n"+
+     "'INDI:BIRT' (INDI:BIRT:NOTE)\n"+
+     " INDI:BIRT:DATE\n"+
+     " INDI:BIRT:PLAC\n"+
+     "'INDI:DEAT' (INDI:DEAT:NOTE)\n"+
+     " INDI:DEAT:DATE\n"+ 
+     " INDI:DEAT:PLAC\n"+ 
+     "'INDI:OCCU' (INDI:OCCU:NOTE)\n"+
+     " INDI:OCCU\n"+
+     " INDI:OCCU:DATE\n"+
+     " INDI:OCCU:PLAC\n"+
+     "'INDI:RESI' (INDI:RESI:NOTE) (?INDI:RESI:PLAC)\n"+
+     " INDI:RESI:DATE\n"+
+     " INDI:RESI:ADDR\n"+
+     "'INDI:RESI:ADDR:CITY' INDI:RESI:ADDR:CITY\n"+
+     "'INDI:RESI:ADDR:POST' INDI:RESI:ADDR:POST\t"+
+     "'INDI:OBJE'\n"+
+     "'INDI:OBJE:TITL' INDI:OBJE:TITL\n"+
+     " INDI:OBJE:FILE\n"+
+     "'INDI:NOTE'\n"+
+     " INDI:NOTE");
+    
+    TEMPLATES.put(Gedcom.FAM,
+     "'FAM'\n"+
+     "'FAM:MARR' (FAM:MARR:NOTE)\n"+
+     " FAM:MARR:DATE\n"+
+     " FAM:MARR:PLAC\n"+
+     "'FAM:ENGA'\n"+
+     " FAM:ENGA:DATE\n"+
+     " FAM:ENGA:PLAC\n"+
+     "'FAM:DIV'\n"+
+     " FAM:DIV:DATE\n"+
+     " FAM:DIV:PLAC\n"+
+     "'FAM:EVEN'\n"+
+     "'FAM:EVEN:TYPE' FAM:EVEN:TYPE\n"+
+     " FAM:EVEN:DATE\n"+
+     " FAM:EVEN:PLAC\t"+
+     "'FAM:OBJE'\n"+
+     "'FAM:OBJE:TITL' FAM:OBJE:TITL\n"+
+     " FAM:OBJE:FILE\n"+
+     "'FAM:NOTE'\n"+
+     " FAM:NOTE");
+  
+    TEMPLATES.put(Gedcom.OBJE,
+      "'OBJE'\n"+
+      "'OBJE:TITL' OBJE:TITL\n"+
+      "'OBJE:FORM' OBJE:FORM\n"+
+      " OBJE:BLOB\n"+
+      "'OBJE:NOTE'\n"+
+      " OBJE:NOTE");
+    
+    TEMPLATES.put(Gedcom.NOTE,
+      "'NOTE'\n"+
+      " NOTE:NOTE");
+      
+    TEMPLATES.put(Gedcom.REPO,
+      "'REPO'\n"+
+      "'REPO:NAME' REPO:NAME\n"+
+      "'REPO:ADDR'\n"+
+      " REPO:ADDR\n"+
+      "'REPO:ADDR:CITY' REPO:ADDR:CITY\n"+
+      "'REPO:ADDR:POST' REPO:ADDR:POST\n"+
+      "'REPO:NOTE'\n"+
+      " REPO:NOTE");
+    
+    TEMPLATES.put(Gedcom.SOUR,
+      "'SOUR:AUTH'\nSOUR:AUTH\n"+
+      "'SOUR:TITL'\nSOUR:TITL\n"+
+      "'SOUR:TEXT'\nSOUR:TEXT\n"+
+      "'SOUR:OBJE'\n"+
+      "'SOUR:OBJE:TITL' SOUR:OBJE:TITL\n"+
+      " SOUR:OBJE:FILE\n"+
+      "'SOUR:NOTE'\n"+
+      " SOUR:NOTE");
+    
+    TEMPLATES.put(Gedcom.SUBM,
+      "'SUBM:NAME' SUBM:NAME\n"+
+      "'SUBM:ADDR'\n"+
+      " SUBM:ADDR\n"+
+      "'SUBM:ADDR:CITY' SUBM:ADDR:CITY\n"+
+      "'SUBM:ADDR:POST' SUBM:ADDR:POST\n"+
+      "'SUBM:OBJE'\n"+
+      "'SUBM:OBJE:TITL' SUBM:OBJE:TITL\n"+
+      " SUBM:OBJE:FILE\n"+
+      "'SUBM:LANG' SUBM:LANG\n"+
+      "'SUBM:RFN' SUBM:RFN\n"+
+      "'SUBM:RIN' SUBM:RIN");
+  }
+  
+
+  /** colors for tabborders */
+  private final static Color[] COLORS = { Color.GRAY, new Color(192, 48, 48), new Color(48, 48, 128), new Color(48, 128, 48), new Color(48, 128, 128), new Color(128, 48, 128), new Color(96, 64, 32), new Color(32, 64, 96) };
+
   /** our gedcom */
   private Gedcom gedcom = null;
 
   /** current entity */
-  private Entity currentEntity = null;
+  private Entity entity = null;
 
   /** registry */
   private Registry registry;
 
   /** edit */
   private EditView view;
+
+  /** bean container */
+  private JPanel beanPanel;
   
+  /** beans */
+  private List beans = new ArrayList(32);
+
   /** actions */
-  private Action2 ok = new OK(), cancel = new Cancel();
-  
-  /** current panels */
-  private BeanPanel beanPanel;
-  private JPanel buttonPanel;
-  
-  private GedcomListener callback = new Callback();
+  private ActionDelegate ok = new OK(), cancel = new Cancel();
+
+  /** change callback */
+  ChangeListener changeCallback = new ChangeListener() {
+    public void stateChanged(ChangeEvent e) {
+      ok.setEnabled(true);
+      cancel.setEnabled(true);
+    }
+  };
 
   /**
    * Callback - init for edit
@@ -115,15 +221,24 @@ import spin.Spin;
     setFocusTraversalPolicy(new FocusPolicy());
     setFocusCycleRoot(true);
 
+    // create panels for beans and links
+    beanPanel = new JPanel(new NestedBlockLayout(true, 3));
+    beanPanel.setBorder(new EmptyBorder(2,2,2,2));
+
     // create panel for actions
-    buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-    ButtonHelper bh = new ButtonHelper().setInsets(0).setContainer(buttonPanel);
-    bh.create(ok).setFocusable(false);    
-    bh.create(cancel).setFocusable(false);
-    
+    JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    ButtonHelper bh = new ButtonHelper().setInsets(0).setContainer(buttons).setFocusable(false);
+    bh.create(ok);
+    bh.create(cancel);
+
+    // layout
+    setLayout(new BorderLayout());
+    add(new JScrollPane(beanPanel), BorderLayout.CENTER);
+    add(buttons, BorderLayout.SOUTH);
+
     // done
   }
-  
+
   /**
    * Intercepted add notification
    */
@@ -131,199 +246,224 @@ import spin.Spin;
     // let super continue
     super.addNotify();
     // listen to gedcom events
-    gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
-    // done
+    gedcom.addGedcomListener(this);
   }
 
   /**
    * Intercepted remove notification
    */
   public void removeNotify() {
-    // clean up state
-    setEntity(null, null);
     // let super continue
     super.removeNotify();
     // stop listening to gedcom events
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
+    gedcom.removeGedcomListener(this);
   }
 
   /**
+   * Interpret gedcom changes
+   */
+  public void handleChange(Transaction tx) {
+    // are we looking at something?
+    if (entity == null)
+      return;
+    // entity affected?
+    if (tx.get(Transaction.ENTITIES_DELETED).contains(entity)) {
+      setEntity(null);
+      return;
+    }
+    if (tx.get(Transaction.ENTITIES_MODIFIED).contains(entity)) {
+      setEntity(entity);
+    }
+  }
+
+  /**
+   * Callback - context test
+   */
+  public boolean isShowing(Context context) {
+    return context.getGedcom()==gedcom && context.getEntity() == entity;
+  }
+  
+  /**
    * Callback - our current context
    */
-  public ViewContext getContext() {
-    // try to find a bean with focus
-    PropertyBean bean = getFocus();
-    if (bean!=null&&bean.getContext()!=null) 
-      return bean.getContext();
-    // currently edited?
-    if (currentEntity!=null)
-      return new ViewContext(currentEntity);
-    // gedcom at least
-    return new ViewContext(gedcom);
+  public Context getContext() {
+    return new Context(gedcom, entity, null);
   }
 
   /**
    * Callback - set current context
    */
-  public void setContext(ViewContext context) {
+  public void setContext(Context context) {
     
-    // a different entity to look at?
-    if (currentEntity != context.getEntity()) {
-      
-      // change entity being edited
-      setEntity(context.getEntity(), context.getProperty());
-      
-    } else {
+    // something to be committed?
+    if (!gedcom.isTransaction()&&entity!=null&&ok.isEnabled()&&view.isCommitChanges()) 
+      ok.trigger();
 
-      // simply change focus if possible
-      if (beanPanel!=null)
-        beanPanel.select(context.getProperty());
-      
+    // set if new
+    Entity set = context.getEntity();
+    if (entity != set)
+      setEntity(set);
+
+    // select 1st/appropriate bean for property from context
+    TagPath path = null;
+    Property prop = context.getProperty();
+    if (prop!=null)
+      path = prop.getPath();
+    for (int i=0,j=beanPanel.getComponentCount();i<j;i++) {
+      JComponent c = (JComponent)beanPanel.getComponent(i);
+      if (c instanceof PropertyBean && (path==null || path.length()==1 || ((PropertyBean)c).getPath().equals(path))) {
+        c.requestFocusInWindow();
+        break;
+      }
     }
-
+    
     // done
   }
-  
+
   /**
    * Set current entity
    */
-  public void setEntity(Entity set, Property focus) {
-    
-    // commit what needs to be committed
-    if (!gedcom.isWriteLocked()&&currentEntity!=null&&ok.isEnabled()&&view.isCommitChanges()) 
-      ok.trigger();
+  private void setEntity(Entity set) {
 
     // remember
-    currentEntity = set;
-    
-    // try to find focus receiver if need be
-    if (focus==null) {
-      // last bean's property would be most appropriate
-      PropertyBean bean = getFocus();
-      if (bean!=null&&bean.getProperty()!=null&&bean.getProperty().getEntity()==currentEntity) focus  = bean.getProperty();
-      // fallback to entity itself
-      if (focus==null) focus = currentEntity;
-    }
-    
-    // remove all we've setup to this point
-    if (beanPanel!=null) {
-      removeAll();
-      beanPanel=null;
-    }
+    entity = set;
 
-    // set it up anew
-    if (currentEntity!=null) {
-      
-      try {
-        beanPanel = new BeanPanel();
-        
-        setLayout(new BorderLayout());
-        add(BorderLayout.CENTER, new JScrollPane(beanPanel));
-        add(BorderLayout.SOUTH, buttonPanel);
+    // remove all current beans
+    beanPanel.removeAll();
+    beans.clear();
 
-      } catch (Throwable t) {
-        EditView.LOG.log(Level.SEVERE, "problem changing entity", t);
-      }
+    // setup for new entity
+    if (entity!=null) 
+      createBeans(entity);
 
-      // start without ok and cancel
-      ok.setEnabled(false);
-      cancel.setEnabled(false);
+    // start without ok and cancel
+    ok.setEnabled(false);
+    cancel.setEnabled(false);
 
-    }
-    
     // show
     revalidate();
     repaint();
-    
-    // set focus
-    if (beanPanel!=null)
-      beanPanel.select(focus);
 
     // done
   }
   
   /**
-   * Find currently focussed PropertyBean
+   * create a bean
    */
-  private PropertyBean getFocus() {
+  private PropertyBean createBean(Entity entity, TagPath path) {
     
-    Component focus = FocusManager.getCurrentManager().getFocusOwner();
-    while (focus!=null&&!(focus instanceof PropertyBean))
-      focus = focus.getParent();
-    
-    if (!(focus instanceof PropertyBean))
-      return null;
-    
-    return SwingUtilities.isDescendingFrom(focus, this) ? (PropertyBean)focus : null;
+    MetaProperty meta = MetaProperty.get(path);
 
-  }
-
-  /**
-   * Find a descriptor for given property
-   * @return private copy descriptor or null if n/a
-   */
-  private static NestedBlockLayout getSharedDescriptor(MetaProperty meta) {
-    
-    // compute appropiate file name for entity or property
-    String file  = "descriptors/" + (meta.isEntity() ? "entities" : "properties") + "/" + meta.getTag()+".xml";
-    
-    // got a cached one already?
-    NestedBlockLayout descriptor  = (NestedBlockLayout)FILE2DESCRIPTOR.get(file);
-    if (descriptor==null) {
-      
-      // hmm, already determined we don't have one?
-      if (FILE2DESCRIPTOR.containsKey(file))
-        return null;
-
-      // try to read a descriptor - TAG.xml or Type.xml
-      InputStream in = BasicEditor.class.getResourceAsStream(file);
-      if (in==null) 
-        in = BasicEditor.class.getResourceAsStream("descriptors/properties/"+meta.getType().getName().substring("genj.gedcom.".length())+".xml");
-      if (in!=null) try {
-        descriptor = new NestedBlockLayout(in);
-      } catch (IOException e) {
-        EditView.LOG.log(Level.SEVERE, "problem reading descriptor "+file, e);
+    // resolve prop & bean
+    Property prop = entity.getProperty(path);
+    for (int s=0;prop instanceof PropertyXRef;s++) {
+      // we know how to handle a PropertyNote
+      if (prop instanceof PropertyNote) {
+        prop = prop.getProperty(new TagPath("*:..:NOTE"));
+        if (prop!=null)
+          break;
       }
-
-      // cache it
-      FILE2DESCRIPTOR.put(file, descriptor);
+      // try next
+      prop = entity.getProperty(new TagPath(path, path.length()-1, s));
     }
-
-    // return private copy
-    return descriptor;
+    
+    // .. fallback to newly created one?
+    if (prop == null)
+      prop = meta.create("");
+    
+    PropertyBean bean = PropertyBean.get(prop);
+    bean.init(entity.getGedcom(), prop, path, view.getViewManager(), registry);
+    bean.addChangeListener(changeCallback);
+    
+    // remember
+    beans.add(bean);
+    
+    // done
+    return bean;
   }
   
   /**
-   * A proxy for a property - it can be used as a container
-   * for temporary sub-properties that are not committed to
-   * the proxied context 
+   * parse entity and path
    */
-  private static class PropertyProxy extends Property {
-    private Property proxied;
-    /** constructor */
-    private PropertyProxy(Property prop) {
-      this.proxied = prop;
-    }
-    public Property getProxied() {
-      return proxied;
-    }
-    public boolean isContained(Property in) {
-      return proxied==in ? true : proxied.isContained(in);
-    }
-    public Gedcom getGedcom() { return proxied.getGedcom(); }
-    public String getValue() { throw new IllegalArgumentException(); };
-    public void setValue(String val) { throw new IllegalArgumentException(); };
-    public String getTag() { return proxied.getTag(); }
-    public TagPath getPath() { return proxied.getPath(); }
-    public MetaProperty getMetaProperty() { return proxied.getMetaProperty(); }
-  }
+  private void createBeans(Entity entity, String path) {
+  
+    // a label e.g. 'INDI'?
+    if (path.startsWith("'")&&path.endsWith("'")) {
+      path = path.substring(1, path.length()-1);
+      // add label
+      MetaProperty meta = MetaProperty.get(new TagPath(path));
+      if (Entity.class.isAssignableFrom(meta.getType()))
+        beanPanel.add(new JLabel(meta.getName() + ' ' + entity.getId(), entity.getImage(false), SwingConstants.LEFT));
+      else
+        beanPanel.add(new JLabel(meta.getName()));
+      // done
+      return;
+    } 
     
+    // a wrapped bean e.g. (INDI:BIRT:NOTE) or conditional (?INDI:BIRT:NOTE) ?
+    if (path.startsWith("(")&&path.endsWith(")")) {
+      path = path.substring(1, path.length()-1);
+      if (path.startsWith("?")) {
+        path = path.substring(1);
+        if (entity.getProperty(new TagPath(path))==null)
+          return;
+      }
+      PopupBean popup = new PopupBean(createBean(entity, new TagPath(path)));
+      beanPanel.add(popup);
+      // done
+      return;
+    }
+    
+    // standard bean e.g. INDI:NAME!
+    PropertyBean bean = createBean(entity, new TagPath(path));
+    beanPanel.add(bean, bean.getWeight());
+
+    // done
+  }
+  
+  /**
+   * setup bean panel
+   */
+  private void createBeans(Entity entity) {
+
+    NestedBlockLayout layout = (NestedBlockLayout)beanPanel.getLayout();
+
+    // apply template
+    String template = (String)TEMPLATES.get(entity.getTag());
+    if (template==null)
+      return;
+    
+    StringTokenizer rows = new StringTokenizer(template, "\n\t", true);
+    while (rows.hasMoreTokens()) {
+      String row = rows.nextToken();
+      // new row?
+      if (row.equals("\n")) {
+        layout.createBlock(1);
+        continue;
+      }
+      // new column?
+      if (row.equals("\t")) {
+        layout.createBlock(0);
+        continue;
+      }
+      // parse elements
+      StringTokenizer paths = new StringTokenizer(row, " ");
+      while (paths.hasMoreTokens()) 
+        createBeans(entity, paths.nextToken().trim());
+      // next row
+    }
+
+    // done
+  }
+
   /**
    * A 'bean' we use for groups
    */
-  private class PopupBean extends PopupWidget {
+  private class PopupBean extends PopupWidget implements PropertyChangeListener {
     
     private PropertyBean wrapped;
+    
+    private Popup popup = null;
     
     /**
      * constructor
@@ -332,35 +472,58 @@ import spin.Spin;
       
       // remember wrapped
       this.wrapped = wrapped;
-      wrapped.setAlignmentX(0);
       
       // prepare image
       Property prop = wrapped.getProperty();
       ImageIcon img = prop.getImage(false);
-      if (prop.getValue().length()==0)
+      if (prop.getParent()==null)
         img = img.getDisabled(50);
       setIcon(img);
-      setToolTipText(prop.getPropertyName());
-      
+      setToolTipText(wrapped.getProperty().getPropertyName());
+  
       // fix looks
       setFocusable(false);
       setBorder(null);
       
-      // prepare 'actions'
-      List actions = new ArrayList();
-      actions.add(new JLabel(prop.getPropertyName()));
-      actions.add(wrapped);
-      setActions(actions);
-
       // done
     }
     
-    /**
-     * intercept popup
-     */
+    /** lifecycle callback */
+    public void addNotify() {
+      // list to focus changes
+      KeyboardFocusManager.getCurrentKeyboardFocusManager().addPropertyChangeListener("focusOwner", this);
+      // continue
+      super.addNotify();
+    }
+    
+    /** lifecycle callback */
+    public void removeNotify() {
+      // still a popup showing?
+      if (popup!=null) {
+        popup.hide();
+        popup = null;
+      }
+      // stop listening to focus changes
+      KeyboardFocusManager.getCurrentKeyboardFocusManager().removePropertyChangeListener("focusOwner", this);
+      // continue
+      super.removeNotify();
+    }
+    /** button press callback */
     public void showPopup() {
-      // let super do its thing
-      super.showPopup();
+
+      // clear current?
+      if (popup!=null) {
+        popup.hide();
+        popup=null;
+      }
+      // prepare a panel with wrapped
+      JPanel content = new JPanel(new BorderLayout());
+      content.add(new JLabel(wrapped.getProperty().getPropertyName()), BorderLayout.NORTH);
+      content.add(wrapped, BorderLayout.CENTER);
+      // show popup
+      Point pos = getLocationOnScreen();
+      popup = PopupFactory.getSharedInstance().getPopup(this, content, pos.x+getWidth(), pos.y);
+      popup.show();
       // request focus
       SwingUtilities.getWindowAncestor(wrapped).setFocusableWindowState(true);
       wrapped.requestFocus();
@@ -368,46 +531,88 @@ import spin.Spin;
       setIcon(wrapped.getProperty().getImage(false));
     }
     
-      
+    /** 
+     * focus property change notification 
+     * (this doesn't seem to be invoke in Java 1.4.1 with a user clicking on a textfield)
+     */
+    public void propertyChange(PropertyChangeEvent evt) {
+      // popup visible?
+      if (popup==null)
+        return;
+      // a new focus owner?
+      if (evt.getNewValue()==null)
+        return;
+      // a sub-component of this?
+      Component focus = (Component)evt.getNewValue();
+      while (true) {
+        if (focus==wrapped) 
+          return;
+        if (focus==null)
+          break;
+        focus = focus.getParent();
+      }
+      // get rid of popup
+      popup.hide();
+      popup = null;
+      // done
+    }        
   } //Label
   
   /**
    * A ok action
    */
-  private class OK extends Action2 {
+  private class OK extends ActionDelegate {
 
     /** constructor */
     private OK() {
-      setText(Action2.TXT_OK);
+      setText(CloseWindow.TXT_OK);
     }
 
     /** cancel current proxy */
     protected void execute() {
-      
-      // bean panel?
-      if (beanPanel==null)
-        return;
-      
-      // commit changes (without listing to the change itself)
+
+      // commit changes
+      Transaction tx = gedcom.startTransaction();
+
+      // commit bean changes
       try {
-        gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
-        gedcom.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) {
-            beanPanel.commit();
-          }
-        });
-      } finally {
-        gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
+        for (int i=0,j=beans.size();i<j;i++) {
+          PropertyBean bean = (PropertyBean)beans.get(i);
+          bean.commit(tx);
+          Property prop = bean.getProperty();
+          TagPath path = bean.getPath();
+          if (prop.getValue().length() > 0 && prop.getParent() == null)
+            add(prop, path, path.length());
+        }
+      } catch (Throwable t) {
+        Debug.log(Debug.ERROR, this, t);
       }
 
-      // lookup current focus now (any temporary props are committed now)
-      PropertyBean focussedBean = getFocus();
-      Property focus = focussedBean !=null ? focussedBean.getProperty() : null;
+      // end transaction - fake entity==null because we're doing the change here
+      Entity old = entity;
+      entity = null;
+      gedcom.endTransaction();
+      entity = old;
+
+      // disable commit/cancel since all changes are committed
+      ok.setEnabled(false);
+      cancel.setEnabled(false);
       
-      // set selection
-      beanPanel.select(focus);
+      // done
+    }
+
+    private Property add(Property prop, TagPath path, int len) {
+
+      TagPath ppath = new TagPath(path, len - 1);
+      Property parent = entity.getProperty(ppath);
+      if (parent == null)
+        parent = add(MetaProperty.get(ppath).create(""), path, len - 1);
+
+      // add it
+      parent.addProperty(prop);
 
       // done
+      return prop;
     }
 
   } //OK
@@ -415,11 +620,11 @@ import spin.Spin;
   /**
    * A cancel action
    */
-  private class Cancel extends Action2 {
+  private class Cancel extends ActionDelegate {
 
     /** constructor */
     private Cancel() {
-      setText(Action2.TXT_CANCEL);
+      setText(CloseWindow.TXT_CANCEL);
     }
 
     /** cancel current proxy */
@@ -429,7 +634,7 @@ import spin.Spin;
       cancel.setEnabled(false);
 
       // re-set for cancel
-      setEntity(currentEntity, null);
+      setEntity(entity);
     }
 
   } //Cancel
@@ -457,454 +662,5 @@ import spin.Spin;
       }
     }
   } //FocusPolicy
-  
-  /**
-   * A panel containing all the beans for editing
-   */
-  private class BeanPanel extends JPanel implements ChangeListener {
-
-    /** top level tags */
-    private Set topLevelTags = new HashSet();
-    
-    /** beans */
-    private List beans = new ArrayList(32);
-    
-    /** tabs */
-    private JTabbedPane tabs;
-    
-    /** constructor */
-    BeanPanel() {
-      
-      // grab a descriptor
-      NestedBlockLayout descriptor = getSharedDescriptor(currentEntity.getMetaProperty()).copy();
-      
-      // parse entity descriptor
-      parse(this, currentEntity, getSharedDescriptor(currentEntity.getMetaProperty()).copy() );
-      
-      // done
-    }
-    
-    /**
-     * destructor - call when panel isn't needed anymore 
-     */
-    public void removeNotify() {
-      
-      super.removeNotify();
-      
-      // get rid of all beans
-      removeAll();
-      
-      // recycle beans
-      BeanFactory factory = view.getBeanFactory();
-      for (Iterator it=beans.iterator(); it.hasNext(); ) {
-        PropertyBean bean = (PropertyBean)it.next();
-        try {
-          bean.removeChangeListener(this);
-          factory.recycle(bean);
-        } catch (Throwable t) {
-          EditView.LOG.log(Level.WARNING, "Problem cleaning up bean "+bean, t);
-        }
-      }
-      beans.clear();
-      
-      // done
-    }
-    
-    /**
-     * commit beans - transaction has to be running already
-     */
-    void commit() {
-      
-      // loop over beans 
-      try{
-        for (Iterator it = beans.iterator(); it.hasNext();) {
-          // check next
-          PropertyBean bean = (PropertyBean)it.next();
-          if (bean.hasChanged()&&bean.getProperty()!=null) {
-            Property prop = bean.getProperty();
-            // proxied?
-            PropertyProxy proxy = (PropertyProxy)prop.getContaining(PropertyProxy.class);
-            if (proxy!=null) 
-              prop = proxy.getProxied().setValue(prop.getPathToContaining(proxy), "");
-            // commit its changes
-            bean.commit(prop);
-            // next
-          }
-        }
-      } finally {
-        ok.setEnabled(false);
-      }
-      // done
-    }
-    
-    /**
-     * Select a property's bean
-     */
-    void select(Property prop) {
-      if (prop==null||beans.isEmpty())
-        return;
-      
-      // look for appropriate bean showing prop
-      for (Iterator it=beans.iterator(); it.hasNext(); ) {
-        PropertyBean bean = (PropertyBean)it.next();
-        if (bean.getProperty()==prop) {
-          bean.requestFocusInWindow();
-          return;
-        }
-      }
-      
-      // check if one of the beans' properties is contained in prop
-      for (Iterator it=beans.iterator(); it.hasNext(); ) {
-        PropertyBean bean = (PropertyBean)it.next();
-        if (bean.isDisplayable() && bean.getProperty()!=null && bean.getProperty().isContained(prop)) {
-          bean.requestFocusInWindow();
-          return;
-        }
-      }
-      
-      // otherwise use first bean
-      PropertyBean first = (PropertyBean)beans.get(0);
-      first.requestFocusInWindow();
-      
-      // done
-    }
-
-    /**
-     * ChangeListener callback - a bean tells us about a change made by the user
-     */
-    public void stateChanged(ChangeEvent e) {
-      ok.setEnabled(true);
-      cancel.setEnabled(true);
-    }
-    
-    /**
-     * Parse descriptor
-     */
-    private void parse(JPanel panel, Property root, NestedBlockLayout descriptor)  {
-
-      panel.setLayout(descriptor);
-      
-      // first look for all top level tags we're creating a bean for
-      for (Iterator cells = descriptor.getCells().iterator(); cells.hasNext(); ) {
-        NestedBlockLayout.Cell cell = (NestedBlockLayout.Cell)cells.next();
-        if (!cell.getElement().equals("bean"))
-          continue;
-        String path = cell.getAttribute("path");
-        if (root instanceof Entity&&path!=null && path.indexOf(TagPath.SEPARATOR)>=0)
-          topLevelTags.add(new TagPath(path).get(1));
-      }
-      
-      // fill cells with beans
-      for (Iterator cells = descriptor.getCells().iterator(); cells.hasNext(); ) {
-        NestedBlockLayout.Cell cell = (NestedBlockLayout.Cell)cells.next();
-        JComponent comp = createComponent(root, cell);
-        if (comp!=null) 
-          panel.add(comp, cell);
-      }
-      
-      // done
-    }
-    
-    /**
-     * Create a component for given cell
-     */
-    private JComponent createComponent(Property root, NestedBlockLayout.Cell cell) {
-      
-      String element = cell.getElement();
-      
-      // tabs?
-      if ("tabs".equals(element))
-        return createTabs();
-      
-      // prepare some info and state
-      TagPath path = new TagPath(cell.getAttribute("path"));
-      MetaProperty meta = root.getMetaProperty().getNestedRecursively(path, false);
-      
-      // conditional?
-      if (cell.getAttribute("ifexists")!=null&&root.getProperty(path)==null)
-          return null;
-      
-      // a label?
-      if ("label".equals(element)) {
-
-        JLabel label;
-        if (path.length()==1&&path.getLast().equals(currentEntity.getTag()))
-          label = new JLabel(meta.getName() + ' ' + currentEntity.getId(), currentEntity.getImage(false), SwingConstants.LEFT);
-        else
-          label = new JLabel(meta.getName(cell.isAttribute("plural")), meta.getImage(), SwingConstants.LEFT);
-
-        return label;
-      }
-      
-      // a bean?
-      if ("bean".equals(element)) {
-        // create bean
-        PropertyBean bean = createBean(root, path, meta, cell.getAttribute("type"));
-        if (bean==null)
-          return null;
-        // finally wrap in popup if requested?
-        return cell.getAttribute("popup")==null ? bean : (JComponent)new PopupBean(bean);
-      }
-
-      // bug in the descriptor
-      throw new IllegalArgumentException("Template element "+cell.getElement()+" is unkown");
-    }
-    
-    /**
-     * create a bean
-     * @param root we need the bean for
-     * @param path path to property we need bean for
-     * @param explicit bean type
-     */
-    private PropertyBean createBean(Property root, TagPath path, MetaProperty meta, String beanOverride) {
-
-      // try to resolve existing prop - this has to be a property along
-      // the first possible path to avoid that in this case:
-      //  INDI
-      //   BIRT
-      //    DATE sometime
-      //   BIRT
-      //    PLAC somewhere
-      // the result of INDI:BIRT:DATE/INDI:BIRT:PLAC is
-      //   somtime/somewhere
-      
-      final Property[] _prop = new Property[1];
-      path.iterate(root, new PropertyVisitor() {
-        protected boolean leaf(Property leaf) {
-          // continue in case of xref - can't use those
-          if (leaf instanceof PropertyXRef)
-            return true;
-          // keep it otherwise
-          _prop[0] = leaf;
-          // done
-          return false;
-        }
-      });
-      Property prop = _prop[0];
-      
-      // addressed property doesn't exist yet? create a proxy that mirrors
-      // the root and add create a temporary holder (enjoys the necessary
-      // context - namely gedcom)
-      if (prop==null) 
-        prop = new PropertyProxy(root).setValue(path, "");
-
-      // create bean for property
-      BeanFactory factory = view.getBeanFactory();
-      PropertyBean bean = beanOverride==null ? factory.get(prop) : factory.get(beanOverride, prop);
-      bean.addChangeListener(this);
-      beans.add(bean);
-      
-      // done
-      return bean;
-    }
-    
-    /**
-     * Create tabs for top-level properties of root (can only happen once)
-     */
-    private JTabbedPane createTabs() {
-      
-      // already done?
-      if (tabs!=null)
-        throw new IllegalArgumentException("tabs can't be generated twice");
-      
-      // 'create' tab panel
-      tabs = new JTabbedPane(JTabbedPane.TOP, JTabbedPane.WRAP_TAB_LAYOUT);
-      tabs.putClientProperty(ContextProvider.class, new ContextProvider() {
-        public ViewContext getContext() {
-          // check if tab for property
-          Component selection = tabs.getSelectedComponent();
-          if (!(selection instanceof JComponent))
-            return null;
-          Property prop = (Property)((JComponent)selection).getClientProperty(Property.class);
-          if (prop==null)
-            return null;
-          // provide a context with delete
-          return new ViewContext(prop).addAction(new DelTab(prop));
-        }
-      });
-      
-      // create all tabs
-      Set skippedTags = new HashSet();
-      for (int i=0, j=currentEntity.getNoOfProperties(); i<j; i++) {
-        Property prop = currentEntity.getProperty(i);
-        // check tag - skipped or covered already?
-        String tag = prop.getTag();
-        if (skippedTags.add(tag)&&topLevelTags.contains(tag)) 
-          continue;
-        topLevelTags.add(tag);
-        // create a tab for it
-        createTab(prop);
-        // next
-      }
-      
-      // 'create' a tab for creating new properties
-      JPanel newTab = new JPanel(new FlowLayout(FlowLayout.LEFT));
-      newTab.setPreferredSize(new Dimension(64,64));
-      tabs.addTab("", Images.imgNew, newTab);
-      
-      // add buttons for creating sub-properties 
-      MetaProperty[] nested = currentEntity.getNestedMetaProperties(MetaProperty.FILTER_NOT_HIDDEN);
-      Arrays.sort(nested);
-      for (int i=0;i<nested.length;i++) {
-        MetaProperty meta = nested[i];
-        // if there's a descriptor for it
-        NestedBlockLayout descriptor = getSharedDescriptor(meta);
-        if (descriptor==null)
-          continue;
-        // .. and if there's no other already with isSingleton
-        if (topLevelTags.contains(meta.getTag())&&meta.isSingleton())
-          continue;
-        // create a button for it
-        newTab.add(new LinkWidget(new AddTab(meta)));
-      }
-    
-      // done
-      return tabs;
-    }
-    
-    /**
-    * Create a tab
-    */
-   private void createTab(Property prop) {
-     
-     // show simple xref bean for PropertyXRef
-     if (prop instanceof PropertyXRef) {
-       // don't create tabs for individuals and families
-       try {
-         String tt = ((PropertyXRef)prop).getTargetType();
-         if (tt.equals(Gedcom.INDI)||tt.equals(Gedcom.FAM))
-           return;
-       } catch (IllegalArgumentException e) {
-         // huh? non target type? (like in case of a foreign xref) ... ignore this prop
-         return;
-       }
-       // add a tab for anything else
-       tabs.insertTab(prop.getPropertyName(), prop.getImage(false), view.getBeanFactory().get(prop), prop.getPropertyInfo(), 0);
-       return;
-     }
-     
-     // got a descriptor for it?
-     MetaProperty meta = prop.getMetaProperty();
-     NestedBlockLayout descriptor = getSharedDescriptor(meta);
-     if (descriptor==null) 
-       return;
-     
-     // create the panel
-     JPanel tab = new JPanel();
-     tab.putClientProperty(Property.class, prop);
-
-     parse(tab, prop, descriptor.copy());
-     tabs.insertTab(meta.getName() + prop.format("{ $y}"), prop.getImage(false), tab, meta.getInfo(), 0);
-
-     // done
-   }
-    
-  } //BeanPanel
-  
-  /** An action for adding 'new tabs' */
-  private class AddTab extends Action2 {
-    
-    private MetaProperty meta;
-    
-    /** constructor */
-    private AddTab(MetaProperty meta) {
-      // remember
-      this.meta = meta;
-      // looks
-      setText(meta.getName());
-      setImage(meta.getImage());
-      setTip(meta.getInfo());
-    }
-  
-    /** callback initiate create */
-    protected void execute() {
-      
-      // safety check
-      if (currentEntity==null)
-        return;
-      
-      gedcom.doMuteUnitOfWork(new UnitOfWork() {
-        public void perform(Gedcom gedcom) {
-          
-          // commit bean changes
-          if (ok.isEnabled()&&view.isCommitChanges()) 
-            beanPanel.commit();
-          
-          // add property for tab
-          Property tab = currentEntity.addProperty(meta.getTag(), "");
-          // find panel for our new property
-          if (beanPanel!=null)
-            beanPanel.select(tab);
-        }
-      });
-      
-      // done
-    }
-    
-  } //ActionNewTab
-  
-  /**
-   * A remove tab action
-   */
-  private class DelTab extends Action2 {
-    private Property prop;
-    private DelTab(Property prop) {
-      setText(EditView.resources.getString("action.del", prop.getPropertyName()));
-      setImage(Images.imgCut);
-      this.prop = prop;
-    }
-   protected void execute() {
-     
-     // safety check
-     if (currentEntity==null)
-       return;
-     
-     gedcom.doMuteUnitOfWork(new UnitOfWork() {
-       public void perform(Gedcom gedcom) {
-         
-         // commit bean changes
-         if (ok.isEnabled()&&view.isCommitChanges()) 
-           beanPanel.commit();
-         
-         // delete property
-         prop.getParent().delProperty(prop);
-         
-       }
-     });
-     
-
-     // done
-   }
- }
-
-  /**
-   * our gedcom callback for others changing the gedcom information
-   */
-  private class Callback extends GedcomListenerAdapter {
-    
-    private Property setFocus;
-    
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-      setFocus = null;
-    }
-    
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
-      setEntity(currentEntity, setFocus);
-    }
-    
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      if (currentEntity==entity)
-        currentEntity = null;
-    }
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      if (property.getEntity()==currentEntity) {
-        setFocus = added;
-      }
-    }
-    public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      if (property.getEntity()==currentEntity)
-        setFocus = property;
-    }
-  };
   
 } //BasicEditor

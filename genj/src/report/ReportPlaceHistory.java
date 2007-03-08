@@ -14,11 +14,10 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Indi;
 import genj.gedcom.Property;
+import genj.gedcom.PropertyChoiceValue;
 import genj.gedcom.PropertyDate;
-import genj.gedcom.PropertyPlace;
 import genj.gedcom.time.PointInTime;
 import genj.report.Report;
-import genj.util.DirectAccessTokenizer;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -28,14 +27,14 @@ import java.util.Map;
  * Show a chart of places over time
  */
 public class ReportPlaceHistory extends Report {
-
-  private final static String
+  
+  private final static String 
   	PLAC = "PLAC",
   	DATE = "DATE";
-
+  
   /** top n */
   private int topn = 10;
-
+  
   /** resolution */
   private int resolution = 10;
 
@@ -45,7 +44,7 @@ public class ReportPlaceHistory extends Report {
   public int getTopn() {
     return topn;
   }
-
+  
   /**
    * Accessor - top n
    */
@@ -59,64 +58,59 @@ public class ReportPlaceHistory extends Report {
   public boolean usesStandardOut() {
     return false;
   }
-
+  
   /**
    * Report's main
    */
-  public void start(Gedcom gedcom) {
-
-    // check for place format / jurisdiction to look at
-    int jurisdiction = 0;
-    String format  = gedcom.getPlaceFormat();
-    if (format.length()>0) {
-      String [] jurisdictions = new DirectAccessTokenizer(format,PropertyPlace.JURISDICTION_SEPARATOR).getTokens(true);
-      if (jurisdictions.length>0) {
-        Object choice = getValueFromUser(translate("jurisdiction"), jurisdictions, jurisdictions[0]);
-        if (choice==null) return;
-        for (int i=0; i<jurisdictions.length; i++) if (jurisdictions[i]==choice) jurisdiction = i;
-      }
-    }
-
+  public void start(Object context) {
+    
+    // assuming Gedcom
+    Gedcom gedcom = (Gedcom)context;
+    
     // find series for the top n places
-    Map plac2series = getSeriesForPlaces(gedcom, jurisdiction);
-
+    Map plac2series = getSeriesForPlaces(gedcom);
+    
     // loop over individuals
     Iterator indis = gedcom.getEntities(Gedcom.INDI).iterator();
     while (indis.hasNext()) {
-      analyze((Indi)indis.next(), plac2series, jurisdiction);
+      analyze((Indi)indis.next(), plac2series);
     }
-
+    
     // loop over families
     Iterator fams = gedcom.getEntities(Gedcom.FAM).iterator();
     while (fams.hasNext()) {
-      analyze((Fam)fams.next(), plac2series, jurisdiction);
+      analyze((Fam)fams.next(), plac2series);
     }
-
+    
     // get the series array
     XYSeries[] series = new XYSeries[plac2series.size()];
     plac2series.values().toArray(series);
-
+    
     // show it
-    String title = translate("title", gedcom.getName());
-    String xaxis = translate("xaxis", resolution);
-    String yaxis = translate("yaxis");
+    String title = i18n("title", gedcom.getName());
+    String xaxis = i18n("xaxis", resolution);
+    String yaxis = i18n("yaxis");
     Chart chart = new Chart(title, xaxis, yaxis, series, null, true);
     showChartToUser(chart);
 
     // done
   }
-
+  
   /**
    * Analyze indi or fam
    */
-  private void analyze(Entity ent, Map plac2series, int jurisdiction) {
-
+  private void analyze(Entity ent, Map plac2series) {
+    
     // look into entity's PropertyChoiceValues
-    Iterator it = ent.getProperties(PropertyPlace.class).iterator();
+    Iterator it = ent.getProperties(PropertyChoiceValue.class).iterator();
     while (it.hasNext()) {
+      // see whether it's a PLACe
+      PropertyChoiceValue place = (PropertyChoiceValue)it.next();
+      if (!PLAC.equals(place.getTag()))
+        continue;
       // check whether we have a series for that PLACe
-      PropertyPlace place = (PropertyPlace)it.next();
-      XYSeries series = (XYSeries)plac2series.get(place.getJurisdiction(jurisdiction));
+      String value = place.getValue();
+      XYSeries series = (XYSeries)plac2series.get(value);
       if (series==null)
         continue;
       // look for a date we could use
@@ -127,34 +121,32 @@ public class ReportPlaceHistory extends Report {
       // try to add it to series
       try {
 	      int year = ((PropertyDate)date).getStart().getPointInTime(PointInTime.GREGORIAN).getYear();
-	      if (year!=PointInTime.UNKNOWN) {
+	      if (year!=PointInTime.UNKNOWN)
 	        series.inc( year/resolution*resolution );
-            System.out.println(year);
-          }
       } catch (GedcomException e) {
         // ignore dates where we can't get a GREGORIAN time
       }
     }
-
+    
     // done
   }
-
+  
   /**
    * Find the top n places and create series for them
    */
-  private Map getSeriesForPlaces(Gedcom gedcom, int jurisdiction) {
-
+  private Map getSeriesForPlaces(Gedcom gedcom) {
+    
     // find what values are in gedcom for PLAC (sorted by ranking)
-    String[] jurisdictions = PropertyPlace.getAllJurisdictions(gedcom, jurisdiction, false);
-
+    String[] values = PropertyChoiceValue.getChoices(gedcom, PLAC, false);
+    
     // create series for the top n
     Map result = new HashMap();
-    for (int s=jurisdictions.length-1, i=0; s>=0&&i<topn; s--,i++) {
-      result.put(jurisdictions[s], new XYSeries(jurisdictions[s]));
+    for (int s=values.length-1, i=0; s>=0&&i<topn; s--,i++) {
+      result.put(values[s], new XYSeries(values[s]));
     }
-
+    
     // done
     return result;
   }
-
+  
 } //ReportPlaceHistory

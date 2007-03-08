@@ -7,11 +7,6 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
- /*
-  * TODO Daniel: add start(Indi) and start(Indi[]) entry points
-  * TODO Daniel: print pedigree chart for trees less than ???
-  * TODO Daniel: print additionnal info (ox+) for each indi
-  */
 
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
@@ -19,14 +14,9 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.Indi;
 import genj.report.Report;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.Stack;
+import java.util.Comparator;
+import java.util.Hashtable;
 
 
 /**
@@ -37,230 +27,196 @@ import java.util.Stack;
  * @version 1.01
  */
 public class ReportTrees extends Report {
-
+    
     /**
      * interface when available
      */
     public int minGroupSize = 2;  // Don't print groups with size less than this
-    public int maxGroupSize = 20;
-
+    
+    /** this report's version */
+    static final String VERSION = "1.01";
+    
+    /**
+     * Returns the version of this script
+     */
+    public String getVersion() {
+        return VERSION;
+    }
+    
+    /**
+     * Returns the name of this report - should be localized.
+     */
+    public String getName() {
+        return i18n("reportname");
+    }
+    
+    /**
+     * Author
+     */
+    public String getAuthor() {
+        return "Tom Morris";
+    }
+    
+    /**
+     * Some information about this report
+     * @return Information as String
+     */
+    public String getInfo() {
+        return i18n("description");
+    }
+    
+    private static class Statistics{
+        int numTrees = 0;
+        AncTree[] trees;
+        Hashtable seen;
+        
+        Statistics(int maxsize) {
+            trees = new AncTree[maxsize];
+            seen = new Hashtable(maxsize);
+        }
+    }
+    
+    private static class AncTree {
+        int count;    // total number of connected people
+        String name;  // name of first person encountered
+    }
+    
     /**
      * This method actually starts this report
      */
-    public void start(Gedcom gedcom) {
-
-		String title = translate("fileheader",gedcom.getName());
-        // Get a list of the individuals
+    public void start(Object context) {
+        Gedcom gedcom = (Gedcom)context;
+        
+        // Get a list of the individuals and create a stati
         Entity[] indis = gedcom.getEntities(Gedcom.INDI, "INDI:NAME");
-
-        println(title);
-
-        // Step through all the Individuals we haven't seen yet
-        println(translate("indicount",indis.length)+"\n");
-
-
-        HashSet unvisited = new HashSet(Arrays.asList(indis));
-        start(indis,unvisited);
-	}
-
-  /**
-   * Main for argument individual
-   */
-  public void start(Indi indi) {
-
-      println( translate("indiheader",indi.getName()));
-      println();
-
-    HashSet unvisited = new HashSet(Arrays.asList(indi.getGedcom().getEntities(Gedcom.INDI, "INDI:NAME")));
-
-    start( new Indi[] { indi }, unvisited);
-  }
-
-  public void start(Indi[] indis) {
-      println(translate("indisheader",indis.length));
-
-      for (int i=0; i<indis.length; i++) {
-          println ("- "+indis[i].getName());
-      }
-      println();
-
-      // Get a list of the individuals
-    HashSet unvisited = new HashSet(Arrays.asList(indis[0].getGedcom().getEntities(Gedcom.INDI, "INDI:NAME")));
-      start(indis,unvisited);
-    }
-
-  public void start(Entity[] indis, HashSet allIndis) {
-        HashSet unvisited = new HashSet(Arrays.asList(indis));
-        List trees = new ArrayList();
-        while (!unvisited.isEmpty()) {
-          Indi indi = (Indi)unvisited.iterator().next();
-
-          // start a new sub-tree
-          Tree tree = new Tree();
-
-          // indi has been visited now
-          unvisited.remove(indi);
-
-          // collect all relatives
-          iterate(indi, tree, allIndis);
-
-          // remember
-          trees.add(tree);
+        Statistics stats = new Statistics(indis.length);
+        
+        println(i18n("fileheader",gedcom.getName()));
+        
+        // Step through all the Individuals
+        println(i18n("indicount",indis.length)+"\n");
+        
+        for (int e=0;e<indis.length;e++) {
+            Indi indi = (Indi)indis[e];
+            // If we haven't seen them yet, it's the beginning of a new tree
+            if ( !stats.seen.containsKey(indi.getId()) ) {
+                int curTree = stats.numTrees++;
+                stats.trees[curTree] = new AncTree();
+                stats.trees[curTree].name = i18n("entity", new String[] {indi.getId(), indi.getName()} );
+                stats.trees[curTree].count = analyzeIndividual(indi, stats);
+            }
         }
-
-        // Report about groups
-        if (!trees.isEmpty()) {
-
-          // Sort in descending order by count
-          Collections.sort(trees);
-
-          // Print sorted list of groups
-          println(align(translate("count"),7, Report.ALIGN_RIGHT)+"  "+translate("indi_name"));
-          println("-------  ----------------------------------------------");
-
+        
+        if(stats.trees.length>0) {
+            // Sort in descending order by count
+            Arrays.sort(stats.trees, 0, stats.numTrees-1, new Comparator() {
+                public int compare(Object o1, Object o2) {
+                    int c1 = ((AncTree)o1).count;
+                    int c2 = ((AncTree)o2).count;
+                    return c2-c1;
+                }
+            });
+            
+            // Print sorted list
+            println(align(i18n("count"),7, Report.ALIGN_RIGHT)+"  "+i18n("name"));
+            println("-------  ----------------------------------------------");
+            
             int grandtotal=0;
             int loners=0;
-            for (int i=0; i<trees.size(); i++) {
-
-              Tree tree = (Tree)trees.get(i);
-
-              // sort group entities by birth date
-              grandtotal += tree.size();
-              if (tree.size()<minGroupSize)
-                loners +=tree.size();
-              else if (tree.size()<maxGroupSize){
-                  if (i != 0) println();
-                  String prefix = ""+tree.size();
-                  Iterator it = tree.iterator();
-                  while (it.hasNext()){
-                      Indi indi = (Indi)it.next();
-                      println(align(prefix,7, Report.ALIGN_RIGHT)+"  "+indi.getId()+
-                              " "+indi.getName()+
-                              " "+"("+indi.getBirthAsString()+ " - "+
-                              indi.getDeathAsString()+")" );
-                      prefix = "";
-                  }
-              }
-              else {
-                println(align(""+tree.size(),7, Report.ALIGN_RIGHT)+"  "+tree );
-              }
+            for (int i=0; i<stats.numTrees; i++) {
+                int count=stats.trees[i].count;
+                if (count<minGroupSize) {
+                    loners +=count;
+                } else {
+                    grandtotal+=count;
+                    println(align(""+count,7, Report.ALIGN_RIGHT)+"  "+stats.trees[i].name);
+                }
             }
-
+            
             println("");
-            println(translate("grandtotal",grandtotal));
-
+            println(i18n("grandtotal",grandtotal));
+            
             if (loners>0) {
                 Object[] msgargs = {new Integer(loners), new Integer(minGroupSize)};
-                println("\n"+translate("loners",msgargs));
+                println("\n"+i18n("loners",msgargs));
             }
-
         }
         println("");
-        println(translate("endreport"));
-
+        println(i18n("endreport"));
+        
         // Done
         return;
     }
-
+    
     /**
-     * Iterate over an individual who's part of a sub-tree
+     * Analyze an individuals ancestor & descendants
+     * keeping track of who we've seen already
      */
-    private void iterate(Indi indi, Tree tree, Set unvisited) {
-
-      // individuals we need to check
-      Stack todos  = new Stack();
-      if (unvisited.remove(indi))
-          todos.add(indi);
-
-      // loop
-      while (!todos.isEmpty()) {
-
-        Indi todo = (Indi)todos.pop();
-
-        // belongs to group
-        tree.add(todo);
-
-        // check the ancestors
-        Fam famc = todo.getFamilyWhereBiologicalChild();
-        if (famc!=null)  {
-          Indi mother = famc.getWife();
-          if (mother!=null&&unvisited.remove(mother))
-            todos.push(mother);
-
-          Indi father = famc.getHusband();
-          if (father!=null&&unvisited.remove(father))
-            todos.push(father);
+    private int analyzeIndividual(Indi indi, Statistics stats) {
+        if ( stats.seen.containsKey(indi.getId()) ) {
+            return 0;
         }
-
-        // check descendants
-        Fam[] fams = todo.getFamiliesWhereSpouse();
-        for (int f=0;f<fams.length;f++) {
-
+        else {
+            // insert in hash
+            stats.seen.put(indi.getId(),indi);
+            
+            // count relatives (including self)
+            return (1 +
+            analyzeIndividualAncestors(indi, stats) +
+            analyzeIndividualDescendants(indi, stats)
+            );
+        }
+    }
+    
+    /**
+     * Analyzes an Individual's Ancestors
+     */
+    private int analyzeIndividualAncestors(Indi indi, Statistics stats) {
+        int count = 0;
+        
+        // Get family that we are a child of
+        Fam famc = indi.getFamc();
+        if (famc==null) {
+            return 0;
+        }
+        
+        if (famc.getWife()!=null) {
+            count += analyzeIndividual(famc.getWife(), stats);
+        }
+        if (famc.getHusband()!=null) {
+            count += analyzeIndividual(famc.getHusband(), stats);
+        }
+        
+        return count;
+        
+    }
+    
+    /**
+     * Analyzes an Individual's Descendants
+     */
+    private int analyzeIndividualDescendants(Indi indi, Statistics stats) {
+        int count = 0;
+        
+        // loop through all families
+        int fcount = indi.getNoOfFams();
+        for (int f=0;f<fcount;f++) {
+            
             // Get the family & process the spouse
-            Fam fam = fams[f];
-            Indi spouse = fam.getOtherSpouse(todo);
-            if (spouse!=null&&unvisited.remove(spouse))
-              todos.push(spouse);
-
+            Fam fam = indi.getFam(f);
+            if (fam.getOtherSpouse(indi)!=null) {
+                count += analyzeIndividual(fam.getOtherSpouse(indi), stats);
+            }
+            
             // .. and all the kids
             Indi[] children = fam.getChildren();
             for (int c = 0; c < children.length; c++) {
-              if (unvisited.remove(children[c]))
-                todos.push(children[c]);
+                count += analyzeIndividual(children[c], stats);
             }
-
-            // next family
+            
+            // .. next family
         }
-
-        // continue with to-dos
-      }
-
-      // done
+        
+        return count;
     }
-
-    /**
-     * A sub-tree of people related to each other
-     */
-    private class Tree extends HashSet implements Comparable {
-
-      private Indi oldestIndividual;
-
-      public int compareTo(Object that) {
-        return ((Tree)that).size()-((Tree)this).size();
-      }
-
-      public String toString() {
-        return oldestIndividual.getId()+
-        " "+oldestIndividual.getName()+
-        "("+oldestIndividual.getBirthAsString()+ "-"+
-        oldestIndividual.getDeathAsString()+")";
-      }
-
-      public boolean add(Object o) {
-        // Individuals expected
-        Indi indi = (Indi)o;
-        // check if oldest
-        if (isOldest(indi))
-          oldestIndividual = indi;
-        // continue
-        return super.add(o);
-      }
-
-      private boolean isOldest(Indi indi) {
-        long jd;
-        try {
-          jd = oldestIndividual.getBirthDate().getStart().getJulianDay();
-        } catch (Throwable t) {
-          return true;
-        }
-        try {
-          return indi.getBirthDate().getStart().getJulianDay() < jd;
-        } catch (Throwable t) {
-          return false;
-        }
-
-      }
-
-    } //Tree
-
-} //ReportTrees
+    
+}

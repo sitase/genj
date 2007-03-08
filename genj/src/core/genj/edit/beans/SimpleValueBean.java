@@ -19,11 +19,18 @@
  */
 package genj.edit.beans;
 
+import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.util.Registry;
 import genj.util.swing.TextFieldWidget;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
+import java.awt.geom.Point2D;
+
+import javax.swing.JLabel;
 
 /**
  * A Proxy knows how to generate interaction components that the user
@@ -34,59 +41,49 @@ public class SimpleValueBean extends PropertyBean {
   /** members */
   private TextFieldWidget tfield;
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    tfield = new TextFieldWidget("", 8);
-    tfield.addChangeListener(changeSupport);
-    
-    setLayout(new BorderLayout());
-    add(BorderLayout.NORTH, tfield);
-  }
-
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    
-    super.commit(property);
-    
-    if (!property.isReadOnly())
+  public void commit(Transaction tx) {
+    if (tfield!=null) {
       property.setValue(tfield.getText());
+    }
   }
 
   /**
-   * Editable depends on property
+   * Nothing to edit
    */  
   public boolean isEditable() {
-    return tfield.isEditable();
+    return !property.isReadOnly();
+  }
+
+  /** 
+   * Growing is fine
+   */
+  public Point2D getWeight() {
+    return new Point2D.Double(0.1,0);
   }
   
   /**
-   * we accept anything
+   * Initialize
    */
-  public boolean accepts(Property prop) {
-    return true;
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
+
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
+
+    setLayout(new BorderLayout());
+
+    // readOnly()?
+    if (property.isReadOnly()) {
+      add(BorderLayout.NORTH, new JLabel(property.getDisplayValue()));
+    } else {
+      tfield = new TextFieldWidget(property.getDisplayValue(), 8);
+      tfield.addChangeListener(changeSupport);
+      add(BorderLayout.NORTH, tfield);
+      super.defaultFocus = tfield;
+    }
+    
+    // Done
   }
 
-  /**
-   * Set context to edit
-   */
-  public void setProperty(Property property) {
-
-    // remember property
-    this.property = property;
-    
-    // show value
-    String txt = property.getDisplayValue();
-    tfield.setText(txt);
-    tfield.setEditable(!property.isReadOnly());
-    tfield.setVisible(!property.isReadOnly()||txt.length()>0);
-    
-    defaultFocus = tfield.isEditable() ? tfield : null;
-    
-    // not change
-    changeSupport.setChanged(false);
-  }
-  
-}
+} //ProxyUnknown

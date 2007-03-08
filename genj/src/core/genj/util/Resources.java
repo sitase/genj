@@ -25,9 +25,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -39,14 +38,11 @@ import java.util.WeakHashMap;
  *  <li>reside in directory relative to class being used in e.g. ./genj/app
  *  <li>are names resources[_xy[_ab]].properties
  *  <li>are UTF-8 encoded
- *  <li>contain comment lines starting with # or // or /* 
- *  <li>contain content lines "key = value" (key cannot contain spaces)
- *  <li>*values continue in the next line if the following line.trim() starts with a + (which is replaced with \n)
- *  <li>*values continue in the next line if the following line.trim() starts with a & (which is trimmed)
- *  <li>values continue in the next line if the following line starts with a space (which is trimmed)
- *  <li>newline escapes \n are transformed into newline characters
+ *  <li>contain comment lines starting with '#'
+ *  <li>contain content lines "key = value"
+ *  <li>value can contain \n for newline
+ *  <li>contain content continuation starting with '+'
  * </il>
- * (*legacy)
  */
 public class Resources {
   
@@ -54,29 +50,13 @@ public class Resources {
   private static Map instances = new HashMap();
 
   /** the mapping key, resource  */
-  private Map key2string;
-  private List keys;
+  private HashMap key2resource = new HashMap();
 
   /** the package name this resource is for */
   private String pkg;
 
   /** cached message formats */
   private WeakHashMap msgFormats = new WeakHashMap();
-  
-  /**
-   * Constructor for resources from explicit input stream
-   */
-  public Resources(InputStream in) {
-    
-    key2string = new HashMap();
-    keys = new ArrayList(1000);
-    
-    try {
-      load(in);
-    } catch (IOException e) {
-      // swallow
-    }
-  }
   
   /**
    * Accessor (cached) 
@@ -106,7 +86,7 @@ public class Resources {
     Class clazz = object instanceof Class ? (Class)object : object.getClass();
     String name = clazz.getName();
     int last = name.lastIndexOf('.');
-    return last<0 ? "" : name.substring(0, last);
+    return last<0 ? name : name.substring(0, last);
   }
   
   /**
@@ -132,34 +112,57 @@ public class Resources {
    * Constructor
    */
   private Resources(String pkg) {
-    // remember
+    
+    // init simple members
     this.pkg=pkg;
-  }
-  
-  /**
-   * Load more resources from stream
-   */
-  public void load(InputStream in) throws IOException {
-    load(in, keys, key2string);
-  }
-  
-  private static String trimLeft(String s) {
-    int pos = 0;
-    for (int len=s.length(); pos<len; pos++) {
-      if (!Character.isWhitespace(s.charAt(pos)))
-        break;
+
+    // try to find language
+    Locale locale = Locale.getDefault();
+
+    // loading english first (primary language)
+    try {
+      load(getClass().getResourceAsStream(calcFile(pkg, null, null)));
+    } catch (Throwable t) {
+      Debug.log(Debug.WARNING, this,"Couldn't read default resources for package '"+pkg+"'");
     }
-    return pos==0 ? s : s.substring(pos);
+    
+    // trying to load language specific next
+    try {
+      load(getClass().getResourceAsStream(calcFile(pkg, locale.getLanguage(), null)));
+    } catch (Throwable t) {
+    }
+
+    // trying to load language and country specific next
+    try {
+      load(getClass().getResourceAsStream(calcFile(pkg, locale.getLanguage(), locale.getCountry())));
+    } catch (Throwable t) {
+    }
+
+    // Done
   }
+  
+//  /**
+//   * Constructor
+//   */
+//  public Resources(Properties properties) {
+//    
+//    // no package
+//    pkg = "";
+//    
+//    // grab from properties
+//    Iterator it = properties.keySet().iterator();
+//    while (it.hasNext()) {
+//      Object key = it.next();
+//      key2resource.put(key, properties.get(key));
+//    }
+//    
+//    // done
+//  }
   
   /**
    * Loads key/value pairs from inputstream with unicode content
    */
-  private static void load(InputStream in, List keys, Map key2string) throws IOException {
-    
-    if (in==null)
-      throw new IOException("can't load resources from null");
-    
+  private void load(InputStream in) throws IOException {
     try {
       BufferedReader lines = new BufferedReader(new InputStreamReader(in, "UTF-8"));
       // loop over all lines
@@ -169,111 +172,35 @@ public class Resources {
         String line = lines.readLine();
         if (line==null) 
           break;
-        String trimmed = trimLeft(line);
-        if (trimmed.length()==0)
+        // trim and check
+        line = line.trim();
+        // .. nothing?
+        if (line.length()==0)
           continue;
-        // .. continuation as follows:
-        if (last!=null) {
-          // +... -> newline....
-          if (trimmed.charAt(0)=='+') {
-            key2string.put(last, key2string.get(last)+"\n"+breakify(trimmed.substring(1)));
-            continue;
-          }
-          // &... -> ....
-          if (trimmed.charAt(0)=='&') {
-            key2string.put(last, key2string.get(last)+breakify(trimmed.substring(1)));
-            continue;
-          }
-          // \s... -> ....
-          if (line.charAt(0)==' ') {
-            key2string.put(last, key2string.get(last)+breakify(line.substring(1)));
-            continue;
-          }
-        } 
-          
-        // has to start with non-space
-        if (!Character.isLetter(line.charAt(0)))
+        // .. comment?
+        char c = line.charAt(0); 
+        if (c=='#') 
           continue;
-        
-        // break down key and value
-        int i = trimmed.indexOf('=');
-        if (i<0) 
-          continue;
-        key = trimmed.substring(0, i).trim();
-        if (key.indexOf(' ')>0)
-          continue;
-        val = trimLeft(trimmed.substring(i+1));
-        keys.add(key);
-        
-        // remember (we keep lowercase keys in map)
-        key = key.toLowerCase();
-        key2string.put(key, breakify(val));
-        
+        // .. continuation or key=value
+        if (last!=null&&(c=='+'||c=='&')) {
+          key = last;
+          val = getString(key);
+          if (c=='+') val += '\n';
+          val += line.substring(1);
+        } else {
+          int i = line.indexOf('=');
+          if (i<0) continue;
+          key = line.substring(0, i).trim();
+          val = line.substring(i+1).trim();
+        }
+        // remember
+        key2resource.put(key, val);
         // next
         last = key;
-        
       }
-
     } catch (UnsupportedEncodingException e) {
       throw new IOException(e.getMessage());
     }
-  }
-
-  private static String breakify(String string) {
-    while (true) {
-      int i = string.indexOf("\\n");
-      if (i<0) break;
-      string = string.substring(0,i) + '\n' + string.substring(i+2);
-    }
-    return string;
-  }
-  
-  /**
-   * Lazy getter for resource map
-   */
-  private Map getKey2String() {
-    
-    // easy if already initialized - outside synchronization
-    if (key2string!=null)
-      return key2string;
-    
-    // synchronize loading - everyone will wait for this one
-    synchronized (this) {
-      
-      // check again
-      if (key2string!=null)
-        return key2string;
-      
-      // load resources for current locale now
-      Locale locale = Locale.getDefault();
-      Map tmpKey2Val = new HashMap();    
-      List tmpKeys = new ArrayList(100);
-
-      // loading english first (primary language)
-      try {
-        load(getClass().getResourceAsStream(calcFile(pkg, null, null)), tmpKeys, tmpKey2Val);
-      } catch (Throwable t) {
-      }
-      
-      // trying to load language specific next
-      try {
-        load(getClass().getResourceAsStream(calcFile(pkg, locale.getLanguage(), null)), tmpKeys, tmpKey2Val);
-      } catch (Throwable t) {
-      }
-  
-      // trying to load language and country specific next
-      try {
-        load(getClass().getResourceAsStream(calcFile(pkg, locale.getLanguage(), locale.getCountry())), tmpKeys, tmpKey2Val);
-      } catch (Throwable t) {
-      }
-
-      // remember
-      key2string = tmpKey2Val;
-      keys = tmpKeys;
-    }
-    
-    // done
-    return key2string;
   }
   
   /**
@@ -289,7 +216,7 @@ public class Resources {
    * @param notNull will return key if resource is not defined
    */
   public String getString(String key, boolean notNull) {
-    String result = (String)getKey2String().get(key.toLowerCase());
+    String result = (String)key2resource.get(key);
     if (result==null&&notNull) result = key;
     return result;
   }
@@ -317,23 +244,11 @@ public class Resources {
    * @param values array of values to replace placeholders in value
    */
   public String getString(String key, Object[] substitutes) {
-    return getString(key, substitutes, true);
-  }
-  
-  /**
-   * Returns a localized string
-   * @param key identifies string to return
-   * @param values array of values to replace placeholders in value
-   */
-  public String getString(String key, Object[] substitutes, boolean notNull) {
 
     // do we have a message format already?
     MessageFormat format = (MessageFormat)msgFormats.get(key);
     if (format==null) {
-      String string = getString(key, false);
-      if (string==null)
-        return notNull ? key : null;
-      format = getMessageFormat(string);
+      format = getMessageFormat(getString(key));
       msgFormats.put(key, format);
     }
 
@@ -363,10 +278,8 @@ public class Resources {
   /**
    * Returns the available Keys
    */
-  public List getKeys() {
-    // initialize first
-    getKey2String();
-    return keys;
+  public Iterator getKeys() {
+    return key2resource.keySet().iterator();
   }
   
 } //Resources

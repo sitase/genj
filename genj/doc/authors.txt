@@ -1,38 +1,50 @@
 
 * * * THE TEAM * * *
 
-The people behind GenJ (alphabetically):
+The people behind GenJ (sorted by last name) :
 
-    Admins:
-      . Francois Massonneau
-      . Nils Meier 
+    Programming:
+      . Nils Meier <nils@meiers.net>
+      . Ken Mraz <kenmraz@users.sourceforge.net>
+      . Carsten Muessig <carsten.muessig@gmx.net>
+      . Jerome Hettich <jerome@hettich.org.uk>
 
-    Reports:
-      . Daniel Andre
-      . Jan C. Hardenbergh
-      . Thierry Hardy
-      . Jerome Hettich
-      . Frederic Lapeyre
-      . Daniel P. Kionka
-      . Przemek Wiech
-      
     Contributors :
-      . Stuart Grimshaw
-      . Pere Jover
-      . Bill Kelly
-      . Carsten Muessig
-      . Sean Timm
+      . Jan C.Hardenbergh <jch@world.std.com>
+      . Stuart Grimshaw <sgrimshaw@ebuyer.com>
+      . Jerome Hettich <jerome@hettich.org.uk>
+      . Pere Jover <pjover@jazzfree.com>
+      . Bill Kelly <bllklly@acm.org>
+      . Daniel P. Kionka <dan@kionka.org>
+      . Francois Massonneau <francois@arvernes.com>
+      . Sean Timm <TimmSCHome@aol.com>
 
     Translators :
-      . Alex Evdokimenko (Russian)
-      . Nestor Garcia (Spanish)
-      . Mauricio Girardi (Brazilian Portuguese)
-      . Frantisek Grebenicek (Czech)
-      . Theo Guelcher (Dutch) 
-      . Pere Jover (Spanish)
-      . Francois Massonneau (French)
-      . Carsten Muessig (German) 
-      . Sini Ruohomaa (Finnish)
-      . Marcus Sandberg (German)
-      . Klaus-Peter Schubert (German)
-      . Przemek Wiech (Polish)
+      . Osamu Ajiki <osam-a@astroarts.co.jp> (Japanese translation)
+      . Nicola Fragale <nicolafragale@libero.it> (Italian translation)
+      . Nestor Garcia <hipernes@inicia.es> (Spanish translation)
+      . Mauricio Girardi <girardi@fisica.ufsc.br> (Brazilian portuguese)
+      . Theo Guelcher <gulcher@users.sourceforge.net> (Dutch translation) 
+      . Pere Jover <pjover@jazzfree.com> (Spanish translation)
+      . Francois Massonneau <francois@arvernes.com> (French translation)
+      . Carsten Muessig <carsten.muessig@gmx.net> (German translation) 
+      . Marcus Sandberg <marcus.sandberg@gmx.net> (German translation)
+
+    User Feedback and Food for Thought :
+      . Paul Clarke <pjclarke@bigpond.com>
+      . Jan Eri <jan.eri@protector-group.no>
+      . Michael Gerdau <mgd@technosis.de>
+      . Alan Jackson
+      . Daniel Moyne
+      . Shmuel Metz <shmuel@acm.org>
+      . Ernst Neubauer and Sohn <e.neubauer@t-online.de>
+      . David Roxburgh<david.roxburgh@bt.com>
+      . John Varela
+      . Roy O. Wellington III <roy.wellington@worldnet.att.net>
+      . and many others!!!
+
+* * * HISTORY * * *
+
+      to be continued . . . . . . . ;-)
+      
+      

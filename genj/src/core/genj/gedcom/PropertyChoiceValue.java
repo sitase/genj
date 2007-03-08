@@ -19,7 +19,6 @@
  */
 package genj.gedcom;
 
-import genj.crypto.Enigma;
 import genj.util.ReferenceSet;
 
 import java.util.List;
@@ -32,34 +31,17 @@ public class PropertyChoiceValue extends PropertySimpleValue {
   /**
    * Remember a value
    */
-  protected boolean remember(String oldValue, String newValue) {
-    // transient or no access to containing gedcom? 
+  private void remember(String oldValue, String newValue) {
+    // got access to a reference set?
     Gedcom gedcom = getGedcom();
-    if (isTransient||gedcom==null)
-      return false;
+    if (gedcom==null)
+      return;
     ReferenceSet refSet = gedcom.getReferenceSet(getTag());
-    // intern newValue - we expect the remembered values to be shared so we share the string instances for an upfront cost
-    newValue = newValue.intern();
-    // check for secret values
-    if (Enigma.isEncrypted(oldValue)) oldValue = "";
-    if (Enigma.isEncrypted(newValue)) newValue = ""; 
     // forget old
     if (oldValue.length()>0) refSet.remove(oldValue, this);
     // remember new
     if (newValue.length()>0) refSet.add(newValue, this);
     // done
-    return true;
-  }
-  
-  /**
-   * Returns all choices in same gedcom file as this
-   */
-  public String[] getChoices(boolean sort) {
-    // got access to a reference set?
-    Gedcom gedcom = getGedcom();
-    if (gedcom==null)
-      return new String[0];
-    return getChoices(gedcom, getTag(), sort);
   }
   
   /**
@@ -92,10 +74,10 @@ public class PropertyChoiceValue extends PropertySimpleValue {
    * @see genj.gedcom.PropertySimpleValue#setValue(java.lang.String)
    */
   public void setValue(String value) {
-    // TUNING: for choices we expect a lot of repeating values so
-    // we build the intern representation of value here - this makes
-    // us share string instances for an upfront cost
-    setValueInternal(value.intern());
+    // remember
+    remember(super.getValue(), value);
+    // delegate
+    super.setValue(value);
   }
   
   /**
@@ -108,9 +90,8 @@ public class PropertyChoiceValue extends PropertySimpleValue {
       // change value of all with value
       Property[] others = getSameChoices();
       for (int i=0;i<others.length;i++) {
-        Property other = others[i];
-        if (other instanceof PropertyChoiceValue&&other!=this) 
-          ((PropertyChoiceValue)other).setValue(value);
+        if (others[i]!=this) 
+          others[i].setValue(value);
       }
     }    
       
@@ -120,21 +101,14 @@ public class PropertyChoiceValue extends PropertySimpleValue {
     // done
   }
 
-  private void setValueInternal(String value) {
-    // remember
-    remember(super.getValue(), value);
-    // delegate
-    super.setValue(value);
-  }
-
   /**
    * @see genj.gedcom.Property#addNotify(genj.gedcom.Property)
    */
-  /*package*/ void addNotify(Property parent, int pos) {
+  /*package*/ void addNotify(Property parent) {
     // delegate
-    super.addNotify(parent, pos);
+    super.addNotify(parent);
     // a remember wouldn't have worked until now
-    remember("", super.getValue());
+    remember(super.getValue(), super.getValue());
     // done
   }
 
@@ -142,11 +116,28 @@ public class PropertyChoiceValue extends PropertySimpleValue {
    * Removing us from the reference set (our value is not used anymore)
    * @see genj.gedcom.PropertyRelationship#delNotify()
    */
-  /*package*/ void delNotify(Property parent, int pos) {
+  /*package*/ void delNotify(Property old) {
     // forget value
-    remember(super.getValue(), "");
+    remember(super.getValue(), EMPTY_STRING);
     // continue
-    super.delNotify(parent, pos);
+    super.delNotify(old);
+  }
+  
+  /**
+   * Used choices (this will not work unless parent not null)
+   * 20041210 I'm passing gedcom here so properties that haven't
+   * been added to a parent yet (EditView) can already be edited
+   * nicely
+   */
+  public List getChoices(Gedcom gedcom) {
+    return gedcom.getReferenceSet(getTag()).getKeys(gedcom.getCollator());
+  }
+  
+  /**
+   * Our proxy of choice
+   */
+  public String getProxy() {
+    return "Choice";
   }
 
 } //PropertyChoiceValue

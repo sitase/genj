@@ -20,126 +20,145 @@
 package genj.edit.beans;
 
 import genj.gedcom.Entity;
+import genj.gedcom.Gedcom;
+import genj.gedcom.GedcomListener;
 import genj.gedcom.Property;
-import genj.renderer.BlueprintManager;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.renderer.EntityRenderer;
 import genj.util.ChangeSupport;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.view.ContextProvider;
-import genj.view.ViewContext;
+import genj.view.ViewManager;
 
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.awt.geom.Point2D;
+import java.util.HashMap;
+import java.util.Map;
 
+import javax.swing.AbstractButton;
+import javax.swing.BoxLayout;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeListener;
 
 /**
- * Beans allow the user to edit gedcom properties (a.k.a lines) - the lifecycle of a bean
- * looks like this:
- * <pre>
- * </pre>
+ * A Proxy is a ui representation of a property with interactiv components that the user
+ * will use to change values
  */
-public abstract class PropertyBean extends JPanel implements ContextProvider {
+public abstract class PropertyBean extends JPanel implements GedcomListener {
   
   /** the resources */
   protected final static Resources resources = Resources.get(PropertyBean.class); 
   
-  /** the property to edit */
+  /** the gedcom object */
+  protected Gedcom gedcom;
+  
+  /** the proxied property */
   protected Property property;
+  
+  /** the view manager */
+  protected ViewManager viewManager;
   
   /** current registry */
   protected Registry registry;
   
+  /** buttons */
+  protected AbstractButton ok, cancel;
+
   /** the default focus */
   protected JComponent defaultFocus = null;
   
   /** change support */
   protected ChangeSupport changeSupport = new ChangeSupport(this);
   
-  /**
-   * Initialize (happens once)
-   */
-  /*package*/ void initialize(Registry setRegistry) {
-    registry = setRegistry;
-  }
+  /** an optional path */
+  protected TagPath path;
+  
+  /** map a 'proxy' to a type */
+  private static Map proxy2type = new HashMap();
   
   /**
-   * test for setter
+   * Accessor
    */
-  /*package*/ boolean accepts(Property prop) {
-    return getSetter(prop)!=null;
-  }
-  
-  /**
-   * set property to look at
-   */
-  public void setProperty(Property prop) {
-    Method m = getSetter(prop);
-    if (m==null)
-      throw new IllegalArgumentException(getClass().getName()+".setProperty("+prop.getClass().getName()+") n/a");
-      
-    try {
-      m.invoke(this, new Object[]{ prop });
-    } catch (Throwable t) {
-      throw new RuntimeException("unexpected throwable in "+getClass().getName()+".setProperty("+prop.getClass().getName());
-    }
-    
-    changeSupport.setChanged(false);
-  }
-  
-  private Method getSetter(Property prop) {
-    
-    try {
-      Method[] ms = getClass().getDeclaredMethods();
-      for (int i=0;i<ms.length;i++) {
-        Method m = ms[i];
-        if ("setProperty".equals(m.getName())&&Modifier.isPublic(m.getModifiers())) {
-          Class[] argTypes = m.getParameterTypes();
-          if (argTypes.length==1&&argTypes[0].isAssignableFrom(prop.getClass()))
-            return m;
-        }
+  public static PropertyBean get(Property prop) {
+    // unknown type?
+    Class type = (Class)proxy2type.get(prop.getProxy());
+    PropertyBean result = null;
+    if (type==null) {
+      try {
+        type = Class.forName( "genj.edit.beans." + prop.getProxy() + "Bean");
+        result = (PropertyBean)type.newInstance();
+      } catch (Throwable t) {
+        type = SimpleValueBean.class;
       }
-    } catch (Throwable t) {
+      proxy2type.put(prop.getProxy(), type);
     }
-    
-    return null;
+    // instantiate if still necessary
+    if (result==null)
+      try {
+        result = (PropertyBean)type.newInstance();
+      } catch (Throwable t) {
+        result = new SimpleValueBean();
+      }
+    // done
+    return result;
   }
   
   /**
-   * ContextProvider callback 
+   * Constructor
+   */  
+  protected PropertyBean() {
+    setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+  }
+  
+  /**
+   * Setup an editor in given panel
    */
-  public ViewContext getContext() {
-    // ok, this is tricky since some beans might not
-    // want to expose a property (is null) and the one
-    // we're looking at might actually not be part of 
-    // an entity yet - no context in those cases
-    // (otherwise other code that relies on properties being
-    // part of an entity might break)
-    return property==null||property.getEntity()==null ? null : new ViewContext(property);
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
+
+    // remember property
+    property = setProp;
+    viewManager = setMgr;
+    registry = setReg;
+    gedcom = setGedcom;
+    path = setPath;
+    
+    // done
   }
   
   /**
-   * Current Property
+   * add hook
+   */
+  public void addNotify() {
+    super.addNotify();
+    gedcom.addGedcomListener(this);
+  }
+  
+  /**
+   * remove hook
+   */
+  public void removeNotify() {
+    gedcom.removeGedcomListener(this);
+    super.removeNotify();
+  }
+  
+  /**
+   * Callback for gedcom changes
+   */
+  public void handleChange(Transaction tx) {
+    // ignored
+  }
+  
+  /**
+   * Property wrapped in bean
    */
   public Property getProperty() {
     return property;
-  }
-  
-  /**
-   * Whether the bean has changed since first listener was attached
-   */
-  public boolean hasChanged() {
-    return changeSupport.hasChanged();
   }
   
   /**
@@ -155,24 +174,11 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   public void removeChangeListener(ChangeListener l) {
     changeSupport.removeChangeListener(l);
   }
-
+  
   /**
    * Commit any changes made by the user
    */
-  public void commit() {
-    commit(property);
-  }
-  
-  /**
-   * Commit any changes made by the user switching target property
-   */
-  public void commit(Property property) {
-    // remember property
-    this.property = property;
-    // clear changed
-    changeSupport.setChanged(false);
-    // nothing more
-  }
+  public abstract void commit(Transaction tx);
   
   /**
    * Editable? default is yes
@@ -181,32 +187,17 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
     return true;
   }
   
-  /**
-   * helper that makes this bean visible if possible
+  /** 
+   * Weight
    */
-  private void makeVisible() {
-    // let's test if we're in a tabbed pane first
-    Component c = getParent();
-    while (c!=null) {
-      // is it a tabbed pane?
-      if (c.getParent() instanceof JTabbedPane) {
-        ((JTabbedPane)c.getParent()).setSelectedComponent(c);
-        return;
-      }
-      // continue lookin
-      c = c.getParent();
-    }
-    // not contained in tabbed pane
+  public Point2D getWeight() {
+    return null;
   }
   
   /** 
    * overridden requestFocusInWindow()
    */
   public boolean requestFocusInWindow() {
-    // make sure we're visible
-    makeVisible();
-    
-    // delegate to default focus
     if (defaultFocus!=null)
       return defaultFocus.requestFocusInWindow();
     return super.requestFocusInWindow();
@@ -216,13 +207,17 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
    * overridden requestFocus()
    */
   public void requestFocus() {
-    //  make sure we're visible
-    makeVisible();
-    // delegate to default focus
     if (defaultFocus!=null)
       defaultFocus.requestFocus();
     else 
       super.requestFocus();
+  }
+
+  /**
+   * An optional path 
+   */
+  public TagPath getPath() {
+    return path;
   }
   
   /**
@@ -236,8 +231,11 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
     /**
      * Constructor
      */
-    protected Preview() {
+    protected Preview(Entity ent) {
+      // remember
+      entity = ent;
       setBorder(new EmptyBorder(4,4,4,4));
+      // done
     }
     /**
      * @see genj.edit.ProxyXRef.Content#paintComponent(java.awt.Graphics)
@@ -249,15 +247,10 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
       g.setColor(Color.WHITE); 
       g.fillRect(box.x, box.y, box.width, box.height);
       // render entity
-      if (renderer!=null&&entity!=null) 
-        renderer.render(g, entity, box);
+      if (renderer==null) 
+        renderer = new EntityRenderer(viewManager.getBlueprintManager().getBlueprint(entity.getTag(), ""));
+      renderer.render(g, entity, box);
       // done
-    }
-    protected void setEntity(Entity ent) {
-      entity = ent;
-      if (entity!=null)
-        renderer = new EntityRenderer(BlueprintManager.getInstance().getBlueprint(entity.getGedcom().getOrigin(), entity.getTag(), ""));
-      repaint();
     }
   } //Preview
 

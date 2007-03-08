@@ -22,7 +22,7 @@ package genj.io;
 
 
 /**
- * Exception that wraps encryption problems during Gedcom read operations
+ * Exception for encryption problems during Gedcom operations
  */
 public class GedcomEncryptionException extends GedcomIOException {
 

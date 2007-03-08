@@ -17,11 +17,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.8 $ $Author: nmeier $ $Date: 2006-02-21 23:28:40 $
+ * $Revision: 1.4 $ $Author: nmeier $ $Date: 2004-11-19 20:04:00 $
  */
 package genj.option;
 
-import genj.util.swing.Action2;
+import genj.util.ActionDelegate;
 import genj.util.swing.ButtonHelper;
 
 import javax.swing.JComponent;
@@ -33,15 +33,13 @@ public abstract class CustomOption extends Option {
 
   /** reference widget */
   protected OptionsWidget widget;
-  
+
   /** our ui */
-  private UI ui;
+  private UI ui = new UI();
   
   /** callback - ui access */
   public OptionUI getUI(OptionsWidget widget) {
     this.widget = widget;
-    // do this lazy
-    if (ui==null)  ui = new UI();
     return ui;
   }
   
@@ -53,7 +51,7 @@ public abstract class CustomOption extends Option {
   /** 
    * Custom UI is a button only
    */
-  private class UI extends Action2 implements OptionUI {
+  private class UI extends ActionDelegate implements OptionUI {
     
     /** callback - text representation = none */
     public String getTextRepresentation() {
@@ -63,7 +61,7 @@ public abstract class CustomOption extends Option {
     /** callback - component representation = button */
     public JComponent getComponentRepresentation() {
       setText("...");
-      return new ButtonHelper().setInsets(2).create(this);
+      return new ButtonHelper().setFocusable(false).setInsets(2).create(this);
     }
 
     /** commit - noop */    

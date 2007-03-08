@@ -19,6 +19,7 @@
  */
 package genj.report;
 
+import genj.util.Debug;
 import genj.util.EnvironmentChecker;
 
 import java.io.File;
@@ -30,12 +31,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Level;
 
 /**
  * ClassLoad for Reports
  */
-public class ReportLoader {
+/*package*/ class ReportLoader {
 
   /** reports we have */
   private List instances = new ArrayList(10);
@@ -65,39 +65,29 @@ public class ReportLoader {
   /*package*/ static ReportLoader getInstance() {
     
     // not known yet?
-    if (singleton==null) {
-      synchronized (ReportLoader.class) {
-        if (singleton==null) {
-          singleton = new ReportLoader();
-        }
-      }
-    }
+    if (singleton==null)
+      singleton = new ReportLoader();
       
     // done
     return singleton;
       
   }
-  
-  /**
-   * dir resolver
-   */
-  public static File getReportDirectory() {
-    
-    // where are the reports 
-    return new File(EnvironmentChecker.getProperty(ReportLoader.class,
-      new String[]{ "genj.report.dir", "user.dir/report"},
-      "report",
-      "find report class-files"
-    ));
-  }
-  
+
   /**
    * Constructor
    */
   private ReportLoader() {
 
-    File base = getReportDirectory();
-    ReportView.LOG.info("Reading reports from "+base);
+    // where are the reports 
+    String dir = EnvironmentChecker.getProperty(
+      ReportLoader.class,
+      new String[]{ "genj.report.dir", "user.dir/report"},
+      "./report",
+      "find report class-files"
+    );
+    File base = new File(dir);
+    
+    Debug.log(Debug.INFO, ReportLoader.class,"Reading reports from "+base);
       
     // parse report directory
     try {
@@ -108,7 +98,7 @@ public class ReportLoader {
     parseDir(base, null);
     
     // Prepare classloader
-    URLClassLoader cl = new URLClassLoader((URL[])classpath.toArray(new URL[classpath.size()]), getClass().getClassLoader());
+    URLClassLoader cl = new URLClassLoader((URL[])classpath.toArray(new URL[classpath.size()]));
     
     // Load reports
     Iterator rs = reports.iterator();
@@ -117,24 +107,19 @@ public class ReportLoader {
       try {
         Report r = (Report)cl.loadClass(rname).newInstance();
         if (!isReportsInClasspath&&r.getClass().getClassLoader()!=cl) {
-          ReportView.LOG.warning("Reports are in classpath and can't be reloaded");
+          Debug.log(Debug.WARNING, this, "Reports are in classpath and can't be reloaded");
           isReportsInClasspath = true;
         }
         instances.add(r);
       } catch (Throwable t) {
-        ReportView.LOG.log(Level.WARNING, "Failed to instantiate "+rname, t);
+        Debug.log(Debug.WARNING, this, "Failed to instantiate "+rname, t);
       }
     }
     
     // sort 'em
     Collections.sort(instances, new Comparator() { 
       public int compare(Object a, Object b) {
-        // 20063008 this can actually fail if the report is bad
-        try {
-          return ((Report)a).getName().compareTo(((Report)b).getName());
-        } catch (Throwable t) {
-          return 0;
-        }
+        return ((Report)a).getName().compareTo(((Report)b).getName());
       }
     });
     
@@ -171,7 +156,7 @@ public class ReportLoader {
       // library?
       if (isLibrary(file)) {
         try {
-          ReportView.LOG.info("report library "+file.toURL());
+          Debug.log(Debug.INFO, this, "report library "+file.toURL());
           classpath.add(file.toURL());
         } catch (MalformedURLException e) {
           // n/a

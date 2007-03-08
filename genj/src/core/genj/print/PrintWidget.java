@@ -23,33 +23,32 @@ import genj.option.Option;
 import genj.option.OptionListener;
 import genj.option.OptionsWidget;
 import genj.option.PropertyOption;
-import genj.renderer.Options;
+import genj.util.ActionDelegate;
 import genj.util.Dimension2d;
-import genj.util.swing.Action2;
+import genj.util.Resources;
+import genj.util.swing.ButtonHelper;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.UnitGraphics;
+import genj.view.Options;
 
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.List;
 
 import javax.print.PrintService;
 import javax.print.ServiceUI;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
-import javax.swing.Scrollable;
-import javax.swing.SwingConstants;
 
 /**
  * A PrintDialog */
@@ -58,6 +57,9 @@ public class PrintWidget extends JTabbedPane implements OptionListener {
   /** task */
   private PrintTask task;
   
+  /** resources */
+  private Resources resources;
+
   /** services to choose from */
   private ChoiceWidget services;
 
@@ -66,31 +68,27 @@ public class PrintWidget extends JTabbedPane implements OptionListener {
 
   /**
    * Constructor   */
-  public PrintWidget(PrintTask task) {
+  public PrintWidget(PrintTask tAsk, Resources reSources) {
     
     // remember 
-    this.task = task;
+    task = tAsk;
+    resources = reSources;
 
-    add(PrintTask.RESOURCES.getString("printer" ), createFirstPage());
-    add(PrintTask.RESOURCES.getString("settings"), createSecondPage());
+    add(resources.getString("printer" ), createFirstPage());
+    add(resources.getString("settings"), createSecondPage());
     
     // done    
   }
   
   private JPanel createFirstPage() {
     
-    String LAYOUT_TEMPLATE = 
-      "<col>"+
-      "<row><lprinter/><printers wx=\"1\"/><settings/></row>"+
-      "<row><lpreview/></row>"+
-      "<row><preview wx=\"1\" wy=\"1\"/></row>"+
-      "</col>";
-    
     // setup layout
-    JPanel page = new JPanel(new NestedBlockLayout(LAYOUT_TEMPLATE));
+    JPanel page = new JPanel();
+    NestedBlockLayout layout = new NestedBlockLayout(false, 2);
+    page.setLayout(layout);
     
     // 'printer'
-    page.add("lprinter", new JLabel(PrintTask.RESOURCES.getString("printer")));
+    page.add(new JLabel(resources.getString("printer")));
     
     // choose service
     services = new ChoiceWidget(task.getServices(), task.getService());
@@ -103,18 +101,19 @@ public class PrintWidget extends JTabbedPane implements OptionListener {
           task.setService((PrintService)services.getSelectedItem());
       }
     });
-    page.add("printers", services);
+    page.add(services, new Point2D.Double(1,0));
 
     // settings
-    page.add("settings", new JButton(new Settings()));
+    page.add(new ButtonHelper().create(new Settings()));
     
     // 'preview'
-    page.add("lpreview", new JLabel(PrintTask.RESOURCES.getString("preview")));
+    layout.createBlock(0);
+    page.add(new JLabel(resources.getString("preview")));
     
     // the actual preview
+    layout.createBlock(0);
     preview = new Preview();
-    
-    page.add("preview", new JScrollPane(preview));
+    page.add(new JScrollPane(preview), new Point2D.Double(1,1));
     
     // done
     return page;    
@@ -124,7 +123,7 @@ public class PrintWidget extends JTabbedPane implements OptionListener {
     List options = PropertyOption.introspect(task.getRenderer());
     for (int i = 0; i < options.size(); i++) 
       ((Option)options.get(i)).addOptionListener(this);
-    return new OptionsWidget(PrintTask.RESOURCES.getString("printer"), options);
+    return new OptionsWidget(task.getPrintManager().getWindowManager(), options);
   }
   
   /**
@@ -137,7 +136,7 @@ public class PrintWidget extends JTabbedPane implements OptionListener {
   /**
    * The preview
    */
-  private class Preview extends JComponent implements Scrollable {
+  private class Preview extends JComponent {
     
     private float 
       padd = 0.1F, // inch
@@ -201,37 +200,16 @@ public class PrintWidget extends JTabbedPane implements OptionListener {
       // done
     }
 
-    public boolean getScrollableTracksViewportHeight() {
-      return false;
-    }
-
-    public boolean getScrollableTracksViewportWidth() {
-      return false;
-    }
-
-    public Dimension getPreferredScrollableViewportSize() {
-      return new Dimension(0,0);
-    }
-
-    public int getScrollableBlockIncrement(Rectangle visibleRect, int orientation, int direction) {
-      return orientation==SwingConstants.VERTICAL ? visibleRect.height : visibleRect.width;
-    }
-
-    public int getScrollableUnitIncrement(Rectangle visibleRect, int orientation, int direction) {
-      return 1;
-    }
-
   } //Preview
 
   /**
    * Action : printer settings
    */
-  private class Settings extends Action2 {
+  private class Settings extends ActionDelegate {
 
     /** constructor */
     private Settings() {
-      super.setText(PrintTask.RESOURCES.getString("settings"));
-      super.setTarget(PrintWidget.this);
+      super.setText(resources.getString("settings"));
     }
 
     /** run */

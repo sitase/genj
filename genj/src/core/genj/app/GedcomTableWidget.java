@@ -19,25 +19,16 @@
  */
 package genj.app;
 
-import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomMetaListener;
-import genj.gedcom.Property;
+import genj.gedcom.Transaction;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.SortableTableModel;
-import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
+import genj.util.swing.SortableTableHeader;
 import genj.view.ViewManager;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
 
-import java.awt.Dimension;
 import java.awt.Point;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import javax.swing.JTable;
@@ -47,12 +38,10 @@ import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
-import spin.Spin;
-
 /**
  * A component displaying a list of Gedcoms
  */
-/*package*/ class GedcomTableWidget extends JTable implements ContextProvider, WindowBroadcastListener {
+/*package*/ class GedcomTableWidget extends JTable {
   
   /** default column widths */
   private static final int defaultWidths[] = {
@@ -69,7 +58,10 @@ import spin.Spin;
    * Constructor
    */
   public GedcomTableWidget(ViewManager mgr, Registry reGistry) {
-
+ 
+    // change the header to ours    
+    setTableHeader(new SortableTableHeader());
+    
     // Prepare a model
     model = new Model();
     registry = reGistry;
@@ -82,12 +74,11 @@ import spin.Spin;
         col.setHeaderValue(Resources.get(this).getString("cc.column_header.name"));
       else
         col.setHeaderValue(Gedcom.getEntityImage(Gedcom.ENTITIES[h-1]));
-
-      col.setWidth(defaultWidths[h]);
+      
       col.setPreferredWidth(defaultWidths[h]);
       cm.addColumn(col);
     }
-    setModel(new SortableTableModel(model, getTableHeader()));
+    setModel(model);
     setColumnModel(cm);
 
     // change looks    
@@ -98,39 +89,19 @@ import spin.Spin;
     // grab the preferred columns
     int[] widths = registry.get("columns",new int[0]);
     for (int c=0, max=getColumnModel().getColumnCount(); c<widths.length&&c<max; c++) {
-      TableColumn col = getColumnModel().getColumn(c);
-      col.setPreferredWidth(widths[c]);
-      col.setWidth(widths[c]);
+      getColumnModel().getColumn(c).setPreferredWidth(widths[c]);
     }    
 
     // done
   }
   
-  public Dimension getPreferredScrollableViewportSize() {
-    return new Dimension(Math.max(128, getColumnModel().getTotalColumnWidth()), Math.max(4, getModel().getRowCount())*getRowHeight());
-  }
-  
   /**
-   * ContextProvider - callback
+   * Select a gedcom
    */
-  public ViewContext getContext() {
-    int row = getSelectedRow();
-    return row<0 ? null : new ViewContext(model.getGedcom(row));
-  }
-
-  /**
-   * A windows broadcast message
-   */
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
-    
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event);
-    if (cse!=null) {
-      int row = model.getRowFor(cse.getContext().getGedcom());
-      if (row>=0)
-        getSelectionModel().setSelectionInterval(row,row);
-    }
-    
-    return true;
+  public void setSelection(Gedcom gedcom) {
+    int row = model.getRowFor(gedcom);
+    if (row>=0)
+      getSelectionModel().setSelectionInterval(row,row);
   }
 
   /**
@@ -154,6 +125,20 @@ import spin.Spin;
     registry.put("columns", widths);
     // continue
     super.removeNotify();
+  }
+  
+  /**
+   * Remove gedcom by name
+   */
+  public boolean removesGedcom(String name) {
+    for (int i=0; i<model.getRowCount(); i++) {
+      Gedcom gedcom = model.getGedcom(i);
+      if (gedcom.getName().equals(name)) {
+        model.removeGedcom(gedcom);
+        return true;
+      }
+    }
+    return false;
   }
   
   /**
@@ -187,8 +172,8 @@ import spin.Spin;
    */
   public void addGedcom(Gedcom gedcom) {
     model.addGedcom(gedcom);
-    int row = model.getRowFor(gedcom);
-    getSelectionModel().setSelectionInterval(row,row);
+    List gs = model.getAllGedcoms();
+    getSelectionModel().setSelectionInterval(gs.size()-1,gs.size()-1);
   }
 
   /**
@@ -201,7 +186,7 @@ import spin.Spin;
   /**
    * A model keeping track of a bunch of Gedcoms
    */
-  private class Model extends AbstractTableModel implements GedcomMetaListener {
+  private class Model extends AbstractTableModel implements GedcomListener {
     
     /** the Gedcoms we know about */
     private List gedcoms = new ArrayList(10);
@@ -234,8 +219,7 @@ import spin.Spin;
      */
     public void addGedcom(Gedcom gedcom) {
       gedcoms.add(gedcom);
-      Collections.sort(gedcoms);
-      gedcom.addGedcomListener((GedcomListener)Spin.over(this));
+      gedcom.addGedcomListener(this);
       fireTableDataChanged();
     }
 
@@ -244,7 +228,7 @@ import spin.Spin;
      */
     public void removeGedcom(Gedcom gedcom) {
       gedcoms.remove(gedcom);
-      gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
+      gedcom.removeGedcomListener(this);
       fireTableDataChanged();
     }
     
@@ -285,29 +269,12 @@ import spin.Spin;
       return col==0 ? String.class : Integer.class;
     }
 
-    public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-    }
-
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-    }
-
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-    }
-
-    public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
-    }
-
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-    }
-
-    public void gedcomHeaderChanged(Gedcom gedcom) {
-    }
-
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-    }
-
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
-      int i = getRowFor(gedcom);
+  
+    /**
+     * @see genj.gedcom.GedcomListener#handleChange(Change)
+     */
+    public void handleChange(Transaction change) {
+      int i = getRowFor(change.getGedcom());
       if (i>=0) fireTableRowsUpdated(i,i);
     }
 

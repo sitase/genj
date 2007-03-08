@@ -38,7 +38,6 @@ public abstract class Calendar {
   protected String name;
   protected ImageIcon image;
   protected String[] months;
-  protected String[] monthsLowerCase;
   protected String[] weekDays, localizedWeekDays;
   protected Map
     localizedMonthNames = new HashMap(),
@@ -58,8 +57,6 @@ public abstract class Calendar {
     
     // initialize members
     months = mOnths;
-    monthsLowerCase = new String[months.length];
-    for (int i = 0; i < months.length; i++) monthsLowerCase[i] = months[i].toLowerCase();
     escape = esc;
     name = resources.getString("cal."+key);
     image = new ImageIcon(Gedcom.class, img);
@@ -123,10 +120,8 @@ public abstract class Calendar {
    * Parse month
    */
   protected int parseMonth(String mmm) throws NumberFormatException {
-    // 20070128 compare lowercase'd values to avoid having to do the lowercase for calendar's months every time
-    String mmmLowerCase = mmm.toLowerCase();
     for (int i=0;i<months.length;i++) {
-      if (monthsLowerCase[i].equals(mmmLowerCase)) return i;
+      if (months[i].equalsIgnoreCase(mmm)) return i;
     }
     throw new NumberFormatException();
   }
@@ -156,34 +151,27 @@ public abstract class Calendar {
   }
 
   /**
-   * Returns the month as gedcom value
+   * Returns the (localized short) month as string (either MAY or Mai)
    */
-  public String getMonth(int month) {
+  public String getMonth(int month, boolean localize) {
     // what's the numeric value?
     if (month<0||month>=months.length)
       return "";
+    // calculate text
+    String mmm = months[month];
+    if (localize) 
+      mmm = abbreviatedMonthNames.get(mmm).toString();
     // done
-    return months[month];
-  }
-  
-  public String getDisplayMonth(int month, boolean abbrev) {
-    String mmm = getMonth(month);
-    if (mmm.length()==0)
-      return mmm;
-    return abbrev ? abbreviatedMonthNames.get(mmm).toString() : localizedMonthNames.get(mmm).toString();
+    return mmm;
   }
   
   /**
-   * Returns the year as a gedcom (numeric) value
+   * Returns the (localized) year as string
    */
-  public String getYear(int year) {
+  public String getYear(int year, boolean localize) {
     if (year==PointInTime.UNKNOWN)
       return "";
     return ""+year;
-  }
-  
-  public String getDisplayYear(int year) {
-    return getYear(year);
   }
   
   /**
@@ -194,7 +182,7 @@ public abstract class Calendar {
     try {
       return Integer.parseInt(year);
     } catch (NumberFormatException e) {
-      throw new GedcomException(resources.getString("year.invalid"));
+      throw new GedcomException(year+" is not a valid year");
     }
   }
 

@@ -26,27 +26,15 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.ArrayList;
-import java.util.logging.Logger;
-import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
- * An origin describes where a resource came from. This is normally
- * a URL that points to that resource. Other resources can be 
- * loaded relative to the initial origin. Supported origins are
- * file-system (file://) and remote http resource (http://).
- * A resource can be comprised of an archive (jar or zip) - the
- * URL then has to include an anchor that identifies the file
- * in the archive serving as the origin. 
- * Other resources can be opened relative to an origin - that's 
- * either relative to the same 'directory' of the original or
- * pulled from the same archive.
+ * Class which stands for an origin of a resource - all files
+ * loaded relative to this Origin are loaded from the same
+ * directory
  */
 public abstract class Origin {
-  
-  private static Logger LOG = Logger.getLogger( "genj.util");
   
   /** chars we need */
   private final static char
@@ -65,8 +53,7 @@ public abstract class Origin {
   }
 
   /**
-   * Factory method to create an instance for given location string
-   * @param s url as string
+   * factory for given string location
    */
   public static Origin create(String s) throws MalformedURLException {
     // delegate
@@ -74,9 +61,7 @@ public abstract class Origin {
   }
   
   /**
-   * Factory method to create an instance for given url
-   * @param url either http://host/dir/file or ftp://dir/file or
-   *   protocol://[host/]dir/file.zip#file 
+   * factory for given url
    */
   public static Origin create(URL url) {
 
@@ -90,15 +75,12 @@ public abstract class Origin {
   }
 
   /**
-   * Open this origin for input
-   * @return stream to read from
+   * Open connection to this origin
    */
   public abstract InputStream open() throws IOException;
 
   /**
-   * Open resource relative to this origin
-   * @param name the name of resource to open - either relative "./somethingelse"
-   *  or absolute "file://dir/somethingelse"
+   * Open file based on this origin
    */
   public final InputStream open(String name) throws IOException {
 
@@ -106,9 +88,7 @@ public abstract class Origin {
     name = back2forwardslash(name);
 
     // Absolute file specification?
-    if (ABSOLUTE.matcher(name).matches()) {
-      
-      LOG.fine("Trying to open "+name+" as absolute path (origin is "+this+")");
+    if ((name.charAt(0)==FSLASH) || (name.indexOf(":")>0) ) {
 
       URLConnection uc;
       try {
@@ -128,8 +108,6 @@ public abstract class Origin {
     }
 
     // relative file
-    LOG.fine("Trying to open "+name+" as relative path (origin is "+this+")");
-    
     return openImpl(name);
   }
   
@@ -146,103 +124,51 @@ public abstract class Origin {
   }
 
   /**
-   * Tries to calculate a relative path for given file
-   * @param file the file that might be relative to this origin
-   * @return relative path or null if not applicable
+   * Whether it is possible to save to the Origin's file
    */
-  private final static Pattern ABSOLUTE = Pattern.compile("([a-z]:).*|([A-Z]:).*|\\/.*|\\\\.*");
-  
+  public abstract boolean isFile();
+
+  /**
+   * Calculates the relative path for given file if applicable
+   */
   public String calcRelativeLocation(String file) {
 
-    // 20060614 by looking at Daniel's log-file with FINE enabled I was able to see that
-    // files are opened as file:/foo/bar/...
-    // Some code change from march took out the file:/ making the filename effectively
-    // relative to user.dir ... not a good idea
-    String here = url.toString();
-    // .. so lets first check for file:// and strip file:/ away if we can
-    if (here.startsWith("file://"))
-      here = here.substring("file:/".length());
-    // .. a single file:/foo/bar we'll turn into /foo/bar or file:foo/bar into foo/bar
-    else if (here.startsWith("file:"))
-      here = here.substring("file:".length());
-    
-    // a relative path can't be made relative
-    if (!ABSOLUTE.matcher(file).matches())
-      return null;
-    
-    // try to compare canonical forms
-    try {
-      here = back2forwardslash(new File(here.substring(0,here.lastIndexOf(FSLASH))).getCanonicalPath()) + "/";
-      file = back2forwardslash(new File(file).getCanonicalPath()); 
-      
-      boolean startsWith = file.startsWith(here);
-      LOG.fine("File "+file+" is "+(startsWith?"":"not ")+"relative to "+here);
-      if (startsWith)
-        return file.substring(here.length());
-    } catch (Throwable t) {
-    }
-    
+    file = "file:"+back2forwardslash(file);
 
-    // no good
-    return null;
+    String path = back2forwardslash(url.toString());
+    path = path.substring(0,path.lastIndexOf(FSLASH)+1);
+
+    if (!file.startsWith(path)) {
+      return null;
+    }
+
+    return file.substring(path.length());
   }
   
   /**
-   * Lists the files available at this origin if that information is available
-   */
-  public abstract String[] list() throws IOException ;
-  
-  /**
-   * Returns the Origin as a File or null if no local gedcom file can be named
+   * Returns the Origin as a File (e.g. to use to write to)
+   * [new File(file://d:/gedcom/example.ged)]
    */
   public abstract File getFile();
   
   /**
-   * Returns an absolute file representation of a resource relative 
-   * to this origin
-   * @exception IllegalArgumentException if not applicable (e.g. for origin http://host/dir/file)
+   * Returns a File representation of a resource relative to this origin
    */
   public abstract File getFile(String name);
 
   /**
-   * Returns the Origin's filename. For example
-   * <pre>
-   *  file://d:/gedcom/[example.ged]
-   *  http://host/dir/[example.ged]
-   *  http://host/dir/archive.zip#[example.ged]
-   * </pre>
+   * Returns the Origin's FileName file://d:/gedcom/[example.ged]
    */
   public String getFileName() {
     return getName();
   }
 
   /**
-   * Returns the origin's distinctive name. For example
-   * <pre>
-   *  file://d:/gedcom/[example.ged]
-   *  http://host/dir/[example.ged]
-   *  http://host/dir/[archive.zip#example.ged]
-   * </pre>
+   * The name of this origin file://d:/gedcom/[example.ged]
    */
   public String getName() {
     String path = back2forwardslash(url.toString());
-    if (path.endsWith(""+FSLASH))
-      path = path.substring(0, path.length()-1);
     return path.substring(path.lastIndexOf(FSLASH)+1);
-  }
-  
-  /**
-   * Object Comparison
-   */
-  public boolean equals(Object other) {
-    return other instanceof Origin && ((Origin)other).url.toString().equals(url.toString());
-  }
-  
-  /**
-   * Object hash
-   */
-  public int hashCode() {
-    return url.toString().hashCode();
   }
   
   /**
@@ -293,24 +219,19 @@ public abstract class Origin {
       }
 
     }
-
+    
     /**
-     * list directory of origin if file
+     * @see genj.util.Origin#isFile()
      */
-    public String[] list() {
-      File dir = getFile();
-      if (dir==null) 
-        throw new IllegalArgumentException("list() not supported by url protocol");
-      if (!dir.isDirectory())
-        dir = dir.getParentFile();
-      return dir.list();
+    public boolean isFile() {
+      return url.getProtocol().equals("file");
     }
     
     /**
      * @see genj.util.Origin#getFile()
      */
     public File getFile() {
-      return "file".equals(url.getProtocol()) ? new File(url.getFile()) : null;
+      return new File(url.getFile());
     }
 
     /**
@@ -322,7 +243,7 @@ public abstract class Origin {
       if (file.length()<1) return null;
       
       // Absolute file specification?
-      if (ABSOLUTE.matcher(file).matches()) 
+      if (file.charAt(0)==FSLASH || file.indexOf(COLON)>0 ) 
         return new File(file);
       
       // should be in parent directory
@@ -351,21 +272,6 @@ public abstract class Origin {
     }
 
     /**
-     * list directory of origin if file
-     */
-    public String[] list() throws IOException {
-      ArrayList result = new ArrayList();
-      ZipInputStream in  = openImpl();
-      while (true) {
-        ZipEntry entry = in.getNextEntry();
-        if (entry==null) break;
-        result.add(entry.getName());
-      }
-      in.close();
-      return (String[]) result.toArray(new String[result.size()]);
-    }
-    
-    /**
      * @see genj.util.Origin#open()
      */
     public InputStream open() throws IOException {
@@ -381,28 +287,17 @@ public abstract class Origin {
     }
     
     /**
-     * open the zip input stream
-     */
-    private ZipInputStream openImpl() throws IOException {
-      
-      // We either load from cached bits or try to open the connection
-      if (cachedBits==null) try {
-        cachedBits = new ByteArray(url.openConnection().getInputStream(), true).getBytes();
-      } catch (InterruptedException e) {
-        throw new IOException("interrupted while opening "+getName());
-      }
-
-      // Then we can read the zip from the cached bits
-      return new ZipInputStream(new ByteArrayInputStream(cachedBits));
-
-    }
-    
-    /**
      * @see genj.util.Origin#openImpl(java.lang.String)
      */
     protected InputStream openImpl(String file) throws IOException {
 
-       ZipInputStream zin = openImpl();
+      // We either load from cached bits or try to open the connection
+      if (cachedBits==null) {
+        cachedBits = new ByteArray(url.openConnection().getInputStream()).getBytes();
+      }
+
+      // Then we can read the zip from the cached bits
+      ZipInputStream zin = new ZipInputStream(new ByteArrayInputStream(cachedBits));
 
       // .. loop through files
       for (ZipEntry zentry = zin.getNextEntry();zentry!=null;zentry=zin.getNextEntry()) {
@@ -415,10 +310,17 @@ public abstract class Origin {
     }
 
     /**
+     * @see genj.util.Origin#isFile()
+     */
+    public boolean isFile() {
+      return false;
+    }
+
+    /**
      * @see genj.util.Origin#getFile()
      */
     public File getFile() {
-      return null;
+      throw new IllegalArgumentException("ZipOrigin doesn support getFile()");
     }
 
     /**
@@ -463,13 +365,6 @@ public abstract class Origin {
      */
     public int read() throws IOException {
       return in.read();
-    }
-    
-    /**
-     * @see java.io.InputStream#read(byte[], int, int)
-     */
-    public int read(byte[] b, int off, int len) throws IOException {
-      return in.read(b, off, len);
     }
 
     /**

@@ -19,7 +19,8 @@
  */
 package genj.util.swing;
 
-import genj.util.EnvironmentChecker;
+import genj.util.ActionDelegate;
+import genj.window.CloseWindow;
 
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
@@ -28,6 +29,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.AbstractButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.event.ChangeListener;
@@ -40,8 +42,8 @@ public class FileChooserWidget extends JPanel {
   /** text field  */
   private TextFieldWidget text = new TextFieldWidget("", 12);
   
-  /** choose action */
-  private Choose choose = new Choose();
+  /** button */
+  private AbstractButton button;
   
   /** file extensions */
   private String extensions;
@@ -50,35 +52,19 @@ public class FileChooserWidget extends JPanel {
   public final static String EXECUTABLES = "exe, bin, sh, cmd, bat";
   
   /** start directory */
-  private String directory = EnvironmentChecker.getProperty(this, "user.home", ".", "file chooser directory");
+  private String directory = "/";
   
   /** an accessory if any */
   private JComponent accessory;
   
   /** action listeners */
   private List listeners = new ArrayList();
-  
-  /** action listener connector to text field */
-  private ActionListener actionProxy = new ActionListener() {
-    public void actionPerformed(ActionEvent e) {
-      fireActionEvent();
-    }
-  };
  
   /** 
    * constructor 
    */
   public FileChooserWidget() {
     this(null);
-  }
-  
-  /**
-   * delegate enabled to sub-components
-   */
-  public void setEnabled(boolean set) {
-    super.setEnabled(set);
-    choose.setEnabled(set);
-    text.setEnabled(set);
   }
   
   /** 
@@ -88,8 +74,15 @@ public class FileChooserWidget extends JPanel {
   public FileChooserWidget(String extensions) {
     super(new BorderLayout());
     
+    button = new ButtonHelper().setInsets(0).setFocusable(false).create(new Choose());
+    text.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        fireActionEvent();
+      }
+    });
+    
     add(BorderLayout.CENTER, text );
-    add(BorderLayout.EAST  , new ButtonHelper().setInsets(0).create(choose));
+    add(BorderLayout.EAST  , button);      
     this.extensions = extensions;
   }
   
@@ -121,9 +114,6 @@ public class FileChooserWidget extends JPanel {
    * Add listener
    */
   public void addActionListener(ActionListener l) {
-    // hook up to textfields action if this is the first listener
-    if (listeners.isEmpty())
-      text.addActionListener(actionProxy);
     listeners.add(l);
   }
   
@@ -132,9 +122,6 @@ public class FileChooserWidget extends JPanel {
    */
   public void removeActionListener(ActionListener l) {
     listeners.remove(l);
-    // dehook from textfields action if this was the last listener
-    if (listeners.isEmpty())
-      text.removeActionListener(actionProxy);
   }
   
   /**
@@ -145,17 +132,18 @@ public class FileChooserWidget extends JPanel {
   }
   
   /**
-   * Getter - 'current' directory
-   */
-  public String getDirectory() {
-    return directory;
-  }
-  
-  /**
    * Whether there is an actual selection
    */
   public boolean isEmpty() {
     return text.isEmpty();
+  }
+  
+  /**
+   * Sets an image to use
+   */
+  public void setImage(ImageIcon image) {
+    button.setIcon(image);
+    button.setText(null);
   }
   
   /**
@@ -176,10 +164,7 @@ public class FileChooserWidget extends JPanel {
    * Set current file selection
    */
   public void setFile(File file) {
-    // 20060126 in version 1.7 I thought about using file's absolute path
-    // from here on but sometimes that undersirable since file might
-    // not contain a valid full path in the first place
-    text.setText(file!=null ? file.getPath() : "");
+    text.setText(file!=null ? file.toString() : "");
   }
   
   /**
@@ -206,31 +191,28 @@ public class FileChooserWidget extends JPanel {
   /**
    * Choose with file dialog
    */
-  private class Choose extends Action2 {
+  private class Choose extends ActionDelegate {
     
     /** constructor */
     private Choose() {
       setText("...");
-      setTarget(FileChooserWidget.this);
     }
 
     /** choose file */    
     protected void execute() {
 
       // create and show chooser      
-      FileChooser fc = new FileChooser(FileChooserWidget.this, getName(), Action2.TXT_OK, extensions, directory);
+      FileChooser fc = new FileChooser(FileChooserWidget.this, getName(), CloseWindow.TXT_OK, extensions, directory);
       fc.setAccessory(accessory);
       fc.showDialog();
       
       // check result
       File file = fc.getSelectedFile();
-      if (file!=null)  {
+      if (file!=null) 
         setFile(file);
-        directory = file.getParent();
-        
-        // notify
-        fireActionEvent();
-      }
+      
+      // notify
+      fireActionEvent();
       
       // done
     }

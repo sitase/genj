@@ -16,76 +16,65 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- * $Revision: 1.127 $ $Author: nmeier $ $Date: 2007-03-06 12:34:49 $
+ * 
+ * $Revision: 1.60 $ $Author: nmeier $ $Date: 2005-01-10 18:30:35 $
  */
 package genj.report;
 
 import genj.chart.Chart;
-import genj.common.ContextListWidget;
-import genj.common.SelectEntityWidget;
-import genj.fo.Document;
-import genj.fo.Format;
-import genj.fo.FormatOptionsWidget;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomException;
-import genj.gedcom.time.PointInTime;
-import genj.io.FileAssociation;
+import genj.gedcom.Property;
 import genj.option.Option;
-import genj.option.OptionsWidget;
 import genj.option.PropertyOption;
+import genj.util.ActionDelegate;
+import genj.util.Debug;
 import genj.util.EnvironmentChecker;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
+import genj.util.swing.HeadlessLabel;
+import genj.view.Context;
+import genj.view.ViewManager;
+import genj.view.widgets.SelectEntityWidget;
+import genj.window.CloseWindow;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Point;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.io.CharArrayWriter;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.TreeMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Properties;
+import java.util.Vector;
 
-import javax.swing.Action;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.filechooser.FileFilter;
+import javax.swing.ListCellRenderer;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 
 /**
- * Base-class of all GenJ reports. Sub-classes that are compiled
- * and available in ./report will be loaded by GenJ automatically
- * and can be reloaded during runtime.
+ * Interface of a user definable GenjJ Report
  */
 public abstract class Report implements Cloneable {
-
-  protected final static Logger LOG = Logger.getLogger("genj.report");
-
-  protected final static ImageIcon
-    IMG_SHELL = new genj.util.swing.ImageIcon(ReportView.class,"ReportShell.gif"),
-    IMG_FO    = new genj.util.swing.ImageIcon(ReportView.class,"ReportFO.gif"  ),
+  
+  private final static ImageIcon     
+    IMG_SHELL = new genj.util.swing.ImageIcon(ReportView.class,"ReportShell.gif"), 
     IMG_GUI   = new genj.util.swing.ImageIcon(ReportView.class,"ReportGui.gif"  );
 
   /** global report options */
@@ -97,20 +86,12 @@ public abstract class Report implements Cloneable {
     OPTION_OKCANCEL = 1,
     OPTION_OK       = 2;
 
-  /** categories */
-  private static final Category DEFAULT_CATEGORY = new Category("Other", IMG_SHELL);
-  private static final Categories categories = new Categories();
-  static {
-      // Default category when category isn't defined in properties file
-      categories.add(DEFAULT_CATEGORY);
-  }
-
   private final static String[][] OPTION_TEXTS = {
-    new String[]{Action2.TXT_YES, Action2.TXT_NO     },
-    new String[]{Action2.TXT_OK , Action2.TXT_CANCEL },
-    new String[]{Action2.TXT_OK }
+    new String[]{CloseWindow.TXT_YES, CloseWindow.TXT_NO     }, 
+    new String[]{CloseWindow.TXT_OK , CloseWindow.TXT_CANCEL }, 
+    new String[]{CloseWindow.TXT_OK                          }
   };
-
+    
   /** alignment options */
   protected final static int
     ALIGN_LEFT   = 0,
@@ -123,21 +104,21 @@ public abstract class Report implements Cloneable {
   /** language we're trying to use */
   private final static String lang = Locale.getDefault().getLanguage();
 
-  /** translation texts */
-  private Resources resources;
+  /** i18n texts */
+  private Properties properties;
 
   /** out */
-  protected PrintWriter out;
+  private PrintWriter out;
 
-  /** a window  manager */
-  private WindowManager windowManager;
+  /** a view manager */
+  private ViewManager viewManager;
 
   /** owning component */
-  private Component owner;
-
+  private JComponent owner;
+  
   /** options */
   private List options;
-
+  
   /** image */
   private ImageIcon image;
 
@@ -145,13 +126,12 @@ public abstract class Report implements Cloneable {
    * Constructor
    */
   protected Report() {
-
   }
-
+  
   /**
    * integration - private instance for a run
    */
-  /*package*/ Report getInstance(Component owner, PrintWriter out) {
+  /*package*/ Report getInstance(ViewManager viEwManager, JComponent owNer, PrintWriter ouT) {
 
     try {
 
@@ -162,15 +142,15 @@ public abstract class Report implements Cloneable {
       Report result = (Report)clone();
 
       // remember context for result
-      result.windowManager = WindowManager.getInstance(owner);
-      result.out = out;
-      result.owner = owner;
-
+      result.viewManager = viEwManager;
+      result.out = ouT;
+      result.owner = owNer;
+      
       // done
       return result;
 
     } catch (CloneNotSupportedException e) {
-      ReportView.LOG.log(Level.SEVERE, "couldn't clone report", e);
+      Debug.log(Debug.ERROR, this, e);
       throw new RuntimeException("getInstance() failed");
     }
   }
@@ -182,7 +162,7 @@ public abstract class Report implements Cloneable {
     if (out!=null)
       out.println(txt);
   }
-
+  
   /**
    * Store report's options
    */
@@ -196,17 +176,17 @@ public abstract class Report implements Cloneable {
       ((Option)it.next()).persist(registry);
     // done
   }
-
+  
   /**
    * Get report's options
    */
   /*package*/ List getOptions() {
-
+    
     // already calculated
     if (options!=null)
       return options;
-
-    // calculate options
+      
+    // calculate options 
     options = PropertyOption.introspect(this);
 
     // restore options values
@@ -215,73 +195,38 @@ public abstract class Report implements Cloneable {
       PropertyOption option = (PropertyOption)it.next();
       // restore old value
       option.restore(registry);
-      // options do try to localize the name based on a properties file
-      // in the same package as the instance - problem is that this
-      // won't work with our special way of resolving i18n in reports
-      // so we have to do that manually
-      String oname = translate(option.getProperty());
-      if (oname.length()>0) option.setName(oname);
+      // we use i18n() to resolve names for options
+      option.setName(i18n(option.getProperty()));    
       // set category
       option.setCategory(getName());
     }
-
+    
     // done
     return options;
   }
-
+  
   /**
    * An image
    */
-  protected ImageIcon getImage() {
-
-    // resolve an image
-    if (image==null) try {
-      String file = getTypeName()+".gif";
-      image = new genj.util.swing.ImageIcon(file, getClass().getResourceAsStream(file));
-    } catch (Throwable t) {
+  /*package*/ ImageIcon getImage() {
+    // not known?
+    if (image==null) {
+      // prepare default
       image = usesStandardOut() ? IMG_SHELL : IMG_GUI;
-    }
-
-    // done
-    return image;
-  }
-
-  /**
-   * Returns the report category. If the category is not defined in the report's
-   * properties file, the category is set to "Other".
-   */
-  public Category getCategory() {
-      String name = translate("category");
-      if (name.equals("category"))
-          return DEFAULT_CATEGORY;
-
-      Category category = (Category)categories.get(name);
-      if (category == null) {
-          category = createCategory(name);
-          categories.add(category);
-      }
-      return category;
-  }
-
-  private Category createCategory(String name) {
-      String file = "Category" + name + ".gif";
-
-      InputStream in = Report.class.getResourceAsStream(file);
-      if (in == null)
-          in = getClass().getResourceAsStream(file);
-
-      ImageIcon image;
-      if (in != null)
+      // try to load a custom one too
+      try {
+        String file = getTypeName()+".gif";
+        InputStream in = getClass().getResourceAsStream(file);
+        if (in!=null)
           image = new genj.util.swing.ImageIcon(file, in);
-      else
-          image = IMG_SHELL;
-      return new Category(name, image);
+      } catch (Throwable t) {
+      }
+    }
+    return image; 
   }
 
   /**
-   * When a report is executed all its text output is gathered and
-   * shown to the user (if run through ReportView). A sub-class can
-   * flush the current log with this method.
+   * Flush any of the pending output
    */
   public final void flush() {
     if (out!=null)
@@ -289,38 +234,29 @@ public abstract class Report implements Cloneable {
   }
 
   /**
-   * When a report is executed all its text output is gathered and
-   * shown to the user (if run through ReportView). A sub-class can
-   * append a new line to the current log with this method.
+   * Append a new line to the log
    */
-  public final void println() {
+  public final void println() throws ReportCancelledException {
     println("");
   }
 
   /**
-   * When a report is executed all its text output is gathered and
-   * shown to the user (if run through ReportView). A sub-class can
-   * append the text-representation of an object (toString) to the
-   * current log with this method.
+   * Write an arbitrary Object to the log
    */
-  public final void println(Object o) {
+  public final void println(Object o) throws ReportCancelledException {
     // nothing to do?
     if (o==null)
       return;
     // Our hook into checking for Interrupt
     if (Thread.interrupted())
-      throw new RuntimeException(new InterruptedException());
+      throw new ReportCancelledException();
     // Append it
     log(o.toString());
     // Done
   }
 
   /**
-   * When a report is executed all its text output is gathered and
-   * shown to the user (if run through ReportView). A sub-class can
-   * let the user know about an exception with this method. The
-   * information about the exception is appended in text-form to
-   * the current log.
+   * log an exception
    */
   public final void println(Throwable t) {
     CharArrayWriter awriter = new CharArrayWriter(256);
@@ -329,60 +265,7 @@ public abstract class Report implements Cloneable {
   }
 
   /**
-   * An implementation of Report can ask the user for a file with this method.
-   */
-  public File getFileFromUser(String title, String button) {
-    return getFileFromUser(title, button, false);
-  }
-
-  /**
-   * An implementation of Report can ask the user for a file with this method.
-   */
-  public File getFileFromUser(String title, String button, boolean askForOverwrite) {
-	  return getFileFromUser(title, button, askForOverwrite, null);
-  }
-
-  /**
-   * An implementation of Report can ask the user for a file with this method.
-   *
-   * @param title  file dialog title
-   * @param button  file dialog OK button text
-   * @param askForOverwrite  whether to confirm overwriting files
-   * @param extension  extension of files to display
-   */
-  public File getFileFromUser(String title, String button, boolean askForOverwrite, String extension) {
-
-    String key = getClass().getName()+".file";
-
-    // show filechooser
-    String dir = registry.get(key, EnvironmentChecker.getProperty(this, "user.home", ".", "looking for report dir to let the user choose from"));
-    JFileChooser chooser = new JFileChooser(dir);
-    chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-    chooser.setDialogTitle(title);
-    if (extension != null)
-    	chooser.setFileFilter(new FileExtensionFilter(extension));
-
-    int rc = chooser.showDialog(owner,button);
-
-    // check result
-    File result = chooser.getSelectedFile();
-    if (rc!=JFileChooser.APPROVE_OPTION||result==null)
-      return null;
-
-    // choose an existing file?
-    if (result.exists()&&askForOverwrite) {
-      rc = windowManager.openDialog(null, title, WindowManager.WARNING_MESSAGE, ReportView.RESOURCES.getString("report.file.overwrite"), Action2.yesNo(), owner);
-      if (rc!=0)
-        return null;
-    }
-
-    // keep it
-    registry.put(key, result.getParent().toString());
-    return result;
-  }
-
-  /**
-   * An implementation of Report can ask the user for a directory with this method.
+   * Helper method that queries the user for a directory
    */
   public final File getDirectoryFromUser(String title, String button) {
 
@@ -394,226 +277,155 @@ public abstract class Report implements Cloneable {
     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
     chooser.setDialogTitle(title);
     int rc = chooser.showDialog(owner,button);
-
+    
     // check result
-    File result = chooser.getSelectedFile();
+    File result = chooser.getSelectedFile(); 
     if (rc!=JFileChooser.APPROVE_OPTION||result==null)
       return null;
-
+    
     // keep it
-    registry.put(key, result.toString());
+    registry.put(key, result.toString());    
     return result;
   }
 
   /**
-   * A sub-class can show a document to the user with this method allowing
-   * to save, transform and view it
-   */
-  public final void showDocumentToUser(Document doc) {
-
-    String title = "Document "+doc.getTitle();
-
-    Registry foRegistry = new Registry(registry, getClass().getName()+".fo");
-
-    Action[] actions = Action2.okCancel();
-    FormatOptionsWidget output = new FormatOptionsWidget(doc, foRegistry);
-    output.connect(actions[0]);
-    int rc = windowManager.openDialog("reportdoc", title, WindowManager.QUESTION_MESSAGE, output, actions, owner);
-
-    // cancel?
-    if (rc!=0)
-      return;
-
-    // grab formatter and output file
-    Format formatter = output.getFormat();
-
-    File file = null;
-    String progress = null;
-    if (formatter.getFileExtension()!=null) {
-
-      file = output.getFile();
-      if (file==null)
-        return;
-      file.getParentFile().mkdirs();
-
-      // show a progress dialog
-      progress = windowManager.openNonModalDialog(
-          null, title, WindowManager.INFORMATION_MESSAGE, new JLabel("Writing Document to file "+file+" ..."), Action2.okOnly(), owner);
-
-    }
-
-    // store options
-    output.remember(foRegistry);
-
-    // format and write
-    try {
-      formatter.format(doc, file);
-    } catch (Throwable t) {
-      LOG.log(Level.WARNING, "formatting "+doc+" failed", t);
-      windowManager.openDialog(null, "Formatting "+doc+" failed", WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), owner);
-      file = null;
-    }
-
-    // close progress dialog
-    if (progress!=null)
-      windowManager.close(progress);
-
-    // open document
-    if (file!=null) {
-
-      // let ReportView show the file or show it in external application
-      if (owner instanceof ReportView && file.getName().endsWith(".html")) {
-        try {
-          log(""+file.toURL());
-        } catch (MalformedURLException e) {}
-      } else {
-        FileAssociation association = FileAssociation.get(formatter.getFileExtension(), formatter.getFileExtension(), "Open", owner);
-        if (association!=null)
-          association.execute(file);
-      }
-    }
-
-    // done
-  }
-
-  /**
-   * Show a file if there's a file association for it
-   */
-  public final void showFileToUser(File file) {
-    FileAssociation association = FileAssociation.get(file, "Open", owner);
-    if (association!=null)
-      association.execute(file);
-  }
-
-  /**
-   * A sub-class can show a chart to the user with this method
+   * Helper method that shows a chart to the user
    */
   public final void showChartToUser(Chart chart) {
     showComponentToUser(chart);
   }
-
+  
   /**
-   * A sub-class can show a Java Swing component to the user with this method
+   * Helper method that shows a component to the user
    */
   public final void showComponentToUser(JComponent component) {
-
+    
     // open a non-modal dialog
-    windowManager.openNonModalDialog(getClass().getName()+"#component",getName(), WindowManager.INFORMATION_MESSAGE,component,Action2.okOnly(),owner);
-
+    viewManager.getWindowManager().openNonModalDialog(getClass().getName()+"#component",getName(),ReportViewFactory.IMG,component,CloseWindow.OK(),owner);
+    
     // done
   }
 
   /**
-   * Show annotations containing text and references to Gedcom objects
+   * Helper method that shows (resulting) items to the user
    */
-  public final void showAnnotationsToUser(Gedcom gedcom, String msg, List annotations) {
+  public final void showItemsToUser(String msg, Gedcom gedcom, List items) {
+    showItemsToUser(msg, gedcom, (Item[])items.toArray(new Item[items.size()]));
+  }
+  
+  /**
+   * Helper method that shows (resulting) items to the user
+   */
+  public final void showItemsToUser(String msg, Gedcom gedcom, Item[] items) {
 
     // prepare content
     JPanel content = new JPanel(new BorderLayout());
     content.add(BorderLayout.NORTH, new JLabel(msg));
-    content.add(BorderLayout.CENTER, new JScrollPane(new ContextListWidget(gedcom, annotations)));
+    content.add(BorderLayout.CENTER, new JScrollPane(new ItemList(gedcom, items, viewManager)));
 
     // open a non-modal dialog
-    windowManager.openNonModalDialog(getClass().getName()+"#items",getName(),WindowManager.INFORMATION_MESSAGE,content,Action2.okOnly(),owner);
+    viewManager.getWindowManager().openNonModalDialog(getClass().getName()+"#items",getName(),ReportViewFactory.IMG,content,CloseWindow.OK(),owner);
 
     // done
   }
-
+  
   /**
-   * A sub-class can open a browser that will show the given URL with this method
+   * Helper method that shows (resulting) html to the user
    */
   public final void showBrowserToUser(URL url) {
-    FileAssociation.open(url, owner);
-  }
 
-  /**
-   * A sub-class can ask the user for an entity (e.g. Individual) with this method
-   * @param msg a message for letting the user know what and why he's choosing
-   * @param gedcom to use
-   * @param tag tag of entities to show for selection (e.g. Gedcom.INDI)
-   */
-  public final Entity getEntityFromUser(String msg, Gedcom gedcom, String tag) {
-
-    SelectEntityWidget select = new SelectEntityWidget(gedcom, tag, null);
-
-    // preselect something?
-    Entity entity = gedcom.getEntity(registry.get("select."+tag, (String)null));
-    if (entity!=null)
-      select.setSelection(entity);
-
-    // show it
-    int rc = windowManager.openDialog("select."+tag,getName(),WindowManager.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),select},Action2.okCancel(),owner);
-    if (rc!=0)
-      return null;
-
-    // remember selection
-    Entity result = select.getSelection();
-    if (result==null)
-      return null;
-    registry.put("select."+result.getTag(), result.getId());
+    // get browser command
+    Options options = Options.getInstance();
+    File browser = options.browser;
+    while (!browser.isFile()) {
+      
+      // show file chooser
+      JFileChooser chooser = new JFileChooser();
+      chooser.setDialogTitle(Resources.get(ReportView.class).getString("option.browser"));
+      int rc = chooser.showOpenDialog(owner);
+      browser = chooser.getSelectedFile(); 
+      if (rc!=JFileChooser.APPROVE_OPTION||browser==null)
+        return;
+    
+      // keep it
+      options.browser = browser;    
+    }
+    
+    // run it
+    try {
+      Runtime.getRuntime().exec(new String[]{browser.getAbsolutePath(), url.toString()});
+    } catch (Throwable t) {
+      println("***Couldn't run "+browser+" on url "+url+"*** ("+t.getMessage()+")");
+    }
 
     // done
-    return result;
   }
 
-// could do that too - simply show a component to the user
-//
-//  /**
-//   * A sub-class can query the user to choose a value that is somehow represented by given component
-//   */
-//  public final boolean getValueFromUser(JComponent options) {
-//    int rc = windowManager.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, new JComponent[]{options}, Action2.okCancel(), owner);
-//    return rc==0;
-//  }
+  /**
+   * Helper method that queries the user for an entity
+   * @param msg a message for letting the user know what and why he's choosing
+   * @param gedcom to use
+   * @param tag the tag of the entities to show (for example Gedcom.INDI)
+   */
+  public final Entity getEntityFromUser(String msg, Gedcom gedcom, String tag) {
+    
+    SelectEntityWidget select = new SelectEntityWidget(tag, gedcom.getEntities(tag), "");
+
+    int rc = viewManager.getWindowManager().openDialog(null,getName(),WindowManager.IMG_QUESTION,new JComponent[]{new JLabel(msg),select},CloseWindow.OKandCANCEL(),owner);
+
+    return rc==0 ? select.getEntity() : null;
+  }
 
   /**
-   * A sub-class can query the user for a selection of given choices with this method
+   * Helper method that queries the user for a choice of non-editable items
    */
   public final Object getValueFromUser(String msg, Object[] choices, Object selected) {
 
     ChoiceWidget choice = new ChoiceWidget(choices, selected);
     choice.setEditable(false);
 
-    int rc = windowManager.openDialog(null,getName(),WindowManager.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner);
+    int rc = viewManager.getWindowManager().openDialog(null,getName(),WindowManager.IMG_QUESTION,new JComponent[]{new JLabel(msg),choice},CloseWindow.OKandCANCEL(),owner);
 
     return rc==0 ? choice.getSelectedItem() : null;
   }
 
   /**
-   * A sub-class can query the user for a text value with this method. The value
-   * that was selected the last time is automatically suggested.
+   * Helper method that queries the user for a text-value giving him a
+   * choice of remembered values
    */
-  public final String getValueFromUser(String key, String msg) {
-    return getValueFromUser(key, msg, new String[0]);
-  }
+  public final String getValueFromUser(String key, String msg, String[] choices) {
 
-  /**
-   * A sub-class can query the user for a text value with this method. The value
-   * that was selected the last time is automatically suggested.
-   */
-  public final String getValueFromUser(String key, String msg, String[] defaultChoices) {
-
-    // try to find previously entered choices
+    // Choice to include already entered stuff?
     if (key!=null) {
+
       key = getClass().getName()+"."+key;
+
+      // Do we know values for this already?
       String[] presets = registry.get(key, (String[])null);
-      if (presets != null)
-        defaultChoices = presets;
+      if (presets != null) {
+        choices = presets;
+      }
     }
 
+    // prepare txt
+
     // show 'em
-    ChoiceWidget choice = new ChoiceWidget(defaultChoices, defaultChoices.length>0 ? defaultChoices[0] : "");
-    int rc = windowManager.openDialog(null,getName(),WindowManager.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner);
+    ChoiceWidget choice = new ChoiceWidget(choices, "");
+
+    int rc = viewManager.getWindowManager().openDialog(null,getName(),WindowManager.IMG_QUESTION,new JComponent[]{new JLabel(msg),choice},CloseWindow.OKandCANCEL(),owner);
+
     String result = rc==0 ? choice.getText() : null;
 
     // Remember?
     if (key!=null&&result!=null&&result.length()>0) {
-      List values = new ArrayList(defaultChoices.length+1);
-      values.add(result);
-      for (int d=0;d<defaultChoices.length&&d<20;d++)
-        if (!result.equalsIgnoreCase(defaultChoices[d]))
-          values.add(defaultChoices[d]);
-      registry.put(key, values);
+
+      Vector v = new Vector(choices.length+1);
+      v.addElement(result);
+      for (int i=0;i<choices.length;i++) {
+        if (!choices[i].equals(result))
+          v.addElement(choices[i]);
+      }
+      registry.put(key,v);
     }
 
     // Done
@@ -621,142 +433,95 @@ public abstract class Report implements Cloneable {
   }
 
   /**
-   * A sub-class can query the user for input to given options
-   */
-  public final boolean getOptionsFromUser(String title, Object options) {
-
-    // grab options by introspection
-    List os = PropertyOption.introspect(options);
-
-    // calculate a logical prefix for this options object (strip packages and enclosing type info)
-    String prefix = options.getClass().getName();
-
-    int i = prefix.lastIndexOf('.');
-    if (i>0) prefix = prefix.substring(i+1);
-
-    i = prefix.lastIndexOf('$');
-    if (i>0) prefix = prefix.substring(i+1);
-
-    // restore parameters
-    Registry r = new Registry(registry, prefix);
-    Iterator it = os.iterator();
-    while (it.hasNext()) {
-      PropertyOption option  = (PropertyOption)it.next();
-      option.restore(r);
-
-      // translate the options as a courtesy now - while options do try
-      // to localize the name they base that on a properties file in the
-      // same package as the instance - problem is that this won't work
-      // with our special way of resolving i18n in reports
-      String oname = translate(prefix+"."+option.getName());
-      if (oname.length()>0) option.setName(oname);
-
-    }
-
-    // show to user and check for non-ok
-    OptionsWidget widget = new OptionsWidget(title, os);
-    int rc = windowManager.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, widget, Action2.okCancel(), owner);
-    if (rc!=0)
-      return false;
-
-    // save parameters
-    widget.stopEditing();
-    it = os.iterator();
-    while (it.hasNext())
-      ((Option)it.next()).persist(r);
-
-    // done
-    return true;
-  }
-
-  /**
-   * A sub-class can query the user for a simple yes/no selection with
-   * this method.
-   * @param msg the message explaining to the user what he's choosing
-   * @param option one of OPTION_YESNO, OPTION_OKCANCEL, OPTION_OK
+   * Helper method that queries the user for yes/no input
    */
   public final boolean getOptionFromUser(String msg, int option) {
     return 0==getOptionFromUser(msg, OPTION_TEXTS[option]);
   }
-
+  
   /**
    * Helper method that queries the user for yes/no input
    */
-  private int getOptionFromUser(String msg, String[] actions) {
-
-    Action[] as  = new Action[actions.length];
-    for (int i=0;i<as.length;i++)
-      as[i]  = new Action2(actions[i]);
-
-    return windowManager.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, msg, as, owner);
-
+  public final int getOptionFromUser(String msg, String[] options) {
+    ActionDelegate[] actions = new ActionDelegate[options.length];
+    for (int i = 0; i < actions.length; i++)
+      actions[i] = new CloseWindow(options[i]);
+    return getOptionFromUser(msg, actions);
+  }
+    
+  /**
+   * Helper method that queries the user for yes/no input
+   */
+  private int getOptionFromUser(String msg, ActionDelegate[] actions) {
+    
+    return viewManager.getWindowManager().openDialog(
+      null,
+      getName(),
+      WindowManager.IMG_QUESTION,
+      msg,
+      actions,
+      owner
+    );
+    
+    // Done
   }
 
   /**
-   * Sub-classes that are accompanied by a [ReportName].properties file
-   * containing simple key=value pairs can lookup internationalized
-   * text-values with this method.
-   * @param key the key to lookup in [ReportName].properties
+   * i18n of a string
    */
-  public final String translate(String key) {
-    return translate(key, (Object[])null);
+  public final String i18n(String key) {
+    return i18n(key, (Object[])null);
   }
 
   /**
-   * Sub-classes that are accompanied by a [ReportName].properties file
-   * containing simple key=value pairs can lookup internationalized
-   * text-values with this method.
-   * @param key the key to lookup in [ReportName].properties
-   * @param value an integer value to replace %1 in value with
+   * i18n of a string
    */
-  public final String translate(String key, int value) {
-    return translate(key, new Integer(value));
+  public final String i18n(String key, int sub) {
+    return i18n(key, new Integer(sub));
   }
 
   /**
-   * Sub-classes that are accompanied by a [ReportName].properties file
-   * containing simple key=value pairs can lookup internationalized
-   * text-values with this method.
-   * @param key the key to lookup in [ReportName].properties
-   * @param value an object value to replace %1 in value with
+   * i18n of a string
    */
-  public final String translate(String key, Object value) {
-    return translate(key, new Object[]{value});
+  public final String i18n(String key, Object sub) {
+    return i18n(key, new Object[]{sub});
   }
 
   /**
-   * Sub-classes that are accompanied by a [ReportName].properties file
-   * containing simple key=value pairs can lookup internationalized
-   * text-values with this method.
-   * @param key the key to lookup in [ReportName].properties
-   * @param values an array of values to replace %1, %2, ... in value with
+   * i18n of a string
    */
-  public final String translate(String key, Object[] values) {
+  public final String i18n(String key, Object[] subs) {
 
-    Resources resources = getResources();
-    if (resources==null)
-      return key;
+    // get i18n properties
+    Properties i18n = getProperties();
 
     // look it up in language
     String result = null;
-    if (lang!=null)
-      result = resources.getString(key+'.'+lang, values, false);
+    if (lang!=null) {
+      result = i18n.getProperty(key+'.'+lang);
+    }
 
     // fallback if necessary
     if (result==null)
-      result = resources.getString(key, values, true);
+      result = i18n.getProperty(key);
+
+    // check result and apply format
+    if (result==null) {
+      // 20030529 - don't do a recursive getName() here
+      Debug.log(Debug.WARNING, this, "Unknown i18 key : "+key);
+      result = key;
+    } else {
+      if (subs!=null&&subs.length>0) {
+        for (int i=0;i<subs.length;i++) 
+          if (subs[i]==null) subs[i]="";
+        result = Resources.getMessageFormat(result).format(subs);
+      }
+    }
 
     // done
     return result;
   }
-
-  /**
-   * Filename
-   */
-  public String getFilename() {
-    return getClass().getName().replace('.','/')+".java";
-  }
-
+  
   /**
    * Type name (name without packages)
    */
@@ -766,28 +531,20 @@ public abstract class Report implements Cloneable {
       rtype = rtype.substring(rtype.indexOf('.')+1);
     return rtype;
   }
-
+  
   /**
    * Access to report properties
    */
-  protected Resources getResources() {
-    if (resources==null) {
-      // initialize resources with old way of pulling from .properties file
-      resources = new Resources(getClass().getResourceAsStream(getTypeName()+".properties"));
-      // check if new style resources are available from .java src
+  private Properties getProperties() {
+    if (properties==null) {
+      properties = new Properties();
       try {
-        // ... checking filesystem in developer mode, resource otherwise
-        File reports = new File("./src/report");
-        String src = getClass().getName().replace('.', '/')+".java";
-        InputStream in = (reports.exists()&&reports.isDirectory()) ?
-            new FileInputStream(new File(reports, src)) :
-            getClass().getResourceAsStream(src);
-        resources.load(in);
-      } catch (IOException e) {
-        // ignore
+        properties.load(getClass().getResourceAsStream(getTypeName()+".properties"));
+      } catch (Throwable t) {
+        Debug.log(Debug.INFO, this, "Couldn't read properties for "+this);
       }
     }
-    return resources;
+    return properties;
   }
 
   /**
@@ -809,17 +566,9 @@ public abstract class Report implements Cloneable {
         if (prefix!=null)
           buffer.append(prefix);
         return buffer.toString();
-    }
-
-    /**
-     * Creates an empty String for text output. Spaces per Level are taken from
-     * OPTIONS.getIndentPerLevel()
-     */
-    public final String getIndent(int level) {
-      return getIndent(level, OPTIONS.getIndentPerLevel(), null);
-    }
-
-
+    }  
+  
+  
   /**
    * Aligns a simple text for text outputs.
    * @param txt the text to align
@@ -866,86 +615,55 @@ public abstract class Report implements Cloneable {
     // done
     return buffer.toString();
   }
-
+  
   /**
-   * Returns the name of a report - this by default is the value of key "name"
-   * in the file [ReportName].properties. A report has to override this method
-   * to provide a localized name if that file doesn't exist.
-   * @return name of the report
+   * Returns the name of this report.
+   * This default version get the information from the .property file. A report
+   * has to override this method to use another method.
+   * @return  Name of the report.
    */
   public String getName() {
-    String name =  translate("name");
-    if (name.length()==0||name.equals("name")) name = getTypeName();
-    return name;
+    return i18n("name");
   }
 
   /**
-   * Returns the author of a report - this by default is the value of key "author"
-   * in the file [ReportName].properties. A report has to override this method
-   * to provide the author if that file doesn't exist.
-   * @return name of the author
+   * Returns the author of this script.
+   * This default version get the information from the .property file. A report
+   * has to override this method to use another method.
+   * @return  Name of the author.
    */
   public String getAuthor() {
-    return translate("author");
+    return i18n("author");
   }
 
   /**
-   * Returns the version of a report - this by default is the value of key "version"
-   * in the file [ReportName].properties. A report has to override this method
-   * to provide the version if that file doesn't exist.
-   * @return version of report
+   * Returns the version of this script
+   * This default version get the information from the .property file. A report
+   * has to override this method to use another method.
+   * @return  Version of the report.
    */
   public String getVersion() {
-    return translate("version");
-  }
-
-  private final static Pattern PATTERN_CVS_DATE  = Pattern.compile("\\$"+"Date: (\\d\\d\\d\\d)/(\\d\\d)/(\\d\\d)( \\d\\d:\\d\\d:\\d\\d) *\\$"); // don't user [dollar]Date to avoid keywords substitution here :)
-
-  /**
-   * Returns the last update tag  - this by default is the value of key "date"
-   * in the file [ReportName].properties.
-   */
-  public String getLastUpdate() {
-    // check for updated key
-    String result = translate("updated");
-	  if ("updated".equals(result))
-      return null;
-    // look for cvs date - grab date and time
-    Matcher cvsdata = PATTERN_CVS_DATE.matcher(result);
-    if (cvsdata.matches()) try {
-      // we've got a "yyyy/mm/dd hh:mm:ss"
-      result = new PointInTime(cvsdata.group(1)+cvsdata.group(2)+cvsdata.group(3)) + cvsdata.group(4);
-    } catch (GedcomException e) {
-    }
-    // done - either whatever was found or beautified cvs keyword value
-    return result;
+     return i18n("version");
   }
 
   /**
-   * Returns information about a report - this by default is the value of key "info"
-   * in the file [ReportName].properties. A report has to override this method
-   * to provide localized information if that file doesn't exist.
-   * @return information about report
+   * Returns information about this report.
+   * This default version get the information from the .property file. A report
+   * has to override this method to use another method.
+   * @return  Description about the report.
    */
   public String getInfo() {
-    return translate("info");
+    return i18n("info");
   }
 
   /**
-   * Called by GenJ to start this report's execution - can be overriden by a user defined report.
-   * @param context normally an instance of type Gedcom but depending on
-   *    accepts() could also be of type Entity or Property
+   * Called by GenJ to start this report's execution - has to be
+   * overriden by a user defined report.
+   * @param context normally the gedcom-file but depending on acceptsProperty,
+   * acceptsEntity, acceptsGedcom also either an Entity or Property
+   * @exception InterruptedException in case running Thread is interrupted
    */
-  public void start(Object context) throws Throwable {
-    try {
-      getStartMethod(context).invoke(this, new Object[]{ context });
-    } catch (Throwable t) {
-      String msg = "can't run report on input";
-      if (t instanceof InvocationTargetException)
-        throw ((InvocationTargetException)t).getTargetException();
-      throw t;
-    }
-  }
+  public abstract void start(Object context);
 
   /**
    * Tells wether this report doesn't change information in the Gedcom-file
@@ -961,101 +679,159 @@ public abstract class Report implements Cloneable {
     return true;
   }
 
+  /**
+   * Whether the report allows to be run on a given context - default
+   * only accepts Gedcom
+   * @param context will an instance of either Gedcom, Entity or Property
+   * @return null for no - string specific to context for yes
+   */
+  public String accepts(Object context) {
+    return context instanceof Gedcom ? getName() :  null;
+  }
+
+  /**
+   * A list of items - I'm currently simply checking if target.getGedcom()!=null
+   * to figure out whether the item is still o.k. to propagate to the view
+   * manager (a.k.a. not deleted)
+   * Listening for updates as a GedcomListener was just too much work  ;)
+   */
+  private static class ItemList extends JList implements ListCellRenderer, ListSelectionListener, MouseListener {
+
+    /** the view manager */
+    private ViewManager manager;
+
+    /** a headless label for rendering */
+    private HeadlessLabel label = new HeadlessLabel();
+
+    /** gedcom */
+    private Gedcom gedcom;
+
     /**
-     * Whether the report allows to be run on a given context - default
-     * checks for methods called
-     * <il>
-     *  <li>start(Gedcom|Object)
-     *  <li>start(Property)
-     *  <li>start(Entity)
-     *  <li>start(Indi[])
-     *  <li>...
-     * </il>
-     * @return title of action for given context or null for n/a
+     * Constructor
      */
-    public String accepts(Object context) {
-      return getStartMethod(context)!=null ? getName() : null;
+    private ItemList(Gedcom geDcom, Item[] props, ViewManager maNager) {
+      super(props);
+      // remember
+      manager = maNager;
+      gedcom = geDcom;
+      // setup looks
+      setCellRenderer(this);
+      label.setOpaque(true);
+      addListSelectionListener(this);
+      addMouseListener(this);
+      // done
     }
 
     /**
-     * resolve start method to use for given argument type
+     * Selection changed
+     * @see javax.swing.event.ListSelectionListener#valueChanged(javax.swing.event.ListSelectionEvent)
      */
-    /*package*/ Method getStartMethod(Object context) {
+    public void valueChanged(ListSelectionEvent e) {
+      // check selected item
+      Item item = (Item)getSelectedValue();
+      if (item==null)
+        return;
+      // propagate
+      manager.setContext(new Context(gedcom, null, item.getTarget()));
+    }
 
-      // check for what this report accepts
-      try {
-        Method[] methods = getClass().getDeclaredMethods();
-        for (int m = 0; m < methods.length; m++) {
-          // needs to be named start
-          if (!methods[m].getName().equals("start")) continue;
-          // make sure its a one-arg
-          Class[] params = methods[m].getParameterTypes();
-          if (params.length!=1) continue;
-          // keep it
-          Class param = params[0];
-          if (param.isAssignableFrom(context.getClass()))
-            return methods[m];
-          // try next
-        }
-      } catch (Throwable t) {
+    /**
+     * Our own rendering
+     * @see javax.swing.ListCellRenderer#getListCellRendererComponent(javax.swing.JList, java.lang.Object, int, boolean, boolean)
+     */
+    public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+      // colors
+      label.setBackground(isSelected ? getSelectionBackground() : getBackground());
+      label.setForeground(isSelected ? getSelectionForeground() : getForeground());
+      // display item
+      Item item = (Item)value;
+      label.setText(item.getName());
+      label.setIcon(item.getImage());
+      // done
+      return label;
+    }
+
+    /**
+     * mouse callbacks
+     */
+    public void mouseClicked(MouseEvent e) {
+    }
+    public void mouseEntered(MouseEvent e) {
+    }
+    public void mouseExited(MouseEvent e) {
+    }
+    public void mousePressed(MouseEvent e) {
+      mouseReleased(e);
+    }
+    public void mouseReleased(MouseEvent e) {
+      // no popup trigger no action
+      if (!e.isPopupTrigger()) 
+        return;
+      Point pos = e.getPoint();
+      // find row
+      int row = locationToIndex(pos);
+      if (row>=0) {
+        // select
+        setSelectedIndex(row);
+        // check item
+        Item item = (Item)getModel().getElementAt(row);
+        Property target = item.getTarget();
+        // create context
+        Context context = target==null ? new Context(gedcom) : new Context(target);
+        // propagate
+        manager.showContextMenu(context, null, this, pos);
       }
-      // n/a
-      return null;
     }
+  } //PropertyList
 
+  /**
+   * A (result) item can be shown to the user
+   */
+  public static class Item implements Comparable {
+
+    /** attrs */
+    private String name;
+    private ImageIcon img;
+    private Property target;
+    
     /**
-     * Represents the report category.
+     * Constructor
      */
-    public static class Category
-    {
-        private String name;
-        private ImageIcon image;
-
-        public Category(String name, ImageIcon image) {
-            this.name = name;
-            this.image = image;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public ImageIcon getImage() {
-            return image;
-        }
+    public Item(String naMe, ImageIcon imG, Property taRget) {
+      name = naMe;
+      img = imG;
+      target = taRget;
     }
-
-    private static class Categories extends TreeMap {
-        void add(Category category) {
-            put(category.getName(), category);
-        }
-    }
-
+    
     /**
-     * Filters files using a specified extension.
+     * name
      */
-    private class FileExtensionFilter extends FileFilter {
-
-    	private String extension;
-
-        public FileExtensionFilter(String extension) {
-            this.extension = extension.toLowerCase();
-        }
-
-        /**
-         * Returns true if file name has the right extension.
-         */
-        public boolean accept(File f) {
-        	if (f == null)
-        		return false;
-            if (f.isDirectory())
-                return true;
-            return f.getName().toLowerCase().endsWith("." + extension);
-        }
-
-        public String getDescription() {
-            return extension.toUpperCase() + " files";
-        }
+    private String getName() {
+      return name;
     }
+    
+    /**
+     * img
+     */
+    private ImageIcon getImage() {
+      return img;
+    }
+    
+    /**
+     * The target of this item
+     */
+    private Property getTarget() {
+      return target==null ? null : target.getGedcom()==null ? null : target;
+    }
+    
+    /**
+     * Compare by text
+     */
+    public int compareTo(Object o) {
+      Item that = (Item)o;
+      return this.name.compareTo(that.name);
+    }
+    
+  } //Item
 
 } //Report

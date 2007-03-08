@@ -22,32 +22,36 @@ package genj.search;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
-import genj.gedcom.Grammar;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
+import genj.util.ActionDelegate;
+import genj.util.Debug;
 import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.HeadlessLabel;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
-import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
+import genj.view.Context;
+import genj.view.ContextListener;
 import genj.view.ToolBarSupport;
-import genj.view.ViewContext;
 import genj.view.ViewManager;
+import genj.window.CloseWindow;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Insets;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,16 +72,31 @@ import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JToolBar;
 import javax.swing.ListCellRenderer;
-import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
-import spin.Spin;
-
+/*
+> 
+> First the pull down menu is good, but a pop up window ...
+> Second, it's not easy for the users to write those tag paths. Would
+> it be possible to find something else ?
+> 
+> Third, the layout of the first line could be designed a little bit
+> different 
+> ? The "value" word is too close to the box of the "regular
+> expression" 
+> sentence, the number of occurances is difficult to find that way on
+> the 
+> right side (maybe something looking the same but with the word
+> "occurances" 
+> (translatable of course)) ;-)
+>
+ */
+ 
 /**
  * View for searching
  */
-public class SearchView extends JPanel implements ToolBarSupport {
+public class SearchView extends JPanel implements ToolBarSupport, ContextListener{
   
   /** formatting */
   private final static String
@@ -208,13 +227,22 @@ public class SearchView extends JPanel implements ToolBarSupport {
 
     // done
   }
-  
+
+  /**
+   * callback - context changed
+   */  
+  public void setContext(Context context) {
+    int row = results.getRow(context.getEntity(), context.getProperty());
+    listResults.setSelectedIndex(row);
+    listResults.ensureIndexIsVisible(row);
+  }
+
   /**
    * @see javax.swing.JComponent#addNotify()
    */
   public void addNotify() {
     // start listening
-    gedcom.addGedcomListener((GedcomListener)Spin.over(results));
+    gedcom.addGedcomListener(results);
     // continue
     super.addNotify();
     // set focus
@@ -226,7 +254,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
    */
   public void removeNotify() {
     // stop listening
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(results));
+    gedcom.removeGedcomListener(results);
     // keep old
     registry.put("regexp"    , checkRegExp.isSelected());
     registry.put("old.values", oldValues);
@@ -240,11 +268,11 @@ public class SearchView extends JPanel implements ToolBarSupport {
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
    */
   public void populate(JToolBar bar) {
-    ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
+    ButtonHelper bh = new ButtonHelper().setContainer(bar).setFocusable(false);
     ActionSearch search = new ActionSearch();
     ActionStop   stop   = new ActionStop  (search);
-    bSearch = bh.create(search);
-    bStop   = bh.create(stop);
+    bSearch = bh.setEnabled(true ).create(search);
+    bStop   = bh.setEnabled(false).create(stop);
   }
   
   /**
@@ -259,7 +287,6 @@ public class SearchView extends JPanel implements ToolBarSupport {
     if (old.size()>MAX_OLD) old.removeLast();
     // update choice
     choice.setValues(old);
-    choice.setText(value);
     // done
   }
 
@@ -307,8 +334,10 @@ public class SearchView extends JPanel implements ToolBarSupport {
       // no more?
       if (txt==null) break;
       // pattern?
-      if (pat==null) 
+      if (pat==null) {
+        Debug.log(Debug.WARNING, this, "Encountered regexp entry "+txt+" without pattern");
         continue;
+      }
       // create action
       result.add(new ActionPattern(txt,pat));
     }
@@ -318,7 +347,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /**
    * Action - select predefined paths
    */
-  private class ActionPath extends Action2 {
+  private class ActionPath extends ActionDelegate {
     
     private TagPath tagPath;
     
@@ -327,13 +356,13 @@ public class SearchView extends JPanel implements ToolBarSupport {
      */
     private ActionPath(String path) {
       tagPath = new TagPath(path);
-      MetaProperty meta = Grammar.getMeta(tagPath);
+      MetaProperty meta = MetaProperty.get(tagPath);
       setText(meta.getName());
       setImage(meta.getImage());
     }
     
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
       choicePath.setText(tagPath.toString());
@@ -347,7 +376,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
    *   {2} (selection)
    *   {3} after selection
    */
-  private class ActionPattern extends Action2 {
+  private class ActionPattern extends ActionDelegate {
     /** pattern */
     private String pattern;
     /**
@@ -363,12 +392,11 @@ public class SearchView extends JPanel implements ToolBarSupport {
       pattern = pat;
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
-
       // analyze what we've got
-      final JTextField field = choiceValue.getTextEditor();
+      JTextField field = choiceValue.getTextEditor();
       int 
         selStart = field.getSelectionStart(),
         selEnd   = field.getSelectionEnd  ();
@@ -386,21 +414,14 @@ public class SearchView extends JPanel implements ToolBarSupport {
       String after = all.substring(selEnd);
 
       // calculate result
-      final String result = MessageFormat.format(pattern, new String[]{ all, before, selection, after} );
-
-      // invoke this later - selection might otherwise not work correctly
-      SwingUtilities.invokeLater(new Runnable() { public void run() {
-        
-        int pos = result.indexOf('#');
-        
-        // show
-        field.setText(result.substring(0,pos)+result.substring(pos+1));
-        field.select(0,0);
-        field.setCaretPosition(pos);
-        
-        // make sure regular expressions are enabled now
-        checkRegExp.setSelected(true);
-      }});
+      String result = MessageFormat.format(pattern, new String[]{ all, before, selection, after} );
+      int pos = result.indexOf('#');
+      result = result.substring(0,pos)+result.substring(pos+1);
+      
+      // show
+      field.setText(result);
+      field.select(0,0);
+      field.setCaretPosition(pos);
       
       // done
     }
@@ -409,7 +430,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /**
    * Action - trigger search
    */
-  private class ActionSearch extends Action2 {
+  private class ActionSearch extends ActionDelegate {
     /** tag path */
     private TagPath tagPath = null;
     /** count of hits found */
@@ -441,7 +462,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
         matcher = getMatcher(value, checkRegExp.isSelected());
         tagPath = path.length()>0 ? new TagPath(path) : null;
       } catch (IllegalArgumentException e) {
-        WindowManager.getInstance(getTarget()).openDialog(null,value,WindowManager.ERROR_MESSAGE,e.getMessage(),Action2.okOnly(),SearchView.this);
+        manager.getWindowManager().openDialog(null,value,WindowManager.IMG_ERROR,e.getMessage(),CloseWindow.OK(),SearchView.this);
         return false;
       }
       // remember
@@ -466,16 +487,16 @@ public class SearchView extends JPanel implements ToolBarSupport {
     }
     
     /**
-     * @see genj.util.swing.Action2#handleThrowable(java.lang.String, java.lang.Throwable)
+     * @see genj.util.ActionDelegate#handleThrowable(java.lang.String, java.lang.Throwable)
      */
     protected void handleThrowable(String phase, Throwable t) {
-      WindowManager.getInstance(getTarget()).openDialog(null,null,WindowManager.INFORMATION_MESSAGE,t.getMessage() ,Action2.okOnly(),SearchView.this);
+      manager.getWindowManager().openDialog(null,null,WindowManager.IMG_INFORMATION,t.getMessage() ,CloseWindow.OK(),SearchView.this);
     }
 
     /**
      * after execute (on EDT)
      */
-    protected void postExecute(boolean preExecuteResult) {
+    protected void postExecute() {
       // update count
       labelCount.setText(""+hitCount);
       // reset our state
@@ -510,18 +531,15 @@ public class SearchView extends JPanel implements ToolBarSupport {
       boolean searchThis = true;
       if (tagPath!=null) {
         // break if we don't match path
-        if (pathIndex<tagPath.length()&&!tagPath.get(pathIndex).equals(prop.getTag())) 
+        if (pathIndex<tagPath.length()&&!tagPath.equals(pathIndex,prop.getTag())) 
           return;
         // search this if path is consumed 
         searchThis = pathIndex>=tagPath.length()-1;
       }
       // parse all but transients
       if (searchThis&&!prop.isTransient()) {
-        // check entity's id
-        if (entity==prop)
-          search(entity, entity, entity.getId(), true);
         // check prop's value
-        search(entity, prop, prop.getDisplayValue(), false);
+        search(entity, prop, prop.getValue());
       }
       // check subs
       int n = prop.getNoOfProperties();
@@ -532,19 +550,19 @@ public class SearchView extends JPanel implements ToolBarSupport {
     }
 
     /** search property's value */
-    private void search(Entity entity, Property prop, String value, boolean isID) {
+    private void search(Entity entity, Property prop, String value) {
       // look for matches
       Matcher.Match[] matches = matcher.match(value);
       if (matches.length==0)
         return;
       // too many?
       if (hitCount==MAX_HITS)
-        throw new IndexOutOfBoundsException(resources.getString("maxhits", Integer.toString(MAX_HITS)));
+        throw new IndexOutOfBoundsException("Too many hits found! Restricting result to "+MAX_HITS+" hits.");
       hitCount++;
       // keep entity
       entities.add(entity);
       // create a hit
-      Hit hit = new Hit(prop, value, matches, entities.size(), isID);
+      Hit hit = new Hit(prop, value, matches, entities.size());
       // keep it
       synchronized (hits) {
         hits.add(hit);
@@ -559,13 +577,12 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /**
    * Action - stop search
    */
-  private class ActionStop extends Action2 {
+  private class ActionStop extends ActionDelegate {
     /** start */
     private ActionSearch start;
     /** constructor */
     private ActionStop(ActionSearch start) {
       setImage(IMG_STOP);
-      setEnabled(false);
       this.start = start;
     }
     /** run */
@@ -611,6 +628,34 @@ public class SearchView extends JPanel implements ToolBarSupport {
     }
     
     /**
+     * @see genj.gedcom.GedcomListener#handleChange(genj.gedcom.Change)
+     */
+    public void handleChange(Transaction tx) {
+      if (!tx.get(Transaction.PROPERTIES_DELETED).isEmpty())
+        clear();
+    }
+    
+    /**
+     * Find a result for entity, property
+     */
+    public int getRow(Entity entity, Property prop) {
+      // gotta be good
+      if (entity==null)
+        return -1;
+      // loop
+      int e = -1;
+      for (int p=0;p<hits.size();p++) {
+        Hit hit = (Hit)hits.get(p);
+        if (hit.getProperty()==prop)
+          return p;
+        if (e<0&&hit.getProperty().getEntity()==entity)
+          e = p;
+      }
+      // return row for entity
+      return e;
+    }
+    
+    /**
      * @see javax.swing.ListModel#getElementAt(int)
      */
     public Object getElementAt(int index) {
@@ -631,44 +676,12 @@ public class SearchView extends JPanel implements ToolBarSupport {
       return (Hit)hits.get(i);
     }
 
-    public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-      // TODO could do a re-search here
-    }
-
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      // ignored
-    }
-
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      // TODO could do a re-search here
-    }
-
-    public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
-      for (int i=0;i<hits.size();i++) {
-        Hit hit = (Hit)hits.get(i);
-        if (hit.getProperty()==prop) 
-          fireContentsChanged(this, i, i);
-      }
-    }
-
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-      for (int i=0;i<hits.size();) {
-        Hit hit = (Hit)hits.get(i);
-        if (hit.getProperty()==removed) {
-          hits.remove(i);
-          fireIntervalRemoved(this, i, i);
-        } else {
-          i++;
-        }
-      }
-    }
-
   } //Results
 
   /**
    * our specialized list
    */  
-  private class ResultWidget extends JList implements ListSelectionListener, ListCellRenderer, ContextProvider  {
+  private class ResultWidget extends JList implements ListSelectionListener, ListCellRenderer, MouseListener  {
     
     /** our text component for rendering */
     private JTextPane text = new JTextPane();
@@ -693,24 +706,10 @@ public class SearchView extends JPanel implements ToolBarSupport {
       // rendering
       setCellRenderer(this);
       addListSelectionListener(this);
+      addMouseListener(this);
       text.setOpaque(true);
     }
     
-    /**
-     * ContextProvider - callback
-     */
-    public ViewContext getContext() {
-      
-      ViewContext result = new ViewContext(gedcom);
-      
-      Object[] selection = getSelectedValues();
-      for (int i = 0; i < selection.length; i++) {
-        Hit hit = (Hit)selection[i];
-        result.addProperty(hit.getProperty());
-      }
-      return result;
-    }
-
     /**
      * we know about action delegates and will use that here if applicable
      */
@@ -721,7 +720,11 @@ public class SearchView extends JPanel implements ToolBarSupport {
       int c = isSelected ? 0 : 1 + (hit.getEntity()&1);  
       text.setBackground(bgColors[c]);
       
-      // show hit document (includes image and text)
+      // show image
+      // FIXME image?
+      //label.setIcon(hit.getImage());
+
+      // show text view
       text.setDocument(hit.getDocument());
       
       // done
@@ -734,9 +737,55 @@ public class SearchView extends JPanel implements ToolBarSupport {
     public void valueChanged(ListSelectionEvent e) {
       int row = listResults.getSelectedIndex();
       if (row>=0)
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(results.getHit(row).getProperty()), this));
+        manager.setContext(new Context(results.getHit(row).getProperty()));
     }
 
+    /**
+     * mouse event callback
+     */
+    public void mouseClicked(MouseEvent e) {
+    }
+
+    /**
+     * mouse event callback
+     */
+    public void mouseEntered(MouseEvent e) {
+    }
+
+    /**
+     * mouse event callback
+     */
+    public void mouseExited(MouseEvent e) {
+    }
+    
+    /**
+     * mouse event callback
+     */
+    public void mousePressed(MouseEvent e) {
+      mouseReleased(e);
+    }
+    
+    /**
+     * mouse event callback
+     */
+    public void mouseReleased(MouseEvent e) {
+
+      // no popup trigger no action
+      if (!e.isPopupTrigger()) 
+        return;
+
+      // try to find a context
+      Point pos = e.getPoint();
+      int row = locationToIndex(pos);
+      if (row<0) 
+        return;      
+      Hit hit = (Hit)getModel().getElementAt(row);
+      Context context = new Context(hit.getProperty());
+      // select it
+      setContext(context);
+      // propagate it
+      manager.showContextMenu(context, null, this, pos);
+    }
     
   } //ResultWidget
  

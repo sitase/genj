@@ -22,28 +22,26 @@ package genj.edit.actions;
 import genj.edit.Images;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
-import genj.gedcom.UnitOfWork;
+import genj.gedcom.Property;
+import genj.util.ActionDelegate;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
-import genj.util.swing.NestedBlockLayout;
-import genj.util.swing.TextAreaWidget;
+import genj.view.Context;
 import genj.view.ViewManager;
+import genj.window.CloseWindow;
 import genj.window.WindowManager;
 
-import javax.swing.Action;
 import javax.swing.JComponent;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 
 /**
  * ActionChange - change the gedcom information
  */
-public abstract class AbstractChange extends Action2 implements UnitOfWork {
+/*package*/ abstract class AbstractChange extends ActionDelegate {
   
   /** resources */
-  /*package*/ final static Resources resources = Resources.get(AbstractChange.class);
+  /*package*/ static Resources resources = Resources.get(AbstractChange.class);
   
   /** the gedcom we're working on */
   protected Gedcom gedcom;
@@ -51,15 +49,16 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
   /** the manager in the background */
   protected ViewManager manager;
   
-  /** image *new* */
-  protected final static ImageIcon imgNew = Images.imgNewEntity;
+  /** the focus */
+  protected Property focus = null;
   
-  private JTextArea confirm;
-
+  /** image *new* */
+  protected final static ImageIcon imgNew = Images.imgNew;
+  
   /**
    * Constructor
    */
-  public AbstractChange(Gedcom ged, ImageIcon img, String text, ViewManager mgr) {
+  /*package*/ AbstractChange(Gedcom ged, ImageIcon img, String text, ViewManager mgr) {
     gedcom = ged;
     manager = mgr;
     super.setImage(img);
@@ -70,39 +69,18 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
    * Show a dialog for errors
    */  
   protected void handleThrowable(String phase, Throwable t) {
-    // for a NPE I've seen a null message - better convert that to string here
-    String message = ""+t.getMessage();
-    // show it
-    getWindowManager().openDialog("err", "Error", WindowManager.ERROR_MESSAGE, message, Action2.okOnly(), getTarget());
-  }
-  
-  protected WindowManager getWindowManager() {
-    return WindowManager.getInstance(getTarget());    
+    manager.getWindowManager().openDialog("err", "Error", WindowManager.IMG_ERROR, t.getMessage(), CloseWindow.OK(), getTarget());
   }
   
   /** 
    * Returns the confirmation message - null if none
    */
-  protected String getConfirmMessage() {
-    return null;
-  }
+  protected abstract String getConfirmMessage();
   
   /**
-   * Return the dialog content to show to the user   */
-  protected JPanel getDialogContent() {
-    JPanel result = new JPanel(new NestedBlockLayout("<col><text wx=\"1\" wy=\"1\"/></col>"));
-    result.add(getConfirmComponent());
-    return result;
-  }
-  
-  protected JComponent getConfirmComponent() {
-    if (confirm==null) {
-      confirm = new TextAreaWidget(getConfirmMessage(), 6, 40);
-      confirm.setWrapStyleWord(true);
-      confirm.setLineWrap(true);
-      confirm.setEditable(false);
-    }
-    return new JScrollPane(confirm);
+   * Returns options   */
+  protected JComponent getOptions() {
+    return null;
   }
   
   /** 
@@ -114,41 +92,59 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
       confirm.setText(getConfirmMessage());
   }
   
+  private JTextArea confirm;
+
   /**
-   * @see genj.util.swing.Action2#execute()
+   * @see genj.util.ActionDelegate#execute()
    */
   protected void execute() {
     
     // prepare confirmation message for user
     String msg = getConfirmMessage();
     if (msg!=null) {
+      confirm = new JTextArea(msg, 6, 40);
+      confirm.setWrapStyleWord(true);
+      confirm.setLineWrap(true);
+      confirm.setEditable(false);
   
-      // prepare actions
-      Action[] actions = { 
-          new Action2(resources.getString("confirm.proceed", getText())),
-          Action2.cancel() 
-      };
+      // prepare options
+      JComponent c = getOptions();
       
+      // prepare actions
+      ActionDelegate[] actions = {
+        new CloseWindow(resources.getString("confirm.proceed", getText() )), 
+        new CloseWindow(CloseWindow.TXT_CANCEL)
+      };
+  
       // Recheck with the user
-      int rc = getWindowManager().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, getTarget() );
+      int rc = manager.getWindowManager().openDialog(getClass().getName(), null, WindowManager.IMG_QUESTION, new JComponent[]{ c, new JScrollPane(confirm)}, actions, getTarget() );
       if (rc!=0)
         return;
     }
         
-    // do the change
+    // lock gedcom
+    gedcom.startTransaction();
+    // let sub-class handle create
     try {
-      gedcom.doUnitOfWork(this);
+      change();
     } catch (Throwable t) {
-      getWindowManager().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), getTarget());
+      manager.getWindowManager().openDialog(null, null, WindowManager.IMG_ERROR, t.getMessage(), CloseWindow.OK(), getTarget());
     }
-    
+    // unlock gedcom
+    gedcom.endTransaction();
+    // set focus?
+    if (focus!=null) {
+      Context ctx = new Context(focus);
+      ctx.setSource(getTarget());
+      manager.setContext(ctx);
+    }
     // done
   }
   
   /**
    * perform the actual change
    */
-  public abstract void perform(Gedcom gedcom) throws GedcomException;
+  protected abstract void change() throws GedcomException;
   
 } //Change
 

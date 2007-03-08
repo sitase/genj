@@ -20,11 +20,10 @@
 package genj.crypto;
 
 import genj.util.Base64;
+import genj.util.Debug;
 
 import java.io.IOException;
 import java.security.spec.KeySpec;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -36,8 +35,6 @@ import javax.crypto.spec.DESKeySpec;
  */
 /*package*/ class EnigmaImpl extends Enigma {
 
-  private final static Logger LOG = Logger.getLogger("genj.crypto");
-  
   /** the SecretKey we're using */
   private SecretKey key;
   
@@ -70,8 +67,7 @@ import javax.crypto.spec.DESKeySpec;
       key = SecretKeyFactory.getInstance(ALGORITHM).generateSecret(keyspec);
       
     } catch (Throwable t) {
-      
-      LOG.log(Level.WARNING, "Couldn't initialize Enigma", t); 
+      Debug.log(Debug.ERROR, this, t); 
       return null;
     }
   

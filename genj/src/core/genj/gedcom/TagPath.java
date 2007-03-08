@@ -33,13 +33,9 @@ import java.util.StringTokenizer;
  * @version 2004/08/25 made immutable
  */
 public class TagPath {
-  
-  /** a logical name */
-  private String name = null;
 
   /** the list of tags that describe the path */
   private String tags[];
-  private int qualifiers[];
   
   /** the length (= number of elements) in tags (length<=tags.length) */
   private int len;
@@ -50,7 +46,6 @@ public class TagPath {
   /** our marker */
   public final static char SEPARATOR = ':';
   public final static String SEPARATOR_STRING = String.valueOf(SEPARATOR);
-  private final static char SELECTOR = '#';
 
   /**
    * Constructor for TagPath
@@ -58,18 +53,6 @@ public class TagPath {
    * @exception IllegalArgumentException in case format isn't o.k.
    */
   public TagPath(String path) throws IllegalArgumentException {
-    this(path, null);
-  }
-  
-  /**
-   * Constructor for TagPath
-   * @param path path as colon separated string value a:b:c
-   * @exception IllegalArgumentException in case format isn't o.k.
-   */
-  public TagPath(String path, String name) throws IllegalArgumentException {
-    
-    // keep name
-    this.name = name;
 
     // Parse path
     StringTokenizer tokens = new StringTokenizer(path,SEPARATOR_STRING,false);
@@ -79,41 +62,15 @@ public class TagPath {
 
     // ... setup data
     tags = new String[len];
-    qualifiers = new int[len];
     for (int i=0;i<len;i++) {
-      
-      // next token
-      String tag = tokens.nextToken().trim();
-      if (tag.length()==0) 
-        throw new IllegalArgumentException("Empty tag in '"+path+"' is not valid");
-
-      // remember
-      set(i, tag);
-      
+      String token = tokens.nextToken().trim();
+      if (token.length()==0) 
+        throw new IllegalArgumentException("No valid path token #"+(i+1)+" in '"+path+"'");
+      tags[i] = token;
+      hash += tags[i].hashCode();
     }
     
     // Done
-  }
-  
-  private void set(int pos, String tag) {
-    
-    // check qualifier
-    int qualifier = -1;
-    int separator = tag.indexOf('#');
-    if (separator>0) {
-      try {
-        qualifier = Integer.parseInt(tag.substring(separator+1));
-      } catch (NumberFormatException e) {
-        throw new IllegalArgumentException("Illegal tag qualifier in '"+tag+"'");
-      }
-      tag = tag.substring(0, separator);
-    }
-
-    // remember 
-    tags[pos] = tag;
-    qualifiers[pos] = qualifier;
-    hash += tag.hashCode();
-
   }
   
   /**
@@ -130,7 +87,6 @@ public class TagPath {
     // copyup to len and rehash
     len = length;
     tags = other.tags;
-    qualifiers = other.qualifiers;
     for (int i=0; i<len; i++)
       hash += tags[i].hashCode();
     // done
@@ -146,16 +102,30 @@ public class TagPath {
   
     // copy and append   
     tags = new String[len];
-    qualifiers = new int[len];
-    
     System.arraycopy(other.tags, 0, tags, 0, other.len);
-    System.arraycopy(other.qualifiers, 0, qualifiers, 0, other.len);
-    
     tags[len-1] = tag;
-    qualifiers[len-1] = -1;
     
     // prepare our hash
-    hash = other.hash + tag.hashCode();
+    hash = other.hash+tag.hashCode();
+  }
+  
+  /**
+   * Constructor for TagPath
+   */
+  public TagPath(TagPath other, int pos, int selector) {
+    
+    // setup len
+    len = other.len;
+  
+    // copy and change
+    tags = new String[len];
+    System.arraycopy(other.tags, 0, tags, 0, other.len);
+    
+    tags[pos] = get(pos)+"#"+selector;
+    
+    // prepare our hash
+    hash = other.hash-other.tags[pos].hashCode()+tags[pos].hashCode();
+    
   }
   
   /**
@@ -168,9 +138,10 @@ public class TagPath {
     // grab stack elements
     len = path.size();
     tags = new String[len];
-    qualifiers = new int[len];
-    for (int i=0;i<len;i++) 
-      set(i, path.pop().toString());
+    for (int i=0;i<len;i++) {
+      tags[i] = path.pop().toString();
+      hash += tags[i].hashCode();
+    }
     // done
   }
   
@@ -183,8 +154,7 @@ public class TagPath {
       return false;
     // check
     for (int i=0;i<prefix.len;i++) {
-      if (!tags[i].equals(prefix.tags[i]) || qualifiers[i]!=prefix.qualifiers[i]) 
-        return false;
+      if (!tags[i].equals(prefix.tags[i])) return false;
     }
     // yes
     return true;
@@ -210,7 +180,7 @@ public class TagPath {
 
     // Elements ?
     for (int i=0;i<len;i++) {
-      if (!tags[i].equals(other.tags[i]) || qualifiers[i]!=other.qualifiers[i]) 
+      if (!tags[i].equals(other.tags[i])) 
         return false;
     }
 
@@ -218,13 +188,111 @@ public class TagPath {
     return true;
   }
   
+  public final static int
+    MATCH_NONE = 0,
+    MATCH_TAG  = 1,
+    MATCH_ALL  = 2;
+
   /**
-   * Returns the n-th tag of this path 
+   * Compares the tag at given position with argument
+   */
+  public boolean equals(int at, String tag) {
+    
+    // what's the element 'at'
+    String element = tags[at];
+    
+    // gotta match for at least tag.length
+    if (!element.regionMatches(0, tag, 0, tag.length()))
+      return false;
+    
+    // simplest case of 'BIRT' matches 'BIRT' (implying 0 selector)
+    if (element.length()==tag.length())
+      return true;
+  
+    // no good if followed by other than selector
+    if (element.charAt(tag.length())!='#')
+      return false;
+    
+    // is good
+    return true;
+  }
+  
+  /**
+   * Compares the selector at given position with argument
+   */
+  public boolean equals(int at, int selector) {
+    
+    // what's the element 'at'
+    String element = tags[at];
+
+    // no selector - gotta be 0 
+    int i = element.indexOf('#');
+    if (i<0)
+      return selector==0;
+    
+    // selector has to fit after '#'?
+    String s = Integer.toString(selector);
+    if (element.length()-i-1!=s.length())
+      return false;
+    
+    return element.regionMatches(i+1, s, 0, s.length());
+  }
+  
+//  /**
+//   * Matches a path element with given tag
+//   * @param which the path element to match
+//   * @param tag the tag to match it with
+//   * @return true if tag equals path[which]
+//   */
+//  public boolean match(int which, String tag) {
+//    return match(which, tag, 0)!=MATCH_NONE;
+//  }
+//  
+//  /**
+//   * Matches a path element with given tag and selector
+//   * @param which the path element to match
+//   * @param tag the tag to match it with
+//   * @param selector the selector (e.g. '2') to match it with
+//   * @return MATCH_NONE if tag is not the same, 
+//   *          MATCH_TAG if tag is the same but selector is different,
+//   *          MATCH_ALL if tag and selector are the same
+//   */
+//  public int match(int which, String tag, int selector) {
+//
+//    // compare path element 'which' 
+//    String element = tags[which];
+//    
+//    // gotta match for tag.length - e.g. 'BIRT#0' matches 'BIRT'
+//    if (!element.regionMatches(0, tag, 0, tag.length()))
+//      return MATCH_NONE;
+//      
+//    // simplest case of 'BIRT' matches 'BIRT' (implying 0 selector)
+//    if (element.length()==tag.length())
+//      return selector==0 ? MATCH_ALL : MATCH_TAG;
+//    
+//    // gotta be selector case case then 'BIRT#x' matching 'BIRT'
+//    if (element.charAt(tag.length())!='#')
+//      return MATCH_NONE;
+//      
+//    // selector wrong? e.g. in case of 'BIRT#1' match 1 with 'selector' #2?
+//    if (!element.regionMatches(tag.length()+1, Integer.toString(selector), 0, element.length()-tag.length()-1))
+//      return MATCH_TAG;
+//      
+//    // all well
+//    return MATCH_ALL;
+//  }
+
+  /**
+   * Returns the n-th tag of this path (this won't return the selector information e.g. BIRT#1 but only BIRT)
    * @param which 0-based number
    * @return tag as <code>String</code>
    */
   public String get(int which) {
-    return tags[which];
+    String result = tags[which];
+    int selector = result.indexOf('#');
+    if (selector>=0)
+      result = result.substring(0,selector);
+    return result;
   }
 
   /**
@@ -255,16 +323,10 @@ public class TagPath {
    * Returns the path as a string
    */
   public String toString() {
-    StringBuffer result = new StringBuffer();
-    for (int i=0;i<len;i++) {
-      if (i>0) result.append(':');
-      result.append(tags[i]);
-      if (qualifiers[i]>=0) {
-        result.append('#');
-        result.append(qualifiers[i]);
-      }
-    }
-    return result.toString();
+    String result = tags[0];
+    for (int i=1;i<len;i++)
+      result = result + ":" + tags[i];
+    return result;
   }
   
   /**
@@ -272,28 +334,6 @@ public class TagPath {
    */
   public int hashCode() {
     return hash;
-  }
-  
-  /**
-   * Accessor - name
-   */
-  public String getName() {
-    if (name==null) {
-      // try to find a reasonable tag to display as text (that's not '.' or '*')
-      int i = length()-1;
-      String tag = get(i);
-      while (i>1&&!Character.isLetter(tag.charAt(0))) 
-        tag = get(--i);
-      
-      // as text
-      name = Gedcom.getName(tag);
-      
-      // date or place?
-      //if (i>1&&(tag.equals("DATE")||tag.equals("PLAC"))) 
-      if (i>1) 
-        name = name + " - " + Gedcom.getName(get(i-1));
-    }
-    return name;
   }
 
   /**
@@ -329,74 +369,5 @@ public class TagPath {
     return result;
   }
 
-  /**
-   * Iterate a properties nodes corresponding to this path
-   */
-  public void iterate(Property root, PropertyVisitor visitor) {
-    
-    // first tag has to match
-    String tag = get(0);
-    char c = tag.charAt(0);
-    if (c=='.'||c=='*')
-      iterate(0, root, visitor);
-    else if (tag.equals(root.getTag()))
-      iterate(1, root, visitor);
-  }
-  
-  private boolean iterate(int pos, Property prop, PropertyVisitor visitor) {
-    
-    String tag;
-    
-    // follow as far as we can without recursing into children
-    for (;;pos++) {
-      
-      // walked the path?
-      if (pos==length()) 
-        return visitor.leaf(prop);
-      
-      // check next tag
-      tag = get(pos);
-      
-       // up?
-      if (tag.equals("..")) {
-        if ((prop=prop.getParent())==null)
-          return false;
-        continue;
-      }
-      // stay?
-      if (tag.equals( ".")) {
-        continue;
-      }
-      // follow?
-      if (tag.equals( "*")) {
-        // check out target
-        if (!(prop instanceof PropertyXRef)||((PropertyXRef)prop).getTarget()==null)
-          return false;
-        prop = ((PropertyXRef)prop).getTarget();
-        continue;
-      }
-      // looks like we have a child at hand
-      break;
-    }
-    
-    // let visitor know that we're recursing now
-    if (!visitor.recursion(prop, tag))
-      return false;
-    
-    // recurse into children
-    int qualifier = qualifiers[pos];
-    for (int i=0, c=0;i<prop.getNoOfProperties();i++) {
-      Property child = prop.getProperty(i);
-      if (tag.equals(child.getTag())) {
-        if (qualifier<0||qualifier==c++) {
-          if (!iterate(pos+1, child, visitor))
-            return false;
-        }
-      }
-    }
-    
-    // backtrack
-    return true;
-  }
-  
+
 } //TagPath

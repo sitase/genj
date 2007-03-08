@@ -19,60 +19,42 @@
  */
 package genj.edit.beans;
 
+import genj.gedcom.Gedcom;
 import genj.gedcom.Indi;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyDate;
 import genj.gedcom.PropertyEvent;
+import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.gedcom.time.Delta;
 import genj.gedcom.time.PointInTime;
 import genj.util.Registry;
 import genj.util.swing.NestedBlockLayout;
+import genj.view.ViewManager;
+
+import java.awt.geom.Point2D;
 
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 
 /**
- * A bean for editing Events
- * @author Nils Meier
- * @author Daniel Kionka
+ * A Proxy knows how to generate interaction components that the user
+ * will use to change a property : *Events*
+ * This Proxy was written by Dan Kionka, and only exists to display the age.
  */
 public class EventBean extends PropertyBean {
-  
-  private final static NestedBlockLayout LAYOUT = new NestedBlockLayout("<col><row><at/><age wx=\"1\"/></row><row><known/></row></col>");
 
   /** known to have happened */
-  private JCheckBox cKnown;
-  private JLabel lAgeAt;
-  private JTextField tAge;
-  
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
-    setLayout(LAYOUT.copy());
-    
-    lAgeAt = new JLabel();
-    
-    tAge = new JTextField("", 16); 
-    tAge.setEditable(false);
-    tAge.setFocusable(false);
-
-    cKnown = new JCheckBox(resources.getString("even.known"));
-    cKnown.addActionListener(changeSupport);
-    
-    add(lAgeAt);
-    add(tAge);
-    add(cKnown);
-      
-  }
+  private JCheckBox known;
 
   /**
    * Finish proxying edit for property Birth
    */
-  public void commit(Property property) {
-    super.commit(property);
-    if (cKnown.isVisible()) {
-      ((PropertyEvent)property).setKnownToHaveHappened(cKnown.isSelected());
+  public void commit(Transaction tx) {
+    // known might be null!
+    if (known!=null) {
+      ((PropertyEvent)property).setKnownToHaveHappened(known.isSelected());
     }
   }
 
@@ -80,21 +62,28 @@ public class EventBean extends PropertyBean {
    * Nothing to edit
    */  
   public boolean isEditable() {
-    return cKnown.isVisible();
+    return known!=null;
   }
 
   /**
-   * Set context to edit
+   * Initialize
    */
-  public void setProperty(PropertyEvent event) {
+  public void init(Gedcom setGedcom, Property setProp, TagPath setPath, ViewManager setMgr, Registry setReg) {
 
-    // remember property
-    property = event;
+    super.init(setGedcom, setProp, setPath, setMgr, setReg);
     
+    // showing age/event-has-happened if indeed an event
+    if (!(property instanceof PropertyEvent))
+      return;
+    
+    NestedBlockLayout layout = new NestedBlockLayout(false, 2);
+    setLayout(layout);
+    
+    PropertyEvent event = (PropertyEvent)property;
     PropertyDate date = event.getDate(true);
     
     // show age of individual?
-    if (event.getEntity() instanceof Indi) {
+    if (property.getEntity() instanceof Indi) {
     
       Indi indi = (Indi)event.getEntity();
       
@@ -111,30 +100,27 @@ public class EventBean extends PropertyBean {
       } else {
         age = date!=null ? indi.getAgeString(date.getStart()) : resources.getString("even.age.?");
       }
+
+      JTextField txt = new JTextField(age, 16); 
+      txt.setEditable(false);
+      txt.setFocusable(false);
       
-      lAgeAt.setText(resources.getString(ageat));
-      tAge.setText(age);
+      add(new JLabel(resources.getString(ageat)));
+      add(txt, new Point2D.Double(1,0));
       
-      lAgeAt.setVisible(true);
-      tAge.setVisible(true);
-    } else {
-      lAgeAt.setVisible(false);
-      tAge.setVisible(false);
+      layout.createBlock(0);
     }
 
     // show event-has-happened?
-    Boolean known = null;
-    
-    if (!"EVEN".equals(event.getTag())) 
-      known = event.isKnownToHaveHappened();
-    
-    if (known!=null) {
-      cKnown.setSelected(known.booleanValue());
-      cKnown.setVisible(true);
-      defaultFocus = cKnown;
-    } else{
-      cKnown.setVisible(false);
-      defaultFocus = null;
+    if (!"EVEN".equals(property.getTag())) {
+      Boolean happened = event.isKnownToHaveHappened();
+      if (happened!=null) {
+        known = new JCheckBox(resources.getString("even.known"));
+        known.setSelected(happened.booleanValue());
+        known.addActionListener(changeSupport);
+        add(known);
+        defaultFocus = known;
+      }
     }
     
     // done

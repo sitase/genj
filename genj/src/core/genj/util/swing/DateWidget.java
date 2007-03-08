@@ -23,17 +23,17 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.time.Calendar;
 import genj.gedcom.time.PointInTime;
+import genj.util.ActionDelegate;
 import genj.util.ChangeSupport;
 import genj.util.WordBuffer;
+import genj.window.CloseWindow;
 import genj.window.WindowManager;
 
 import java.awt.Dimension;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.logging.Logger;
 
-import javax.swing.Action;
 import javax.swing.JPanel;
 import javax.swing.event.ChangeListener;
 
@@ -43,9 +43,6 @@ import javax.swing.event.ChangeListener;
  */
 public class DateWidget extends JPanel {
   
-  private final static 
-   NestedBlockLayout LAYOUT = new NestedBlockLayout("<row><x/><x/><x/><x/></row>");
-  
   /** components */
   private PopupWidget widgetCalendar; 
   private TextFieldWidget widgetDay,widgetYear;
@@ -54,28 +51,25 @@ public class DateWidget extends JPanel {
   /** current calendar */
   private Calendar calendar; 
   
+  /** window manager */
+  private WindowManager manager;
+  
   /** change support */
   private ChangeSupport changeSupport = new ChangeSupport(this) {
-    protected void fireChangeEvent(Object source) {
+    public void fireChangeEvent() {
       // update our status
       updateStatus();
       // continue
-      super.fireChangeEvent(source);
+      super.fireChangeEvent();
     }
   };
     
   /**
    * Constructor
    */
-  public DateWidget() {
-    this(new PointInTime());
-  }
-  
-  /**
-   * Constructor
-   */
-  public DateWidget(PointInTime pit) {
+  public DateWidget(PointInTime pit, WindowManager mgr) {
 
+    manager = mgr;
     calendar = pit.getCalendar();
         
     // create calendar switches
@@ -100,31 +94,20 @@ public class DateWidget extends JPanel {
     widgetDay.setSelectAllOnFocus(true);
     widgetDay.addChangeListener(changeSupport);
     
-    // Setup Layout
-    setLayout(LAYOUT.copy()); // reuse a copy of layout 
+    // Layout
+    NestedBlockLayout layout = new NestedBlockLayout(true, 1);
+    setLayout(layout);
     
     add(widgetCalendar);
-    
+
     String format;
     switch (new SimpleDateFormat().toPattern().charAt(0)) {
-	    case 'm': case 'M':
-        format = "mmm/dd/yyyy"; 
-        add(widgetMonth); 
-        add(widgetDay) ; 
-        add(widgetYear); 
-        break;
-	    case 'd': case 'D':
-	      format = "dd.mmm.yyyy"; 
-        add(widgetDay) ; 
-        add(widgetMonth); 
-        add(widgetYear); 
-	      break;
-	    default: 
-	      format = "yyyy-mmm-dd"; 
-	      add(widgetYear); 
-	      add(widgetMonth); 
-	      add(widgetDay) ; 
-	      break;
+      case 'm': case 'M':
+        add(widgetMonth); add(widgetDay) ; add(widgetYear); format = "mmm/dd/yyyy"; break;
+      case 'd': case 'D':
+        add(widgetDay) ; add(widgetMonth); add(widgetYear); format = "dd.mmm.yyyy"; break;
+      default: 
+        add(widgetYear); add(widgetMonth); add(widgetDay ); format = "yyyy-mmm-dd"; break;
     }
     
     widgetDay.setToolTipText(format);
@@ -164,7 +147,7 @@ public class DateWidget extends JPanel {
     widgetCalendar.setToolTipText(calendar.getName());
     
     // update year widget
-    widgetYear.setText(calendar.getDisplayYear(pit.getYear ()));
+    widgetYear.setText(calendar.getYear(pit.getYear (), true));
 
     // update day widget
     widgetDay.setText(calendar.getDay(pit.getDay()));
@@ -177,9 +160,6 @@ public class DateWidget extends JPanel {
       widgetMonth.setSelectedItem(months[pit.getMonth()]);
     } catch (ArrayIndexOutOfBoundsException e) {
     }
-    
-    // update our visible status
-    updateStatus();
     
     // focus
     getComponent(1).requestFocusInWindow();
@@ -282,7 +262,7 @@ public class DateWidget extends JPanel {
   /**
    * Action to switch calendar
    */
-  private class SwitchCalendar extends Action2 {
+  private class SwitchCalendar extends ActionDelegate {
     /** the calendar to switch to */
     private Calendar newCalendar;
     /**
@@ -293,14 +273,14 @@ public class DateWidget extends JPanel {
       setImage(newCalendar.getImage());
     }
     /**
-     * @see genj.util.swing.Action2#getText()
+     * @see genj.util.ActionDelegate#getText()
      */
     public String getText() {
       WordBuffer result = new WordBuffer();
       result.append(newCalendar.getName());
       result.setFiller(" - ");
       try {
-        PointInTime pit = DateWidget.this.getValue().getPointInTime(newCalendar); 
+        PointInTime pit = getValue().getPointInTime(newCalendar); 
         result.append(pit.getDayOfWeek(true));
         result.append(pit);
       } catch (Throwable t) {
@@ -308,28 +288,22 @@ public class DateWidget extends JPanel {
       return result.toString();
     }
     /**
-     * @see genj.util.swing.Action2#execute()
+     * @see genj.util.ActionDelegate#execute()
      */
     protected void execute() {
-      PointInTime pit = DateWidget.this.getValue();
-      if (pit!=null) {
-        try {
-          pit.set(newCalendar);
-        } catch (GedcomException e) {
-          WindowManager wm = WindowManager.getInstance(DateWidget.this);
-          if (wm==null) {
-            Logger.getLogger("genj.util.swing").info(e.getMessage());
-          } else {
-            Action[] actions = { Action2.ok(),  new Action2(Calendar.TXT_CALENDAR_RESET) };
-            int rc = wm.openDialog(null, Calendar.TXT_CALENDAR_SWITCH, WindowManager.ERROR_MESSAGE, e.getMessage(), actions, DateWidget.this);
-            if (rc==0) 
-              return;
-          }
-          pit = new PointInTime(newCalendar);
-        }
-        // change
-        setValue(pit);
+      PointInTime pit = getValue();
+      if (pit==null)
+        return;
+      try {
+        pit.set(newCalendar);
+      } catch (GedcomException e) {
+        int rc = manager.openDialog(null, Calendar.TXT_CALENDAR_SWITCH, WindowManager.IMG_ERROR, e.getMessage(), CloseWindow.OKand(Calendar.TXT_CALENDAR_RESET), DateWidget.this);
+        if (rc==0) 
+          return;
+        pit = new PointInTime(newCalendar);
       }
+      // change
+      setValue(pit);
       // update current status
       updateStatus();
     }

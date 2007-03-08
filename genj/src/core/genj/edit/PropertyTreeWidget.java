@@ -19,40 +19,31 @@
  */
 package genj.edit;
  
+import genj.gedcom.Change;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomException;
 import genj.gedcom.GedcomListener;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyChange;
-import genj.gedcom.PropertyXRef;
-import genj.gedcom.UnitOfWork;
-import genj.io.PropertyReader;
+import genj.gedcom.Transaction;
+import genj.io.GedcomReader;
 import genj.io.PropertyTransferable;
+import genj.util.WordBuffer;
 import genj.util.swing.HeadlessLabel;
 import genj.util.swing.ImageIcon;
-import genj.view.ContextProvider;
-import genj.view.ViewContext;
 
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Point;
-import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.StringTokenizer;
-import java.util.logging.Level;
 
 import javax.swing.JTree;
 import javax.swing.ToolTipManager;
@@ -62,51 +53,48 @@ import javax.swing.tree.TreeCellRenderer;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
-import spin.Spin;
-import swingx.dnd.tree.DnDTree;
-import swingx.dnd.tree.DnDTreeModel;
 import swingx.tree.AbstractTreeModel;
+import swingx.tree.DnDTree;
+import swingx.tree.DnDTreeModel;
 
 /**
  * A Property Tree
  */
-public class PropertyTreeWidget extends DnDTree implements ContextProvider {
-  
-  private final static String UNIX_DND_FILE_PREFIX = "file:";
+public class PropertyTreeWidget extends DnDTree {
   
   /** a default renderer we keep around for colors */
   private DefaultTreeCellRenderer defaultRenderer;
   
+  /** the model */
+  private Model model = new Model();
+
   /** stored gedcom */
   private Gedcom gedcom;
 
+//  /**
+//   * Constructor
+//   */
+//  public PropertyTreeWidget(Property setRoot) {
+//    this(setRoot.getGedcom());
+//    setRoot(setRoot);
+//    setExpandsSelectedPaths(true);
+//    ToolTipManager.sharedInstance().registerComponent(this);
+//  }
+    
   /**
    * Constructor
    */
   public PropertyTreeWidget(Gedcom gedcom) {
 
-    // initialize an empty model
-    super.setModel(new Model(gedcom));
+    setModel(model);
 
     // remember
     this.gedcom = gedcom;
     
     // setup callbacks
     setCellRenderer(new Renderer());
-    getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
+    getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
     setToggleClickCount(Integer.MAX_VALUE);
-    addMouseListener(new MouseAdapter() {
-      public void mousePressed(MouseEvent e) {
-        // make sure something is selected but don't screw current multi-selection
-        TreePath path = getPathForLocation(e.getX(), e.getY());
-        if (path!=null&&getSelection().contains(path.getLastPathComponent()))
-          return;
-        if (path==null)
-          clearSelection();
-        else
-          setSelection(Collections.singletonList(path.getLastPathComponent()));
-      }
-    });
 
     setExpandsSelectedPaths(true);
     ToolTipManager.sharedInstance().registerComponent(this);
@@ -115,55 +103,20 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
   }
   
   /**
-   * Accessor - current context 
-   * @return Gedcom tree's root and selection 
-   */
-  public ViewContext getContext() {
-    // no root - it's the gedcom itself
-    Entity root = (Entity)getRoot();
-    if (root==null) 
-      return new ViewContext(gedcom);
-    // no selection - it's the root
-    Property[] selection = Property.toArray(getSelection());
-    if (selection.length==0)
-      return new ViewContext(root);
-    // we can be specific now
-    ViewContext result = new ViewContext(gedcom);
-    result.addProperties(selection);
-    return result;
-  }
-  
-  /**
-   * Dont' allow to change the underlying model
-   */
-  public void setModel() {
-    throw new IllegalArgumentException();
-  }
-
-  /**
-   * Access to our specialized model
-   */
-  private Model getPropertyModel() {
-    return (Model)getModel();
-  }
-  
-  /**
    * return a path for a property
    */
-  public Object[] getPathFor(Property property) {
-    return getPropertyModel().getPathToRoot(property);
+  public TreePath getPathFor(Property property) {
+    return model.getPathToRoot(property);
   }
 
   /**
    * @see javax.swing.JComponent#addNotify()
    */
   public void addNotify() {
+    // connect model to gedcom
+    model.setGedcom(gedcom);
     // continue
     super.addNotify();
-    
-    // connect model to gedcom
-    gedcom.addGedcomListener((GedcomListener)Spin.over(getPropertyModel()));
-    
   }
 
   
@@ -172,7 +125,7 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
    */
   public void removeNotify() {
     // disconnect model from gedcom
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(getPropertyModel()));
+    model.setGedcom(null);
     // continue
     super.removeNotify();
   }
@@ -189,10 +142,10 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
    */
   public void setRoot(Property property) {
     // change?
-    if (getPropertyModel().getRoot()==property)
+    if (model.getRoot()==property)
       return;
     // propagate to model
-    getPropertyModel().setRoot(property);
+    model.setRoot(property);
     // show all rows
     expandAllRows();
     // done
@@ -214,7 +167,6 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
     //collapsePath(root);
     expandPath(root);
     
-    Model model = getPropertyModel();
     Object node = root.getLastPathComponent();
     for (int i=0;i<model.getChildCount(node);i++)
       expandAll(root.pathByAddingChild(model.getChild(node, i)));
@@ -224,7 +176,7 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
    * The current root
    */
   public Property getRoot() {
-    return getPropertyModel().getPropertyRoot();
+    return model.root;
   }
 
   /**
@@ -236,43 +188,35 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
   }
   
   /**
-   * Selects a property
+   * Selects a property (eventually switching root)
    */
-  public void setSelection(List select) {
-    clearSelection();
+  public void setSelection(Property select) {
     // safety check
-    Property root = (Property)getPropertyModel().getRoot();
-    if (root==null) 
+    if (model.root==null||select==null||select.getEntity()==null) {
+      clearSelection();
       return;
-    // add to selection
-    TreePath first = null;
-    for (Iterator ps = select.iterator(); ps.hasNext(); ) {
-      try {
-        TreePath path = new TreePath(getPropertyModel().getPathToRoot((Property)ps.next()));
-        addSelectionPath(path);
-        if (first==null) first = path;
-      } catch (IllegalArgumentException e) {
-        // ignore
-      }
     }
-    // show it 
-    if (first!=null)
-      scrollPathToVisible(first);
+    // show and select
+    TreePath tpath = model.getPathToRoot(select);
+    scrollPathToVisible(tpath);
+    setSelectionPath(tpath);
     // done
   }
   
   /**
-   * returns the currently selected properties
+   * returns the currently selected property
    */
-  public List getSelection() {
-    // go through selection paths
-    List result = new ArrayList();
+  public Property getSelection() {
+    // Calculate selection path
     TreePath[] paths = getSelectionPaths();
-    for (int i=0;paths!=null&&i<paths.length;i++) {
-      result.add(paths[i].getLastPathComponent());
-    }
-    // done
-    return result;
+    if (paths==null||paths.length!=1) 
+      return null;
+    // got it
+    TreePath path = paths[0];
+    if (path.getLastPathComponent() instanceof Property)
+      return (Property)path.getLastPathComponent();
+    // none found
+    return null;
   }
   
   /**
@@ -322,38 +266,36 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
     // grab the default renderer now
     defaultRenderer = new DefaultTreeCellRenderer();
   }
-  
-  /**
-   * override to provide simple text value (is used by getNextMatch on key presses) 
-   *
-   */
-  public String convertValueToText(Object value, boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
-    if (value instanceof Property)
-      return ((Property)value).getTag();
-    return "";
-  }
-  
-  /** the gedcom where a drag originated from */
-  private static Gedcom draggingFrom = null;
-  
+
   /**
    * Our model
    */
   private class Model extends AbstractTreeModel implements DnDTreeModel, GedcomListener {
 
+    private Object NULL = new Object();
+
     /** root of tree */
     private Property root = null;
 
     /** the gedcom we're looking at */
-    private Gedcom ged;
+    private Gedcom gedcom;
     
     /**
-     * constructor
+     * Gedcom to use
      */
-    protected Model(Gedcom gedcom) {
-      this.ged = gedcom;
-    }
-    
+    protected void setGedcom(Gedcom set) {
+      // old?
+      if (gedcom!=null) {
+        gedcom.removeGedcomListener(this);
+        gedcom = null;
+      }
+      // new?
+      if (set!=null) {
+        gedcom = set;
+        gedcom.addGedcomListener(this);
+      }
+    }          
+  
     /**
      * Set the root
      */
@@ -361,202 +303,124 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
       // remember
       root = set;
       // .. tell about it
-      rootExchanged();
+      fireTreeStructureChanged(this, getPathToRoot(getRoot()), null, null);
       // make sure we don't show null-root
       setRootVisible(root!=null);
       // expand all
       expandAllRows();
     }
-    
-    public Property getPropertyRoot() {
-      return root;
-    }
 
     /**
-     * DND support - transferable
+     * DND support - drag test
      */
-    public Transferable createTransferable(Object[] nodes) {
-      
-      // remember where we're dragging from
-      draggingFrom = ged;
-      
-      // normalize selection
-      List list = Property.normalize(Arrays.asList(nodes));
-      
-      // done 
-      return new PropertyTransferable(list);
-    }
-
-    public int getDragActions(Transferable transferable) {
+    public int canDrag(List children) {
       return COPY | MOVE;
     }
 
-    public int getDropActions(Transferable transferable, Object parent, int index) {
-
-      try {
-
-        // an in-vm dnd?
-        if (transferable.isDataFlavorSupported(PropertyTransferable.VMLOCAL_FLAVOR)) {
-          // we don't allow drop on parent if parent is in list of dragged (recursive)
-          List dragged = (List)transferable.getTransferData(PropertyTransferable.VMLOCAL_FLAVOR);
-          Property pparent = (Property)parent;
-          while (pparent!=null) {
-            if (dragged.contains(pparent)) 
-              return 0;
-            pparent = pparent.getParent();
-          }
-          return COPY | MOVE;
-        }
+    /**
+     * DND support - drag
+     */
+    public void drag(int action, List children, Object parent, int index) {
+      
+      // do nothing on copy
+      if (action==COPY)
+        return;
+      
+      // check if this is an in-parent move - we'll leave the
+      // shuffle of the children in parent to drop() in that case
+      Property newParent = (Property)parent;
+      if (newParent!=null&&newParent.isProperties(children)) 
+        return;
+      
+      // start transaction for our gedcom
+      gedcom.startTransaction();
+      
+      for (int i=0;i<children.size();i++) {
         
-        // a string dnd?
-        if (transferable.isDataFlavorSupported(PropertyTransferable.STRING_FLAVOR)) 
-          return COPY | MOVE;
+        // remove one by one
+        Property child = (Property)children.get(i);
+        Property childsParent = child.getParent();
+        int pos = childsParent.getPropertyPosition(child);
+        childsParent.delProperty(pos);
         
-        // files are ok as well
-        if (transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) 
-          return COPY | MOVE;
-
-      } catch (Exception e) {
+        // tell tree about it since that might change insert target
+        fireTreeNodesRemoved(this, getPathToRoot(childsParent), new int[]{pos}, new Object[]{child});
       }
       
-      // fallthrough result
-      return 0;
+      // end transaction if newParent is not in same gedcom
+      if (newParent==null||gedcom!=newParent.getGedcom())
+        gedcom.endTransaction();
+        
+      // done
     }
     
     /**
-     * DND support - drop comes first.
+     * DND support - transferable
      */
-    public void drop(final Transferable transferable, final Object parent, final int index, final int action) throws IOException, UnsupportedFlavorException {
+    public Transferable getTransferable(List children) {
+      return new PropertyTransferable(children);
+    }
 
-      final Property pparent = (Property)parent;
+    /**
+     * DND support - drop test
+     */
+    public boolean canDrop(int action, Transferable transferable, Object parent, int index) {
+      // copy or move
+      if (!(action==COPY||action==MOVE))
+        return false;
+      return transferable.isDataFlavorSupported(PropertyTransferable.VMLOCAL_FLAVOR) 
+        || transferable.isDataFlavorSupported(PropertyTransferable.STRING_FLAVOR);       
+    }
+    /**
+     * DND support - drop
+     */
+    public List drop(int action, Transferable transferable, Object parent, int index) throws IOException, UnsupportedFlavorException {
 
-      // an in-vm drag?
-      if (transferable.isDataFlavorSupported(PropertyTransferable.VMLOCAL_FLAVOR)) {
-
-        // dragging children for reordeing in place?
-        final List children = (List)transferable.getTransferData(PropertyTransferable.VMLOCAL_FLAVOR);
-        if (action==MOVE&&pparent.hasProperties(children)) {
-          ged.doMuteUnitOfWork(new UnitOfWork() {
-            public void perform(Gedcom gedcom) throws GedcomException {
-              pparent.moveProperties(children, index);
-            }
-          });
-          return;
+      // start transaction for our gedcom?
+      if (!gedcom.isTransaction())
+        gedcom.startTransaction();
+      
+      // is this an in-parent move?
+      Property newParent = (Property)parent;
+      if (action==MOVE&&transferable.isDataFlavorSupported(PropertyTransferable.VMLOCAL_FLAVOR)) {
+        List dragged = (List)transferable.getTransferData(PropertyTransferable.VMLOCAL_FLAVOR);
+        if (newParent.isProperties(dragged)) {
+          
+          // re-shuffle children
+          for (int i=0,j=dragged.size();i<j;i++) {
+            if (newParent.getPropertyPosition((Property)dragged.get(i))<index)
+              index--;
+          }
+          List shuffle = new ArrayList(Arrays.asList(newParent.getProperties()));
+          shuffle.removeAll(dragged);
+          shuffle.addAll(index, dragged);
+          
+          // commit
+          newParent.setProperties(shuffle);
+          gedcom.endTransaction();
+          
+          // done
+          return dragged;
         }
-        
-        // do a cut&paste
-        ged.doMuteUnitOfWork(new IOUnitOfWork() {
-          protected void performIO(Gedcom gedcom) throws IOException, UnsupportedFlavorException {
-            
-            // keep track of transferred xrefs
-            List xrefs = new ArrayList();
-            String string = transferable.getTransferData(PropertyTransferable.STRING_FLAVOR).toString();
-            
-            // paste text keep track of xrefs
-            new PropertyReader(new StringReader(string), xrefs, true).read(pparent, index);
-            
-            // delete children for MOVE within same gedcom (drag won't do it)
-            if (action==MOVE&&draggingFrom==gedcom) {
-              for (int i=0;i<children.size();i++) {
-                Property child = (Property)children.get(i);
-                child.getParent().delProperty(child);
-              }
-            }
-            
-            // link xrefs now that already existing props have been deleted
-            for (int i=0;i<xrefs.size();i++) {
-              try { ((PropertyXRef)xrefs.get(i)).link(); } catch (Throwable t) {
-                EditView.LOG.log(Level.WARNING, "caught exception during dnd trying to link xrefs", t);
-              }
-            }
-          }
-        });
-        
-        return;
       }
       
-      // a list of files (apparently only on windows)?
-      if (transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
-        
-        ged.doMuteUnitOfWork(new IOUnitOfWork() {
-          protected void performIO(Gedcom gedcom) throws IOException, UnsupportedFlavorException {
-            for (Iterator files=((List)transferable.getTransferData(DataFlavor.javaFileListFlavor)).iterator(); files.hasNext(); ) 
-              pparent.addFile((File)files.next());
-          }
-        });
-        
-        return;
+      // paste text into new parent
+      try {
+        String s = transferable.getTransferData(PropertyTransferable.STRING_FLAVOR).toString();
+        return GedcomReader.read(new StringReader(s), newParent, index);
+      } finally {
+        gedcom.endTransaction();      
       }
-      
-      // not even the string case?
-      if (!transferable.isDataFlavorSupported(PropertyTransferable.STRING_FLAVOR))
-        return;
-      
-      final String string = transferable.getTransferData(PropertyTransferable.STRING_FLAVOR).toString();
-      if (string.length()<4)
-        return;
-      
-      // a file drop? apparently a file drop is a simple text starting with file: on linux (kde/gnome)
-      if (string.startsWith(UNIX_DND_FILE_PREFIX)) {
-        ged.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) {
-            for (StringTokenizer files = new StringTokenizer(string, "\n"); files.hasMoreTokens(); ) {
-              String file = files.nextToken().trim();
-              if (file.startsWith(UNIX_DND_FILE_PREFIX)) 
-                pparent.addFile(new File(file.substring(UNIX_DND_FILE_PREFIX.length())));
-            }
-          }
-        });
-        return;
-      }
-      
-      // still some text we can paste into new parent?
-      EditView.LOG.fine("reading dropped text '"+string+"'");
-      ged.doMuteUnitOfWork(new IOUnitOfWork() {
-        protected void performIO(Gedcom gedcom) throws IOException, UnsupportedFlavorException {
-          new PropertyReader(new StringReader(string), null, true).read(pparent, index);
-        }
-      });
       
       // done      
     }
 
     /**
-     * DND support - drag after drop!
-     */
-    public void drag(Transferable transferable, int action) throws UnsupportedFlavorException, IOException {
-      
-      // anything to drag?
-      final List children = (List)transferable.getTransferData(PropertyTransferable.VMLOCAL_FLAVOR);
-      if (children.isEmpty())
-        return;
-      
-      // drag out children if it's a move to a different gedcom
-      if (action==MOVE &&draggingFrom!=ged) {
-        
-        ged.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) {
-            for (int i=0;i<children.size();i++) {
-              Property child = (Property)children.get(i);
-              child.getParent().delProperty(child);
-            }
-          }
-        });
-      }
-      
-      // done
-    }
-       
-    public void releaseTransferable(Transferable transferable) {
-      draggingFrom  = null;
-    }
-    
-    /**
      * Returns parent of node
      */  
     protected Object getParent(Object node) {
       // none for root
-      if (node==root)
+      if (node==NULL||node==root)
         return null;
       // otherwise its parent
       return ((Property)node).getParent();
@@ -573,6 +437,8 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
      * Returns child count of parent
      */
     public int getChildCount(Object parent) {
+      if (parent==NULL)
+        return 0;
       return ((Property)parent).getNoOfProperties();
     }
     
@@ -591,61 +457,70 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
      * Returns root of tree
      */
     public Object getRoot() {
-      return root;
+      return root!=null?root:NULL;
     }          
   
     /**
      * Tells wether object is a leaf
      */
     public boolean isLeaf(Object node) {
-      // nothing is leaf - allows to drag everywhere
+      if (node==NULL)
+        return true;
       return ((Property)node).getNoOfProperties()==0;
     }          
   
-    public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-      // ignored
-    }
+    /**
+     * @see genj.gedcom.GedcomListener#handleChange(Change)
+     */
+    public void handleChange(Transaction tx) {
+      
+      // Could we be affected at all?
+      if (root==null) 
+        return;
+        
+      // our entity
+      Entity entity = root.getEntity();
 
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      // can't serve anymore?
-      if (root==entity)
+      // Entity deleted ?
+      if (tx.get(Transaction.ENTITIES_DELETED).contains(entity)) {
         setRoot(null);
-    }
-
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      // TODO we should check if added belongs to a property one of our xrefs is pointing to
-      // us?
-      if (root!=property.getEntity())
         return;
-      // update
-      Object[] path = getPathFor(property);
-      fireTreeNodesInserted(this, path, new int[] { pos }, new Property[]{ added });
-      // expand all rows
-      expandAllRows();
-      // selection (but no CHAN)
-      if (!(added instanceof PropertyChange))
-        setSelection(Collections.singletonList(added));
-      // done
-    }
-
-    public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      // us?
-      if (root!=property.getEntity())
+      }
+      
+      // at least same entity modified?
+      if (!tx.get(Transaction.ENTITIES_MODIFIED).contains(entity))
         return;
-      // update
-      fireTreeNodesChanged(this, getPathFor(property), null, null);
-    }
-
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
-      // us?
-      if (root!=property.getEntity())
-        return;
-      // just a CHAN?
-      if (property instanceof PropertyChange)
-        return;
-      // update
-      fireTreeNodesRemoved(this, getPathFor(property), new int[] { pos }, new Property[]{ deleted });
-      // done
+        
+      // always try to stay with current selection
+      Property selection = getSelection();
+      
+      // follow changes
+      Change[] changes = tx.getChanges();
+      for (int i=0;i<changes.length;i++) {
+        // applicable?
+        Change change = changes[i];
+        if (change.getEntity()!=entity)
+          continue;
+        // structure change?
+        if (change instanceof Change.PropertyStructure) {
+          if (change instanceof Change.PropertyAdd&&!(((Change.PropertyAdd)change).getAdded() instanceof PropertyChange))
+            selection = ((Change.PropertyAdd)change).getAdded();
+          setRoot(root);
+          break;
+        }
+        // simple change?
+        if (change instanceof Change.PropertyValue) {
+          Property changed = ((Change.PropertyValue)change).getChanged();
+          // .. tell about it
+          fireTreeNodesChanged(this, getPathFor(changed), null, null);
+        }
+        // go on checking
+      }
+      
+      // restore selection
+      setSelection(selection);
+      
+      // Done
     }
   
   } //Model
@@ -702,21 +577,16 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
       
     private String calcText(Property prop) {
 
-      StringBuffer result = new StringBuffer();
+      WordBuffer result = new WordBuffer();
       
-      if (!prop.isTransient()) {
+      if (!prop.isTransient())
         result.append(prop.getTag());
-        result.append(' ');
-      }
 
       // private?
       if (prop.isSecret()) {
         result.append("*****");
       } else {
-        String val = prop.getDisplayValue();
-        int nl = val.indexOf('\n');
-        if (nl>=0) val = val.substring(0, nl) + "...";
-        result.append(val);
+        result.append(prop.getDisplayValue());
       }
       
       // done
@@ -724,16 +594,5 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
     }
     
   } //Renderer
-  
-  private abstract class IOUnitOfWork implements UnitOfWork {
-    public final void perform(Gedcom gedcom) throws GedcomException {
-      try {
-        performIO(gedcom);
-      } catch (Throwable t) {
-        throw new RuntimeException(t);
-      }
-    }
-    protected abstract void performIO(Gedcom gedcom) throws IOException, UnsupportedFlavorException;
-  }
     
 } //PropertyTree

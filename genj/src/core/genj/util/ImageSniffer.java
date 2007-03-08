@@ -1,78 +1,55 @@
-/**
- * GenJ - GenealogyJ
+/*
+ * Created on Apr 23, 2003
  *
- * Copyright (C) 1997 - 2002 Nils Meier <nils@meiers.net>
- *
- * This piece of code is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 2 of the
- * License, or (at your option) any later version.
- *
- * This code is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * To change the template for this generated file go to
+ * Window>Preferences>Java>Code Generation>Code and Comments
  */
 package genj.util;
 
 import java.awt.Dimension;
 import java.awt.Point;
-import java.awt.geom.Dimension2D;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * A utility class that offers image meta-information
+ * @author Nils
+ *
+ * To change the template for this generated type comment go to
+ * Window>Preferences>Java>Code Generation>Code and Comments
  */
 public class ImageSniffer {
 
   /** sniffed suffix */
   private String suffix = null;
 
+  /** stream */
+  private InputStream in;
+  
   /** bytes read */
   private int read = 0;
 
   /** sniffed values */  
   protected Dimension dimension;
-  protected Point dpi = new Point(72,72);
+  protected Point dpi;
     
   /**
    * Constructor
    */
-  public ImageSniffer(File file) {
-    try {
-      FileInputStream in = new FileInputStream(file);
-      init(in);
-      in.close();
-    } catch (IOException e) {
-    }
-  }
-  
-  /**
-   * Constructor
-   */
-  public ImageSniffer(InputStream in) {
-    init(in);
-  }
+  public ImageSniffer(InputStream stream) {
 
-  private void init(InputStream in) {
+    // keep stream
+    in = stream;
     
     try {
   
       // check first 2 bytes for type
-      int tag = (read(in)&0xff) << 8 | (read(in)&0xff);
+      int tag = (read()&0xff) << 8 | (read()&0xff);
   
       switch (tag) {
-        case 0x4749: sniffGif(in);break;
-        case 0x8950: sniffPng(in);break;
-        case 0xffd8: sniffJpg(in);break;
-        case 0x424d: sniffBmp(in);break;
+        case 0x4749: sniffGif();break;
+        case 0x8950: sniffPng();break;
+        case 0xffd8: sniffJpg();break;
+        case 0x424d: sniffBmp();break;
         default:
       }    
       
@@ -104,7 +81,7 @@ public class ImageSniffer {
   }
 
   /**
-   * Accessor - dimension in points
+   * Accessor - dimension
    * @return null if unknown
    */
   public Dimension getDimension() {
@@ -112,23 +89,9 @@ public class ImageSniffer {
   }
 
   /**
-   * Accessor - dimension
-   * @return size in inches or null if not known
-   */
-  public Dimension2D getDimensionInInches() {
-    // check whether we have a resolution
-    if (dpi==null||dimension==null) 
-      return null;
-    return new Dimension2d(
-      (double)dimension.width/dpi.x, 
-      (double)dimension.height/dpi.y
-    );
-  }
-  
-  /**
    * sniffer - gif
    */
-  private void sniffGif(InputStream in) throws IOException {
+  private void sniffGif() throws IOException {
     
     // two possible magic headers
     final int
@@ -136,14 +99,14 @@ public class ImageSniffer {
       F87A = string2int("F87a");
       
     // sniff rest of magic
-    int magic = sniffIntBigEndian(in);
+    int magic = sniffIntBigEndian();
     if (magic!=F89A&&magic!=F87A)
       return;
 
     // width & height
     dimension = new Dimension(
-    	sniffShortLittleEndian(in),
-    	sniffShortLittleEndian(in)
+    	sniffShortLittleEndian(),
+    	sniffShortLittleEndian()
     );
 
     // no resolution
@@ -160,7 +123,7 @@ public class ImageSniffer {
    * 
    * @see http://www.libpng.org/pub/png/spec
    */
-  private void sniffPng(InputStream in) throws IOException {
+  private void sniffPng() throws IOException {
 
     // prepare chunk type identifies
     final int
@@ -170,30 +133,30 @@ public class ImageSniffer {
       PHYS = string2int("pHYs");
             
     // sniff rest of magic
-    if (!sniff(in, new byte[]{0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}))
+    if (!sniff(new byte[]{0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}))
       return;
 
     // len and type
-    int len = sniffIntBigEndian(in);
-    int type = sniffIntBigEndian(in);
+    int len = sniffIntBigEndian();
+    int type = sniffIntBigEndian();
     if (IHDR!=type)
       return;
 
     // width & height
     dimension = new Dimension(
-      sniffIntBigEndian(in),
-      sniffIntBigEndian(in)
+      sniffIntBigEndian(),
+      sniffIntBigEndian()
     );
     
     // skip rest + crc
-    skip(len-8+4, in);
+    skip(len-8+4);
 
     // look for pHYs
     while (true) {
       
       // len and type
-      len = sniffIntBigEndian(in);
-      type = sniffIntBigEndian(in);
+      len = sniffIntBigEndian();
+      type = sniffIntBigEndian();
 
       // chunk : dat?
       if (IDAT==type) break;
@@ -204,9 +167,9 @@ public class ImageSniffer {
       // chunk : pHYs?      
       if (PHYS==type) {
         int
-          x = sniffIntBigEndian(in),
-          y = sniffIntBigEndian(in);
-        if (read(in)==1) { //meter
+          x = sniffIntBigEndian(),
+          y = sniffIntBigEndian();
+        if (in.read()==1) { //meter
           dpi = new Point(
           	(int)Math.round(2.54D*x/100),
           	(int)Math.round(2.54D*y/100)
@@ -216,7 +179,7 @@ public class ImageSniffer {
       }
       
       // skip data + crc
-      skip(len+4, in);
+      skip(len+4);
       
     }
     
@@ -229,13 +192,13 @@ public class ImageSniffer {
    * 
    * @see http://www.media.mit.edu/pia/Research/deepview/exif.html
    */
-  private boolean sniffTiff(InputStream in) throws IOException {
+  private boolean sniffTiff() throws IOException {
     
     int start = read;
 
     // analyze TIFF header
     boolean intel;
-    switch (sniffShortLittleEndian(in)) {
+    switch (sniffShortLittleEndian()) {
       case 0x4949: //II = intel
         intel = true;
         break;
@@ -247,19 +210,19 @@ public class ImageSniffer {
     }
     
     // skip 0x002a
-    skip(2, in);
+    skip(2);
     
     // jump to IFD (Image File Directory)
-    skip(sniffInt(in, intel)-(read-start), in);
+    skip(sniffInt(intel)-(read-start));
     
     // loop directory looking for x/y resolution
     int xres = 0, yres = 0;
-    for (int i=0,j=sniffShort(in,intel);i<j;i++) {
+    for (int i=0,j=sniffShort(intel);i<j;i++) {
       // directory image information entry - 12 bytes
-      int tag = sniffShort(in,intel),
-          format = sniffShort(in,intel),
-          components = sniffInt(in, intel),
-          value = sniffInt(in, intel);
+      int tag = sniffShort(intel),
+          format = sniffShort(intel),
+          components = sniffInt(intel),
+          value = sniffInt(intel);
       switch (tag) {
       	case 0x011a: //x-resolution
       	  xres = value;
@@ -277,15 +240,15 @@ public class ImageSniffer {
     
     // lookup resolution values
     if (xres<yres) {
-      skip(xres-(read-start), in);
-      xres = sniffInt(in, intel) / sniffInt(in, intel);
-      skip(yres-(read-start), in);
-      yres = sniffInt(in, intel) / sniffInt(in, intel);
+      skip(xres-(read-start));
+      xres = sniffInt(intel) / sniffInt(intel);
+      skip(yres-(read-start));
+      yres = sniffInt(intel) / sniffInt(intel);
     } else {
-      skip(yres-(read-start), in);
-      yres = sniffInt(in, intel) / sniffInt(in, intel);
-      skip(xres-(read-start), in);
-      xres = sniffInt(in, intel) / sniffInt(in, intel);
+      skip(yres-(read-start));
+      yres = sniffInt(intel) / sniffInt(intel);
+      skip(xres-(read-start));
+      xres = sniffInt(intel) / sniffInt(intel);
     }
     dpi = new Point(xres, yres);
     
@@ -299,7 +262,7 @@ public class ImageSniffer {
    * 
    * @see http://www.dcs.ed.ac.uk/home/mxr/gfx/2d/JPEG.txt
    */
-  private void sniffJpg(InputStream in) throws IOException {
+  private void sniffJpg() throws IOException {
 
     final byte[] 
       JFIF = "JFIF".getBytes(),
@@ -310,34 +273,34 @@ public class ImageSniffer {
     
       // marker and size
       int 
-        marker = sniffShortBigEndian(in),
-        size = sniffShortBigEndian(in) - 2, // without 'size' itself
+        marker = sniffShortBigEndian(),
+        size = sniffShortBigEndian() - 2, // without 'size' itself
         start = read; 
         
       // marker?
       switch (marker) {
         case 0xffe1: // EXIF
           // looking for Exif and trailing short
-          if (!sniff(in, EXIF))
+          if (!sniff(EXIF))
             break;
-          skip(2, in);
+          skip(2);
           // tiff from here
-          sniffTiff(in);
+          sniffTiff();
           break;
         case 0xffe0: // jpeg APPx
           // looking for JFIF
-          if (sniff(in, JFIF)) {
+          if (sniff(JFIF)) {
             // skip '0'(1) and version(2)
-            skip(3, in);
+            skip(3);
             // check units
-            switch (read(in)) {
+            switch (read()) {
               case 1: // dots per inch
-                dpi = new Point(sniffShortBigEndian(in), sniffShortBigEndian(in));
+                dpi = new Point(sniffShortBigEndian(), sniffShortBigEndian());
                 break;
               case 2: // dots per cm
                 dpi = new Point(
-	                (int)(sniffShortBigEndian(in) * 2.54f),
-	                (int)(sniffShortBigEndian(in) * 2.54f)
+	                (int)(sniffShortBigEndian() * 2.54f),
+	                (int)(sniffShortBigEndian() * 2.54f)
                 );
                 break;
               }
@@ -360,12 +323,12 @@ public class ImageSniffer {
         case 0xffce:
         case 0xffcf:
           // bitsPerPixel = a * b
-          read(in); //a
+          read(); //a
           dimension = new Dimension(
-	          sniffShortBigEndian(in),
-	          sniffShortBigEndian(in)
+	          sniffShortBigEndian(),
+	          sniffShortBigEndian()
           );
-          read(in); //b
+          read(); //b
           break;
         case 0xffd9:
           // EOI
@@ -376,7 +339,7 @@ public class ImageSniffer {
       }
       
       // skip rest of chunk
-      skip(size-(read-start), in);
+      skip(size-(read-start));
     }    
     
     // done
@@ -386,22 +349,22 @@ public class ImageSniffer {
   /**
    * sniffer - bmp
    */
-  private void sniffBmp(InputStream in) throws IOException {
+  private void sniffBmp() throws IOException {
 
     // skip some stuff
-    skip(16, in);
+    skip(16);
     
     // width & height    
     dimension = new Dimension(
-	    sniffIntLittleEndian(in),
-	    sniffIntLittleEndian(in)
+	    sniffIntLittleEndian(),
+	    sniffIntLittleEndian()
     );
     
     // skip short
-    skip(2, in);
+    skip(2);
 
     // bits per pixel    
-    int bitsPerPixel = sniffShortLittleEndian(in);
+    int bitsPerPixel = sniffShortLittleEndian();
     if (bitsPerPixel != 1 && bitsPerPixel != 4 &&
         bitsPerPixel != 8 && bitsPerPixel != 16 &&
         bitsPerPixel != 24 && bitsPerPixel != 32) {
@@ -409,12 +372,12 @@ public class ImageSniffer {
     }
     
     // skip two longs
-    skip(8, in);
+    skip(8);
     
     // resolution
     dpi = new Point(
-      (int)Math.round(2.54D*sniffIntLittleEndian(in)/100), // dots per meter
-      (int)Math.round(2.54D*sniffIntLittleEndian(in)/100)  // dots per meter
+      (int)Math.round(2.54D*sniffIntLittleEndian()/100), // dots per meter
+      (int)Math.round(2.54D*sniffIntLittleEndian()/100)  // dots per meter
     );
 
     // done
@@ -424,7 +387,7 @@ public class ImageSniffer {
   /**
    * Read one byte 
    */
-  private int read(InputStream in) throws IOException {
+  private int read() throws IOException {
     read++;
     return in.read();
   }
@@ -432,7 +395,7 @@ public class ImageSniffer {
   /**
    * Skip bytes
    */
-  private void skip(int num, InputStream in) throws IOException {
+  private void skip(int num) throws IOException {
     read += num;
     in.skip(num);
   }
@@ -440,9 +403,9 @@ public class ImageSniffer {
   /**
    * Sniffer - check magic
    */
-  private boolean sniff(InputStream in, byte[] magic) throws IOException {
+  private boolean sniff(byte[] magic) throws IOException {
     for (int m=0;m<magic.length;m++) {
-      int i = read(in);
+      int i = read();
       if (i==-1||i!=magic[m]) return false;
     }
     return true;
@@ -451,62 +414,62 @@ public class ImageSniffer {
   /**
    * Sniffer - check magic
    */
-  private boolean sniff(InputStream in, String magic) throws IOException {
-    return sniff(in, magic.getBytes());
+  private boolean sniff(String magic) throws IOException {
+    return sniff(magic.getBytes());
   }
   
   /**
    * Sniffer - int as intel or motorola
    */
-  private int sniffInt(InputStream in, boolean intel) throws IOException {
-    return intel ? sniffIntLittleEndian(in) : sniffIntBigEndian(in);  
+  private int sniffInt(boolean intel) throws IOException {
+    return intel ? sniffIntLittleEndian() : sniffIntBigEndian();  
   }
   
   /**
    * Sniffer - int big endian
    */
-  private int sniffIntBigEndian(InputStream in) throws IOException {
+  private int sniffIntBigEndian() throws IOException {
     return
-      (read(in) & 0xff) << 24 | 
-      (read(in) & 0xff) << 16 | 
-      (read(in) & 0xff) <<  8 | 
-      (read(in) & 0xff)       ;
+      (read() & 0xff) << 24 | 
+      (read() & 0xff) << 16 | 
+      (read() & 0xff) <<  8 | 
+      (read() & 0xff)       ;
   }
   
   /**
    * Sniffer - int little endian
    */
-  private int sniffIntLittleEndian(InputStream in) throws IOException {
+  private int sniffIntLittleEndian() throws IOException {
     return
-      (read(in) & 0xff)       | 
-      (read(in) & 0xff) <<  8 | 
-      (read(in) & 0xff) << 16 | 
-      (read(in) & 0xff) << 24 ;
+      (read() & 0xff)       | 
+      (read() & 0xff) <<  8 | 
+      (read() & 0xff) << 16 | 
+      (read() & 0xff) << 24 ;
   }
 
   /**
    * Sniffer - short as intel or motorola
    */
-  private int sniffShort(InputStream in, boolean intel) throws IOException {
-    return intel ? sniffShortLittleEndian(in) : sniffShortBigEndian(in);  
+  private int sniffShort(boolean intel) throws IOException {
+    return intel ? sniffShortLittleEndian() : sniffShortBigEndian();  
   }
   
   /**
    * Sniffer - short big endian
    */  
-  private int sniffShortBigEndian(InputStream in) throws IOException {
+  private int sniffShortBigEndian() throws IOException {
     return
-      (read(in) & 0xff) << 8 | 
-      (read(in) & 0xff)      ;
+      (read() & 0xff) << 8 | 
+      (read() & 0xff)      ;
   }
   
   /**
    * Sniffer - short big endian
    */
-  private int sniffShortLittleEndian(InputStream in) throws IOException {
+  private int sniffShortLittleEndian() throws IOException {
     return 
-      (read(in) & 0xff)      | 
-      (read(in) & 0xff) << 8 ;
+      (read() & 0xff)      | 
+      (read() & 0xff) << 8 ;
   }
   
   /**

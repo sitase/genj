@@ -43,71 +43,50 @@ public class Indi extends Entity {
     PATH_INDIDEATDATE = new TagPath("INDI:DEAT:DATE");
 
   public final static ImageIcon
-    IMG_MALE    = Grammar.getMeta(PATH_INDI).getImage("male"),
-    IMG_FEMALE  = Grammar.getMeta(PATH_INDI).getImage("female"),
-    IMG_UNKNOWN = Grammar.getMeta(PATH_INDI).getImage();
+    IMG_MALE    = MetaProperty.get(PATH_INDI).getImage("male"),
+    IMG_FEMALE  = MetaProperty.get(PATH_INDI).getImage("female"),
+    IMG_UNKNOWN = MetaProperty.get(PATH_INDI).getImage();
     
   /**
-   * @return a PropertyDate corresponding to the INDI:BIRT:DATE property.  
-   *          Return null if the property is unset.   
-   * 
+   * Adds a family in which the individual is a partner
+   */
+  /*package*/ Fam addFam() throws GedcomException {
+    return addFam((Fam)getGedcom().createEntity(Gedcom.FAM));
+  }
+
+  /**
+   * Adds a family in which the individual is a partner
+   */
+  /*package*/ Fam addFam(Fam fam) throws GedcomException {
+
+    // Remember Fam where this is spouse in
+    PropertyFamilySpouse pfs = new PropertyFamilySpouse(fam.getId());
+    addProperty(pfs);
+
+    // Link !
+    try {
+      pfs.link();
+    } catch (GedcomException ex) {
+      delProperty(pfs);
+    }
+
+    return fam;
+  }
+
+  /**
+   * Calculate indi's birth date
    */
   public PropertyDate getBirthDate() {
-    return getBirthDate( false );
+    // Calculate BIRT|DATE
+    return (PropertyDate)getProperty(PATH_INDIBIRTDATE);
   }
 
   /**
-   * Calculate the INDI's Birthdate 
-   * @param create if false, return null when the property is unset.   
-   *     If true, return an empty PropertyDate when the property is unset
-   * @return  date or null unless create
-   */
-  public PropertyDate getBirthDate( boolean create )
-  {
-      PropertyDate date =  (PropertyDate)getProperty(PATH_INDIBIRTDATE);
-      if( null != date || !create )
-          return date;
-      return (PropertyDate)setValue(PATH_INDIBIRTDATE,"");
-  }
-
-  /**
-   * Calculate the death date of the Indi.
-   * @return a PropertyDate corresponding to the INDI:DEAT:DATE property.  
-   *          Return null if the property is unset.   
+   * Calculate indi's death date
    */
   public PropertyDate getDeathDate() {
-      return getDeathDate( false );
-  }
-
-  /**
-   * Calculate indi's death date.
-   * @param create if false, return null when the property is unset.   
-   *     If true, return an empty PropertyDate when the property is unset
-   */
-  public PropertyDate getDeathDate( boolean create ) {
-      PropertyDate date =  (PropertyDate)getProperty(PATH_INDIDEATDATE);
-      if( null != date || !create )
-          return date;
-      return (PropertyDate)setValue(PATH_INDIDEATDATE,"");
-  }
-  
-  /**
-   * Calculate all siblings (biological)
-   */
-  public Indi[] getSiblings(boolean includeMe) {
-    
-    // collect siblings
-    Fam fam = getFamilyWhereBiologicalChild();
-    if (fam==null)
-      return new Indi[0];
-    List result  = new ArrayList(fam.getNoOfChildren());
-    Indi[] siblings = fam.getChildren();
-    for (int s=0;s<siblings.length;s++)
-      if (includeMe||siblings[s]!=this) result.add(siblings[s]);
-    
-    // done
-    return toIndiArray(result);
-    
+    // Calculate DEAT|DATE
+    return (PropertyDate)getProperty(PATH_INDIDEATDATE);
   }
   
   /**
@@ -115,14 +94,17 @@ public class Indi extends Entity {
    */
   public Indi[] getYoungerSiblings() {
     
-    // grab 'em all
-    Indi[] siblings = getSiblings(true);
+    // this is a child in a family?
+    Fam fam = getFamc();
+    if (fam==null) 
+      return new Indi[0];
     
-    // sort by date
+    // sort siblings
+    Indi[] siblings = fam.getChildren();
     Arrays.sort(siblings, new PropertyComparator("INDI:BIRT:DATE"));
     
     // grab everything up to me
-    List result = new ArrayList(siblings.length);
+    List result = new ArrayList(siblings.length-1);
     for (int i=siblings.length-1;i>=0;i--) {
       if (siblings[i]==this)
         break;
@@ -133,47 +115,22 @@ public class Indi extends Entity {
     return toIndiArray(result);
   }
   
-  /*
-   * Get living address of en entity. It is the first address attached to
-   * a RESI event without an end date
-   */
-  public PropertyMultilineValue getAddress() {
-  
-    // lookup RESIdences
-    Property[] rs = getProperties("RESI");
-    for (int i = 0; i<rs.length; i++){
-      
-        // there must be an address tag
-        PropertyMultilineValue address = (PropertyMultilineValue)rs[i].getProperty("ADDR");
-        if (address == null) 
-          continue;
-
-        // check if there's an ending date
-        PropertyDate date = (PropertyDate)rs[i].getProperty("DATE");
-        if (date != null && date.isRange()) 
-          continue;
-        
-        // got it
-        return address;
-    }
-    
-    // not found
-    return null;
-  }
-  
   /**
    * Calculate the 'older' sibling
    */
   public Indi[] getOlderSiblings() {
     
-    // grab 'em all
-    Indi[] siblings = getSiblings(true);
+    // this is a child in a family?
+    Fam fam = getFamc();
+    if (fam==null) 
+      return new Indi[0];
     
-    // sort by date
+    // sort siblings
+    Indi[] siblings = fam.getChildren();
     Arrays.sort(siblings, new PropertyComparator("INDI:BIRT:DATE"));
     
     // grab everything up older than me
-    List result = new ArrayList(siblings.length);
+    List result = new ArrayList(siblings.length-1);
     for (int i=0,j=siblings.length;i<j;i++) {
       if (siblings[i]==this)
         break;
@@ -191,7 +148,7 @@ public class Indi extends Entity {
    */
   public Indi[] getPartners() {
     // Look at all families and remember spouses
-    Fam[] fs = getFamiliesWhereSpouse();
+    Fam[] fs = getFamilies();
     List l = new ArrayList(fs.length);
     for (int f=0; f<fs.length; f++) {
       Indi p = fs[f].getOtherSpouse(this);
@@ -208,7 +165,7 @@ public class Indi extends Entity {
    */
   public Indi[] getChildren() {
     // Look at all families and remember children
-    Fam[] fs = getFamiliesWhereSpouse();
+    Fam[] fs = getFamilies();
     List l = new ArrayList(fs.length);
     for (int f=0; f<fs.length; f++) {
       Indi[]cs = fs[f].getChildren();
@@ -221,14 +178,71 @@ public class Indi extends Entity {
     return result;
   }
   
+  /** 
+   * Calculate indi's father
+   */
+  public Indi getFather() {
+    // have we been child in family?
+    Fam f = getFamc();
+    if (f==null) return null;
+    // ask fam
+    return f.getHusband();
+  }
+
+  /** 
+   * Calculate indi's mother
+   */
+  public Indi getMother() {
+    // have we been child in family?
+    Fam f = getFamc();
+    if (f==null) return null;
+    // ask fam
+    return f.getWife();
+  }
+  
+// nmeier - this is a little bit tricky since fathers could be
+// all blood-line fathers or simply husbands in a family with
+// an adopted child
+//
+//  public Indi[] getFathers() {
+//    LinkedList result = new LinkedList();
+//  
+//    Fam f[] = getCFamilies();
+//    for (int inx=0; inx < f.length; inx++) {
+//        Indi cs = f[inx].getHusband();
+//        if (cs==this) break;
+//        if (!result.contains(cs))
+//          result.addFirst(cs);
+//    }
+//  
+//    // done
+//    return toIndiArray(result);
+//  }
+//
+//  public Indi[] getMothers() {
+//      LinkedList result = new LinkedList();
+//
+//      Fam f[] = getCFamilies();
+//      for (int inx=0; inx < f.length; inx++) {
+//          Indi cs = f[inx].getWife();
+//          if (cs==this) break;
+//          if (!result.contains(cs))
+//            result.addFirst(cs);
+//      }
+//    
+//      // done
+//      return toIndiArray(result);
+//  }
+
   /**
    * Calculate indi's birth date
    */
   public String getBirthAsString() {
 
     PropertyDate p = getBirthDate();
-    if (p==null) 
+    if (p==null) {
       return "";
+    }
 
     // Return string value
     return p.toString();
@@ -249,67 +263,68 @@ public class Indi extends Entity {
   }
 
   /**
-   * Returns the families in which this individual is a spouse
+   * Returns the selected family in which the individual is a partner
    */
-  public Fam[] getFamiliesWhereSpouse() {
-    ArrayList result = new ArrayList(getNoOfProperties());
+  public Fam getFam(int which) {
+    
     for (int i=0,j=getNoOfProperties();i<j;i++) {
       Property prop = getProperty(i);
-      if ("FAMS".equals(prop.getTag())&&prop.isValid()) 
-        result.add(((PropertyFamilySpouse)prop).getFamily());
+      if ("FAMS".equals(prop.getTag())&&prop.isValid()) {
+        if (which==0)
+          return ((PropertyFamilySpouse)prop).getFamily();
+        which--;
+      }
     }
-    return Fam.toFamArray(result);
+    
+    throw new IllegalArgumentException("no such family");
   }
-
   
   /**
-   * Returns the families in which the person is child (biological, foster, etc.)
+   * Returns the family in which the person is child
    */
-  public Fam[] getFamiliesWhereChild( ) {
-    
-    List famcs = getProperties(PropertyFamilyChild.class);
-    List result = new ArrayList(famcs.size());
-    for (int i=0; i<famcs.size(); i++) {
-      PropertyFamilyChild famc = (PropertyFamilyChild)famcs.get(i);
-      if (famc.isValid())
-        result.add(famc.getTargetEntity());
+  public Fam getFamc( ) {
+    Property prop = getProperty("FAMC",true);
+    if (prop==null) {
+      return null;
     }
-    
-    return Fam.toFamArray(result);
+    return ((PropertyFamilyChild)prop).getFamily();
   }
 
   /**
-   * Returns the family in which the person is biological child
-   * @return reference to 1st family or family with 'PEDI birth'
+   * Get Family with option to create
    */
-  public Fam getFamilyWhereBiologicalChild( ) {
-
-    // look at all FAMCs
-    Fam result = null;
-    List famcs = getProperties(PropertyFamilyChild.class);
-    for (int i=0; i<famcs.size(); i++) {
-      PropertyFamilyChild famc = (PropertyFamilyChild)famcs.get(i);
-      // not valid - not interesting
-      if (!famc.isValid()) continue;
-      int biological = famc.isBiological();
-      // stop if confirmed (first) biological
-      if (biological==PropertyFamilyChild.CONFIRMED_BIOLOGICAL) 
-        return (Fam)famc.getTargetEntity();
-      // keep if maybe biological and first
-      if (biological==PropertyFamilyChild.MAYBE_BIOLOGICAL&&result==null)
-        result = (Fam)famc.getTargetEntity();
-    }
-    
-    // done
-    return result;
+  public Fam getFamc(boolean create) throws GedcomException {
+    Fam fam = getFamc();
+    if (fam!=null||!create) return fam;
+    fam = (Fam)getGedcom().createEntity(Gedcom.FAM);
+    fam.addChild(this);
+    return fam;    
   }
-  
+
+// nmeier - i'd like to keep ADOPted children out of the mix
+// for now since we'd have to look at callees and whether they'd
+// expect blood-line-only results or not 
+//  /**
+//   * Returns the families in which this individual is a child
+//   */
+//  public Fam[] getCFamilies() {
+//    ArrayList result = new ArrayList(getNoOfProperties());
+//    
+//    for (int i=0,j=getNoOfProperties();i<j;i++) {
+//      Property prop = getProperty(i);
+//      if ("FAMC".equals(prop.getTag())&&prop.isValid()) 
+//        result.add(((PropertyFamilyChild)prop).getFamily());
+//    }
+//
+//    return Fam.toFamArray(result);
+//  }
+
   /**
    * Returns indi's first name
    */
   public String getFirstName() {
     PropertyName p = (PropertyName)getProperty(PropertyName.TAG,true);
-    return p!=null ? p.getFirstName() : "";  
+    return p!=null ? p.getFirstName() : EMPTY_STRING;  
   }
 
   /**
@@ -317,7 +332,7 @@ public class Indi extends Entity {
    */
   public String getLastName() {
     PropertyName p = (PropertyName)getProperty(PropertyName.TAG,true);
-    return p!=null ? p.getLastName() : ""; 
+    return p!=null ? p.getLastName() : EMPTY_STRING; 
   }
 
   /**
@@ -325,7 +340,7 @@ public class Indi extends Entity {
    */
   public String getNameSuffix() {
     PropertyName p = (PropertyName)getProperty(PropertyName.TAG,true);
-    return p!=null ? p.getSuffix() : ""; 
+    return p!=null ? p.getSuffix() : EMPTY_STRING; 
   }
   
   /**
@@ -342,11 +357,17 @@ public class Indi extends Entity {
    */
   public String getName() {
     PropertyName p = (PropertyName)getProperty(PropertyName.TAG,true);
-    if (p==null)
-      return "";
-    return p.isSecret() ? "" : p.getName(); 
+    return p!=null ? p.getName() : EMPTY_STRING; 
   }
   
+  /** 
+   * Returns the number of parents this individual has
+   */
+  public int getNoOfParents() {
+    Fam fam = getFamc();
+    return fam==null?0:fam.getNoOfSpouses();
+  }
+
   /**
    * Returns the number of families in which the individual is a partner
    */
@@ -361,6 +382,22 @@ public class Indi extends Entity {
   }
   
   /**
+   * Returns the families in which this individual is a partner
+   */
+  public Fam[] getFamilies() {
+    
+    ArrayList result = new ArrayList(getNoOfProperties());
+    
+    for (int i=0,j=getNoOfProperties();i<j;i++) {
+      Property prop = getProperty(i);
+      if ("FAMS".equals(prop.getTag())&&prop.isValid()) 
+        result.add(((PropertyFamilySpouse)prop).getFamily());
+    }
+
+    return Fam.toFamArray(result);
+  }
+
+  /**
    * Returns indi's sex
    */
   public int getSex() {
@@ -373,123 +410,72 @@ public class Indi extends Entity {
    * @param sex one of PropertySex.MALE or PropertySex.FEMALE
    */
   public void setSex(int sex) {
-    // check whatever sex is there
-    PropertySex p = (PropertySex)getProperty("SEX",false);
-    // don't change what's wrong
-    if (p!=null&&!p.isValid())
-      return;
-    // add it if necessary
-    if (p==null) 
-      p = (PropertySex)addProperty(new PropertySex());
-    // change
+    PropertySex p = (PropertySex)getProperty("SEX",true);
+    if (p==null) p = (PropertySex)addProperty(new PropertySex());
     p.setSex(sex);
   }
 
   /**
-   * Check wether this person is descendant of given person
+   * Return all ancestors of this individual
    */
-  public boolean isDescendantOf(Indi indi) {
-    return indi.isAncestorOf(this);
+  public Set getAncestors() {
+    return getAncestors(new HashSet());
   }
   
-  /**
-   * Check wether this person is ancestor of given person
-   */
-  public boolean isAncestorOf(Indi indi) {
-    // 20070115 while we make sure that no circle exists in our gedcom data (invariants) there are cases where sub-trees of a tree occur multiple times
-    // (e.g. cousin marrying cousin, ancestor marrying descendant, cloned families pointing to identical ancestors, ...)
-    // So we're carrying a set of visited indis to abbreviate the ancestor check by looking for revisits.
-    return recursiveIsAncestorOf(indi, new HashSet());
-  }
-  
-  private boolean recursiveIsAncestorOf(Indi indi, Set visited) {
+  /*package*/ Set getAncestors(Set collect) {
+    
+    // would be in parental family
+    Fam fam = getFamc();
+    if (fam!=null)
+      fam.getAncestors(collect);
 
-    // if we've visited the individual already then there's obviously no need to check twice 
-    if (visited.contains(indi)) 
-      return false;
-    visited.add(indi);
-    
-    // check all possible of indi's parents
-    List famcs = indi.getProperties(PropertyFamilyChild.class);
-    for (int i=0; i<famcs.size(); i++) {
-      
-      PropertyFamilyChild famc = (PropertyFamilyChild)famcs.get(i);
-      
-      // not valid or not biological- not interesting
-      if (!famc.isValid()||famc.isBiological()==PropertyFamilyChild.NOT_BIOLOGICAL) continue;
-      
-      Fam fam = famc.getFamily();
-        
-      // check his mom/dad
-      Indi father = fam.getHusband();
-      if (father!=null) {
-        if (father==this)
-          return true;
-        if (recursiveIsAncestorOf(father, visited))
-          return true;
-      }
-      Indi mother = fam.getWife();
-      if (mother!=null) {
-        if (mother==this)
-          return true;
-        if (recursiveIsAncestorOf(mother, visited))
-          return true;
-      }
-        
-    }
-    
-    // nope
-    return false;
-    
+    // done      
+    return collect;
   }
 
   /**
-   * Check wether this person is descendant of given family
+   * Returns all descendants for this individual
    */
-  public boolean isDescendantOf(Fam fam) {
-    
-    // check the family's children
-    // NM 20070128 don't sort for existance check only - that's expensive
-    Indi[] children = fam.getChildren(false);
-    for (int i = 0; i < children.length; i++) {
-      Indi child = children[i];
-      if (child==this)
-        return true;
-      if (child.isAncestorOf(this))
-        return true;
-    }
-    
-    // nope
-    return false;
+  public Set getDescendants() {
+    return getDescendants(new HashSet());
   }
   
+  /*package*/ Set getDescendants(Set collect) {
+    
+    // fams?
+    Fam[] fams = getFamilies();
+    for (int f=0; f<fams.length; f++) {
+      fams[f].getDescendants(collect);      
+    }
+    
+    // done
+    return collect;
+  }
+
   /**
-   * Check wether this person is ancestor of given family
+   * Sets the family in which the person is child
    */
-  public boolean isAncestorOf(Fam fam) {
-    
-    // Husband ?
-    Indi husband = fam.getHusband();
-    if (husband!=null) {
-      if (husband==this) 
-        return true;
-      if (isAncestorOf(husband))
-        return true;
+  /*package*/ Indi setFamc(Fam fam) throws GedcomException {
+
+    // Remove old
+    Property p = getProperty("FAMC",true);
+    if (p!=null) {
+      delProperty(p);
     }
-    
-    // Wife ?
-    Indi wife = fam.getWife();
-    if (wife!=null) {
-      if (wife==this) 
-        return true;
-      if (isAncestorOf(wife))
-        return true;
+
+    // Remember new Fam where this is child in
+    PropertyFamilyChild pfc = new PropertyFamilyChild(fam.getId());
+    addProperty(fam);
+
+    // Link !
+    try {
+      pfc.link();
+    } catch (GedcomException ex) {
+      delProperty(pfc);
     }
-    
-    // nope
-    return false;
+
+    return this;
   }
-  
 
   /**
    * Returns this entity as String description
@@ -525,20 +511,13 @@ public class Indi extends Entity {
     // try to get birth    
     PropertyDate pbirth = getBirthDate();
     if (pbirth==null) 
-      return "";
+      return EMPTY_STRING;
     
     Delta delta = Delta.get(pbirth.getStart(), pit);
     if (delta==null)
-      return "";
+      return EMPTY_STRING;
       
     return delta.toString();
-  }
-  
-  /**
-   * Tag always INDI
-   */
-  public String getTag() {
-    return Gedcom.INDI;
   }
   
   /**
@@ -556,41 +535,6 @@ public class Indi extends Entity {
       return null;
       
     return delta;
-  }
-
-  /** 
-   * Calculate indi's father
-   */
-  public Indi getBiologicalFather() {
-    Fam f = getFamilyWhereBiologicalChild();
-    return f!=null ? f.getHusband() : null;
-  }
-
-  /** 
-   * Calculate indi's mother
-   */
-  public Indi getBiologicalMother() {
-    Fam f = getFamilyWhereBiologicalChild();
-    return f!=null ? f.getWife() : null;
   }  
-  
-  /**
-   * Checks whether this person is deceased
-   */
-  public boolean isDeceased() {
-    // check death event
-    PropertyEvent deat = (PropertyEvent)getProperty("DEAT");
-    if (deat!=null) {
-      // known to have happened?
-      if (deat.isKnownToHaveHappened().booleanValue())
-        return true;
-      // valid date?
-      Property date = deat.getProperty("DATE");
-      if (date!=null&&date.isValid())
-        return true;
-    }
-    // not afaik
-    return false;
-  }
   
 } //Indi
