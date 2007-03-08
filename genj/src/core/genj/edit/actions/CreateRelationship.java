@@ -26,10 +26,7 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
 import genj.util.WordBuffer;
 import genj.util.swing.NestedBlockLayout;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
 import genj.view.ViewManager;
-import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -66,7 +63,7 @@ public abstract class CreateRelationship extends AbstractChange {
    * Constructor
    */
   public CreateRelationship(String name, Gedcom gedcom, String targetType, ViewManager manager) {
-    super(gedcom, Gedcom.getEntityImage(targetType).getOverLayed(imgNew), resources.getString("link", name), manager);
+    super(gedcom, Gedcom.getEntityImage(targetType).getOverLayed(imgNew), resources.getString("new", name), manager);
     this.targetType = targetType;
   }
 
@@ -153,7 +150,7 @@ public abstract class CreateRelationship extends AbstractChange {
     
     // preselect something (for anything but indi and fam)?
     if (!(targetType.equals(Gedcom.INDI)||targetType.equals(Gedcom.FAM)))
-      select.setSelection(gedcom.getEntity(ViewManager.getRegistry(gedcom).get("select."+targetType, (String)null)));
+      select.setSelection(gedcom.getEntity(manager.getRegistry(gedcom).get("select."+targetType, (String)null)));
     
     // done
     return result;
@@ -162,12 +159,9 @@ public abstract class CreateRelationship extends AbstractChange {
   /**
    * @see genj.edit.EditViewFactory.Change#change()
    */
-  public void perform(Gedcom gedcom) throws GedcomException {
+  protected void change() throws GedcomException {
     // create the entity if necessary
-    Entity change;
-    if (existing!=null) {
-      change = existing;
-    } else {
+    if (existing==null) {
       // check id
       String id = null;
       if (requestID.isEditable()) {
@@ -176,19 +170,17 @@ public abstract class CreateRelationship extends AbstractChange {
           throw new GedcomException(resources.getString("assign_id_error", id));
       }
       // focus always changes to new that we create now
-      change = gedcom.createEntity(targetType, id);
-      change .addDefaultProperties();
+      existing = gedcom.createEntity(targetType, id);
+      focus = existing;
+      focus.addDefaultProperties();
+      // perform the relationship to new
+      change(existing, true);
+    } else {
+      // perform the relationship to existing
+      focus = change(existing, false);
     }
-    
-    // perform the change
-    Property focus = change(change, change!=existing);
-    
     // remember selection
-    ViewManager.getRegistry(gedcom).put("select."+targetType, change.getId());
-    
-    // select
-    WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(focus), getTarget(), false));
-    
+    manager.getRegistry(gedcom).put("select."+targetType, existing.getId());
     // done
   }
   

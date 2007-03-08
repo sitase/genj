@@ -23,9 +23,7 @@ package genj.util.swing;
 import genj.util.MnemonicAndText;
 import genj.util.Resources;
 
-import java.awt.Component;
 import java.awt.event.ActionEvent;
-import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -65,7 +63,7 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
     ASYNC_NEW_INSTANCE   = 2;
   
   /** attributes */
-  private Component target;
+  private JComponent target;
   private KeyStroke accelerator;
   
   /** whether we're async or not */
@@ -123,10 +121,6 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
    * @return status of preExecute (true unless overridden)
    */
   public final boolean trigger() {
-    
-    // enabled?
-    if (!isEnabled()) 
-      throw new IllegalArgumentException("trigger() while !isEnabled");
 
     // do we have to create a new instance?
     if (async==ASYNC_NEW_INSTANCE) {
@@ -218,10 +212,7 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
   protected Thread getThread() {
     if (async!=ASYNC_SAME_INSTANCE) return null;
     synchronized (threadLock) {
-      if (thread==null) {
-        thread = new Thread(new CallAsyncExecute());
-        thread.setPriority(Thread.NORM_PRIORITY);
-      }
+      if (thread==null) thread = new Thread(new CallAsyncExecute());
       return thread;
     }
   }
@@ -292,10 +283,9 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
   }
   
   /**
-   * accessor - topmost target component
+   * accessor - target component
    */
-  public Action2 setTarget(Component t) {
-    // remember
+  public Action2 setTarget(JComponent t) {
     target = t;
     return this;
   }
@@ -303,19 +293,13 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
   /**
    * accessor - target component
    */
-  public Component getTarget() {
+  public JComponent getTarget() {
     return target;
   }
   
   /** accessor - accelerator */
   public Action2 setAccelerator(String s) {
     accelerator = KeyStroke.getKeyStroke(s);
-    return this;
-  }
-  
-  /** accessor - accelerator */
-  public Action2 setAccelerator(KeyStroke accelerator) {
-    this.accelerator = accelerator;
     return this;
   }
   
@@ -467,11 +451,6 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
   }
   
   /** convenience factory */
-  public static Action[] okAnd(Action action) {
-    return new Action[]{ ok(), action };
-  }
-  
-  /** convenience factory */
   public static Action[] okOnly() {
     return new Action[]{ ok() };
   }
@@ -563,25 +542,5 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
     }
   } //ActionNOOP
   
-  /**
-   * An action group
-   */
-  public static class Group extends ArrayList {
-    
-    /** a name */
-    private String name;
-    
-    /** constructor */
-    public Group(String name) {
-      
-      this.name = name;
-    }
-    
-    /** accessor */
-    public String getName() {
-      return name;
-    }
-  }
-
 } //ActionDelegate
 

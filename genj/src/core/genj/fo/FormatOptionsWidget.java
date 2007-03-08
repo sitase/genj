@@ -19,7 +19,6 @@
  */
 package genj.fo;
 
-import genj.util.EnvironmentChecker;
 import genj.util.Registry;
 import genj.util.swing.FileChooserWidget;
 import genj.util.swing.NestedBlockLayout;
@@ -113,12 +112,9 @@ public class FormatOptionsWidget extends JPanel {
   public File getFile() {
     File result = chooseFile.getFile();
     if (result.getPath().length()==0)
-      return null;
-    // check if it's a valid path
-    if (result.getParentFile()==null)
-      result = new File(EnvironmentChecker.getProperty(this, "user.home", ".", "home directory for report output"), result.getPath());
-    // strip any of our known extensions
+      return result;
     Format format = getFormat();
+    // strip any of our known extensions
     if (format.getFileExtension()==null)
       return  result;
     String path = result.getPath();

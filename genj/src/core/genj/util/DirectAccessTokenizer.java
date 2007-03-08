@@ -50,16 +50,9 @@ public class DirectAccessTokenizer {
    * Tokens
    */
   public String[] getTokens() {
-    return getTokens(false);
-  }
-  
-  /**
-   * Tokens
-   */
-  public String[] getTokens(boolean trim) {
     ArrayList result = new ArrayList();
     for (int i=0;;i++) {
-      String token = get(i, trim);
+      String token = get(i);
       if (token==null) break;
       result.add(token);
     }

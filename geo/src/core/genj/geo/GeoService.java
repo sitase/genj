@@ -59,7 +59,7 @@ public class GeoService {
   final static URL URL = createQueryURL();
   
   /** our work directory */
-  private static final String GEO_DIR = "geo";
+  private static final String GEO_DIR = "./geo";
 
   /** singleton */
   private static GeoService instance;
@@ -285,11 +285,9 @@ public class GeoService {
   
   /**
    * Find best matches for given locations
-   * @param gedcom the gedcom file the locations are for
    * @param location list of locations
-   * @param matchAll if some locations couldn't be matched out of the cache then this will force access of the Geo service 
    */
-  public void match(Gedcom gedcom, Collection locations, boolean matchAll) throws GeoServiceException {
+  public void match(Gedcom gedcom, Collection locations) throws GeoServiceException {
 
     // grab registry
     Registry registry = gedcom!=null ? getRegistry(gedcom) : new Registry();
@@ -313,7 +311,7 @@ public class GeoService {
     }
     
     // no more todos?
-    if (todos.isEmpty() || (todos.size()!=locations.size()&&!matchAll) )
+    if (todos.isEmpty())
       return;
     
     // do a webservice call for all the todos
@@ -373,11 +371,14 @@ public class GeoService {
       // loop over files 
       File[] files = getGeoFiles();
       for (int i=0;i<files.length;i++) {
+        // only directories - later zip files as well
+        if (!files[i].isDirectory())
+          continue;
         // 20050504 don't consider directory 'CVS'
         if (files[i].getName().equals("CVS"))
           continue;
-        // add it to available maps if directory or zip
-        if (files[i].isDirectory()||files[i].getName().endsWith(".zip")) try {
+        // add it to available maps
+        try {
           maps.add(new GeoMap(files[i]));
         } catch (Throwable t) {
           LOG.log(Level.SEVERE, "problem reading map from "+files[i], t);

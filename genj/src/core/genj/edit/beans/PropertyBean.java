@@ -21,21 +21,19 @@ package genj.edit.beans;
 
 import genj.gedcom.Entity;
 import genj.gedcom.Property;
-import genj.renderer.BlueprintManager;
 import genj.renderer.EntityRenderer;
 import genj.util.ChangeSupport;
 import genj.util.Registry;
 import genj.util.Resources;
+import genj.view.Context;
 import genj.view.ContextProvider;
-import genj.view.ViewContext;
+import genj.view.ViewManager;
 
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -54,8 +52,14 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   /** the resources */
   protected final static Resources resources = Resources.get(PropertyBean.class); 
   
+  /** factory for us */
+  private BeanFactory factory;
+  
   /** the property to edit */
   protected Property property;
+  
+  /** the current view manager */
+  protected ViewManager viewManager;
   
   /** current registry */
   protected Registry registry;
@@ -69,63 +73,53 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   /**
    * Initialize (happens once)
    */
-  /*package*/ void initialize(Registry setRegistry) {
-    registry = setRegistry;
+  /*package*/ final void initialize(BeanFactory factory, ViewManager viewManager) {
+    // our state
+    this.viewManager = viewManager;
+    this.factory = factory;
+    // propagate init to sub-classes
+    initializeImpl();
   }
   
   /**
-   * test for setter
+   * Custom bean initialization code after member attributes have been initialized
    */
-  /*package*/ boolean accepts(Property prop) {
-    return getSetter(prop)!=null;
+  protected void initializeImpl() {
+    
   }
-  
+
   /**
-   * set property to look at
+   * Set context to edit
+   * @return default component to receive focus
    */
-  public void setProperty(Property prop) {
-    Method m = getSetter(prop);
-    if (m==null)
-      throw new IllegalArgumentException(getClass().getName()+".setProperty("+prop.getClass().getName()+") n/a");
-      
-    try {
-      m.invoke(this, new Object[]{ prop });
-    } catch (Throwable t) {
-      throw new RuntimeException("unexpected throwable in "+getClass().getName()+".setProperty("+prop.getClass().getName());
-    }
+  public final void setContext(Property prop, Registry reg) {
     
-    changeSupport.setChanged(false);
+    // remember property
+    this.property = prop;
+    this.registry = reg;
+    
+    // propagate to implementation
+    setContextImpl(prop);
+    
   }
-  
-  private Method getSetter(Property prop) {
+
+  /**
+   * Implementation's set context
+   */
+  protected void setContextImpl(Property prop) {
     
-    try {
-      Method[] ms = getClass().getDeclaredMethods();
-      for (int i=0;i<ms.length;i++) {
-        Method m = ms[i];
-        if ("setProperty".equals(m.getName())&&Modifier.isPublic(m.getModifiers())) {
-          Class[] argTypes = m.getParameterTypes();
-          if (argTypes.length==1&&argTypes[0].isAssignableFrom(prop.getClass()))
-            return m;
-        }
-      }
-    } catch (Throwable t) {
-    }
-    
-    return null;
   }
   
   /**
    * ContextProvider callback 
    */
-  public ViewContext getContext() {
-    // ok, this is tricky since some beans might not
-    // want to expose a property (is null) and the one
-    // we're looking at might actually not be part of 
-    // an entity yet - no context in those cases
+  public Context getContext() {
+    // ok, this is tricky since the property we're looking at might
+    // actually not be part of an entity yet - we check for
+    // that - no context in that case
     // (otherwise other code that relies on properties being
     // part of an entity might break)
-    return property==null||property.getEntity()==null ? null : new ViewContext(property);
+    return property.getEntity()==null ? null : new Context(property);
   }
   
   /**
@@ -133,13 +127,6 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
    */
   public Property getProperty() {
     return property;
-  }
-  
-  /**
-   * Whether the bean has changed since first listener was attached
-   */
-  public boolean hasChanged() {
-    return changeSupport.hasChanged();
   }
   
   /**
@@ -160,18 +147,7 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
    * Commit any changes made by the user
    */
   public void commit() {
-    commit(property);
-  }
-  
-  /**
-   * Commit any changes made by the user switching target property
-   */
-  public void commit(Property property) {
-    // remember property
-    this.property = property;
-    // clear changed
-    changeSupport.setChanged(false);
-    // nothing more
+    // noop
   }
   
   /**
@@ -225,6 +201,13 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
       super.requestFocus();
   }
   
+  /** 
+   * Check whether this bean displays given property
+   */
+  public boolean canFocus(Property prop) {
+    return isDisplayable() && (property==prop || prop.contains(property));
+  }
+
   /**
    * A preview component using EntityRenderer for an entity
    */
@@ -249,14 +232,14 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
       g.setColor(Color.WHITE); 
       g.fillRect(box.x, box.y, box.width, box.height);
       // render entity
-      if (renderer!=null&&entity!=null) 
+      if (renderer!=null) 
         renderer.render(g, entity, box);
       // done
     }
     protected void setEntity(Entity ent) {
       entity = ent;
       if (entity!=null)
-        renderer = new EntityRenderer(BlueprintManager.getInstance().getBlueprint(entity.getGedcom().getOrigin(), entity.getTag(), ""));
+        renderer = new EntityRenderer(viewManager.getBlueprintManager().getBlueprint(entity.getTag(), ""));
       repaint();
     }
   } //Preview

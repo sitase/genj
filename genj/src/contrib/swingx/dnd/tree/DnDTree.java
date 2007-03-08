@@ -24,7 +24,6 @@ import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Rectangle;
-import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.Transferable;
 import java.awt.dnd.Autoscroll;
 import java.awt.dnd.DnDConstants;
@@ -41,17 +40,17 @@ import java.awt.dnd.DropTargetDropEvent;
 import java.awt.dnd.DropTargetEvent;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
 
 import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
 import javax.swing.JTree;
 import javax.swing.Timer;
 import javax.swing.TransferHandler;
-import javax.swing.event.TreeModelEvent;
-import javax.swing.event.TreeModelListener;
+import javax.swing.UIManager;
 import javax.swing.tree.MutableTreeNode;
 import javax.swing.tree.TreeModel;
 import javax.swing.tree.TreePath;
@@ -60,6 +59,9 @@ import swingx.dnd.ObjectTransferable;
 
 /**
  * A tree that supports editing of its tree model via DnD.
+ * 
+ * @see #toTransferable(Object[])
+ * @see #fromTransferable(Transferable)
  */
 public class DnDTree extends JTree implements Autoscroll {
 
@@ -73,9 +75,14 @@ public class DnDTree extends JTree implements Autoscroll {
      */
     private int autoscrollMargin = DEFAULT_AUTOSCROLL_MARGIN;
 
-    private DragGestureRecognizer dragGestureRecognizer; 
-    private DragHandler dragHandler;
-    private DropHandler dropHandler;
+    private DragGestureRecognizer      dragGestureRecognizer; 
+    private DragHandler dragSourceListener;
+    private DropHandler dropTargetListener;
+    
+    /**
+     * Should drops on leaf nodes be allowed.
+     */
+    private boolean leafDropAllowed = false;
     
     /**
      * This is the default constructor
@@ -97,46 +104,6 @@ public class DnDTree extends JTree implements Autoscroll {
             public int getSourceActions(JComponent c) {
                 return DnDConstants.ACTION_COPY;
             }
-            
-            public void exportToClipboard(JComponent comp, Clipboard clip, int action) {
-                if (hasDnDModel()) {
-                    TreePath[] paths = getSelectionPaths();
-                    if (paths != null && paths.length > 0) {
-                        Arrays.sort(paths, dragHandler);
-                        
-                        Object[] nodes = new Object[paths.length];
-                        for (int p = 0; p < paths.length; p++) {
-                            if (paths[p].getPathCount() > 1) {
-                                nodes[p] = paths[p].getLastPathComponent();
-                            }
-                        }
-                        
-                        Transferable transferable = getDnDModel().createTransferable(nodes);
-                        
-                        try {
-                            getDnDModel().drag(transferable, action);
-                            clip.setContents(transferable, null);
-                        } catch (Exception ex) {
-                            // drag failed, nothing we can do about it
-                        }
-                    }
-                }
-            }
-            
-            public boolean importData(JComponent comp, Transferable t) {
-                TreePath[] paths = getSelectionPaths();
-                if (paths != null && paths.length == 1 && paths[0].getPathCount() > 0) {
-                    if (hasDnDModel()) {
-                        try {
-                            getDnDModel().drop(t, paths[0].getLastPathComponent(), 0, DnDTreeModel.MOVE);
-                            return true;
-                        } catch (Exception ex) {
-                            // drop failed, nothing we can do about it
-                        }
-                    }
-                }
-                return false;
-            }
         });
     
         // handle dragging with AWT drag & drop, since Swing DnD does not
@@ -148,6 +115,24 @@ public class DnDTree extends JTree implements Autoscroll {
         new DropTarget(this, getDropTargetListener());
     }
 
+    /**
+     * Set drop on leaf nodes to be allowed.
+     * 
+     * @param allowed       should leaf drops be allowed
+     */
+    public void setLeafDropAllowed(boolean allowed) {
+        leafDropAllowed = allowed;        
+    }
+    
+    /**
+     * Test if drop on leaf nodes is allowed.
+     * 
+     * @return      are leaf drops allowed
+     */
+    public boolean isLeafDropAllowed() {
+        return leafDropAllowed;        
+    }
+    
     /**
      * Create a treeModel to use as default.
      */
@@ -166,6 +151,17 @@ public class DnDTree extends JTree implements Autoscroll {
         throw new IllegalStateException("no DnDTreeModel");
     }
 
+    /**
+     * Overriden to return the current row during drop operation.
+     */
+    public boolean isRowSelected(int row) {
+        if (getDropTargetListener().getParentPath() == null) {
+            return super.isRowSelected(row);
+        } else {
+            return row == getRowForPath(getDropTargetListener().getParentPath()); 
+        }
+    }
+    
     /**
      * Get the margin used for autoscrolling while DnD.
      * 
@@ -215,17 +211,17 @@ public class DnDTree extends JTree implements Autoscroll {
     }
 
     protected DragHandler getDragSourceListener() {
-        if (dragHandler == null) {
-            dragHandler = new DragHandler();
+        if (dragSourceListener == null) {
+            dragSourceListener = new DragHandler();
         }
-        return dragHandler;
+        return dragSourceListener;
     }
 
     protected DropHandler getDropTargetListener() {
-        if (dropHandler == null) {
-            dropHandler = new DropHandler();
+        if (dropTargetListener == null) {
+            dropTargetListener = new DropHandler();
         }
-        return dropHandler;
+        return dropTargetListener;
     }
 
     /**
@@ -257,12 +253,7 @@ public class DnDTree extends JTree implements Autoscroll {
                     boolean selectionHit = false;
                     Object[] nodes = new Object[paths.length];
                     for (int p = 0; p < paths.length; p++) {
-                      // [NM] this was 
-                      //    if (paths[p].getPathCount() > 1) {
-                      // if the user chooses the root node as well then there will be a one element path though
-                      // leading to a Node array with first element null. I think any path over length 0 is ok (so
-                      // also the root)
-                        if (paths[p].getPathCount() > 0) {
+                        if (paths[p].getPathCount() > 1) {
                             nodes[p] = paths[p].getLastPathComponent();
         
                             Rectangle rect = getPathBounds(paths[p]);
@@ -333,14 +324,13 @@ public class DnDTree extends JTree implements Autoscroll {
      *   <li>optionally performs a drop.</li>
      * </ul>
      */    
-    private class DropHandler extends DropTargetAdapter implements ActionListener, TreeModelListener {
+    private class DropHandler extends DropTargetAdapter implements ActionListener {
             
         private Timer timer;
         
         private TreePath   parentPath;
         private int        childIndex = 0;
         private Rectangle  indicator;
-        private List       insertions = new ArrayList();
 
         public DropHandler() {
             timer = new Timer(1500, this);
@@ -384,7 +374,6 @@ public class DnDTree extends JTree implements Autoscroll {
             int     action   = dtde.getDropAction();
             boolean complete = false;
 
-            getModel().addTreeModelListener(this);
             try {
                 if (hasDnDModel() && parentPath != null) {
                     dtde.acceptDrop(action);
@@ -400,19 +389,11 @@ public class DnDTree extends JTree implements Autoscroll {
                     }    
                 }
     
-                dtde.dropComplete(complete);
-                
-                if (!insertions.isEmpty()) {
-                    getSelectionModel().clearSelection();
-                    for (int i = 0; i < insertions.size(); i++) {
-                        getSelectionModel().addSelectionPath((TreePath)insertions.get(i));
-                    }
-                }
+                dtde.dropComplete(complete); 
             } catch (Exception ex) {
+                ex.printStackTrace();
                 // drop failed, nothing we can do about it
             }
-            getModel().removeTreeModelListener(this);
-
             clear();
         }
 
@@ -433,8 +414,8 @@ public class DnDTree extends JTree implements Autoscroll {
                 childIndex = getModel().getIndexOfChild(parentPath.getLastPathComponent(), path.getLastPathComponent());
                 indicator  = getPathBounds(path);
                                 
-                if (getModel().isLeaf(path.getLastPathComponent())  ||
-                    (point.y < indicator.y + indicator.height*1/4)  ||
+                if ((getModel().isLeaf(path.getLastPathComponent()) && !leafDropAllowed) ||
+                    (point.y < indicator.y + indicator.height*1/4)                     ||
                     (point.y > indicator.y + indicator.height*3/4 && !isExpanded(path)) ) {
 
                     if (point.y > indicator.y + indicator.height/2) {
@@ -472,7 +453,6 @@ public class DnDTree extends JTree implements Autoscroll {
             parentPath   = null;
             childIndex   = -1;
             indicator    = null;
-            insertions.clear();
 
             repaint();
         }
@@ -507,25 +487,7 @@ public class DnDTree extends JTree implements Autoscroll {
             if (parentPath != null) {
                 expandPath(parentPath);
             }
-        }
-        
-        public void treeNodesChanged(TreeModelEvent e) { }
-        
-        public void treeNodesInserted(TreeModelEvent e) {
-            Object[] children = e.getChildren();
-            for (int c = 0; c < children.length; c++) {
-                insertions.add(e.getTreePath().pathByAddingChild(children[c]));
-            }
-        }
-        
-        public void treeNodesRemoved(TreeModelEvent e) {
-            insertions.clear();
-        }
-        
-        public void treeStructureChanged(TreeModelEvent e) {
-            insertions.clear();
-            insertions.add(e.getTreePath());
-        }
+        }        
     }
 
     /**
@@ -543,5 +505,19 @@ public class DnDTree extends JTree implements Autoscroll {
      */
     protected Image createDragImage(TreePath[] selectionPaths) {
         return createImage(1, 1);
+    }
+
+    public static void main(String[] args) {
+        try {
+         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ex) {
+          // keep default look and feel
+        }
+    
+        JFrame frame = new JFrame();
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.getContentPane().add(new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(new DnDTree()), new JScrollPane(new DnDTree())));
+        frame.pack();
+        frame.setVisible(true);
     }
 }

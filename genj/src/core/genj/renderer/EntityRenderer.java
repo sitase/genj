@@ -339,8 +339,8 @@ public class EntityRenderer {
         
       }
       
-      // maybe its "name" or "i18n"
-      if ("name".equals(name)||"i18n".equals(name)) {
+      // maybe its "tag"
+      if ("i18n".equals(name)) {
         return new I18NView(elem);
       }
         
@@ -586,13 +586,14 @@ public class EntityRenderer {
      * Constructor     */
     private I18NView(Element elem) {
       super(elem);
-      // resolve and localize text .. tag|entity
+      // resolve and localize text .. tag
       Object o = elem.getAttributes().getAttribute("tag");
       if (o!=null) txt = Gedcom.getName(o.toString());
-      else {
-        o = elem.getAttributes().getAttribute("entity");
-        if (o!=null) txt = Gedcom.getName(o.toString());
-      }
+      // resolve and localize text .. type
+      o = elem.getAttributes().getAttribute("entity");
+      if (o!=null) try {
+        txt = Gedcom.getName(o.toString(), false);
+      } catch (IllegalArgumentException e) {}
       // done
     }
     /**
@@ -617,7 +618,7 @@ public class EntityRenderer {
    */
   private class PropertyView extends MyView {
     
-    // TODO Performance - can we improve property views through some caching of size&alignment?
+    // FIXME Performance - can we improve property views through some caching of size&alignment?
     
     /** our preference when looking at the property */
     private int preference;
@@ -703,7 +704,12 @@ public class EntityRenderer {
       // might resolve to a different proxy
       
       // derive from property?
-      PropertyRenderer result = PropertyRenderer.get(path, prop);
+      PropertyRenderer result;
+      if (prop!=null) {
+        result = PropertyRenderer.get(prop);
+      } else {
+        result = PropertyRenderer.get(path!=null ? path.getLast() : "");
+      }
 
       // check renderer/prop compatibility
       if (prop==null&&!result.isNullRenderer()) 

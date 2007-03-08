@@ -21,8 +21,6 @@ package genj.view;
 
 import genj.edit.actions.Redo;
 import genj.edit.actions.Undo;
-import genj.print.PrintRegistry;
-import genj.print.PrintTask;
 import genj.print.Printer;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
@@ -30,12 +28,14 @@ import genj.util.swing.ButtonHelper;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.util.Iterator;
-import java.util.logging.Level;
 
+import javax.swing.Action;
 import javax.swing.Box;
+import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
+import javax.swing.KeyStroke;
 import javax.swing.SwingConstants;
 
 /**
@@ -68,6 +68,14 @@ import javax.swing.SwingConstants;
     // setup layout
     setLayout(new BorderLayout());
     add(view, BorderLayout.CENTER);
+    
+    // hook-up context menu hook
+    Action hook = mgr.HOOK;
+    InputMap inputs = view.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+    inputs.put(KeyStroke.getKeyStroke("shift F10"), hook);
+    inputs.put(KeyStroke.getKeyStroke("ctrl SPACE"), hook);
+    inputs.put(KeyStroke.getKeyStroke("CONTEXT_MENU"), hook); // this only works in Tiger 1.5 on Windows
+    view.getActionMap().put(hook, hook);
     
     // .. factory accelerators
     for (Iterator it = mgr.keyStrokes2factories.keySet().iterator(); it.hasNext();) {
@@ -108,25 +116,14 @@ import javax.swing.SwingConstants;
 
     // add our buttons     
     ButtonHelper bh = new ButtonHelper().setContainer(bar);
-    bh.setInsets(0);
 
     // .. a button for editing the View's settings
     if (SettingsWidget.hasSettings(view))
       bh.create(new ActionOpenSettings());
     
     // .. a button for printing View
-    try {
-      Printer printer = (Printer)Class.forName(view.getClass().getName()+"Printer").newInstance();
-      try {
-        printer.setView(view);
-        PrintTask print = new PrintTask(printer, viewHandle.getTitle(), view,  new PrintRegistry(viewHandle.getRegistry(), "print"));
-        print.setTip(ViewManager.RESOURCES, "view.print.tip");
-        bh.create(print);
-      } catch (Throwable t) {
-        ViewManager.LOG.log(Level.WARNING, "can't setup printing for printer "+printer.getClass().getName());
-      }
-    } catch (Throwable t) {
-    }
+    if (viewHandle.getManager().getPrintManager()!=null&&isPrintable()) 
+      bh.create(new ActionPrint());
 
     // .. a button for closing the View
     bh.create(new ActionClose());
@@ -135,6 +132,18 @@ import javax.swing.SwingConstants;
     add(bar, viewHandle.getRegistry().get("toolbar", BorderLayout.WEST));
     
     // done
+  }
+  
+  /**
+   * Checks whether this view is printable
+   */
+  /*package*/ boolean isPrintable() {
+    try {
+      if (Printer.class.isAssignableFrom(Class.forName(viewHandle.getView().getClass().getName()+"Printer")))
+        return true;
+    } catch (Throwable t) {
+    }
+    return false;
   }
   
   /**
@@ -172,6 +181,27 @@ import javax.swing.SwingConstants;
       viewHandle.getManager().closeView(viewHandle);
     }
   } //ActionClose
+  
+  /**
+   * Action - print view
+   */
+  private class ActionPrint extends Action2 {
+    /** constructor */
+    protected ActionPrint() {
+      setImage(Images.imgPrint);
+      setTip(ViewManager.RESOURCES, "view.print.tip");
+    }
+    /** run */
+    protected void execute() {
+      try {
+        JComponent view = viewHandle.getView();
+        Printer printer = (Printer)Class.forName(view.getClass().getName()+"Printer").newInstance();
+        printer.setView(view);
+        viewHandle.getManager().getPrintManager().print(printer, viewHandle.getTitle(), view, viewHandle.getRegistry()); 
+      } catch (Throwable t) {
+      }
+    }
+  } //ActionPrint
   
   /**
    * Action - open the settings of a view

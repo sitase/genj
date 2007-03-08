@@ -20,17 +20,17 @@
 package genj.renderer;
 
 import genj.common.PathTreeWidget;
+import genj.gedcom.Change;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomException;
 import genj.gedcom.Grammar;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
-import genj.gedcom.PropertySimpleReadOnly;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.ButtonHelper;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -40,13 +40,11 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -83,14 +81,18 @@ public class BlueprintEditor extends JSplitPane {
   /** whether we've changed */
   private boolean isChanged = false;
   
+  /** the window manager */
+  private WindowManager windowManager;
+
   /** the blueprint manager */
   private BlueprintManager blueprintManager;
     
   /**
    * Constructor   */
-  public BlueprintEditor(BlueprintManager bpMgr) { 
+  public BlueprintEditor(BlueprintManager bpMgr, WindowManager winMgr) { 
     // remember
     blueprintManager = bpMgr;
+    windowManager = winMgr;
     // preview
     preview = new Preview();
     preview.setBorder(BorderFactory.createTitledBorder(resources.getString("blueprint.preview")));
@@ -102,7 +104,8 @@ public class BlueprintEditor extends JSplitPane {
       JScrollPane scroll = new JScrollPane(html);
       scroll.setBorder(BorderFactory.createTitledBorder("HTML"));
       // buttons
-      bInsert = new JButton(new ActionInsert());
+      ButtonHelper helper = new ButtonHelper();
+      bInsert = helper.create(new ActionInsert());
     edit.setMinimumSize(new Dimension(0,0));
     edit.add(scroll, BorderLayout.CENTER);
     edit.add(bInsert, BorderLayout.SOUTH);
@@ -158,13 +161,8 @@ public class BlueprintEditor extends JSplitPane {
   public void commit() {
     if (blueprint!=null&&isChanged) {
       blueprint.setHTML(html.getText());
-      try {
-        blueprintManager.saveBlueprint(blueprint);
-        // mark unchanged
-        isChanged = false;
-      } catch (IOException e) {
-        // TODO add a user warning
-      }
+      // mark unchanged
+      isChanged = false;
     }
   }
   
@@ -230,7 +228,6 @@ public class BlueprintEditor extends JSplitPane {
     private ActionInsert() {
       super.setText(resources.getString("prop.insert"));
       super.setTip(resources.getString("prop.insert.tip"));
-      super.setTarget(BlueprintEditor.this);
     }
     /** @see genj.util.swing.Action2#execute() */
     protected void execute() {
@@ -241,7 +238,7 @@ public class BlueprintEditor extends JSplitPane {
       TagPath[] paths = Grammar.getAllPaths(blueprint.getTag(), Property.class);
       tree.setPaths(paths, new TagPath[0]);
       // Recheck with the user
-      int option =  WindowManager.getInstance(getTarget()).openDialog(null,resources.getString("prop.insert.tip"),WindowManager.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
+      int option =  windowManager.openDialog(null,resources.getString("prop.insert.tip"),WindowManager.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
       // .. OK?
       if (option!=0) return;
       // add those properties
@@ -298,7 +295,7 @@ public class BlueprintEditor extends JSplitPane {
      */
     public Property getProperty(TagPath path) {
       // safety check for root-tag
-      if (!path.get(0).equals(getTag())) 
+      if (!path.equals(0, getTag())) 
         return null;
       // this?
       if (path.length()==1)
@@ -310,13 +307,14 @@ public class BlueprintEditor extends JSplitPane {
       MetaProperty meta = Grammar.getMeta(path, false);
       if (PropertyXRef.class.isAssignableFrom(meta.getType()))
         value = "@...@";
-      try {
-        return meta.create(value.toString());
-      } catch (GedcomException e) {
-        return new PropertySimpleReadOnly(path.getLast(), value.toString());
-      }
+      return meta.create(value.toString());
     }
     
+    /**
+     * no gedcom - override and ignore
+     */
+    protected void propagateChange(Change change) {
+    }
   } //ExampleIndi
   
 } //RenderingSchemeEditor

@@ -42,35 +42,17 @@ public class ChangeSupport implements DocumentListener, ChangeListener, ActionLi
   /** source */
   private Object source;
   
-  /** has changed */
-  private boolean hasChanged = false;
-  
   /**
    * Constructor
    */
   public ChangeSupport(Object source) {
     this.source = source;
   }
-  
-  /**
-   * Whether a change has happened since first listener was added
-   */
-  public boolean hasChanged() {
-    return hasChanged;
-  }
-  
-  public void setChanged(boolean set) {
-    hasChanged = set;
-    if (set)
-      fireChangeEvent();
-  }
 
   /**
    * add listener
    */
   public void addChangeListener(ChangeListener l) {
-    if (listeners.isEmpty())
-      hasChanged = false;
     listeners.add(l);
   }
   
@@ -95,7 +77,6 @@ public class ChangeSupport implements DocumentListener, ChangeListener, ActionLi
     fireChangeEvent(source);
   }
   protected void fireChangeEvent(Object source) {
-    hasChanged = true;
     ChangeEvent e = new ChangeEvent(source);
     Iterator it = new ArrayList(listeners).iterator();
     while (it.hasNext())

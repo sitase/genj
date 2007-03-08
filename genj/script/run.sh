@@ -7,7 +7,7 @@ cd `dirname $0`
 # check the script for being a symbolik link we can follow
 SCRIPT=`basename $0`
 while [ -h "$SCRIPT" ]; do
- SCRIPT=`ls -l $SCRIPT | grep -o '[-_/.[:alnum:]]*$'`
+ SCRIPT=`ls -l $SCRIPT | grep -o '[/.[:alnum:]]*$'`
  echo "*** INFO: Following symlink $SCRIPT"
  cd `dirname $SCRIPT`
  SCRIPT=`basename $SCRIPT`
@@ -32,7 +32,7 @@ if [ ! -x "$JAVA" ]; then
 fi
 
 # run it (we start the virtual machine with initially 32 MB and allocate a max of 512 MB)
-CMD="$JAVA -Xmx512m -Xms32m -jar run.jar $1 $2 $3 $4 $5 $6 $7 $8 $9"
+CMD="$JAVA -Xmx512m -Xms32m -jar run.jar"
 
 echo "*** INFO: Executing '$CMD'"
 

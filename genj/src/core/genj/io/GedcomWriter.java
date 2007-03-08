@@ -33,9 +33,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.UnmappableCharacterException;
 import java.nio.charset.UnsupportedCharsetException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -59,7 +56,7 @@ public class GedcomWriter implements Trackable {
   private String file;
   private String date;
   private String time;
-  private int total;
+  private int total, progress;
   private int line;
   private int entity;
   private boolean cancel = false;
@@ -85,13 +82,11 @@ public class GedcomWriter implements Trackable {
     password = gedcom.getPassword();
     encoding = enc!=null ? enc : ged.getEncoding();
     file = name;
-    line = 0;
+    line = 1;
     date = PointInTime.getNow().getValue();
     time = new SimpleDateFormat("HH:mm:ss").format(now.getTime());
 
-    CharsetEncoder encoder = getCharset(encoding).newEncoder();
-    encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
-    out = new BufferedWriter(new OutputStreamWriter(stream, encoder));
+    out = new BufferedWriter(new OutputStreamWriter(stream, getCharset(encoding)));
     
     // Done
   }
@@ -138,9 +133,9 @@ public class GedcomWriter implements Trackable {
    * @return percent as 0 to 100
    */
   public int getProgress() {
-    if (entity == 0) 
+    if (progress == 0) 
       return 0;
-    return entity * 100 / total;
+    return progress * 100 / total;
   }
 
   /**
@@ -168,22 +163,11 @@ public class GedcomWriter implements Trackable {
   }
 
   /**
-   * Number of lines written
-   */
-  public int getLines() {
-    return line;
-  }
-  
-  /**
    * Actually writes the gedcom-information 
    * @exception GedcomIOException
    */
   public void write() throws GedcomIOException {
 
-    // check state - we pass gedcom only once!
-    if (gedcom==null)
-      throw new IllegalStateException("can't call write() twice");
-    
     Collection ents = gedcom.getEntities(); 
     total = ents.size();
 
@@ -198,12 +182,8 @@ public class GedcomWriter implements Trackable {
       // Close Output
       out.close();
 
-    } catch( GedcomIOException ioe ) {
-      throw ioe;
     } catch (Exception ex) {
       throw new GedcomIOException("Error while writing / "+ex.getMessage(), line);
-    } finally {
-      gedcom = null;
     }
 
     // Done
@@ -260,13 +240,7 @@ public class GedcomWriter implements Trackable {
       if (cancel) throw new GedcomIOException("Operation cancelled", line);
       // .. writing it and its subs
       Entity e = (Entity)it.next();
-      
-      try {
-        line += new EntityWriter().write(0, e);
-      } catch(UnmappableCharacterException unme) {
-        throw new GedcomEncodingException(e, gedcom.getEncoding());
-      }
-
+      line += new EntityWriter().write(0, e);
       // .. track it
       entity++;
     }
@@ -292,7 +266,7 @@ public class GedcomWriter implements Trackable {
     EntityWriter() {
       super(out, false);
     }
-
+    
     /** intercept prop decoding to check filters */
     protected void writeProperty(int level, Property prop) throws IOException {
       
@@ -304,15 +278,15 @@ public class GedcomWriter implements Trackable {
           target = p.getEntity();
       }
       for (int f = 0; f < filters.length; f++) {
-        if (filters[f].checkFilter(prop) == false)
+        if (filters[f].accept(prop) == false)
           return;
         if (target != null)
-          if (filters[f].checkFilter(target) == false)
+          if (filters[f].accept(target) == false)
             return;
       }
-
-      // cont
-        super.writeProperty(level, prop);
+      
+      // continue
+      super.writeProperty(level, prop);
     }
      
     /** intercept value decoding to facilitate encryption */

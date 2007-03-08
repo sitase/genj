@@ -20,7 +20,6 @@
 package genj.tree;
 
 import genj.renderer.BlueprintList;
-import genj.renderer.BlueprintManager;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
@@ -37,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import javax.swing.AbstractButton;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultComboBoxModel;
@@ -82,10 +82,8 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
   ;
   
   /** buttons */
-  private Action2 
-    bookmarkUp = new ActionMove(-1), 
-    bookmarkDown = new ActionMove( 1), 
-    bookmarkDelete =  new ActionDelete(); 
+  private AbstractButton 
+    bUp, bDown, bDelete;
   
   /** font chooser */
   private FontChooser fontChooser = new FontChooser();
@@ -134,7 +132,7 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
     colorWidget = new ColorsWidget();
     
     // blueprint options
-    blueprintList = new BlueprintList(BlueprintManager.getInstance());
+    blueprintList = new BlueprintList(manager.getBlueprintManager(), manager.getWindowManager());
     
     // bookmarks
     Box bookmarks = new Box(BoxLayout.Y_AXIS);
@@ -144,9 +142,9 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
     
     JPanel bookmarkActions = new JPanel();
     ButtonHelper bh = new ButtonHelper().setContainer(bookmarkActions);
-    bh.create(bookmarkUp);
-    bh.create(bookmarkDown);
-    bh.create(bookmarkDelete);
+    bUp     = bh.create(new ActionMove(-1));
+    bDown   = bh.create(new ActionMove( 1));
+    bDelete = bh.create(new ActionDelete());
     bookmarkList.addListSelectionListener(new ListSelectionListener() {
       /** update buttons */
       public void valueChanged(ListSelectionEvent e) {
@@ -154,9 +152,9 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
           i = bookmarkList.getSelectedIndex(),
           n = bookmarkList.getModel().getSize();
       
-        bookmarkUp.setEnabled(i>0);
-        bookmarkDown.setEnabled(i>=0&&i<n-1);
-        bookmarkDelete.setEnabled(i>=0);
+        bUp.setEnabled(i>0);
+        bDown.setEnabled(i>=0&&i<n-1);
+        bDelete.setEnabled(i>=0);
       }
     });
     bookmarks.add(bookmarkActions);

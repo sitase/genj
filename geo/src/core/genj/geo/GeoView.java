@@ -26,11 +26,11 @@ import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
+import genj.view.ContextListener;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewManager;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
+import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -50,7 +50,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.swing.Icon;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -62,7 +61,6 @@ import javax.swing.ToolTipManager;
 
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
-import com.vividsolutions.jump.feature.Feature;
 import com.vividsolutions.jump.feature.FeatureCollection;
 import com.vividsolutions.jump.feature.FeatureSchema;
 import com.vividsolutions.jump.workbench.model.FeatureEventType;
@@ -82,7 +80,7 @@ import com.vividsolutions.jump.workbench.ui.zoom.ZoomTool;
 /**
  * The view showing gedcom data in geographic context
  */
-public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarSupport {
+public class GeoView extends JPanel implements ContextListener, ToolBarSupport {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.geo");
   
@@ -130,10 +128,11 @@ public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarS
   /**
    * Constructor
    */
-  public GeoView(String title, Gedcom gedcom, Registry registry) {
+  public GeoView(String title, Gedcom gedcom, Registry registry, ViewManager viewManager) {
     
     // state to remember
     this.registry = registry;
+    this.viewManager = viewManager;
     this.gedcom = gedcom;
     
     // create our model 
@@ -193,13 +192,8 @@ public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarS
   /**
    * Callback for context changes
    */
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
-    // check for inbound context selection
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, gedcom);
-    if (event.isInbound() && cse!=null)
-      locationList.setSelectedContext(cse.getContext());
-    // continue
-    return true;
+  public void handleContextSelectionEvent(ContextSelectionEvent event) {
+    locationList.setSelectedContext(event.getContext());
   }
   
   /**
@@ -210,9 +204,8 @@ public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarS
     // get maps
     GeoMap[] maps = GeoService.getInstance().getMaps();
     List actions = new ArrayList(maps.length);
-    for (int i=0;i<maps.length;i++) {
+    for (int i=0;i<maps.length;i++) 
       actions.add(new ChooseMap(maps[i]));
-    }
 
     // add a popup for them
     PopupWidget chooseMap = new PopupWidget(null, IMG_MAP, actions);
@@ -221,7 +214,7 @@ public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarS
     bar.add(chooseMap);
     
     // add zoom
-    ButtonHelper bh = new ButtonHelper().setInsets(0);
+    ButtonHelper bh = new ButtonHelper();
     bh.setContainer(bar);
     bh.create(new ZoomExtent());
     bh.setButtonType(JToggleButton.class).create(new ZoomOnOff());
@@ -246,6 +239,13 @@ public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarS
    */
   public void setSelection(Collection locations) {
     selectionLayer.setLocations(locations);
+  }
+  
+  /**
+   * Access to window manager
+   */
+  public WindowManager getWindowManager() {
+    return viewManager.getWindowManager();
   }
   
   /**
@@ -367,9 +367,6 @@ public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarS
         e.printStackTrace();
       }
     }
-    public Icon getImage() {
-      return currentMap!=map ? null : IMG_MAP;
-    }
   }//ChooseMap
  
   /**
@@ -433,12 +430,6 @@ public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarS
     
     /** selection access */
     public List getFeatures() {
-//      if (!selection.isEmpty()) {
-//        GeoLocation one = (GeoLocation)selection.iterator().next();
-//        FeatureSchema schema = getFeatureSchema();
-//        int i =0;
-//        //one.setAttribute(getFeatureSchema().getAttributeIndex())
-//      }
       return selection;
     }
     
@@ -563,14 +554,7 @@ public class GeoView extends JPanel implements WindowBroadcastListener, ToolBarS
     
     /** feature collection - feature access */
     public List query(Envelope envelope) {
-      List locations = getFeatures();
-      ArrayList result = new ArrayList(locations.size());
-      for (Iterator it = locations.iterator(); it.hasNext();) {
-        Feature feature = (Feature) it.next();
-        if (feature.getGeometry().getEnvelopeInternal().intersects(envelope)) 
-          result.add(feature);
-      }
-      return result;
+      return getFeatures();
     }
     
   } //LocationsLayer

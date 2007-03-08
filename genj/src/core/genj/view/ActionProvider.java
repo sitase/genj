@@ -33,7 +33,7 @@ public interface ActionProvider {
   /**
    * Callback for actions on a list of entities
    */
-  public List createActions(Property[] properties, ViewManager manager);
+  public List createActions(Entity[] entities, ViewManager manager);
   
   /**
    * Callback for actions on a property

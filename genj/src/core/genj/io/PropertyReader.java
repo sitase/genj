@@ -19,7 +19,6 @@
  */
 package genj.io;
 
-import genj.gedcom.GedcomException;
 import genj.gedcom.MultiLineProperty;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
@@ -28,7 +27,6 @@ import genj.util.Resources;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.Collection;
 import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
 
@@ -37,13 +35,11 @@ import java.util.StringTokenizer;
  */
 public class PropertyReader {
 
-  protected final static Resources RESOURCES = Resources.get("genj.io");
+  private final static Resources RESOURCES = Resources.get("genj.io");
 
-  protected boolean useIndents = false;
+  private boolean useIndents = false;
   protected int lines = 0;
-  protected String line = null;
-  protected Collection collectXRefs;
-  protected boolean isMerge = false;
+  private String line = null;
   
   /** variables read line by line */
   protected int level;
@@ -52,26 +48,17 @@ public class PropertyReader {
   protected String value;
   
   /** input */
-  protected BufferedReader in;
+  private BufferedReader in;
   
-  /** 
-   * Constructor 
-   * @param in reader to read from
-   * @param collectXRefs collection to collect xrefs in (otherwise xrefs are linked immediately)
-   * @param useIndents whether to use spaces as indent declarations
-   */
-  public PropertyReader(Reader in, Collection collectXRefs, boolean useIndents) {
-    this(new BufferedReader(in), collectXRefs, useIndents);
+  /** constructor */
+  public PropertyReader(Reader in, boolean useIndents) {
+    this(new BufferedReader(in), useIndents);
   }
   
-  /** 
-   * Constructor 
-   * @see PropertyReader#PropertyReader(Reader, Collection, boolean)
-   */
-  public PropertyReader(BufferedReader in, Collection collectXRefs, boolean useIndents) {
+  /** constructor */
+  public PropertyReader(BufferedReader in, boolean useIndents) {
     this.in = in;
     this.useIndents = useIndents;
-    this.collectXRefs = collectXRefs;
   }
   
   /** lines read */
@@ -101,17 +88,10 @@ public class PropertyReader {
   }
   
   /**
-   * Whether to merge properties encountered during read
-   */
-  public void setMerge(boolean set) {
-    isMerge = set;
-  }
-  
-  /**
    * read recursively while lines available
    */
   protected void readProperties(Property prop, int currentLevel, int pos) throws IOException {
-    
+
     // try to read some multilines first?
     if (prop instanceof MultiLineProperty) {
       // run through collector
@@ -151,27 +131,22 @@ public class PropertyReader {
       //  3 DATE
       // we simply spit out a warning and continue as if nothing happened
       if (level>currentLevel+1) {
-        trackBadLevel(level, prop);
+        trackBadLevel(level);
         while (level-1>currentLevel++) 
           prop = prop.addProperty("_TAG", "");
       }
     
-      // remember current line
-      int lineNoForChild = lines;
-
       // add sub property
-      Property child = addProperty(prop, tag, value, pos);
+      Property child = addProperty(prop, tag, value, pos<0 ? -1 : pos++);
       
-      // first recurse into child(ren)
+      // a reference?
+      if (child instanceof PropertyXRef)
+        trackXRef((PropertyXRef)child);
+        
+      // continue with child
       readProperties(child, currentLevel+1, 0);
         
-      // 20060406 now link after children are setup - this makes a difference for
-      // e.g. link() in case of ASSO that looks at RELA
-      if (child instanceof PropertyXRef)
-        link((PropertyXRef)child, lineNoForChild);
-        
       // next line
-      if (pos>=0) pos++;
     }
     
     // done
@@ -179,23 +154,7 @@ public class PropertyReader {
 
   /** add a child property **/
   protected Property addProperty(Property prop, String tag, String value, int pos) {
-    if (isMerge) {
-      // reuse prop's existing child with same tag if singleton
-      Property child = prop.getProperty(tag, false);
-      if (child!=null&&prop.getMetaProperty().getNested(tag, false).isSingleton()&&!(child instanceof PropertyXRef)) {
-        child.setValue(value);
-        return child;
-      }
-    }
-    
-    try {
-      return prop.addProperty(tag, value, pos);
-    } catch (GedcomException e) {
-      Property fallback = prop.addSimpleProperty(tag, value, pos);
-      trackBadProperty(fallback, e.getMessage());
-      return fallback;
-    }
-    
+    return pos<0 ? prop.addProperty(tag, value, true) : prop.addProperty(tag, value, pos);
   }
   
   /**
@@ -209,18 +168,12 @@ public class PropertyReader {
       // mark current position in reader
       in.mark(256);
       
-      // grab it ignoring empty lines
-      while (line==null) {
-        line = in.readLine();
-        if (line==null) 
-          return false;
-        lines ++;
-        if (line.trim().length()==0) {
-          trackEmptyLine();
-          line = null;
-        }
-      }
-      
+      // grab it
+      lines ++;
+      line = in.readLine();
+      if (line==null)
+        return false;
+    
       // 20040322 use space and also \t for delim in case someone used tabs in file
       StringTokenizer tokens = new StringTokenizer(line," \t");
   
@@ -249,7 +202,7 @@ public class PropertyReader {
         }
           
         // .. xref ?
-        if (level==0&&tag.startsWith("@")) {
+        if (tag.startsWith("@")) {
   
           // .. valid ?
           if (!tag.endsWith("@")||tag.length()<=2)
@@ -300,27 +253,12 @@ public class PropertyReader {
     return true;
   }
   
-  /** link a reference - keep in lazyXRefs is available otherwise link and ignore errors */
-  protected void link(PropertyXRef xref, int line) {
-    if (collectXRefs!=null)
-      collectXRefs.add(xref);
-    else try {
-      xref.link();
-    } catch (Throwable t) {
-      // ignored
-    }
-  }
-  
-  /** track an empty line - default noop */
-  protected void trackEmptyLine() {
+  /** track a reference - default noop */
+  protected void trackXRef(PropertyXRef xref) {
   }
   
   /** track a bad level - default noop */
-  protected void trackBadLevel(int level, Property parent) {
-  }
-  
-  /** track a bad property - default noop */
-  protected void trackBadProperty(Property property, String message) {
+  protected void trackBadLevel(int level) {
   }
   
 } //PropertyDecoder

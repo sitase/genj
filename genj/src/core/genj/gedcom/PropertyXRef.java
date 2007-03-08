@@ -45,24 +45,44 @@ public abstract class PropertyXRef extends Property {
   }
 
   /**
+   * Constructor with reference
+   * @param target reference of property this property links to
+   */
+  protected PropertyXRef(PropertyXRef target) {
+    setTarget(target);
+  }
+
+  /**
    * Method for notifying being removed from another parent
    */
-  /*package*/ void delNotify(Property parent, int pos) {
-
-    // are we referencing something that points back?
-    if (target!=null) {
-      PropertyXRef other = target;
-      Property pother = other.getParent();
-      unlink();
-      
-      // delete target as well
-      pother.delProperty(other);
-    }
+  /*package*/ void delNotify(Property oldParent) {
 
     // Let it through
-    super.delNotify(parent, pos);
+    super.delNotify(oldParent);
     
-    // done
+    // are we referencing something that points back?
+    if (target==null)
+      return;
+
+    // is it owned by a parent?
+    if (target.getParent()==null)
+      return;
+      
+    // ... delete back referencing property unless this is a rollback.
+    // We have to use oldParent for transaction resolution since 
+    // parent is already set to null by super
+    Transaction tx = oldParent.getTransaction();
+    if (tx!=null&&!tx.isRollback())
+      target.getParent().delProperty(target);
+
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   * @return proxy's logical name
+   */
+  public String getProxy() {
+    return "XRef";
   }
 
   /**
@@ -97,8 +117,8 @@ public abstract class PropertyXRef extends Property {
     // can't be linked yet
     if (target!=null)
       return false;
-    // if it's an empty id or the entity's id matches
-    return value.length()==0 || entity.getId().equals(value);
+    // check entity
+    return entity.getId().equals(value);
   }
 
   /**
@@ -122,32 +142,6 @@ public abstract class PropertyXRef extends Property {
    * @exception GedcomException when processing link would result in inconsistent state
    */
   public abstract void link() throws GedcomException;
-  
-  /**
-   * links to other xref
-   */
-  protected void link(PropertyXRef target) {
-    if (this.target!=null)
-      throw new IllegalArgumentException("can't link while target!=null");
-    if (target==null)
-      throw new IllegalArgumentException("can't link to targe null");
-    this.target = target;
-    target.target = this;
-    propagateXRefLinked(this, target);
-  }
-  
-  
-  /**
-   * Unlinks from other xref
-   */
-  public void unlink() {
-    if (target==null)
-      throw new IllegalArgumentException("can't unlink without target");
-    PropertyXRef old = target;
-    target.target = null;
-    target = null;
-    propagateXRefUnlinked(this, old);
-  }
 
   /**
    * @see genj.gedcom.Property#getDisplayValue()
@@ -167,18 +161,43 @@ public abstract class PropertyXRef extends Property {
    * PropertyAssociation "Witness: John Doe")
    */
   protected String getForeignDisplayValue() {
-    Entity entity = getEntity();
-    Property parent = getParent();
-    String by = parent!=entity ? entity.toString() + " - " + parent.getPropertyName() : entity.toString();
-    return resources.getString("foreign.xref", by);
+    return resources.getString("foreign.xref", getEntity().toString());
   }
   
+  /**
+   * Sets the entity's property this reference points to
+   * @param target referenced entity's property
+   */
+  protected void setTarget(PropertyXRef target) {
+
+    String old = getValue();
+    
+    // Do it
+    this.target=target;
+    this.value =null;
+
+    // Remember change
+    propagateChange(old);
+
+    // Done
+  }
+  
+
   /**
    * Returns this reference's target
    * @return target or null
    */  
   public PropertyXRef getTarget() {
     return target;
+  }
+
+  /**
+   * Some references have a natural target value property 
+   * that can be accessed here (e.g. PropertyNote's target Note)
+   * @return property lending itself to be edited or null
+   */
+  public Property getTargetValueProperty() {
+    return null;
   }
 
   /**
@@ -190,14 +209,13 @@ public abstract class PropertyXRef extends Property {
     if (target!=null)
       return;
       
-    // 20070128 don't bother with calculating old if this is happening in init()
-    String old = getParent()==null?null:getValue();
+    String old = getValue();
 
     // remember value
     value = set.replace('@',' ').trim();
 
     // remember change
-    if (old!=null) propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // done
   }
@@ -207,12 +225,8 @@ public abstract class PropertyXRef extends Property {
    */
   /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
     meta.assertTag(getTag());
-    // 20070104 since values are not trimmed by loaders we do this here - a value of '@..@ ' (note
-    // the trailing space) should be accepted
-    value = value.trim();
-    // check format
     if (!(value.startsWith("@")&&value.endsWith("@")))
-      throw new GedcomException(resources.getString("error.norefvalue", new String[]{ value, Gedcom.getName(getTag()) }));
+      throw new GedcomException("xref value should be @..@ but is "+value);
     return super.init(meta, value);
   }
 

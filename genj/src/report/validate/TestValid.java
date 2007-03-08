@@ -9,9 +9,7 @@ package validate;
 
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
-import genj.view.ViewContext;
-
-import java.util.List;
+import genj.report.PropertyList;
 
 /**
  * Test for property validity
@@ -33,12 +31,12 @@ import java.util.List;
   /**
    * @see validate.Test#test(genj.gedcom.Property, genj.gedcom.TagPath, java.util.List)
    */
-  /*package*/ void test(Property prop, TagPath path, List issues, ReportValidate report) {
+  /*package*/ void test(Property prop, TagPath path, PropertyList issues, ReportValidate report) {
     
     // always an issue with private
     if (!report.isPrivateValueValid&&prop.isPrivate()) {
       // got an issue with that
-      issues.add(new ViewContext(prop).setText(report.translate("err.private", path.toString())));
+      issues.add(report.translate("err.private", path.toString()), prop.getImage(true), prop);
     }
 
     // no issue if valid 
@@ -50,7 +48,7 @@ import java.util.List;
       return;
       
     // got an issue with that
-    issues.add(new ViewContext(prop).setText(report.translate("err.notvalid", path.toString())));
+    issues.add(report.translate("err.notvalid", path.toString()), prop.getImage(true), prop);
     
     // done
   }

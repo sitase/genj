@@ -42,14 +42,18 @@ public class PropertyHusband extends PropertyXRef {
   }
 
   /**
+   * Constructor with reference
+   */
+  protected PropertyHusband(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
    * Returns a warning string that describes what happens when this
    * property would be deleted
    * @return warning as <code>String</code>, <code>null</code> when no warning
    */
   public String getDeleteVeto() {
-    // warn if linked
-    if (getTargetEntity()==null) 
-      return null;
     return resources.getString("prop.husb.veto");
   }
 
@@ -93,29 +97,29 @@ public class PropertyHusband extends PropertyXRef {
     // Look for husband (not-existing -> Gedcom throws Exception)
     Indi husband = (Indi)getCandidate();
 
-    // make sure wife isn't also husband
+    // Enclosing family has indi as descendant or wife ?
     if (fam.getWife()==husband)
       throw new GedcomException(resources.getString("error.already.spouse", new String[]{ husband.toString(), fam.toString()}));
 
-    // make sure the husband isn't descendant of family
     if (husband.isDescendantOf(fam))
       throw new GedcomException(resources.getString("error.already.descendant", new String[]{ husband.toString(), fam.toString()}));
-    
+
     // Connect back from husband (maybe using invalid back reference)
     ps = husband.getProperties(new TagPath("INDI:FAMS"));
     PropertyFamilySpouse pfs;
     for (int i=0;i<ps.length;i++) {
       pfs = (PropertyFamilySpouse)ps[i];
       if (pfs.isCandidate(fam)) {
-        link(pfs);
+        pfs.setTarget(this); // Changed Oct 23 from pfs.setTarget(pfs);
+        setTarget(pfs);      // Inserted Oct 23
         return;
       }
     }
 
     // .. new back referencing property
-    pfs = new PropertyFamilySpouse();
+    pfs = new PropertyFamilySpouse(this);
     husband.addProperty(pfs);
-    link(pfs);
+    setTarget(pfs);
 
     // Done
   }

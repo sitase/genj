@@ -35,6 +35,13 @@ public class PropertyAssociation extends PropertyXRef {
   }
 
   /**
+   * Constructor with reference
+   */
+  public PropertyAssociation(PropertyXRef target) {
+    super(target);
+  }
+  
+  /**
    * We're trying to give a bit more information than the
    * default display value (target.getEntity().toString())
    * For example:
@@ -90,9 +97,6 @@ public class PropertyAssociation extends PropertyXRef {
    * @return warning as <code>String</code>, <code>null</code> when no warning
    */
   public String getDeleteVeto() {
-    // warn if linked
-    if (getTargetEntity()==null) 
-      return null;
     return resources.getString("prop.asso.veto");
   }
 
@@ -114,7 +118,7 @@ public class PropertyAssociation extends PropertyXRef {
     Entity ent = getCandidate();
 
     // Create Backlink using RELA
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     try {
       PropertyRelationship rela = (PropertyRelationship)getProperty("RELA");
       ent.getProperty(rela.getAnchor()).addProperty(fxref);
@@ -123,7 +127,7 @@ public class PropertyAssociation extends PropertyXRef {
     }
 
     // ... and point
-    link(fxref);
+    setTarget(fxref);
 
     // .. update type
     Property type = getProperty("TYPE");

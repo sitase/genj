@@ -21,7 +21,6 @@ package genj.edit.beans;
 
 import genj.gedcom.Property;
 import genj.gedcom.PropertyDate;
-import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.DateWidget;
 import genj.util.swing.ImageIcon;
@@ -49,8 +48,10 @@ public class DateBean extends PropertyBean {
   private JLabel label2;
   private TextFieldWidget phrase;
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  /**
+   * Initializer
+   */
+  protected void initializeImpl() {
     
     // setup Laout
     setLayout(LAYOUT.copy());
@@ -65,7 +66,7 @@ public class DateBean extends PropertyBean {
     add(choose);
     
     // .. first date
-    date1 = new DateWidget();
+    date1 = new DateWidget(viewManager.getWindowManager());
     date1.addChangeListener(changeSupport);
     add(date1);
 
@@ -73,7 +74,7 @@ public class DateBean extends PropertyBean {
     label2 = new JLabel();
     add(label2);
     
-    date2 = new DateWidget();
+    date2 = new DateWidget(viewManager.getWindowManager());
     date2.addChangeListener(changeSupport);
     add(date2);
     
@@ -91,10 +92,8 @@ public class DateBean extends PropertyBean {
   /**
    * Finish proxying edit for property Date
    */
-  public void commit(Property property) {
+  public void commit() {
 
-    super.commit(property);
-    
     PropertyDate p = (PropertyDate)property;
     
     p.setValue(format, date1.getValue(), date2.getValue(), phrase.getText());
@@ -107,6 +106,8 @@ public class DateBean extends PropertyBean {
    */
   private void setFormat(PropertyDate.Format set) {
 
+    PropertyDate p = (PropertyDate)property;
+    
     // already?
     if (format==set)
       return;
@@ -144,16 +145,16 @@ public class DateBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  public void setProperty(PropertyDate date) {
+  protected void setContextImpl(Property prop) {
 
-    // remember property
-    property = date;
-    
+    // we know it's a date
+    PropertyDate p = (PropertyDate)property;
+
     // connect
-    date1.setValue(date.getStart());
-    date2.setValue(date.getEnd());
-    phrase.setText(date.getPhrase());
-    setFormat(date.getFormat());
+    date1.setValue(p.getStart());
+    date2.setValue(p.getEnd());
+    phrase.setText(p.getPhrase());
+    setFormat(p.getFormat());
     
     // done
   }
@@ -163,15 +164,15 @@ public class DateBean extends PropertyBean {
    */
   private class ChangeFormat extends Action2 {
     
-    private PropertyDate.Format formatToSet;
+    private PropertyDate.Format format;
     
     private ChangeFormat(PropertyDate.Format set) {
-      formatToSet = set;
+      format = set;
       super.setText(set.getName());
     }
     
     protected void execute() {
-      setFormat(formatToSet);
+      setFormat(format);
     }
     
   } //ChangeFormat 

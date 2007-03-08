@@ -34,6 +34,10 @@ public class PropertyFile extends Property implements IconValueAvailable {
   /** standard image */
   public final static ImageIcon DEFAULT_IMAGE = Grammar.getMeta(new TagPath("INDI:OBJE:FILE")).getImage();
 
+
+  /** static configuration */
+  private static final Options options = new Options();
+  
   /** expected tag */
   private final static String TAG = "FILE";
   
@@ -45,6 +49,13 @@ public class PropertyFile extends Property implements IconValueAvailable {
 
   /** the image */
   private Object valueAsIcon = null;
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "File";
+  }
 
   /**
    * Returns the tag of this property
@@ -180,7 +191,7 @@ public class PropertyFile extends Property implements IconValueAvailable {
     // will be prompted in ProxyFile
     
     // Remember the change
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // done    
   }
@@ -231,7 +242,7 @@ public class PropertyFile extends Property implements IconValueAvailable {
   /**
    * Resolve the maximum load (whether to return kb)   */
   public static int getMaxValueAsIconSize(boolean kb) {
-    return (kb ? 1 : 1024) * Options.getInstance().getMaxImageFileSizeKB();
+    return (kb ? 1 : 1024) * options.getMaxImageFileSizeKB();
   }
 
   /**

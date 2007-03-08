@@ -27,36 +27,34 @@ import genj.gedcom.GedcomListener;
 import genj.gedcom.Options;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
+import genj.view.Context;
+import genj.view.ContextListener;
+import genj.view.ContextProvider;
+import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.awt.event.KeyEvent;
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.logging.Logger;
 
 import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
-import javax.swing.KeyStroke;
-import javax.swing.table.TableModel;
 
 /**
  * Component for showing entities of a gedcom file in a tabular way
  */
-public class TableView extends JPanel implements ToolBarSupport  {
-  
-  private final static Logger LOG = Logger.getLogger("genj.table");
+public class TableView extends JPanel implements ToolBarSupport, ContextListener, ContextProvider {
 
   /** a static set of resources */
   private Resources resources = Resources.get(this);
@@ -109,22 +107,21 @@ public class TableView extends JPanel implements ToolBarSupport  {
     loadProperties();
     
     // create our table
-    propertyTable = new PropertyTableWidget(null);
+    propertyTable = new PropertyTableWidget(null, manager);
     propertyTable.setAutoResize(false);
 
     // lay it out
     setLayout(new BorderLayout());
     add(propertyTable, BorderLayout.CENTER);
     
-    // shortcuts
-    new NextMode(true).install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    new NextMode(false).install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    
     // done
   }
   
-  /*package*/ TableModel getModel() {
-    return propertyTable.getTableModel();
+  /**
+   * ContextProvider callback 
+   */
+  public Context getContext() {
+    return new Context(gedcom);
   }
   
   /**
@@ -189,16 +186,35 @@ public class TableView extends JPanel implements ToolBarSupport  {
     currentMode = set;
     // tell to table
     propertyTable.setModel(new Model(currentMode));
-    // update its layout
-    propertyTable.setColumnLayout(currentMode.layout);
+    // update its columns
+    propertyTable.setColumnWidths(currentMode.getWidths());
+    // and sorting
+    propertyTable.setSortedColumn(currentMode.sort);
   }
   
+  /**
+   * callback - context changed
+   */
+  public void handleContextSelectionEvent(ContextSelectionEvent event) {
+    
+    // a type that we're interested in?
+    Context context  = event.getContext();
+    Entity entity = context.getEntity();
+    if (entity==null||!entity.getTag().equals(currentMode.getTag())) 
+      return;
+      
+    // change selection
+    propertyTable.handleContextSelectionEvent(event);
+
+    // done
+  }
+
   /**
    * @see genj.view.ToolBarSupport#populate(JToolBar)
    */
   public void populate(JToolBar bar) {
     // create buttons for mode switch
-    ButtonHelper bh = new ButtonHelper().setInsets(0).setContainer(bar);
+    ButtonHelper bh = new ButtonHelper();
     
     InputMap inputs = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
     
@@ -206,8 +222,10 @@ public class TableView extends JPanel implements ToolBarSupport  {
       String tag = Gedcom.ENTITIES[i];
       // don't offer OBJEct button unless there are some of those already or the option to create them is selected
       if (!tag.equals("OBJE")||!gedcom.getEntities(tag).isEmpty()||Options.getInstance().isAllowNewOBJEctEntities) {
-        SwitchMode change = new SwitchMode(getMode(tag));
-        bh.create(change);
+        ActionChangeType change = new ActionChangeType(getMode(tag));
+        change.setAccelerator("ctrl "+(j++));
+        change.install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
+        bar.add(bh.create(change));
       }
     }
     
@@ -252,40 +270,13 @@ public class TableView extends JPanel implements ToolBarSupport  {
   }  
   
   /**
-   * Action - go to next mode
-   */
-  private class NextMode extends Action2 {
-    private int dir;
-    private NextMode(boolean left) {
-      int vk;
-      if (left) {
-        vk = KeyEvent.VK_LEFT;
-        dir = -1;
-      } else {
-        vk = KeyEvent.VK_RIGHT;
-        dir = 1;
-      }
-      setAccelerator(KeyStroke.getKeyStroke(vk, KeyEvent.CTRL_DOWN_MASK));
-    }
-    protected void execute() {
-      int next = -1;
-      for (int i=0,j=Gedcom.ENTITIES.length; i<j; i++) {
-        next = (i+j+dir)%Gedcom.ENTITIES.length;
-        if (currentMode == getMode(Gedcom.ENTITIES[i])) 
-          break;
-      }
-      setMode(getMode(Gedcom.ENTITIES[next]));
-    }
-  } //NextMode
-  
-  /**
    * Action - flip view to entity type
    */
-  private class SwitchMode extends Action2 {
+  private class ActionChangeType extends Action2 {
     /** the mode this action triggers */
     private Mode mode;
     /** constructor */
-    SwitchMode(Mode mode) {
+    ActionChangeType(Mode mode) {
       this.mode = mode;
       setTip(resources.getString("mode.tip", Gedcom.getName(mode.getTag(),true)));
       setImage(Gedcom.getEntityImage(mode.getTag()));
@@ -305,13 +296,33 @@ public class TableView extends JPanel implements ToolBarSupport  {
     private Mode mode;
     
     /** our cached rows */
-    private List rows;
+    private Entity[] rows;
     
     /** constructor */
     private Model(Mode set) {
       mode = set;
+      handleChange(null);
     }
     
+    /**
+     * Gedcom callback
+     */
+    public void handleChange(Transaction tx) {
+
+      // no drastic change?
+      if (tx!=null&&tx.get(Transaction.ENTITIES_ADDED).isEmpty()&&tx.get(Transaction.ENTITIES_DELETED).isEmpty()) { 
+        fireContentChanged();
+        return;
+      }
+      
+      // cache entities
+      Collection es = gedcom.getEntities(mode.getTag());
+      rows = (Entity[])es.toArray(new Entity[es.size()]);
+      
+      // continue
+      fireRowsChanged();
+    }
+
     /** gedcom */
     public Gedcom getGedcom() {
       return gedcom;
@@ -324,11 +335,7 @@ public class TableView extends JPanel implements ToolBarSupport  {
     
     /** # rows */
     public int getNumRows() {
-      // cache entities if not there yet
-      if (rows==null) 
-        rows = new ArrayList(gedcom.getEntities(mode.getTag()));
-      // ready 
-      return rows.size();
+      return gedcom.getEntities(mode.getTag()).size();
     }
     
     /** path for colum */
@@ -338,90 +345,9 @@ public class TableView extends JPanel implements ToolBarSupport  {
 
     /** property for row */
     public Property getProperty(int row) {
-      
-      // init rows
-      getNumRows();
-
-      // and look it up
-      Property result = (Property)rows.get(row);
-      if (result==null)
-        return result;
-      
-      // since we do a lazy update after a gedcom write lock we check if cached properties are still good 
-      if (result.getEntity()==null) {
-        result = null;
-        rows.set(row, null);
-      }
-      
-      // done
-      return result;
+      return rows[row];
     }
     
-    /** gedcom callback */
-    public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-      // an entity we're not looking at?
-      if (!mode.getTag().equals(entity.getTag())) 
-        return;
-      // add it
-      rows.add(entity);
-      // tell about it
-      fireRowsAdded(rows.size()-1, rows.size()-1);
-      // done
-    }
-
-    /** gedcom callback */
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      // an entity we're not looking at?
-      if (!mode.getTag().equals(entity.getTag())) 
-        return;
-      // delete it
-      for (int i=0;i<rows.size();i++) {
-        if (rows.get(i)==entity) {
-          rows.remove(i);
-          // tell about it
-          fireRowsDeleted(i, i);
-          // done
-          return;
-        }
-      }
-      // hmm, strange
-      LOG.warning("got notified that entity "+entity.getId()+" was deleted but it wasn't in rows in the first place");
-    }
-
-    /** gedcom callback */
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      invalidate(gedcom, property.getEntity(), property.getPath());
-    }
-
-    /** gedcom callback */
-    public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      invalidate(gedcom, property.getEntity(), property.getPath());
-    }
-
-    /** gedcom callback */
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
-      invalidate(gedcom, property.getEntity(), new TagPath(property.getPath(), deleted.getTag()));
-    }
-    
-    private void invalidate(Gedcom gedcom, Entity entity, TagPath path) {
-      // an entity we're not looking at?
-      if (!mode.getTag().equals(entity.getTag())) 
-        return;
-      // a path we're interested in?
-      TagPath[] paths = mode.getPaths();
-      for (int i=0;i<paths.length;i++) {
-        if (paths[i].equals(path)) {
-          for (int j=0;j<rows.size();j++) {
-            if (rows.get(j)==entity) {
-                fireRowsChanged(j,j,i);
-                return;
-            }
-          }      
-        }
-      }
-      // done
-    }
-
   } //Model
 
   /**
@@ -433,7 +359,8 @@ public class TableView extends JPanel implements ToolBarSupport  {
     private String tag;
     private String[] defaults;
     private TagPath[] paths;
-    private String layout;
+    private int[] widths;
+    private int sort = 0;
     
     /** constructor */
     private Mode(String t, String[] d) {
@@ -441,6 +368,7 @@ public class TableView extends JPanel implements ToolBarSupport  {
       tag      = t;
       defaults = d;
       paths    = TagPath.toArray(defaults);
+      widths   = new int[paths.length];
     }
     
     /** load properties from registry */
@@ -449,8 +377,16 @@ public class TableView extends JPanel implements ToolBarSupport  {
       String[] ps = r.get(tag+".paths" , (String[])null);
       if (ps!=null) 
         paths = TagPath.toArray(ps);
+      
+      int[] ws = r.get(tag+".widths", (int[])null);
+      if (ws!=null) {
+        widths = ws;
+      } else {
+        widths = new int[paths.length];
+        for (int i=0;i<widths.length;i++)  widths[i]=64;
+      }
 
-      layout = r.get(tag+".layout", (String)null);
+      sort = registry.get(tag+".sort", 0);
       
     }
     
@@ -466,15 +402,28 @@ public class TableView extends JPanel implements ToolBarSupport  {
       return paths;
     }
     
+    /** get column widths */
+    private int[] getWidths() {
+      return widths;
+    }
+
+    /** set column widths */
+    private void setWidths(int[] set) {
+      widths = set;
+    }
+
     /** save properties from registry */
     private void save(Registry r) {
       
       // grab current column widths & sort column
-      if (currentMode==this) 
-        layout = propertyTable.getColumnLayout();
+      if (currentMode==this) {
+        widths = propertyTable.getColumnWidths();
+        sort = propertyTable.getSortedColumn();
+      }
 
 	    registry.put(tag+".paths" , paths);
-	    registry.put(tag+".layout", layout);
+	    registry.put(tag+".widths", widths);
+	    registry.put(tag+".sort"  , sort);
     }
     
     /** tag */

@@ -24,10 +24,7 @@ import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Indi;
-import genj.gedcom.Options;
 import genj.gedcom.Property;
-import genj.gedcom.PropertySex;
-import genj.gedcom.PropertyXRef;
 import genj.view.ViewManager;
 
 /**
@@ -36,22 +33,11 @@ import genj.view.ViewManager;
 public class CreateSibling extends CreateRelationship {
   
   private Indi sibling;
-  private boolean isBrotherNotSister;
   
   /** constructor */
-  public CreateSibling(Indi sibling, ViewManager mgr, boolean isBrotherNotSister) {
-    super(calcName(isBrotherNotSister), sibling.getGedcom(), Gedcom.INDI, mgr);
+  public CreateSibling(Indi sibling, ViewManager mgr) {
+    super(resources.getString("create.sibling"), sibling.getGedcom(), Gedcom.INDI, mgr);
     this.sibling = sibling;
-    this.isBrotherNotSister = isBrotherNotSister;
-  }
-  
-  private static String calcName(boolean isBrotherNotSister) {
-    // still old style sibling key in resources?
-    String sibling = resources.getString("create.sibling", false);
-    if (sibling==null) 
-      return resources.getString( isBrotherNotSister ? "create.brother" : "create.sister" );
-    // fallback to create.sibling
-    return sibling + " (" + (isBrotherNotSister ? PropertySex.TXT_MALE : PropertySex.TXT_FEMALE) + ")";
   }
   
   /** more about what we do */
@@ -63,54 +49,37 @@ public class CreateSibling extends CreateRelationship {
   /** do the change */
   protected Property change(Entity target, boolean targetIsNew) throws GedcomException {
     
-    // try to add target to sibling's family or vice versa
-    PropertyXRef CHIL;
-    
+    // get Family where sibling is child
     Fam[] fams = sibling.getFamiliesWhereChild();
     if (fams.length>0) {
-      CHIL = fams[0].addChild((Indi)target);
+      
+      // add target to first family
+      fams[0].addChild((Indi)target);
+      
     } else {
       
-      // try to add sibling to target's family
-      fams = ((Indi)target).getFamiliesWhereChild();
-      if (fams.length>0) {
-        CHIL = fams[0].addChild(sibling);
-      } else {
-
-        // both indis are not children yet - create a new family
-        Gedcom ged = sibling.getGedcom();
-        Fam fam = (Fam)ged.createEntity(Gedcom.FAM);
-        try {
-          CHIL = fam.addChild((Indi)target);
-        } catch (GedcomException e) {
-          ged.deleteEntity(fam);
-          throw e;
-        }
-        
-        // 20040619 adding missing spouse automatically now
-        Indi husband = (Indi)ged.createEntity(Gedcom.INDI).addDefaultProperties();
-        Indi wife = (Indi)ged.createEntity(Gedcom.INDI).addDefaultProperties();
-        
-        husband.setName("", sibling.getLastName());
-        if (Options.getInstance().setWifeLastname)
-          wife.setName("", sibling.getLastName());
-        
-        fam.setHusband(husband);
-        fam.setWife(wife);
-        fam.addChild(sibling);
+      Gedcom ged = sibling.getGedcom();
+      Fam fam = (Fam)ged.createEntity(Gedcom.FAM);
+      
+      try {
+        fam.addChild((Indi)target);
+      } catch (GedcomException e) {
+        ged.deleteEntity(fam);
+        throw e;
       }
-
+      
+      // 20040619 adding missing spouse automatically now
+      fam.setHusband((Indi)ged.createEntity(Gedcom.INDI).addDefaultProperties());
+      fam.setWife((Indi)ged.createEntity(Gedcom.INDI).addDefaultProperties());
+      fam.addChild(sibling);
     }
-    
-    // set it's name & gender if new
-    if (targetIsNew) {
-      Indi indi = (Indi)target;
-      indi.setName("", sibling.getLastName());        
-      indi.setSex(isBrotherNotSister ? PropertySex.MALE : PropertySex.FEMALE);
-    }    
+
+    // set it's name if new
+    if (targetIsNew) 
+      ((Indi)target).setName("", sibling.getLastName());        
     
     // focus stays with sibling
-    return CHIL.getTarget();
+    return sibling;
   }
 
 }

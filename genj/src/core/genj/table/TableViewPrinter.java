@@ -19,8 +19,10 @@
  */
 package genj.table;
 
+import genj.common.PropertyTableModel;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySimpleValue;
+import genj.gedcom.TagPath;
 import genj.print.Printer;
 import genj.renderer.PropertyRenderer;
 
@@ -35,7 +37,6 @@ import java.awt.font.FontRenderContext;
 import java.awt.geom.Dimension2D;
 
 import javax.swing.JComponent;
-import javax.swing.table.TableModel;
 
 /**
  * A print renderer for table */
@@ -90,20 +91,16 @@ public class TableViewPrinter implements Printer {
    */
   public Dimension calcSize(Dimension2D pageSizeInInches, Point dpi) {
 
-    TableModel model = table.getModel();
-    
     // prepare data
     pageWidth = (int)Math.ceil(pageSizeInInches.getWidth()*dpi.x);
     pageHeight = (int)Math.ceil(pageSizeInInches.getHeight()*dpi.y);
     headerHeight = 0;
-    
-    
-    rowHeights = new int[model.getRowCount()];
-    colWidths = new int[model.getColumnCount()];
+    rowHeights = new int[table.propertyTable.getModel().getNumRows()];
+    colWidths = new int[table.propertyTable.getModel().getNumCols()];
     
     // calculate header parameters
     for (int col=0;col<colWidths.length;col++) {
-      header.setValue(model.getColumnName(col));
+      header.setValue(table.propertyTable.getModel().getPath(col).getName());
       calcSize(-1, col, header, dpi);
     }
     
@@ -112,7 +109,8 @@ public class TableViewPrinter implements Printer {
       // analyze all columns
       for (int col=0;col<colWidths.length;col++) {
         // add cell
-        calcSize(row, col, (Property)model.getValueAt(row,col), dpi);
+        TagPath colPath = table.propertyTable.getModel().getPath(col);
+        calcSize(row, col, (Property)table.propertyTable.getModel().getProperty(row).getProperty(colPath), dpi);
       }
       // next row
     }
@@ -183,11 +181,7 @@ public class TableViewPrinter implements Printer {
    * @see genj.print.PrintRenderer#renderPage(java.awt.Point, gj.ui.UnitGraphics)
    */
   public void renderPage(Graphics2D g, Point page, Dimension2D pageSizeInInches, Point dpi, boolean preview) {
-    
-    // no columns no content
-    if (colsOnPage[page.x]==0)
-      return;
-    
+
     // scale to 1/72 inch space
     g.scale(dpi.x/72F, dpi.y/72F);
 
@@ -196,7 +190,7 @@ public class TableViewPrinter implements Printer {
     g.setFont(font);
 
     // grab model
-    TableModel model = table.getModel();
+    PropertyTableModel model = table.propertyTable.getModel();
     
     // identify column/row for this page
     int scol=0, cols=0;
@@ -204,11 +198,16 @@ public class TableViewPrinter implements Printer {
       scol += colsOnPage[c];
     cols = colsOnPage[page.x];
     
+    int srow=0, rows=0;
+    for (int r=0;r<page.y;r++)
+      srow += rowsOnPage[r];
+    rows = rowsOnPage[page.y];
+    
     // draw header
     for (int col=0,x=0;col<cols;col++) {
       // render in given space
       Rectangle r = new Rectangle(x, 0, colWidths[scol+col], headerHeight); 
-      header.setValue(model.getColumnName(scol+col));
+      header.setValue(model.getPath(scol+col).getName());
       render(g, r, header, dpi);
       // increase current horizontal position
       x += r.getWidth() + pad;
@@ -218,29 +217,23 @@ public class TableViewPrinter implements Printer {
     }
     g.drawLine(0, headerHeight + pad/2, pageWidth, headerHeight + pad/2);
     
-    // draw rows - there might be no rows on current page - only header!
-    if (rowsOnPage.length>0) {
-      int rows = rowsOnPage[page.y];
-      int srow=0;
-      for (int r=0;r<page.y;r++)
-        srow += rowsOnPage[r];
-      
-      for (int row=0,y=headerHeight+pad;row<rows;row++) {
-        // draw cols
-        for (int col=0,x=0;col<cols;col++) {
-          // render in given space
-          Rectangle r = new Rectangle(x, y, colWidths[scol+col], rowHeights[srow+row]);
-          render(g, r, (Property)model.getValueAt(srow+row, scol+col), dpi);
-          // increase current horizontal position
-          x += colWidths[scol+col] + pad;
-        }
-        // increase current vertical position
-        y += rowHeights[srow+row] + pad;
-        // draw line between rows
-        if (row<rows-1)
-          g.drawLine(0, y - pad/2, pageWidth, y - pad/2);
-        // next row
+    // draw rows
+    for (int row=0,y=headerHeight+pad;row<rows;row++) {
+      // draw cols
+      for (int col=0,x=0;col<cols;col++) {
+        // render in given space
+        Rectangle r = new Rectangle(x, y, colWidths[scol+col], rowHeights[srow+row]);
+        TagPath colPath = model.getPath(scol+col);
+        render(g, r, (Property)model.getProperty(srow+row).getProperty(colPath), dpi);
+        // increase current horizontal position
+        x += colWidths[scol+col] + pad;
       }
+      // increase current vertical position
+      y += rowHeights[srow+row] + pad;
+      // draw line between rows
+      if (row<rows-1)
+        g.drawLine(0, y - pad/2, pageWidth, y - pad/2);
+      // next row
     }
     
     // done

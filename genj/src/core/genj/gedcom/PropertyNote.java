@@ -19,8 +19,6 @@
  */
 package genj.gedcom;
 
-import java.util.regex.Pattern;
-
 
 
 /**
@@ -46,19 +44,6 @@ public class PropertyNote extends PropertyXRef {
     return new PropertyMultilineValue().init(meta, value);
   }
 
-  /**
-   * check referenced note when finding properties by tag/value pattern
-   */
-  protected boolean findPropertiesRecursivelyTest(Pattern tag, Pattern value) {
-    // see if we can look inside a target note instead
-    Note note = (Note)getTargetEntity();
-    if (note!=null) {
-      if (tag.matcher(getTag()).matches() && value.matcher(note.getDelegate().getValue()).matches())
-        return true;
-    }
-    // nope
-    return false;
-  }
 
   /**
    * Returns the tag of this property
@@ -77,13 +62,21 @@ public class PropertyNote extends PropertyXRef {
     Note enote = (Note)getCandidate();
 
     // Create Backlink
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     enote.addProperty(fxref);
 
     // ... and point
-    link(fxref);
+    setTarget(fxref);
 
     // Done
+  }
+  
+  /**
+   * A Note's NOTE property
+   */
+  public Property getTargetValueProperty() {
+    Note note = (Note)getTargetEntity();
+    return note!=null ? note.getDelegate() : null;
   }
   
   /**

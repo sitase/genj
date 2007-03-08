@@ -9,8 +9,7 @@ package validate;
 
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
-
-import java.util.List;
+import genj.report.PropertyList;
 
 /**
  * A test for validation
@@ -53,13 +52,13 @@ import java.util.List;
       return false;
     }
     // and type
-    return typeTrigger==null||typeTrigger.isAssignableFrom(prop.getClass());
+    return typeTrigger.isAssignableFrom(prop.getClass());
   }
   
   /**
    * Perform Test on prop&path - fill issues with instances of Issue 
    */
-  /*package*/ abstract void test(Property prop, TagPath path, List issues, ReportValidate report);
+  /*package*/ abstract void test(Property prop, TagPath path, PropertyList issues, ReportValidate report);
    
 
 } //Test

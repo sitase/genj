@@ -26,7 +26,6 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.Indi;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyChild;
-import genj.gedcom.PropertyXRef;
 import genj.view.ViewManager;
 
 /**
@@ -79,7 +78,6 @@ public class CreateChild extends CreateRelationship {
     // cast to what we now is the child now
     Indi child = (Indi)target;
     Gedcom ged = child.getGedcom();
-    PropertyXRef CHIL;
     
     // are we adding that to an indi?
     Fam family;
@@ -92,12 +90,12 @@ public class CreateChild extends CreateRelationship {
       if (fams.length>0) {
         // add child to first fam
         family = fams[0];
-        CHIL = family.addChild(child);
+        family.addChild(child);
       } else {
         // create a new fam
         family = (Fam)ged.createEntity(Gedcom.FAM);
         try {
-          CHIL = family.addChild(child);
+          family.addChild(child);
         } catch (GedcomException e) {
           ged.deleteEntity(family);
           throw e;
@@ -112,7 +110,7 @@ public class CreateChild extends CreateRelationship {
       
       // add child to family
       family = (Fam)parentOrFamily;
-      CHIL = family.addChild(child);
+      family.addChild(child);
     
     }
     
@@ -125,7 +123,7 @@ public class CreateChild extends CreateRelationship {
     }
     
     // focus stays with parent or family
-    return CHIL.getTarget();
+    return parentOrFamily;
   }
 
 }

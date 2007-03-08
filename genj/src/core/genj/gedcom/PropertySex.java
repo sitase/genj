@@ -116,6 +116,15 @@ public class PropertySex extends Property {
   }
 
   /**
+   * Returns the logical proxy to render/edit this property
+   */
+  public String getProxy() {
+    if (sexAsString!=null&&!isPrivate())
+      return super.getProxy();
+    return "Sex";
+  }
+
+  /**
    * Accessor for Sex
    */
   public int getSex() {
@@ -164,7 +173,7 @@ public class PropertySex extends Property {
     String old = getValue();
     sexAsString = null;
     sex = newSex;
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     // Done
   }
 
@@ -203,7 +212,7 @@ public class PropertySex extends Property {
 	    }
     }
     // notify
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     // done
   }
 

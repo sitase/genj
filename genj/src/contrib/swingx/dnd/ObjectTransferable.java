@@ -35,22 +35,13 @@ public class ObjectTransferable implements Transferable {
     /**
      * The dataFlavor used for transfers between different JVMs.
      */
-    public static final DataFlavor serializedFlavor = new DataFlavor(
+    public static DataFlavor serializedFlavor = new DataFlavor(
             java.io.Serializable.class, "Object");
 
     /**
      * The dataFlavor used for transfers in one JVM.
      */
-    public static final DataFlavor localFlavor;
-    
-    static {
-      try {
-          localFlavor = new DataFlavor(DataFlavor.javaJVMLocalObjectMimeType
-                  + ";class=java.lang.Object");
-      } catch (ClassNotFoundException e) {
-          throw new Error(e);
-      }
-    }
+    public static DataFlavor localFlavor;
 
     private List flavors;
 
@@ -122,9 +113,17 @@ public class ObjectTransferable implements Transferable {
     public static Transferable getTigerTransferable(DropTargetDragEvent dtde) {
         try {
             return (Transferable)DropTargetDragEvent.class.getMethod("getTransferable", new Class[0]).invoke(dtde, new Object[0]);
-        } catch (Throwable t) {
+        } catch (Exception ex) {
             return null;
         }
     }
     
+    static {
+        try {
+            localFlavor = new DataFlavor(DataFlavor.javaJVMLocalObjectMimeType
+                    + ";class=java.lang.Object");
+        } catch (ClassNotFoundException e) {
+            throw new Error(e);
+        }
+    }
 }

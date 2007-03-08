@@ -23,7 +23,7 @@ import genj.edit.EditView;
 import genj.edit.EditViewFactory;
 import genj.edit.Images;
 import genj.util.swing.Action2;
-import genj.view.ViewContext;
+import genj.view.Context;
 import genj.view.ViewHandle;
 import genj.view.ViewManager;
 
@@ -32,13 +32,13 @@ import genj.view.ViewManager;
  */
 public class OpenForEdit extends Action2 {
   /** the context to edit */
-  private ViewContext context;
+  private Context context;
   /** the view manager */
   private ViewManager manager;
   /**
    * Constructor
    */
-  public OpenForEdit(ViewContext ctxt, ViewManager mgr) {
+  public OpenForEdit(Context ctxt, ViewManager mgr) {
     manager = mgr;
     context = ctxt;
     setImage(Images.imgView);
@@ -59,7 +59,7 @@ public class OpenForEdit extends Action2 {
     }
     
     // make sure the context change follows through
-    ((EditView)handle.getView()).setContext(context);
+    ((EditView)handle.getView()).setContext(context, false);
   }
   
 } //OpenForEdit
