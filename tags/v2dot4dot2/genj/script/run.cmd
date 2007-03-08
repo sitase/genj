@@ -1,0 +1,1 @@
+javaw -Xmx512m -Xms32m -jar run.jar
