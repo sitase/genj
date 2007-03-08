@@ -19,17 +19,16 @@
  */
 package genj.geo;
 
-import genj.util.Origin;
 import genj.util.Resources;
 
 import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.geom.NoninvertibleTransformException;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.StringTokenizer;
+import java.util.logging.Level;
 
 import org.geotools.shapefile.Shapefile;
 
@@ -44,7 +43,6 @@ import com.vividsolutions.jump.feature.FeatureDataset;
 import com.vividsolutions.jump.feature.FeatureSchema;
 import com.vividsolutions.jump.workbench.model.Layer;
 import com.vividsolutions.jump.workbench.model.LayerManager;
-import com.vividsolutions.jump.workbench.ui.Viewport;
 import com.vividsolutions.jump.workbench.ui.renderer.style.BasicStyle;
 
 /**
@@ -56,8 +54,8 @@ public class GeoMap {
     SUFFIX_SHP = ".shp",
     PROPERTIES = "geo.properties";
   
-  /** origin of map */
-  private Origin origin;
+  /** file or directory */
+  private File fileOrDir;
   
   /** resources */
   private Resources resources;
@@ -68,11 +66,17 @@ public class GeoMap {
   /** background color */
   private Color background = Color.WHITE;
   
+  /** countries */
+  private Country[] countries;
+
   /** constructor */
-  /*package*/ GeoMap(File fileOrDir) throws IOException {
+  /*package*/ GeoMap(File fileOrDir) {
     
     // no file at this point
-    origin = Origin.create(fileOrDir.toURL());
+    if (!fileOrDir.isDirectory())
+      throw new IllegalArgumentException("archive file not supported yet");
+    
+    this.fileOrDir = fileOrDir;
 
     // load properties
     loadProperties();
@@ -85,16 +89,16 @@ public class GeoMap {
     
     // load properties
     try {
-      resources = new Resources(origin.open(PROPERTIES));
+      File file = new File(fileOrDir, PROPERTIES);
+      resources = new Resources(new FileInputStream(file));
     } catch (IOException e) {
     }
     
     // init name&color
-    name = translate("name", origin.getName());
+    name = i18n("name", fileOrDir.getName());
     try {
-      background =  new Color(Integer.decode(translate("color.background", "")).intValue());
+      background =  new Color(Integer.decode(i18n("color.background", "#ffffff")).intValue());
     } catch (Throwable t) {
-      background = new Color(0xccffff);
     }
     
     
@@ -102,11 +106,22 @@ public class GeoMap {
   
   /** a key */
   public String getKey() {
-    return origin.getName();
+    return fileOrDir.getName();
+  }
+  
+  /** countries */
+  public Country[] getCountries() {
+    if (countries==null) {
+      StringTokenizer tokens = new StringTokenizer(i18n("countries", ""), ",");
+      countries = new Country[tokens.countTokens()];
+      for (int i=0;i<countries.length;i++)
+        countries[i] = Country.get(tokens.nextToken());
+    }
+    return countries;
   }
   
   /** resource access */
-  private String translate(String key, String fallback) {
+  private String i18n(String key, String fallback) {
     // no resource?
     if (resources==null)
       return fallback;
@@ -127,10 +142,6 @@ public class GeoMap {
   public Color getBackground() {
     return background;
   }
- 
-  private final static Color[] PALETTE = {
-    new Color(0xfbb3ad), new Color(0xb2cce2), new Color(0xccebc5), new Color(0xdecbe4), new Color(0xfed9a5), new Color(0xffffcc), new Color(0xe4d7bc), new Color(0xfddaec), new Color(0xf2f2f2)
-  };
   
   /** 
    * load all feature collections for this geo map into LayerManager  
@@ -141,48 +152,33 @@ public class GeoMap {
     loadProperties();
 
     // load shapes files
-    String[] shapes = origin.list();
-    Arrays.sort(shapes);
-    for (int i=0;i<shapes.length;i++) {
+    File[] files = fileOrDir.listFiles();
+    Arrays.sort(files);
+    for (int i=0;i<files.length;i++) {
       
       // shape file?
-      String shape = shapes[i];
-      if (!shape.endsWith(SUFFIX_SHP)) 
+      File file = files[i];
+      if (!file.getName().endsWith(SUFFIX_SHP)) 
         continue;
-      String name = shape.substring(0, shape.length()-SUFFIX_SHP.length());
+      String name = file.getName().substring(0, file.getName().length()-SUFFIX_SHP.length());
       
       // load it
-      FeatureCollection fc = load(origin.open(shape));
-      
+      FeatureCollection fc = load(file);
       // create layer
       Layer layer = manager.addLayer(getName(), name, fc);
-      
       // check for parameters
       if (Character.isDigit(name.charAt(0))) name = name.substring(1);
-      String color = translate("color."+name, "");
-
-      // set color
-      try {
+      String color = i18n("color."+name, null);
+      if (color!=null) try {
         Color c = new Color(Integer.decode(color).intValue());
         BasicStyle style = layer.getBasicStyle();
         style.setFillColor(c);
         style.setAlpha(255);
         style.setLineColor(Layer.defaultLineColor(c));
       } catch (NumberFormatException nfe) {
-        
-        // add a cycling color style
-        layer.removeStyle(layer.getBasicStyle());
-        layer.addStyle(new BasicStyle() {
-          public void paint(Feature feature, Graphics2D graphics2d, Viewport viewport) throws NoninvertibleTransformException {
-            Color c = PALETTE[feature.getGeometry().getNumPoints()%PALETTE.length];
-            setFillColor(c);
-            setLineColor(Layer.defaultLineColor(c));
-            super.paint(feature, graphics2d, viewport);
-          }
-        });
-        
+        GeoView.LOG.warning( "Found undecodeable color "+color+" for map "+name);
       }
-      
+
       // next
     }
 
@@ -190,13 +186,16 @@ public class GeoMap {
   }
   
   /** load a feature collection for given shape file into layer manager */
-  private FeatureCollection load(InputStream in) throws IOException {
+  private FeatureCollection load(File shapefile) throws IOException {
 
     // read geometric shapes from file
+    FileInputStream in = null;
     GeometryCollection gc;
     try {
+      in = new FileInputStream(shapefile);
       gc = new Shapefile(in).read(new GeometryFactory());
     } catch (Throwable t) {
+      GeoView.LOG.log(Level.WARNING, "Caught throwable reading "+shapefile, t);
       if (t instanceof IOException)
         throw (IOException)t;
       throw new IOException(t.getMessage());

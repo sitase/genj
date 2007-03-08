@@ -22,20 +22,19 @@ package genj.nav;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomListenerAdapter;
 import genj.gedcom.Indi;
 import genj.gedcom.PropertySex;
+import genj.gedcom.Transaction;
 import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
+import genj.view.Context;
+import genj.view.ContextListener;
 import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
-import genj.window.WindowManager;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -55,12 +54,10 @@ import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.border.TitledBorder;
 
-import spin.Spin;
-
 /**
  * A navigator with buttons to easily navigate through Gedcom data
  */
-public class NavigatorView extends JPanel implements WindowBroadcastListener {
+public class NavigatorView extends JPanel implements ContextListener, GedcomListener {
   
   private static Resources resources = Resources.get(NavigatorView.class);
 
@@ -82,16 +79,6 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
     imgFPartner  = Indi.IMG_FEMALE;
 
 
-  private GedcomListener callback = new GedcomListenerAdapter() {
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      if (current == entity) {
-        setCurrentEntity(gedcom.getFirstEntity(Gedcom.INDI));
-      } else {
-        setCurrentEntity(current);
-      }
-    }
-  };
-  
   /** the label holding information about the current individual */
   private JLabel labelCurrent, labelSelf;
   
@@ -107,16 +94,17 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
   /** the gedcom */
   private Gedcom gedcom;
   
-  private Registry registry;
-  
+  /** the view manager */
+  private ViewManager manager;
+
   /**
    * Constructor
    */
-  public NavigatorView(String title, Gedcom gedcom, Registry registry) {
+  public NavigatorView(String title, Gedcom useGedcom, Registry useRegistry, ViewManager useManager) {
     
     // remember
-    this.gedcom = gedcom;
-    this.registry = registry;
+    manager = useManager;
+    gedcom = useGedcom;
     
     // layout    
     setLayout(new BorderLayout());
@@ -126,11 +114,17 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
     add(labelCurrent,BorderLayout.NORTH);
     add(new JScrollPane(createPopupPanel()),BorderLayout.CENTER);
     
-    // Check if we can preset something to show
-    Entity entity = gedcom.getEntity(registry.get("entity", (String)null));
-    if (entity==null) entity = gedcom.getFirstEntity(Gedcom.INDI);
-    if (entity!=null) 
-      setCurrentEntity(entity);
+    // listen
+    gedcom.addGedcomListener(this);
+
+    // init
+    Context context = manager.getLastSelectedContext(gedcom);
+    if (context!=null&&(context.getEntity() instanceof Indi))
+      setCurrentEntity(context.getEntity());
+    else {
+      Indi first = (Indi)gedcom.getFirstEntity(Gedcom.INDI);
+      if (first!=null) setCurrentEntity(first);
+    }
     
 //    // setup key bindings
 //    new Shortcut(FATHER  );
@@ -171,28 +165,27 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
 //      getPopup(relative).doClick();
 //    }
 //  } //Shortcut
-
-  public void addNotify() {
-    // continue
-    super.addNotify();
-    // listen
-    gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
-  }
   
   /**
    * @see javax.swing.JComponent#removeNotify()
    */
   public void removeNotify() {
     // stop listening
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
-    // remember
-    if (current!=null)
-      registry.put("entity", current.getId());
-    
+    gedcom.removeGedcomListener(this);
     // continue
     super.removeNotify();
   }
 
+
+  /**
+   * update from Gedcom
+   * @see genj.gedcom.GedcomListener#handleChange(genj.gedcom.Change)
+   */
+  public void handleChange(Transaction tx) {
+    if (tx.get(Transaction.ENTITIES_DELETED).contains(current)) setCurrentEntity(null);
+    else setCurrentEntity(current);
+  }
+  
   /**
    * @see javax.swing.JComponent#getPreferredSize()
    */
@@ -203,17 +196,20 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
   /**
    * Context listener callback
    */  
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, gedcom);
-    setCurrentEntity(cse.getContext().getEntity());
-    return true;
+  public void handleContextSelectionEvent(ContextSelectionEvent event) {
+    setCurrentEntity(event.getContext().getEntity());
   }
+
   
   /**
    * Set the current entity
    */
   public void setCurrentEntity(Entity e) {
     
+    // try to get one if entity==null
+    if (e == null) 
+      e = gedcom.getFirstEntity(Gedcom.INDI);
+
     // only individuals - and not already current
     if (e==current || (e!=null&&!(e instanceof Indi)) ) 
       return;
@@ -286,17 +282,16 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
   private void setJumps(String key, Indi[] is) {
     // lookup popup
     PopupWidget popup = getPopup(key);
-    ArrayList jumps = new ArrayList();
     // no jumps?
-    if (is==null||is.length==0) {
-      popup.setEnabled(false);
-    } else {
-      popup.setEnabled(true);
-      for (int i=0;i<is.length;i++) 
-        jumps.add(new Jump(is[i]));
+    popup.setEnabled(is.length>0);
+    // loop jumps
+    ArrayList jumps = new ArrayList();
+    for (int i=0;i<is.length;i++) {
+      jumps.add(new Jump(is[i]));
     }
-    // done
     popup.setActions(jumps);
+    
+    // done
   }
     
   /**
@@ -420,7 +415,7 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
       // follow immediately
       setCurrentEntity(target);
       // propagate to others
-      WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(target), NavigatorView.this));
+      manager.fireContextSelected(new Context(target));
     }
   } //Jump
 

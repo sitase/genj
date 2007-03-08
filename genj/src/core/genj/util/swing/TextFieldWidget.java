@@ -20,7 +20,6 @@
 package genj.util.swing;
 
 import genj.util.ChangeSupport;
-import genj.util.EnvironmentChecker;
 
 import java.awt.Dimension;
 import java.awt.event.FocusEvent;
@@ -116,9 +115,8 @@ public class TextFieldWidget extends JTextField {
    */
   protected void processFocusEvent(FocusEvent e) {
     
-    // catch focus gained to preselect all for easy overwrite/editing (only on windows though 
-    // since auto-select auto-copies!)
-    if (EnvironmentChecker.isWindows()&&e.getID()==FocusEvent.FOCUS_GAINED) {
+    // catch focus gained
+    if (e.getID()==FocusEvent.FOCUS_GAINED) {
       if (isTemplate||isSelectAllOnFocus) 
         selectAll();
     }

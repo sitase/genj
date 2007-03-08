@@ -20,10 +20,7 @@
 package genj.io;
 
 
-import genj.gedcom.Property;
-
 import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.StringSelection;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
 import java.io.IOException;
@@ -96,23 +93,15 @@ public class PropertyTransferable implements Transferable {
   }
   
   /**
-   * Return as string transferrable
-   */
-  public StringSelection getStringTransferable() throws IOException {
-    return new StringSelection(getStringData());
-  }
-  
-  /**
-   * lazy lookup string representation
+   * generate string representation
    */
   private String getStringData() throws IOException {
-    
-    StringWriter out = new StringWriter();
-    PropertyWriter writer = new PropertyWriter(out, true);
-    for (int i=0;i<props.size();i++)
-      writer.write(0, (Property)props.get(i));
-    
-    return out.toString();
+    if (string==null) {
+		  StringWriter out = new StringWriter();
+		  GedcomWriter.write(props, out);
+		  string = out.toString();
+    }
+    return string;
   }
   
 } //PropertyTransferable

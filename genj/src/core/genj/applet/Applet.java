@@ -26,7 +26,6 @@ import genj.option.OptionProvider;
 import genj.util.EnvironmentChecker;
 import genj.util.Origin;
 import genj.util.Registry;
-import genj.util.Resources;
 import genj.util.Trackable;
 import genj.util.swing.Action2;
 import genj.util.swing.ProgressWidget;
@@ -35,7 +34,6 @@ import genj.window.DefaultWindowManager;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -48,8 +46,6 @@ import javax.swing.UIManager;
  * THE GenJ Applet
  */
 public class Applet extends java.applet.Applet {
-  
-  private final static Resources RESOURCES = Resources.get(Applet.class);
 
   private final static Logger LOG = Logger.getLogger("genj");
   
@@ -98,34 +94,23 @@ public class Applet extends java.applet.Applet {
     setLayout(new BorderLayout());
 
     // calculate gedcom url
-    String gedcom = getParameter("gedcom");
-    if (gedcom==null) {
-      log(RESOURCES.getString("applet.missing"));
-      return;
-    }
-    
-    URL url;
-    try {
-      log("document base="+getDocumentBase());
-      log("gedcom="+gedcom);
-      url = new URL(getDocumentBase(), gedcom);
-    } catch (MalformedURLException e) {
-      log(RESOURCES.getString("applet.missing"));
-      return;
-    }
+    String url = getParameter("gedcom");
+    if (url!=null&&url.indexOf(':')<0) {
+      String base = getDocumentBase().toString();
+      url = base.substring(0, base.lastIndexOf('/')+1)+url;
+    } 
 
     // Log
-    log(RESOURCES.getString("applet.loading", url));
+    String msg = "Loading Gedcom "+url;
+
+    showStatus(msg);
+    
+    LOG.info(msg);
 
     // try load gedcom
     new Init(url).trigger();
 
     // done 
-  }
-  
-  private void log(String msg) {
-    showStatus(msg);
-    LOG.info(msg);
   }
     
   /**
@@ -134,7 +119,7 @@ public class Applet extends java.applet.Applet {
   private class Init extends Action2 implements Trackable {
 
     /** url we're loading from */
-    private URL url;
+    private String url;
 
     /** reader we're working with */
     private GedcomReader reader;
@@ -151,7 +136,7 @@ public class Applet extends java.applet.Applet {
     /**
      * Constructor
      */
-    private Init(URL url) {
+    private Init(String url) {
 
       // keep url
       this.url = url;
@@ -191,7 +176,7 @@ public class Applet extends java.applet.Applet {
       try {
         
         // the origin we're loading from
-        Origin origin = Origin.create(url);
+        Origin origin = Origin.create(new URL(url));
         
         // the registry and some options
         try {
@@ -245,10 +230,8 @@ public class Applet extends java.applet.Applet {
         
       } else {
         
-        log(RESOURCES.getString("applet.ready"));
-        
         // prepare view manager
-        ViewManager vmanager = new ViewManager(winMgr, FACTORIES);
+        ViewManager vmanager = new ViewManager(null, winMgr, FACTORIES);
 
         // change what we show
         removeAll();
@@ -280,7 +263,7 @@ public class Applet extends java.applet.Applet {
      * @see genj.util.Trackable#getState()
      */
     public String getState() {
-      return reader!=null ? reader.getState() : RESOURCES.getString("applet.connecting");
+      return reader!=null ? reader.getState() : "Connecting";
     }
 
     

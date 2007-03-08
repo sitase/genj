@@ -244,10 +244,8 @@ public class GeoLocation extends Point implements Feature, Comparable {
     
     // still need a a state?
     Property pstate = addr.getProperty("STAE");
-    if (pstate!=null) {
-      String state = pstate.getDisplayValue();
-      if (state.length()>0) jurisdictions.add(state);
-    }
+    if (pstate!=null) 
+      jurisdictions.add(pstate.getDisplayValue());
     
     // good
     return;
@@ -330,17 +328,6 @@ public class GeoLocation extends Point implements Feature, Comparable {
     for (ListIterator it = properties.listIterator(); it.hasNext(); ) {
       Property prop = (Property)it.next();
       if (entities.contains(prop.getEntity()))
-        it.remove();
-    }
-  }
-  
-  /**
-   * Remove properties for given entity
-   */
-  public void removeEntity(Entity entity) {
-    for (ListIterator it = properties.listIterator(); it.hasNext(); ) {
-      Property prop = (Property)it.next();
-      if (entity == prop.getEntity())
         it.remove();
     }
   }

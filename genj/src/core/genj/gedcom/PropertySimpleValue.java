@@ -86,7 +86,7 @@ public class PropertySimpleValue extends Property {
   public void setValue(String value) {
     String old = getValue();
     this.value=value;
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
   }
   
 } //PropertySimpleValue

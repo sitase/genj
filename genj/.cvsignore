@@ -1,6 +1,6 @@
 *.jpage
 .cvsignore
+.project
+.settings
 build
 java.policy.applet
-.fbprefs
-.fbwarnings

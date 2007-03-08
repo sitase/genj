@@ -41,47 +41,18 @@ import javax.xml.transform.dom.DOMSource;
 
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.w3c.dom.Text;
 
 /**
- * An abstract layer above docbook handling and transformations.
+ * An abstract layer above docbook handling and transformations
  *
- * <p>Some methods have an attributes parameter that allows additional control
- * over the formatting.  The attributes refer to the underlying XSL Format
- * representation, from which various formats of document can be generated,
- * such as PDF and HTML.  Using them effectively require knowledge of XSL FO
- * (see below) and the internals of the method.
- *
- * <p>Some useful resources about XSL FO and the Apache FOP we use to process it
- * are:
- * <ul>
- * <li><a href="http://www.w3.org/TR/xsl11/">The W3C specification of XSL FO</a>
- * <li><a href="http://xmlgraphics.apache.org/fop/resources.html">The Apache FOP Resources page</a>
- * <li><a ref="http://www.renderx.com/demos/src_examples.html">Samples at renderx.com</a>
- * </ul>
  */
 public class Document {
-  /** Symbolic constant for font size for sections.
-   * @see #setSectionSizes
-   * @see #startSection(String, String, int)
-   */
-  public final static int FONT_XX_SMALL=0;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_X_SMALL=1;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_SMALL=2;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_MEDIUM=3;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_LARGE=4;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_X_LARGE=5;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_XX_LARGE=6;
-
+  
   private final static Resources RESOURCES = Resources.get(Document.class);
   
   /** matching a=b,c-d=e,f:g=h,x=y(m,n,o),z=1 */
-  protected final static Pattern REGEX_ATTR = Pattern.compile("([^,]+)=([^,\\(]*(\\(.*?\\))?)");
+  protected static Pattern REGEX_ATTR = Pattern.compile("([^,]+)=([^,\\(]*(\\(.*?\\))?)");
   
   /** xsl fo namespace URI */
   private final static String 
@@ -93,14 +64,8 @@ public class Document {
   private String title;
   private boolean needsTOC = false;
   private Map file2elements = new HashMap();
-  private List toc = new ArrayList();
-  private String formatSection = "font-weight=bold,space-before=0.5cm,space-after=0.2cm,keep-with-next.within-page=always";
-  private String formatSectionLarger = "font-size=larger," + formatSection;
-  private static final String[] fontSizes = new String[] {
-      "xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large"
-  };
-  private int minSectionFontSize;
-  private int maxSectionFontSize;
+  private List sections = new ArrayList();
+  private String formatSection = "font-size=larger,font-weight=bold,space-before=0.5cm,space-after=0.2cm,keep-with-next.within-page=always";
   private Map index2primary2secondary2elements = new TreeMap();
   private int idSequence = 0;
   private boolean containsCSV = false;
@@ -112,9 +77,7 @@ public class Document {
     
     // remember title
     this.title = title;
-
-    // section size range
-    setSectionSizes(FONT_MEDIUM, FONT_XX_LARGE);
+    
     // create a dom document
     try {
       DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -128,7 +91,6 @@ public class Document {
     //   <layout-master-set>
     //    <simple-page-master>
     //     <region-body/>
-    //     <region-end/>
     //    </simple-page-master>
     //   </layout-master-set>
     //   <page-sequence>
@@ -140,95 +102,25 @@ public class Document {
     cursor = (Element)doc.appendChild(doc.createElementNS(NS_XSLFO, "root")); 
     cursor.setAttribute("xmlns", NS_XSLFO);
     cursor.setAttribute("xmlns:genj", NS_GENJ);
-
+    
     // FOP crashes when a title element is present so we use an extension to pass it to our fo2html stylesheet
     // @see http://issues.apache.org/bugzilla/show_bug.cgi?id=38710
     cursor.setAttributeNS(NS_GENJ, "genj:title", title);
     
     push("layout-master-set");
-    // Tip: see also http://www.dpawson.co.uk/xsl/sect3/N8565.html for a minimal page master.
     push("simple-page-master", "master-name=master,margin-top=1cm,margin-bottom=1cm,margin-left=1cm,margin-right=1cm");
-    push("region-body", "margin-bottom=1cm").pop();
-    push("region-after", "extent=0.8cm").pop();
-    pop().pop().push("page-sequence","master-reference=master");
-
-    /*
-      Paul Grosso offers this suggestion for left-center-right header formatting
-      at http://www.dpawson.co.uk/xsl/sect3/headers.html#d13432e123:
-
-      <fo:static-content flow-name="xsl-region-before">
-    <!-- header-width is the width of the full header in picas -->
-    <xsl:variable name="header-width" select="36"/>
-    <xsl:variable name="header-field-width">
-    <xsl:value-of
-select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
-    </xsl:variable>
-    <fo:list-block font-size="8pt" provisional-label-separation="0pt">
-        <xsl:attribute name="provisional-distance-between-starts">
-            <xsl:value-of select="$header-field-width"/>
-        </xsl:attribute>
-        <fo:list-item>
-            <fo:list-item-label end-indent="label-end()">
-                <fo:block text-align="left">
-                    <xsl:text>The left header field</xsl:text>
-                </fo:block>
-            </fo:list-item-label>
-            <fo:list-item-body start-indent="body-start()">
-                <fo:list-block provisional-label-separation="0pt">
-                    <xsl:attribute
-                 name="provisional-distance-between-starts">
-                        <xsl:value-of select="$header-field-width"/>
-                    </xsl:attribute>
-                    <fo:list-item>
-                        <fo:list-item-label end-indent="label-end()">
-                            <fo:block text-align="center">
-                                <fo:page-number/>
-                            </fo:block>
-                        </fo:list-item-label>
-                        <fo:list-item-body start-indent="body-start()">
-                            <fo:block text-align="right">
-                    <xsl:text>The right header field</xsl:text>
-                            </fo:block>
-                        </fo:list-item-body>
-                    </fo:list-item>
-                </fo:list-block>
-            </fo:list-item-body>
-        </fo:list-item>
-    </fo:list-block>
-</fo:static-content>
-    */
-    push("static-content", "flow-name=xsl-region-after");
-    push("block", "text-align=center");
-    // text("p. ", ""); // todo bk better w/o text, to avoid language-dependency, but with title
-    push("page-number").pop();
-    pop(); // </block>
-    pop(); // </static-content>
+    push("region-body");
+    pop().pop().pop().push("page-sequence","master-reference=master");
 
     // don't use title - see above
     // push("title").text(getTitle(), "").pop();
-
+    
     push("flow", "flow-name=xsl-region-body");
     push("block");
-
+    
     // done - cursor points to first block
   }
-
-  /**
-   * Sets the range of logical font sizes to be used for section headings.
-   * The outermost section (depth 1) has size {@link #FONT_XX_LARGE}
-   * by default, with each nested section having a smaller font,
-   * until minSize (default {@link #FONT_MEDIUM}) is reached, after which
-   * all section headings appear the same.
-   * @param minSize Smallest size for nested section headings
-   * @param maxSize Largest size for outermost section headings
-   * @see #startSection(String, String, int)
-   */
-  public void setSectionSizes(int minSize, int maxSize) {
-    if (minSize < 0 || minSize > maxSize || maxSize > fontSizes.length-1) throw new IllegalArgumentException("setSectionSizes("+minSize+","+maxSize+")");
-    minSectionFontSize = minSize;
-    maxSectionFontSize = maxSize;
-  }
-
+  
   /**
    * Check if there's any CSV in this document
    */
@@ -287,40 +179,9 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
   }
   
   /**
-   * Add a Table of Content entry for current cursor position
+   * Add section
    */
-  public Document addTOCEntry(String title) {
-    addTOC();
-    // add anchor
-    String id = "toc"+toc.size();
-    addAnchor(id);
-    // remember entry
-    toc.add(new TOCEntry(id, title));
-    // done
-    return this;
-  }
-
-  /**
-   * Outermost section with largest font size is 1.
-   * @param sectionDepth
-   * @return XSL-FO font-size parameter
-   */
-  private String getFontSize(int sectionDepth) {
-    int i = maxSectionFontSize + 1 - sectionDepth;
-    if (i < minSectionFontSize) i=minSectionFontSize;
-    return fontSizes[i];
-  }
-
-  /**
-   * Add section at specified depth.  The depth is used to determine the
-   * font size and should in the future be used for numbering in
-   * X.Y.Z format.  1 is the usual outermost section and maps to
-   * {@link #FONT_XX_LARGE} by default.
-   * <a href="http://www.w3.org/TR/REC-CSS2/fonts.html#font-styling">http://www.w3.org/TR/REC-CSS2/fonts.html#font-styling</a>
-   * describes the meaning of logical font sizes in XSL/FO.
-   * @see #setSectionSizes
-   */
-  public Document startSection(String title, String id, int sectionDepth) {
+  public Document startSection(String title, String id) {
     
     // check if
     if (id.startsWith("_"))
@@ -332,14 +193,13 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
     
     // generate an id if necessary
     if (id==null||id.length()==0)
-      id = "toc"+toc.size();
+      id = "section"+sections.size();
       
     // start a new block
-    String fontSize = getFontSize(sectionDepth);
-    pop().push("block", "font-size="+fontSize + "," + formatSection + ",id="+id);
+    pop().push("block", formatSection + ",id="+id);
     
     // remember
-    toc.add(new TOCEntry(id, title));
+    sections.add(cursor);
     
     // add the title
     addText(title);
@@ -350,37 +210,16 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
     // done
     return this;
   }
-
+    
   /**
-   * Add section at depth 1.
-   */
-  public Document startSection(String title, String id) {
-    return startSection(title, id, 1);
-  }
-
-  /**
-   * Add section at specified depth with reference to a GEDCOM entity.
-   */
-  public Document startSection(String title, Entity entity, int sectionDepth) {
-    return startSection(title,entity.getTag()+"_"+entity.getId(), sectionDepth);
-  }
-
-  /**
-   * Add section at depth.
+   * Add section
    */
   public Document startSection(String title, Entity entity) {
     return startSection(title,entity.getTag()+"_"+entity.getId());
   }
-
+    
   /**
-   * Add section at specified depth.
-   */
-  public Document startSection(String title, int sectionDepth) {
-    return startSection(title, "", sectionDepth);
-  }
-
-  /**
-   * Add section at depth 1.
+   * Add section
    */
   public Document startSection(String title) {
     return startSection(title, "");
@@ -471,8 +310,8 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
   }
   
   /**
-   * Add text with given CSS styling.
-   * See <a href="http://www.w3.org/TR/REC-CSS2/fonts.html#font-styling">http://www.w3.org/TR/REC-CSS2/fonts.html#font-styling</a>
+   * Add text with given CSS styling
+   * @see http://www.w3.org/TR/REC-CSS2/fonts.html#font-styling
    */
   public Document addText(String text, String atts) {
     text(text, atts);
@@ -848,7 +687,7 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
     // so i have to use block here - since the EditorPane uses extra space even for
     // empty blocks i'm trying to reuse the current block here IF it doesn't have an ID
     // already
-    if (cursor.getAttribute("id").length()==0)
+    if (cursor.getAttribute("id")==null)
       cursor.setAttribute("id", id);
     else
       push("block", "id="+id).pop();
@@ -861,20 +700,7 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
   public Document addAnchor(Entity entity) {
     return addAnchor(entity.getTag()+"_"+entity.getId());
   }
-
-  /**
-   * Add a link
-   */
-  public Document addExternalLink(String text, String id) {
-
-    // <basic-link external-destination="...">text</basic-link>
-    push("basic-link", "external-destination="+id);
-    text(text, "");
-    pop();
-    // done
-    return this;
-  }
-
+  
   /**
    * Add a link
    */
@@ -915,7 +741,6 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
       Map primary2secondary2elements = (Map)index2primary2secondary2elements.get(index);
       
       // add section
-      nextPage();
       startSection(index);
       push("block", "start-indent=1cm");
       
@@ -977,7 +802,7 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
   private Document toc() {
     
     // anything to do?
-    if (toc.isEmpty())
+    if (sections.isEmpty())
       return this;
     Element old = cursor;
     
@@ -996,17 +821,19 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
     //</block>
     
     // add toc header
-    push("block", formatSectionLarger);
+    push("block", formatSection);
     text(RESOURCES.getString("toc"), "");
     pop();
 
     // add toc entries
-    for (Iterator it = toc.iterator(); it.hasNext(); ) {
+    for (int i=0;i<sections.size();i++) {
       push("block", "start-indent=1cm,end-indent=1cm,text-indent=0cm,text-align-last=justify,text-align=justify");
-      TOCEntry entry = (TOCEntry)it.next();
-      addLink(entry.text, entry.id);
+      Element section = (Element)sections.get(i);
+      String id = section.getAttribute("id");
+      String txt = ((Text)section.getFirstChild()).getData();
+      addLink(txt, id);
       push("leader", "leader-pattern=dots").pop();
-      push("page-number-citation", "ref-id="+entry.id).pop();
+      push("page-number-citation", "ref-id="+id).pop();
 
       pop();
     }
@@ -1126,22 +953,7 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
     }
     throw new IllegalArgumentException(error);
   }
-
-  /**
-   * A table of content entry
-   */
-  private class TOCEntry {
-    String id;
-    String text;
-    private TOCEntry(String id, String text) {
-      this.id = id;
-      this.text = text;
-    }
-  }
-  
-  /**
-   * A test main
-   */
+ 
   public static void main(String[] args) {
     
     try {
@@ -1168,12 +980,12 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
       doc.nextListItem();
       doc.addText("A normal bullet");
 
-      doc.addTOC();
-      doc.startSection("Section 1");
-      doc.addText("here comes a ").addText("table", "font-weight=bold, color=rgb(255,0,0)").addText(" for you:");
-      doc.addImage(new File("C:/Documents and Settings/Nils/My Documents/Java/Workspace/GenJ/gedcom/meiern.jpg"), "vertical-align=middle");
-      doc.addImage(new File("C:/Documents and Settings/Nils/My Documents/My Pictures/usamap.gif"), "vertical-align=middle");
-      
+//      doc.addTOC();
+//      doc.startSection("Section 1");
+//      doc.addText("here comes a ").addText("table", "font-weight=bold, color=rgb(255,0,0)").addText(" for you:");
+//      doc.addImage(new File("C:/Documents and Settings/Nils/My Documents/Java/Workspace/GenJ/gedcom/meiern.jpg"), "vertical-align=middle");
+//      doc.addImage(new File("C:/Documents and Settings/Nils/My Documents/My Pictures/usamap.gif"), "vertical-align=middle");
+//      
 //      doc.startTable("width=100%,border=0.5pt solid black,genj:csv=true");
 //      doc.addTableColumn("column-width=10%");
 //      doc.addTableColumn("column-width=10%");
@@ -1220,14 +1032,12 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
 //      doc.endList();
 //      doc.addText("Text");
 //  
-      doc.startSection("Section 2");
-      doc.addText("Text and a page break");
+//      doc.startSection("Section 2");
+//      doc.addText("Text and a page break");
 //      doc.nextPage();
-      
-      doc.addTOCEntry("Foo");
-      
-      doc.startSection("Section 3");
-      doc.addText("Text");
+//      
+//      doc.startSection("Section 2");
+//      doc.addText("Text");
 
       Format format;
       if (args.length>0)

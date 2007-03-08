@@ -20,7 +20,6 @@
 package genj.util.swing;
 
 import genj.util.ChangeSupport;
-import genj.util.EnvironmentChecker;
 
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
@@ -41,13 +40,12 @@ import javax.swing.Timer;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.Caret;
 
 /**
  * Our own JComboBox
  */
 public class ChoiceWidget extends JComboBox {
-  
-  private final static boolean IS_JAVA_15 = EnvironmentChecker.isJava15(null);
   
   private boolean blockAutoComplete = false;
   
@@ -128,12 +126,15 @@ public class ChoiceWidget extends JComboBox {
    * set values
    */
   public void setValues(Object[] set) {
-    try {
-      blockAutoComplete = true;
-      model.setValues(set);
-    } finally {
-      blockAutoComplete = false;
-    }
+//    String text = getText();
+    // set
+    model.setValues(set);
+    // clear selection in model since it 
+    // might differ from what's in the editor right now
+//    if (isEditable) 
+//      setText(text);
+    
+    // done  
   }
 
   /**
@@ -178,12 +179,7 @@ public class ChoiceWidget extends JComboBox {
     if (!isEditable) 
       throw new IllegalArgumentException("setText && !isEditable n/a");
     model.setSelectedItem(null);
-    try {
-      blockAutoComplete = true;
-      getTextEditor().setText(text);
-    } finally {
-      blockAutoComplete = false;
-    }
+    getTextEditor().setText(text);
   }
   
   /**
@@ -286,12 +282,10 @@ public class ChoiceWidget extends JComboBox {
      * Constructor
      */
     private AutoCompleteSupport() {
-      // setup timer
       timer.setRepeats(false);
-      // done
     }
     
-    private void attach(JTextField set) {
+    private void attach(JTextField text) {
       
       // old?
       if (text!=null) {
@@ -301,7 +295,7 @@ public class ChoiceWidget extends JComboBox {
       }
       
       // new!
-      text = set;
+      this.text = text;
       text.getDocument().addDocumentListener(this);
       text.addFocusListener(this);
       text.addKeyListener(this);
@@ -312,9 +306,6 @@ public class ChoiceWidget extends JComboBox {
      */
     public void removeUpdate(DocumentEvent e) {
       changeSupport.fireChangeEvent();
-      // add a auto-complete callback
-      if (!blockAutoComplete&&isEditable())
-        timer.start();
     }
       
     /**
@@ -322,9 +313,6 @@ public class ChoiceWidget extends JComboBox {
      */
     public void changedUpdate(DocumentEvent e) {
       changeSupport.fireChangeEvent();
-      // add a auto-complete callback
-      if (!blockAutoComplete&&isEditable())
-        timer.start();
     }
       
     /**
@@ -343,45 +331,37 @@ public class ChoiceWidget extends JComboBox {
      * Our auto-complete callback
      */
     public void actionPerformed(ActionEvent e) {
-      
+
       // grab current 'prefix'
       String prefix = text.getText();
       if (prefix.length()==0)
         return;
 
-      // try to select an item by prefix - save current caret pos
-      int caretPos = text.getCaretPosition();
+      // don't auto-complete unless cursor at end of text
+      Caret c = text.getCaret();
+      if (c.getDot()!=prefix.length())
+        return;
+
+      // try to select an item by prefix
       String match = model.setSelectedPrefix(prefix);
       
       // no match
       if (match.length()==0)
         return;
       
-      // restore the original text & selection
+      // restore the original text
       blockAutoComplete = true;
       text.setText(prefix);
       blockAutoComplete = false;
-      text.setCaretPosition(caretPos);
       
       // show where we're at in case of a partial match
-      if (match.length()>=prefix.length()) {
+      if (match.length()>prefix.length()) {
+        showPopup();
+        text.setFocusTraversalKeysEnabled(false);
+      }
         
-        // NM 20070224 make sure we're not calling showPopup() if not showing (was reported by JPJ) 
-        //  java.awt.IllegalComponentStateException: component must be showing on the screen to determine its location
-        //  at java.awt.Component.getLocationOnScreen_NoTreeLock(Unknown Source)
-        //  at java.awt.Component.getLocationOnScreen(Unknown Source)
-        //  at javax.swing.JPopupMenu.show(Unknown Source)
-        //  at javax.swing.JComboBox.setPopupVisible(Unknown Source)
-        //  at genj.util.swing.ChoiceWidget.setPopupVisible(ChoiceWidget.java:208)
-        //  at javax.swing.JComboBox.showPopup(Unknown Source)
-        //  at genj.util.swing.ChoiceWidget$AutoCompleteSupport.actionPerformed(ChoiceWidget.java:368)      
-        if (isShowing())
-          showPopup();
-      } 
-      
       // done      
     }
-    
     /** selectAll on focus gained */
     public void focusGained(FocusEvent e) {
       if (text.getDocument() != null) {
@@ -391,20 +371,16 @@ public class ChoiceWidget extends JComboBox {
     }
     
     public void focusLost(FocusEvent e) {
-      // Java 1.5 doesn't cancel the popup on focus lost IF the value in the editor
-      // equals the current selection in the model - @see
-      // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=5100422
-      if (IS_JAVA_15)
-        setPopupVisible(false);
     }
 
-    /** check for enter - use as selection */
+    /** check for cursor-right and open popup */
     public void keyPressed(KeyEvent e) {
       // make a popup selection?
-      if (e.getKeyCode()==KeyEvent.VK_ENTER&&isPopupVisible()) {
-        model.setSelectedItem(model.getSelectedItem());
-        setPopupVisible(false);
-      }
+      if (e.getKeyCode()==KeyEvent.VK_TAB&&isPopupVisible()) {
+          model.setSelectedItem(model.getSelectedItem());
+          setPopupVisible(false);
+          text.setFocusTraversalKeysEnabled(true);
+        }
       // done
     }
   } //AutoCompleteSupport
@@ -453,9 +429,12 @@ public class ChoiceWidget extends JComboBox {
       // try to find a match
       for (int i=0;i<values.length;i++) {
         String value = values[i].toString();
-        if ((isIgnoreCase ? value.toLowerCase() : value).startsWith(prefix)) {
-          setSelectedItem(value);
-          return value;        
+        if (isIgnoreCase)
+          value = value.toLowerCase();
+           
+        if (value.startsWith(prefix)) {
+          setSelectedItem(values[i]);
+          return values[i].toString();        
         }
       }
       

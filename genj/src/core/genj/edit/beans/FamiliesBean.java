@@ -27,7 +27,6 @@ import genj.gedcom.Indi;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
 import genj.gedcom.TagPath;
-import genj.util.Registry;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -47,64 +46,37 @@ public class FamiliesBean extends PropertyBean {
     PATH_MARR_PLAC = Fam.PATH_FAMMARRPLAC;
 
   private PropertyTableWidget table;
-  
-  private final static String COLS_KEY = "bean.families.cols";
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  /**
+   * Initialiazer
+   */
+  protected void initializeImpl() {
     
     // prepare a simple table
-    table = new PropertyTableWidget();
+    table = new PropertyTableWidget(viewManager);
     table.setPreferredSize(new Dimension(64,64));
     
     setLayout(new BorderLayout());
     add(BorderLayout.CENTER, table);
-    
-  }
-
-  /**
-   * on add - set column widths
-   */
-  public void addNotify() {
-    // let super continue
-    super.addNotify();
-    // set widths
-    table.setColumnLayout(registry.get(COLS_KEY, (String)null));
-  }
-  
-  /**
-   * on remove - keep column widths
-   */
-  public void removeNotify() {
-    registry.put(COLS_KEY, table.getColumnLayout());
   }
   
   /**
    * Set context to edit
    */
-  public void setProperty(Indi indi) {
+  protected void setContextImpl(Property prop) {
 
-    //  don't propagate property since we're technically not looking at it
-    // property = indi;
-    
     // connect to current indi
-    table.setModel(new Families(indi));
+    table.setModel(new Families());
     
     // done
   }
   
   private class Families extends AbstractPropertyTableModel {
     
-    private Indi indi;
-    private Fam[] fams;
-    
-    private Families(Indi indi) {
-      this.indi = indi;
-      fams = indi.getFamiliesWhereSpouse();
-    }
+    private Fam[] fams = ((Indi)property).getFamiliesWhereSpouse();
     
     public Gedcom getGedcom() {
-      return indi.getGedcom();
+      return property.getGedcom();
     }
     public int getNumCols() {
       return 5;
@@ -113,6 +85,7 @@ public class FamiliesBean extends PropertyBean {
       return fams.length;
     }
     public TagPath getPath(int col) {
+      Indi indi = (Indi)property;
       switch (col) {
         default:
         case 0:

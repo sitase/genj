@@ -362,8 +362,7 @@ public class GeoImport {
       }
 
       // look for 'populated areas' only
-      String cat = values.get(9);
-      if (cat.length()==0||'P'!=cat.charAt(0)) 
+      if ('P'!=values.get(9).charAt(0)) 
         return false;
       
       // use filename as iso country code - the CC1 I used before can be something else

@@ -19,7 +19,6 @@
  */
 package genj.gedcom;
 
-import genj.crypto.Enigma;
 import genj.util.ReferenceSet;
 
 import java.util.List;
@@ -38,11 +37,6 @@ public class PropertyChoiceValue extends PropertySimpleValue {
     if (isTransient||gedcom==null)
       return false;
     ReferenceSet refSet = gedcom.getReferenceSet(getTag());
-    // intern newValue - we expect the remembered values to be shared so we share the string instances for an upfront cost
-    newValue = newValue.intern();
-    // check for secret values
-    if (Enigma.isEncrypted(oldValue)) oldValue = "";
-    if (Enigma.isEncrypted(newValue)) newValue = ""; 
     // forget old
     if (oldValue.length()>0) refSet.remove(oldValue, this);
     // remember new
@@ -92,16 +86,15 @@ public class PropertyChoiceValue extends PropertySimpleValue {
    * @see genj.gedcom.PropertySimpleValue#setValue(java.lang.String)
    */
   public void setValue(String value) {
-    // TUNING: for choices we expect a lot of repeating values so
-    // we build the intern representation of value here - this makes
-    // us share string instances for an upfront cost
-    setValueInternal(value.intern());
+    setValueInternal(trim(value));
   }
   
   /**
    * A special value that allows global substitution
    */
   public void setValue(String value, boolean global) {
+    
+    value = trim(value);
     
     // more?
     if (global) {
@@ -110,16 +103,23 @@ public class PropertyChoiceValue extends PropertySimpleValue {
       for (int i=0;i<others.length;i++) {
         Property other = others[i];
         if (other instanceof PropertyChoiceValue&&other!=this) 
-          ((PropertyChoiceValue)other).setValue(value);
+          ((PropertyChoiceValue)other).setValueInternal(value);
       }
     }    
       
     // change me
-    setValue(value);
+    setValueInternal(value);
     
     // done
   }
 
+  protected String trim(String value) {
+    // TUNING: for choices we expect a lot of repeating values so
+    // we build the intern representation of value here - this makes
+    // us share string instances for an upfront cost
+    return value.intern();
+  }
+  
   private void setValueInternal(String value) {
     // remember
     remember(super.getValue(), value);
@@ -130,9 +130,9 @@ public class PropertyChoiceValue extends PropertySimpleValue {
   /**
    * @see genj.gedcom.Property#addNotify(genj.gedcom.Property)
    */
-  /*package*/ void addNotify(Property parent, int pos) {
+  /*package*/ void addNotify(Property parent) {
     // delegate
-    super.addNotify(parent, pos);
+    super.addNotify(parent);
     // a remember wouldn't have worked until now
     remember("", super.getValue());
     // done
@@ -142,11 +142,18 @@ public class PropertyChoiceValue extends PropertySimpleValue {
    * Removing us from the reference set (our value is not used anymore)
    * @see genj.gedcom.PropertyRelationship#delNotify()
    */
-  /*package*/ void delNotify(Property parent, int pos) {
+  /*package*/ void delNotify(Property old) {
     // forget value
     remember(super.getValue(), "");
     // continue
-    super.delNotify(parent, pos);
+    super.delNotify(old);
+  }
+  
+  /**
+   * Our proxy of choice
+   */
+  public String getProxy() {
+    return "Choice";
   }
 
 } //PropertyChoiceValue

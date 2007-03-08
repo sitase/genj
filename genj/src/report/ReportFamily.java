@@ -20,11 +20,11 @@ import genj.report.Report;
  */
 
 public class ReportFamily extends Report {
-
+    
     public boolean reportParents = true;
     public boolean reportOtherSpouses = true;
     public boolean reportDetailedChildrenData = true;
-
+    
     /**
      * Main for argument Gedcom
      */
@@ -37,20 +37,20 @@ public class ReportFamily extends Report {
           println();
       }
     }
-
+    
     /**
      * Main for argument Family
      */
     public void start(Fam fam) {
       analyzeFam(fam);
     }
-
+    
     private String trim(Object o) {
         if(o == null)
             return "";
         return o.toString();
     }
-
+    
     private String familyToString(Fam f) {
         Indi husband = f.getHusband(), wife = f.getWife();
         String str = f.getId()+" ";
@@ -62,7 +62,7 @@ public class ReportFamily extends Report {
             str = str + wife;
         return str;
     }
-
+    
     private void analyzeFam(Fam f) {
         println(familyToString(f));
         if( (trim(f.getMarriageDate()).length()>0) || (trim(f.getProperty(new TagPath("FAM:MARR:PLAC"))).length()>0) )
@@ -71,20 +71,20 @@ public class ReportFamily extends Report {
         analyzeIndi(f.getWife(), f);
         analyzeChildren(f);
     }
-
+    
     private void analyzeIndi(Indi indi, Fam f) {
-
+        
         if(indi==null)
             return;
-
+        
         println(getIndent(2)+indi);
-
+        
         if(reportParents) {
           Fam fam = indi.getFamilyWhereBiologicalChild();
             if(fam!=null)
                 println(getIndent(3)+OPTIONS.getChildOfSymbol()+" "+familyToString(fam));
         }
-
+        
         if( (trim(indi.getBirthAsString()).length()>0) || (trim(indi.getProperty(new TagPath("INDI:BIRT:PLAC"))).length()>0) )
             println(getIndent(3)+OPTIONS.getBirthSymbol()+" "+trim(indi.getBirthAsString())+" "+trim(indi.getProperty(new TagPath("INDI:BIRT:PLAC"))));
         if(indi.getProperty("DEAT")!=null && ( (trim(indi.getDeathAsString()).length()>0) || (trim(indi.getProperty(new TagPath("INDI:DEAT:PLAC"))).length()>0) ) )
@@ -104,14 +104,14 @@ public class ReportFamily extends Report {
             }
         }
     }
-
+    
     private void analyzeChildren(Fam f) {
-
+        
         Indi[] children = f.getChildren();
         Indi child;
         Fam[] families;
         Fam family;
-
+        
         if(children.length>0)
             println(getIndent(2)+translate("children"));
         for(int i=0; i<children.length; i++) {
@@ -134,11 +134,11 @@ public class ReportFamily extends Report {
             }
         }
     }
-
+    
     private void printBaptism(Indi indi, String tag) {
-
+        
         if( (indi.getProperty(tag)!=null) && ( (trim(indi.getProperty(new TagPath("INDI:"+tag+":DATE"))).length()>0) || (trim(indi.getProperty(new TagPath("INDI:"+tag+":PLAC"))).length()>0) ) )
             println(getIndent(4)+OPTIONS.getBaptismSymbol()+" ("+tag+"): "+trim(indi.getProperty(new TagPath("INDI:"+tag+":DATE")))+" "+trim(indi.getProperty(new TagPath("INDI:"+tag+":PLAC"))));
     }
-
+    
 } //ReportFamily

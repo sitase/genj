@@ -24,8 +24,7 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
+import genj.view.Context;
 import genj.view.ContextProvider;
 import genj.view.ViewManager;
 import genj.window.WindowManager;
@@ -53,7 +52,6 @@ import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.TreePath;
-import javax.swing.tree.TreeSelectionModel;
 
 import swingx.tree.AbstractTreeModel;
 
@@ -81,8 +79,7 @@ import swingx.tree.AbstractTreeModel;
   private Content tree; 
   
   /** propagate selection changes */
-  private boolean ignoreSelectionChanges = false;
-  
+  private boolean isPropagateSelectionChanges = true;
   
   /**
    * Constructor
@@ -120,10 +117,6 @@ import swingx.tree.AbstractTreeModel;
    * Selection access
    */
   public void setSelectedLocations(Collection locations) {
-    
-    if (ignoreSelectionChanges)
-      return;
-    
     TreePath[] paths = ((Model)tree.getModel()).getPathsToLocations(locations);
     if (paths.length==0)
       return;
@@ -134,53 +127,34 @@ import swingx.tree.AbstractTreeModel;
     tree.scrollRectToVisible(bounds);
 
     // select now
-    try {
-      ignoreSelectionChanges = true;
-      tree.setSelectionPaths(paths);
-    } finally {
-      ignoreSelectionChanges = false;
-    }
+    isPropagateSelectionChanges = false;
+    tree.setSelectionPaths(paths);
+    isPropagateSelectionChanges = true;
   }
   
   /**
    * Selection access
    */
-  public void setSelectedContext(ViewContext context) {
-    
-    if (ignoreSelectionChanges)
+  public void setSelectedContext(Context context) {
+    // need a property to start with
+    Property prop = context.getProperty();
+    if (prop==null)
+      prop = context.getEntity();
+    if (prop==null)
       return;
-    
-    // check properties
-    Property[] properties = context.getProperties();
-    List paths = new ArrayList(properties.length);
-    for (int i = 0; i < properties.length; i++) {
-      // try to find a path
-      TreePath path = ((Model)tree.getModel()).getPathToProperty(properties[i]);
-      if (path!=null) {
-        paths.add(path.getParentPath());
-        paths.add(path);
-      }
-    }
-    
-    // nothing found?
-    if (paths.isEmpty())
+    // try to find a path
+    TreePath path = ((Model)tree.getModel()).getPathToProperty(prop);
+    if (path==null)
       return;
-    
     // set selection
-    try {
-      ignoreSelectionChanges = true;
-      tree.getSelectionModel().setSelectionPaths((TreePath[])paths.toArray(new TreePath[paths.size()]));
-    } finally {
-      ignoreSelectionChanges = false;      
-    }
-    
-    // show first
-    TreePath first = (TreePath)paths.get(0);
-    tree.makeVisible(first);
-    Rectangle bounds = tree.getPathBounds(first);
+    isPropagateSelectionChanges = false;
+    tree.makeVisible(path);
+    Rectangle bounds = tree.getPathBounds(path);
     bounds.width = 1;
     tree.scrollRectToVisible(bounds);
-    
+    tree.setSelectionPath(path);
+    isPropagateSelectionChanges = true;
+
     // done
   }
   
@@ -217,13 +191,10 @@ import swingx.tree.AbstractTreeModel;
     protected void execute() {
       // show query widget to user
       Action[] actions = new Action[]{ new Action2(GeoView.RESOURCES, "query.remember"), Action2.cancel()  };
-      TreePath selection = tree.getSelectionPath();
-      if (selection==null)
-        return;
-      GeoLocation location = (GeoLocation)selection.getLastPathComponent();
+      GeoLocation location = (GeoLocation)tree.getSelectionPath().getLastPathComponent();
       final QueryWidget query = new QueryWidget(location, view);
       //GeoLocation selection = query.getSelectedLocation();
-      int rc = WindowManager.getInstance(GeoList.this).openDialog("query", TXT_CHANGE, WindowManager.QUESTION_MESSAGE, query, actions, GeoList.this);
+      int rc = viewManager.getWindowManager().openDialog("query", TXT_CHANGE, WindowManager.QUESTION_MESSAGE, query, actions, GeoList.this);
       // check if he wants to change the location
       if (rc==0) 
         model.setCoordinates(location, query.getGeoLocation().getCoordinate());
@@ -282,7 +253,6 @@ import swingx.tree.AbstractTreeModel;
      */
     private Content(GeoModel geomodel) {
       super(new Model(geomodel));
-      getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
       setRootVisible(false);
       setShowsRootHandles(true);
       addTreeSelectionListener(this);
@@ -291,15 +261,13 @@ import swingx.tree.AbstractTreeModel;
     /**
      * callback - context needed
      */
-    public ViewContext getContext() {
-      ViewContext result = new ViewContext(model.getGedcom());
-      TreePath[] selections = getSelectionPaths();
-      for (int i = 0; selections!=null  && i < selections.length; i++) {
-        Object selection = selections[i].getLastPathComponent();
+    public Context getContext() {
+      if (getSelectionCount()==1) {
+        Object selection = getLastSelectedPathComponent();
         if (selection instanceof Property) 
-          result.addProperty((Property)selection);
+          return new Context((Property)selection);
       }
-      return result;
+      return new Context(model.getGedcom());
     }
     
     /**
@@ -307,7 +275,7 @@ import swingx.tree.AbstractTreeModel;
      */
     public void valueChanged(TreeSelectionEvent e) {
       // notify about selection changes?
-      if (ignoreSelectionChanges)
+      if (!isPropagateSelectionChanges)
         return;
       // collect selection
       Set props = new HashSet();
@@ -321,22 +289,13 @@ import swingx.tree.AbstractTreeModel;
           locs.add(paths[i].getPathComponent(1));
       }
 
-      // show selection in view
+      // propagate selection
       view.setSelection(locs);
       
-      // propagate to others
-      try {
-        ignoreSelectionChanges=true;
-        
-        // propagate context
-        if (!props.isEmpty()) {
-          ViewContext context = new ViewContext(model.getGedcom());
-          context.addProperties(Property.toArray(props));
-          WindowManager.broadcast(new ContextSelectionEvent(context, this));
-        }
-      } finally {
-        ignoreSelectionChanges = false;        
-      }
+      // propagate context
+      if (props.size()==1)
+        viewManager.fireContextSelected(new Context((Property)props.iterator().next()));
+      
       // done
     }
     
@@ -402,17 +361,18 @@ import swingx.tree.AbstractTreeModel;
       int pos = it.nextIndex();
       it.add(location);
       // tell about it
-      fireTreeNodesInserted(this, new Object[]{this}, new int[] { pos }, new Object[] { location });
+      fireTreeNodesInserted(this, new TreePath(this), new int[] { pos }, new Object[] { location });
     }
 
     public void locationUpdated(GeoLocation location) {
-      fireTreeStructureChanged(this, new Object[]{ this, location}, null , null);
+      fireTreeStructureChanged(this, new TreePath(this).pathByAddingChild(location), null , null);
+      //fireTreeNodesChanged(this, new TreePath(this), new int[]{ locations.indexOf(location)} , new Object[] { location });
     }
 
     public void locationRemoved(GeoLocation location) {
       int i = locations.indexOf(location);
       locations.remove(i);
-      fireTreeNodesRemoved(this, new Object[]{this}, new int[] { i }, new Object[] { location });
+      fireTreeNodesRemoved(this, new TreePath(this), new int[] { i }, new Object[] { location });
     }
     
     public void asyncResolveEnd(int status, String msg) {

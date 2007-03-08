@@ -23,13 +23,13 @@ public class ReportExec extends Report {
    * Main method
    */
   public void start(Gedcom gedcom) {
-
+    
     // get the name of the executable
     String cmd = getValueFromUser( "executables", translate("WhichExecutable"), new String[0]);
 
-    if(cmd == null)
+    if(cmd == null) 
       return;
-
+    
     // run it
     try {
       Process process = Runtime.getRuntime().exec(cmd);
@@ -42,7 +42,7 @@ public class ReportExec extends Report {
     } catch (IOException ioe) {
       println(translate("Error")+ioe.getMessage());
     }
-
+    
     // done
   }
 

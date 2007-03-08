@@ -23,22 +23,20 @@ import genj.common.SelectEntityWidget;
 import genj.edit.beans.PropertyBean;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomException;
-import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyEvent;
+import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
-import genj.gedcom.UnitOfWork;
-import genj.io.PropertyReader;
-import genj.io.PropertyTransferable;
+import genj.gedcom.Transaction;
+import genj.io.GedcomReader;
+import genj.io.GedcomWriter;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
+import genj.view.Context;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -49,17 +47,14 @@ import java.awt.FlowLayout;
 import java.awt.Toolkit;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
+import java.io.StringWriter;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
 import java.util.logging.Level;
 
 import javax.swing.Action;
@@ -76,7 +71,6 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
-import javax.swing.tree.TreePath;
 
 /**
  * Our advanced version of the editor allowing low-level
@@ -84,14 +78,7 @@ import javax.swing.tree.TreePath;
  */
 /*package*/ class AdvancedEditor extends Editor {
   
-  private final static String
-    ACC_CUT = "ctrl X",
-    ACC_COPY = "ctrl C",
-    ACC_PASTE = "ctrl V";
-
   private final static Clipboard clipboard = initClipboard();
-  
-  private boolean ignoreSelection = false;
 
   /**
    * Initialize clipboard - trying system falling back to private
@@ -146,15 +133,34 @@ import javax.swing.tree.TreePath;
     registry = regty;
     
     // TREE Component's 
-    tree = new Tree();
+    tree = new PropertyTreeWidget(gedcom) {
+      public Context getContext() {
+        Context context = super.getContext();
+        Property selection = context.getProperty();
+        if (selection==null) selection = context.getEntity();
+        if (selection!=null&&!selection.isTransient()) {
+          context.addAction(new Cut(selection));
+          context.addAction(new Copy(selection));
+          context.addAction(new Paste(selection));
+          context.addAction(Action2.NOOP);
+          context.addAction(new Add(selection));
+          try {
+            context.addAction(new Propagate(selection));
+          } catch (IllegalArgumentException i) {
+          }
+          context.addAction(Action2.NOOP);
+        }
+        // done
+        return context;
+      }
+    };
+
     callback = new InteractionListener();
     tree.addTreeSelectionListener(callback);
     
     JScrollPane treePane = new JScrollPane(tree);
     treePane.setMinimumSize  (new Dimension(160, 128));
     treePane.setPreferredSize(new Dimension(160, 128));
-    treePane.getHorizontalScrollBar().setFocusable(false); // dont allow focus on scroll bars
-    treePane.getVerticalScrollBar().setFocusable(false);
         
     // EDIT Component
     editPane = new JPanel(new BorderLayout());
@@ -175,18 +181,13 @@ import javax.swing.tree.TreePath;
     setFocusTraversalPolicy(new FocusPolicy());
     setFocusCycleRoot(true);
     
-    // shortcuts
-    new Cut().install(tree, JComponent.WHEN_FOCUSED);
-    new Copy().install(tree, JComponent.WHEN_FOCUSED);
-    new Paste().install(tree, JComponent.WHEN_FOCUSED);
-    
     // done    
   }
   
   /**
    * Provider current context 
    */
-  public ViewContext getContext() {
+  public Context getContext() {
     return tree.getContext();
   }
   
@@ -205,10 +206,12 @@ import javax.swing.tree.TreePath;
    * Accessor - current context 
    * @param context context to switch to
    */
-  public void setContext(ViewContext context) {
+  public void setContext(Context context) {
     
-    // ignore?
-    if (ignoreSelection||context.getEntities().length==0)
+    // already there?
+    if (context.getGedcom()==gedcom 
+      && context.getEntity()==tree.getRoot()
+		  && (context.getProperty()==null||context.getProperty()==tree.getSelection()))
       return;
 
     // clear current selection
@@ -220,15 +223,8 @@ import javax.swing.tree.TreePath;
       tree.setRoot(entity);
 
     // set selection
-    Property[] props = context.getProperties();
-    if (props.length==0&&entity.getNoOfProperties()>0) 
-      props = new Property[]{ entity.getProperty(0) }; 
-    tree.setSelection(Arrays.asList(props));
-    
-    // 20060301 set focus since selection change won't do that anymore
-    if (bean!=null)
-      bean.requestFocusInWindow();
-    
+    Property property = context.getProperty();
+    tree.setSelection(property!=null ? property : entity);  
   
     // Done
   }
@@ -237,42 +233,36 @@ import javax.swing.tree.TreePath;
    * Action - propagate properties
    */
   private class Propagate extends Action2 {
-    /** selection to propagate */
-    private Entity entity;
-    private List properties;
-    private String what;
-    
+    /** state */
+    private Property property;
     /** constructor */
-    private Propagate(List selection) {
+    private Propagate(Property prop) {
+      // check arg
+      if ( prop instanceof Entity || prop instanceof PropertyXRef || prop.isTransient() )
+        throw new IllegalArgumentException("prop can't be propagated");
+        
       // remember
-      this.entity = (Entity)tree.getRoot();
-      properties = Property.normalize(selection);
-      // something there?
-      if (properties.isEmpty()) {
-        setText(resources.getString("action.propagate", ""));
-        setEnabled(false);
-        return;
-      }
-      // setup looks
-      this.what = "'"+Property.getPropertyNames(Property.toArray(properties),5)+"' ("+properties.size()+")";
-      setText(resources.getString("action.propagate", what)+" ...");
+      property = prop;
+      setText(resources.getString("action.propagate"));
+      setImage(prop.getImage(false));
     }
     /** apply it */
     protected void execute() {
-      
       // prepare options
+      final Entity entity = property.getEntity();
       final TextAreaWidget text = new TextAreaWidget("", 4, 10, false, true);
       final SelectEntityWidget select = new SelectEntityWidget(gedcom, entity.getTag(), resources.getString("action.propagate.toall"));
       select.addActionListener(new ActionListener() {
         public void actionPerformed(ActionEvent e) {
-          Entity target = select.getSelection();
-          String string = target==null ? resources.getString("action.propagate.all", new Object[] { what, ""+select.getEntityCount(), Gedcom.getName(entity.getTag()) } )
-              : resources.getString("action.propagate.one", new Object[]{ what, target.getId(), Gedcom.getName(target.getTag()) });
+          String what = property.getTag() + " " + property.toString();
+          Entity selection = select.getSelection();
+          String string = selection==null ? resources.getString("action.propagate.all", new Object[] { what, ""+select.getEntityCount(), Gedcom.getName(entity.getTag()) } )
+              : resources.getString("action.propagate.one", new Object[]{ what, selection.getId(), Gedcom.getName(selection.getTag()) });
           text.setText(string);
         }
       });
       
-      final JCheckBox check = new JCheckBox(resources.getString("action.propagate.value"));
+      JCheckBox check = new JCheckBox(resources.getString("action.propagate.value"));
       
       JPanel panel = new JPanel(new NestedBlockLayout("<col><select wx=\"1\"/><note wx=\"1\" wy=\"1\"/><check wx=\"1\"/></col>"));
       panel.add(select);
@@ -283,128 +273,110 @@ import javax.swing.tree.TreePath;
       select.setSelection(gedcom.getEntity(registry.get("select."+entity.getTag(), (String)null)));
 
       // show it
-      boolean cancel = 0!=WindowManager.getInstance(AdvancedEditor.this).openDialog("propagate", getText(), WindowManager.WARNING_MESSAGE, panel, Action2.okCancel(), AdvancedEditor.this);
+      boolean cancel = 0!=editView.getWindowManager().openDialog("propagate", getText(), WindowManager.WARNING_MESSAGE, panel, Action2.okCancel(), AdvancedEditor.this);
       if (cancel)
         return;
 
-      final Entity selection = select.getSelection();
+      Entity selection = select.getSelection();
       
       // remember selection
       registry.put("select."+entity.getTag(), selection!=null ? selection.getId() : null);
       
       // change it
       try {
-        gedcom.doUnitOfWork(new UnitOfWork() {        
-          public void perform(Gedcom gedcom) throws GedcomException {
-            Collection to = selection!=null ? Collections.singletonList(selection) : gedcom.getEntities(entity.getTag());
-            for (Iterator it = to.iterator(); it.hasNext(); ) 
-              Propagate.this.copy(properties, entity, (Entity)it.next(), check.isSelected());
-          }
-        });
-      } catch (GedcomException e) {
-        WindowManager.getInstance(AdvancedEditor.this).openDialog(null,null,WindowManager.ERROR_MESSAGE,e.getMessage(),Action2.okOnly(), AdvancedEditor.this);
+        gedcom.startTransaction();
+      } catch (IllegalStateException ise) {
+        return;
+      }
+        
+      try {
+        if (selection!=null)
+          execute(selection, check.isSelected());
+        else for (Iterator it = gedcom.getEntities(entity.getTag()).iterator(); it.hasNext(); ) 
+          execute((Entity)it.next(), check.isSelected());
+      } finally {
+        gedcom.endTransaction();
       }
 
-      // done
+      // change focus
+      if (selection!=null)
+        editView.setContext(new Context(selection), true);
     }
     
-    private void copy(List selection, Entity from, Entity to, boolean values)  throws GedcomException {
+    /** apply the template to an entity */
+    private void execute(Entity entity, boolean values) {
       // make sure we're not propagating to self
-      if (from==to)
+      if (property.getEntity()==entity)
         return;
-      // loop over selection
-      for (int i=0;i<selection.size();i++) {
-        Property property = (Property)selection.get(i);
-        TagPath path = property.getParent().getPath();
-        Property root = to.getProperty(path);
-        if (root==null)
-          root = to.setValue(path, "");
-        root.copyProperties(property, values);
+      // check we got the root of the property's path
+      TagPath path = property.getPath();
+      Property to = entity;
+      for (int i=1;i<path.length()-1;i++) {
+        Property p = to.getProperty(path.get(i));
+        to = p!=null ? p :  to.addProperty(path.get(i), "");
+      }
+      copy(property, to, values);
+    }
+    private void copy(Property prop,  Property to, boolean values) {
+      // check to for child
+      Property copy = to.getProperty(prop.getTag(), false);
+      if (copy==null)
+        copy = to.addProperty(prop.getTag(), values ? prop.getValue() : "");
+      // loop over children of prop
+      for (int i=0, j=prop.getNoOfProperties(); i<j; i++) {
+        Property child = prop.getProperty(i);
+        // apply to non-xrefs, non-transient, non-existent 
+        if ( !(child instanceof PropertyXRef) && !child.isTransient() && to.getProperty(child.getTag(), false)==null) 
+          copy(child, copy, values);
+        // next
       }
       // done
     }
-  } //Propagate
+  } //Template
   
   /**
    * Action - cut
    */
-  private class Cut extends Action2 {
+  private class Cut extends Copy {
 
-    /** selection */
-    protected List presetSelection; 
-    
     /** constructor */
-    private Cut(List preset) {
-      presetSelection = Property.normalize(preset);
+    private Cut(Property deletee) {
+      super(deletee);
+      
       super.setImage(Images.imgCut);
       super.setText(resources.getString("action.cut"));
+
     }
-    
-    /** constructor */
-    private Cut() {
-      setAccelerator(ACC_CUT);
-    }
-    
     /** run */
     protected void execute() {
       
-      // available
-      final List selection = presetSelection!=null ? presetSelection : Property.normalize(tree.getSelection());
-      if (selection.isEmpty())
-        return;
-      
-      // contains entity?
-      if (selection.contains(tree.getRoot())) {
-        selection.clear();
-        selection.addAll(Arrays.asList(tree.getRoot().getProperties()));
-      }
-      
       // warn about cut
-      String veto = getVeto(selection);
-      if (veto.length()>0) {
-        int rc = WindowManager.getInstance(AdvancedEditor.this).openDialog("cut.warning", resources.getString("action.cut"), WindowManager.WARNING_MESSAGE, veto, new Action[]{ new Action2(resources.getString("action.cut")), Action2.cancel() }, AdvancedEditor.this );
+      String veto = selection.getDeleteVeto();
+      if (veto!=null) { 
+        // Removing property {0} from {1} leads to:\n{2}
+        String msg = resources.getString("del.warning", new String[] { 
+          selection.getTag(), selection.getEntity().toString(), veto 
+        });
+        // prepare actions
+        Action[] actions = { new Action2(resources.getString("action.cut")), Action2.cancel() };
+        // ask the user
+        int rc = editView.getWindowManager().openDialog("cut.warning", resources.getString("action.cut"), WindowManager.WARNING_MESSAGE, msg, actions, AdvancedEditor.this );
         if (rc!=0)
           return;
+        // continue
       }
       
       // copy first
-      try {
-        clipboard.setContents(new PropertyTransferable(selection).getStringTransferable(), null);
-      } catch (Throwable t) {
-        EditView.LOG.log(Level.WARNING, "Couldn't copy properties", t);
-        return;
-      }
+      super.execute();
       
       // now cut
-      gedcom.doMuteUnitOfWork(new UnitOfWork() {
-        public void perform(Gedcom gedcom) {
-          for (ListIterator props = selection.listIterator(); props.hasNext(); )  {
-            Property p = (Property)props.next();
-            p.getParent().delProperty(p);
-          }
-        }
-      });
+      Gedcom gedcom = selection.getGedcom();
+      gedcom.startTransaction();
+      selection.getParent().delProperty(selection);
+      gedcom.endTransaction();
+      
       // done
     }
-    
-    /** assemble a list of vetos for cutting properties */
-    private String getVeto(List properties) {
-      
-      StringBuffer result = new StringBuffer();
-      for (ListIterator checks=properties.listIterator(); checks.hasNext(); ) {
-        
-        Property p = (Property)checks.next();
-        String veto = p.getDeleteVeto();
-        if (veto!=null) {
-          // Removing property {0} from {1} leads to:\n{2}
-          result.append(resources.getString("del.warning", new String[] { p.getPropertyName(), p.getParent().getPropertyName(), veto  }));
-          result.append("\n");
-        }
-      }
-
-      return result.toString();
-    }
-      
   } //Cut
 
   /**
@@ -413,34 +385,32 @@ import javax.swing.tree.TreePath;
   private class Copy extends Action2 {
   	
     /** selection */
-    protected List presetSelection; 
+    protected Property selection; 
     
     /** constructor */
-    protected Copy(List preset) {
-      presetSelection = Property.normalize(preset);
-      setText(resources.getString("action.copy"));
-      setImage(Images.imgCopy);
-    }
-    /** constructor */
-    protected Copy() {
-      setAccelerator(ACC_COPY);
+    protected Copy(Property property) {
+
+      super.setText(resources.getString("action.copy"));
+      super.setImage(Images.imgCopy);
+
+      this.selection = property;
+      
+      setEnabled(selection!=null && !(selection instanceof Entity) && !(selection.isTransient()));
+
     }
     /** run */
     protected void execute() {
-      
-      // check selection
-      List selection = presetSelection;
-      if (selection==null) 
-        selection = Property.normalize(tree.getSelection());
-      
-      // contains entity?
-      if (selection.contains(tree.getRoot()))
-        selection = Arrays.asList(tree.getRoot().getProperties());
-      
       try {
-        clipboard.setContents(new PropertyTransferable(selection).getStringTransferable(), null);
+        // Write properties and their subs into a transferable
+        StringWriter out = new StringWriter();
+        try {
+          GedcomWriter.write(Collections.singletonList(selection), out);
+        } catch (IOException e) {
+          // can't happen
+        }
+        clipboard.setContents(new StringSelection(out.toString()), null);
       } catch (Throwable t) {
-        EditView.LOG.log(Level.WARNING, "Couldn't copy properties", t);
+        EditView.LOG.log(Level.WARNING, "Couldn't ask system clipboard for flavor", t);
       }
     }
 
@@ -452,57 +422,44 @@ import javax.swing.tree.TreePath;
   private class Paste extends Action2 {
   	
     /** selection */
-    private Property presetParent; 
+    private Property parent; 
     
     /** constructor */
     protected Paste(Property property) {
-      presetParent = property;
-      setText(resources.getString("action.paste"));
-      setImage(Images.imgPaste);
+  
+      super.setText(resources.getString("action.paste"));
+      super.setImage(Images.imgPaste);
+  
+      this.parent = property;
       
-      // 20060404 isPasteAvail() apparently is VERY costly - depending on what's in the system clipboard
-      // so let's not do this anymore and check on execute() instead
-      // setEnabled(isPasteAvail());
+      super.setEnabled(isPasteAvail());
     }
-    /** constructor */
-    protected Paste() {
-      setAccelerator(ACC_PASTE);
+    /** check whether pasting is available */
+    private boolean isPasteAvail() {
+      try {
+        return Toolkit.getDefaultToolkit().getSystemClipboard().getContents(this).isDataFlavorSupported(DataFlavor.stringFlavor);
+      } catch (Throwable t) {
+        EditView.LOG.log(Level.WARNING, "Couldn't ask system clipboard for flavor", t);
+      }
+      return false;
     }
     /** run */
     protected void execute() {
-
-      // grab the clipboard content now
-      final String content;
+      
+      // forget about it if data flavor is no good
+      if (!isPasteAvail())
+        return;
+      
+      // start a transaction and grab from clipboard
+      gedcom.startTransaction();
       try {
-        content = clipboard.getContents(this).getTransferData(DataFlavor.stringFlavor).toString();
+        String s = clipboard.getContents(null).getTransferData(DataFlavor.stringFlavor).toString();
+        GedcomReader.read(new StringReader(s), parent, -1);
       } catch (Throwable t) {
-        EditView.LOG.log(Level.WARNING, "Accessing system clipboard as stringFlavor failed", t);
-        return;
+        EditView.LOG.log(Level.WARNING, "Couldn't paste clipboard content", t);
       }
-      
-      // select
-      final Property parent;
-      if (presetParent!=null) 
-        parent = presetParent;
-      else if (tree.getSelectionCount()==1)
-        parent = (Property)tree.getSelection().get(0);
-      else 
-        return;
-      
-      // grab from clipboard
-      gedcom.doMuteUnitOfWork(new UnitOfWork() {
-        public void perform(Gedcom gedcom) throws GedcomException {
-          PropertyReader reader = new PropertyReader(new StringReader(content), null, true);
-          reader.setMerge(true);
-          try {
-            reader.read(parent);
-          } catch (IOException e) {
-            throw new GedcomException("IO during read()");
-          }
-        }
-      });
-
-      // done
+      gedcom.endTransaction();
+  
     }
   
   } //Paste
@@ -513,70 +470,58 @@ import javax.swing.tree.TreePath;
   private class Add extends Action2 {
     /** parent */
     private Property parent; 
-    private String[] tags;
-    private boolean addDefaults = true;
-    /** constructor */
-    protected Add(Property parent, MetaProperty meta) {
-      this.parent = parent;
-      String txt = meta.getName();
-      if (!txt.equals(meta.getTag()))
-        txt += " ("+meta.getTag()+")";
-      setText(txt);
-      setImage(meta.getImage());
-      tags = new String[]{meta.getTag()};
-    }
     /** constructor */
     protected Add(Property parent) {
+
+      super.setText(resources.getString("action.add"));
+      super.setImage(Images.imgNew);
+
       this.parent = parent;
-      setText(resources.getString("action.add")+" ...");
-      setImage(Images.imgNew);
+      
+      super.setEnabled(parent!=null);
     }
     /** run */
     protected void execute() {
+  
+      // .. Confirm
+      JLabel label = new JLabel(resources.getString("add.choose"));
+      ChoosePropertyBean choose = new ChoosePropertyBean(parent, resources);
+      JCheckBox check = new JCheckBox(resources.getString("add.default_too"),true);
+  
+      int option = editView.getWindowManager().openDialog("add",resources.getString("add.title"),WindowManager.QUESTION_MESSAGE,new JComponent[]{ label, choose, check },Action2.okCancel(), AdvancedEditor.this); 
       
-      // need to let user select tags to add?
-      if (tags==null) {
-        JLabel label = new JLabel(resources.getString("add.choose"));
-        ChoosePropertyBean choose = new ChoosePropertyBean(parent, resources);
-        JCheckBox check = new JCheckBox(resources.getString("add.default_too"),addDefaults);
-        int option = WindowManager.getInstance(AdvancedEditor.this).openDialog("add",resources.getString("add.title"),WindowManager.QUESTION_MESSAGE,new JComponent[]{ label, choose, check },Action2.okCancel(), AdvancedEditor.this); 
-        if (option!=0)
-          return;
-        // .. calculate chosen tags
-        tags = choose.getSelectedTags();
-        addDefaults = check.isSelected();
-        if (tags.length==0)  {
-          WindowManager.getInstance(AdvancedEditor.this).openDialog(null,null,WindowManager.ERROR_MESSAGE,resources.getString("add.must_enter"),Action2.okOnly(), AdvancedEditor.this);
-          return;
-        }
-      }
-      
+      // .. not OK?
+      if (option!=0)
+        return;
+
       // .. stop current 
       tree.clearSelection();
   
+      // .. calculate chosen tags
+      String[] tags = choose.getSelectedTags();
+      if (tags.length==0)  {
+        editView.getWindowManager().openDialog(null,null,WindowManager.ERROR_MESSAGE,resources.getString("add.must_enter"),Action2.okOnly(), AdvancedEditor.this);
+        return;
+      }
+  
       // .. add properties
-      final List newProps = new ArrayList();
-      gedcom.doMuteUnitOfWork(new UnitOfWork() {
-        public void perform(Gedcom gedcom) {
-          for (int i=0;i<tags.length;i++) {
-            Property prop = parent.addProperty(tags[i], "");
-            newProps.add(prop);
-            if (addDefaults) prop.addDefaultProperties();
-          } 
-        };
-      });
-    
+      gedcom.startTransaction();
+      Property newProp = null;
+      try {
+        for (int i=0;i<tags.length;i++) {
+          newProp = parent.addProperty(tags[i], "");
+          if (check.isSelected()) newProp.addDefaultProperties();
+        } 
+      } finally {
+        gedcom.endTransaction();
+      }
+         
       // .. select added
-      Property newProp = newProps.isEmpty() ? null : (Property)newProps.get(0);
       if (newProp instanceof PropertyEvent) {
         Property pdate = ((PropertyEvent)newProp).getDate(false);
         if (pdate!=null) newProp = pdate;
       }
-      tree.setSelectionPath(new TreePath(tree.getPathFor(newProp)));
-      
-      // bean we can give focus to (in case of single selection)?
-      if (bean!=null)
-        bean.requestFocusInWindow();
+      tree.setSelectionPath(tree.getPathFor(newProp));
       
       // done
     }
@@ -601,13 +546,13 @@ import javax.swing.tree.TreePath;
         return;
       Gedcom gedcom = root.getGedcom();
   
-      if (bean!=null) 
-        gedcom.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) {
-            bean.commit();
-          }
-        });
-
+      if (bean!=null) try {
+        Transaction tx = gedcom.startTransaction();
+        bean.commit();
+      } finally {
+        gedcom.endTransaction();
+      }
+        
       ok.setEnabled(false);
       cancel.setEnabled(false);
     }
@@ -630,9 +575,9 @@ import javax.swing.tree.TreePath;
       ok.setEnabled(false);
       cancel.setEnabled(false);
       // simulate a selection change
-      List selection = tree.getSelection();
+      Property p = tree.getSelection();
       tree.clearSelection();
-      tree.setSelection(selection);
+      tree.setSelection(p);
     }
   
   } //Cancel
@@ -650,28 +595,32 @@ import javax.swing.tree.TreePath;
       // current root
       Property root = tree.getRoot();
       if (root!=null) {
+  
         Gedcom gedcom = root.getGedcom();
+  
         // ask user for commit if
-        if (!gedcom.isWriteLocked()&&bean!=null&&ok.isEnabled()&&editView.isCommitChanges()) 
+        if (!gedcom.isTransaction()&&bean!=null&&ok.isEnabled()&&editView.isCommitChanges()) 
           ok.trigger();
+  
       }
 
       // Clean up
-      if (bean!=null)
-        editView.getBeanFactory().recycle(bean);
       bean = null;
       editPane.removeAll();
       editPane.revalidate();
       editPane.repaint();
       
-      // can show bean if single selection
-      Property[] selection = Property.toArray(tree.getSelection());
-      if (selection.length==1) {
-        Property prop = selection[0];
+      // setup beans
+      Property prop = tree.getSelection(); 
+      if (prop!=null&&!prop.isSecret()) {
+  
+        // get a bean for property
+        bean = editView.getBeanFactory().get(prop);
+        
         try {
   
-          // get a bean for property
-          bean = editView.getBeanFactory().get(prop);
+          // initialize bean
+          bean.setContext(prop, registry);
           
           // add bean to center of editPane 
           editPane.add(bean, BorderLayout.CENTER);
@@ -684,14 +633,27 @@ import javax.swing.tree.TreePath;
           if (bean.isEditable()) {
             JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
             ButtonHelper bh = new ButtonHelper().setInsets(0).setContainer(buttons);
-            bh.create(ok).setFocusable(false);
-            bh.create(cancel).setFocusable(false);
+            bh.create(ok);
+            bh.create(cancel);
             editPane.add(buttons, BorderLayout.SOUTH);
           }
           
           // listen to it
           bean.addChangeListener(this);
   
+          // and request focus - this only works consistently
+          // if invoked later (especially when tabbing)
+          SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+              // 20050624 - seeing a problem with value change happening after switching
+              // away from editor - check still visible and with parent
+              if (!isVisible()||getParent()==null)
+                return;
+              requestFocusInWindow();
+              if  (bean!=null) bean.requestFocusInWindow();
+            }
+          });
+          
         } catch (Throwable t) {
           EditView.LOG.log(Level.WARNING,  "Property bean "+bean, t);
         }
@@ -699,17 +661,10 @@ import javax.swing.tree.TreePath;
         // start without ok and cancel
         ok.setEnabled(false);
         cancel.setEnabled(false);
-
-      }
-      
-      // tell to others
-      if (selection.length>0) try {
-        ignoreSelection = true;
-        ViewContext context = new ViewContext(gedcom);
-        context.addProperties(selection);
-        WindowManager.broadcast(new ContextSelectionEvent(context, AdvancedEditor.this));
-      } finally {
-        ignoreSelection = false;
+        
+        // tell to view
+        editView.setContext(getContext(), true);
+  
       }
   
       // Done
@@ -737,9 +692,8 @@ import javax.swing.tree.TreePath;
       // choose next row in tree IF
       //  - a bean is still displayed at the moment
       //  - next component is not part of that bean
-      if (bean!=null&&!SwingUtilities.isDescendingFrom(result, bean)) {
+      if (bean!=null&&!SwingUtilities.isDescendingFrom(result, bean)) 
         tree.setSelectionRow( (tree.getSelectionRows()[0]+1) % tree.getRowCount());
-      }
       // done for me
       return result;
     }
@@ -757,56 +711,5 @@ import javax.swing.tree.TreePath;
       return result;
     }
   } //FocusPolicy
-  
-  /**
-   * our patched up PropertyTreeWidget
-   */
-  private class Tree extends PropertyTreeWidget {
-    
-    /** constructor */
-    private Tree() {
-      super(gedcom);
-    }
-
-    /** provide context */
-    public ViewContext getContext() {
-      
-      // check selection
-      ViewContext result = super.getContext();
-      Property[] props = result.getProperties();
-      List selection = tree.getSelection();
-
-      // cut copy paste
-      if (props.length>0) {
-        result.addAction(new Cut(selection));
-        result.addAction(new Copy(selection));
-      }
-      if (selection.size()==1) {
-        result.addAction(new Paste((Property)selection.get(0)));
-        
-        // add
-        result.addAction(Action2.NOOP);
-        Property prop = (Property)selection.get(0);
-        if (!prop.isTransient()) {
-          result.addAction(new Add(prop));
-          Action2.Group group = new Action2.Group(resources.getString("action.add"));
-          MetaProperty[] metas = prop.getNestedMetaProperties(MetaProperty.FILTER_NOT_HIDDEN);
-          Arrays.sort(metas);
-          for (int i=0;i<metas.length;i++) {
-            if (metas[i].isInstantiated())
-              group.add(new Add(prop, metas[i]));
-          }
-          result.addActions(group);
-        }
-      }
-      
-      if (!selection.isEmpty()&&!selection.contains(tree.getRoot()))
-          result.addAction(new Propagate(selection));
-
-      // done
-      return result;
-    }
-
-  } //Tree
   
 } //AdvancedEditor

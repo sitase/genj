@@ -34,7 +34,6 @@ public class LinkWidget extends JLabel {
    */
   public LinkWidget(Action2 action) {
     this(action.getText(), action.getImage());
-    setToolTipText(action.getTip());
     this.action = action;
   }
   

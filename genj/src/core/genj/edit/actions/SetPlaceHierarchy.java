@@ -19,7 +19,6 @@
    */
 package genj.edit.actions;
 
-import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.PropertyPlace;
 import genj.util.swing.NestedBlockLayout;
@@ -75,7 +74,7 @@ public class SetPlaceHierarchy extends AbstractChange {
     /**
      * set the submitter
      */
-    public void perform(Gedcom gedcom) throws GedcomException {
+    protected void change() throws GedcomException {
       place.setHierarchy(true, hierarchy.getText().trim());
     }
 

@@ -19,7 +19,6 @@
  */
 package genj.timeline;
 
-import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
@@ -29,6 +28,7 @@ import genj.gedcom.PropertyDate;
 import genj.gedcom.PropertyEvent;
 import genj.gedcom.PropertyName;
 import genj.gedcom.TagPath;
+import genj.gedcom.Transaction;
 import genj.gedcom.time.Calendar;
 import genj.gedcom.time.PointInTime;
 
@@ -42,8 +42,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
-
-import spin.Spin;
 
 /**
  * A model that wraps the Gedcom information in a timeline fashion
@@ -88,9 +86,27 @@ import spin.Spin;
     setPathsInternally(Arrays.asList(paths));
     
     // keep gedcom
-    gedcom = ged;
-    createEvents();
+    setGedcom(ged);
     
+    // done
+  }
+  
+  /**
+   * Gedcom to work on 
+   */
+  /*package*/ void setGedcom(Gedcom ged) {
+    // old?
+    if (gedcom!=null) {
+      gedcom.removeGedcomListener(this);
+      gedcom = null;
+    }
+    // new ?
+    if (ged!=null) {
+      gedcom = ged;
+      gedcom.addGedcomListener(this);
+    }
+    // new events
+    createEvents();
     // done
   }
   
@@ -99,10 +115,6 @@ import spin.Spin;
    */
   /*package*/ void addListener(Listener listener) {
     listeners.add(listener);
-    
-    // first?
-    if (listeners.size()==1)
-      gedcom.addGedcomListener((GedcomListener)Spin.over(this));
   }
   
   /**
@@ -110,10 +122,6 @@ import spin.Spin;
    */
   /*package*/ void removeListener(Listener listener) {
     listeners.remove(listener);
-    
-    // none?
-    if (listeners.isEmpty())
-      gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
   }
   
   /**
@@ -201,33 +209,44 @@ import spin.Spin;
   }
   
   /**
-   * Returns the events that cover the given context
+   * Returns the first event of given entity
    */
-  protected Set getEvents(Context context) {
-    
-    Set propertyHits = new HashSet();
-    Set entityHits = new HashSet();
-    
-    Property[] props = context.getProperties();
-    Entity[] ents = context.getEntities();
-    
+  protected Event getEvent(Entity entity) {
+    // loop through all events
+    Event result = null;
     for (int l=0; l<layers.size(); l++) {
       Iterator events = ((List)layers.get(l)).iterator();
       while (events.hasNext()) {
         Event event = (Event)events.next();
-        for (int j = 0; j < ents.length; j++) {
-          if (ents[j]==event.getEntity())
-            entityHits.add(event);
-        }
-        for (int i = 0; i < props.length; i++) {
-          if (event.getProperty()==props[i]||event.getProperty().contains(props[i]))
-            propertyHits.add(event);
-        }
+        if (event.getEntity()!=entity) continue;
+        if (result==null||event.from<result.from) result = event;
       }
     }
-
-    return propertyHits.isEmpty() ? entityHits : propertyHits;
-  } 
+    // done
+    return result;
+  }
+  
+  /**
+   * Returns the first event for given property
+   */
+  protected Event getEvent(Property property) {
+    // a date? try parent!
+    if (property instanceof PropertyDate)
+      property = property.getParent();
+    // only events
+    if (!(property instanceof PropertyEvent)) 
+      return null;
+    // loop through all events
+    for (int l=0; l<layers.size(); l++) {
+      Iterator events = ((List)layers.get(l)).iterator();
+      while (events.hasNext()) {
+        Event event = (Event)events.next();
+        if (event.pe==property) return event;
+      }
+    }
+    // done
+    return null;
+  }
   
   /**
    * Returns the filter - set of Tags we consider
@@ -242,9 +261,8 @@ import spin.Spin;
   public void setPaths(Collection set) {
     
     // defaults?
-// 20070125 let's allow for empty path set    
-//    if (set.isEmpty()) 
-//      set = Arrays.asList(DEFAULT_PATHS);
+    if (set.isEmpty()) 
+      set = Arrays.asList(DEFAULT_PATHS);
       
     // do it internally - this has been an endless loop
     // from 2005/05/11 to 2005/11/05 without anyone
@@ -280,6 +298,41 @@ import spin.Spin;
     // done
   }
   
+  /**
+   * @see genj.gedcom.GedcomListener#handleChange(Change)
+   */
+  public void handleChange(Transaction tx) {
+    // deleted or added entities/properties -> recreate
+    if (!(tx.get(Transaction.ENTITIES_DELETED).isEmpty()
+        &&tx.get(Transaction.ENTITIES_ADDED).isEmpty()
+        &&tx.get(Transaction.PROPERTIES_ADDED).isEmpty()
+        &&tx.get(Transaction.PROPERTIES_DELETED).isEmpty())) {
+      createEvents();
+      return;
+    }
+    // changed properties -> scan for dates or names
+    boolean changed = false;
+    if (!tx.get(Transaction.PROPERTIES_MODIFIED).isEmpty()) {
+      Iterator ps = tx.get(Transaction.PROPERTIES_MODIFIED).iterator();
+      while (ps.hasNext()) {
+        Property p = (Property)ps.next();
+        // a date -> lets recreate everything
+        if (p instanceof PropertyDate) {
+          createEvents();
+          return;
+        }
+        // a name -> let's update all it's entities' events
+        if (p instanceof PropertyName) {
+          contentEvents(p.getEntity());
+          changed = true;
+        }
+      }
+    }
+    // still here and a change has happened?
+    if (changed) fireDataChanged();
+    // done
+  }
+
   /**
    * Trigger callback - our structure has changed
    */
@@ -515,30 +568,5 @@ import spin.Spin;
      */
     public void structureChanged();
   } //ModelListener
-
-  public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-    createEvents();
-  }
-
-  public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-    createEvents();
-  }
-
-  public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-    gedcomPropertyDeleted(gedcom, added, -1, added);
-  }
-
-  public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-    gedcomPropertyDeleted(gedcom, property, -1, property);
-  }
-
-  public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
-    if (deleted instanceof PropertyDate) {
-      createEvents();
-    } else if (deleted instanceof PropertyName) {
-      contentEvents(property.getEntity());
-      fireDataChanged();
-    }
-  }
   
 } //TimelineModel 

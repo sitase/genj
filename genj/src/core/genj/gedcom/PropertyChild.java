@@ -51,6 +51,14 @@ public class PropertyChild extends PropertyXRef {
   }
   
   /**
+   * Constructor with reference
+   * @param target referenced PropertyXRef
+   */
+  protected PropertyChild(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
    * Returns the child
    * @return referenced child
    */
@@ -64,9 +72,6 @@ public class PropertyChild extends PropertyXRef {
    * @return warning as <code>String</code>, <code>null</code> when no warning
    */
   public String getDeleteVeto() {
-    // warn if linked
-    if (getTargetEntity()==null) 
-      return null;
     return resources.getString("prop.chil.veto");
   }
 
@@ -93,8 +98,6 @@ public class PropertyChild extends PropertyXRef {
     } catch (ClassCastException ex) {
       throw new GedcomException(resources.getString("error.noenclosingfam"));
     }
-    Indi father = fam.getHusband();
-    Indi mother = fam.getWife();
 
     // Prepare some VARs
     Property p;
@@ -104,34 +107,39 @@ public class PropertyChild extends PropertyXRef {
     // Look for child (not-existing -> Gedcom throws Exception)
     Indi child = (Indi)getCandidate();
 
-    // Make sure the child is not ancestor of family already (father, mother, grandfather, grandgrandfather, ...) 
-    // .. that would introduce a circle
+    // Enclosing family has indi as child, husband or wife ?
+    if (fam.getWife()==child) 
+      throw new GedcomException(resources.getString("error.already.spouse", new String[]{ child.toString(), fam.toString()}));
+    if (fam.getHusband()==child) 
+      throw new GedcomException(resources.getString("error.already.spouse", new String[]{ child.toString(), fam.toString()}));
+
+    Indi children[] = fam.getChildren();
+    for (int i=0;i<children.length;i++) {
+      if ( children[i] == child ) 
+        throw new GedcomException(getLabelChildAlreadyinFamily(child, fam));
+    }
+
+    // Child is ancestor of husband or wife ?
     if (child.isAncestorOf(fam)) 
       throw new GedcomException(resources.getString("error.already.ancestor", new String[]{ child.toString(), fam.toString()}));
 
-    // Make sure the child is not child already - no need for duplicates here
-    Indi children[] = fam.getChildren(false);
-    for (int i=0;i<children.length;i++) {
-      if ( children[i] == child ) 
-        throw new GedcomException(resources.getString("error.already.child", new String[]{ child.toString(), fam.toString()}));
-    }
-    
     // Connect back from child (maybe using back reference)
     List famcs = child.getProperties(PropertyFamilyChild.class);
     for (int i=0, j=famcs.size(); i<j; i++) {
       
       PropertyFamilyChild pfc = (PropertyFamilyChild)famcs.get(i);
       if (pfc.isCandidate(fam)) {
-        link(pfc);
+        pfc.setTarget(this);
+        setTarget(pfc);
         return;
       }        
       
     }
 
     // .. new back referencing property
-    PropertyFamilyChild pfc = new PropertyFamilyChild();
+    PropertyFamilyChild pfc = new PropertyFamilyChild(this);
     child.addProperty(pfc);
-    link(pfc);
+    setTarget(pfc);
 
     // Done
   }

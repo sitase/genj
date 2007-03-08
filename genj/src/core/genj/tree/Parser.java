@@ -51,8 +51,6 @@ import java.util.List;
   /** padding (n, e, s, w) */
   protected int[] padIndis, padMinusPlus; 
   
-  private final static int MAX_GENERATION = 16;
-  
   /** 
    * gets an instance of a parser
    */
@@ -256,17 +254,13 @@ import java.util.List;
      * @see genj.tree.Model.Parser#parse(genj.gedcom.Indi, java.awt.geom.Point2D)
      */
     protected TreeNode parse(Indi indi) {
-      return parse(indi, 0);
-    }
-    
-    private TreeNode parse(Indi indi, int generation) {
       // node for indi      
       TreeNode node = model.add(new TreeNode(indi, shapeIndis, padIndis));
       // do we have a family we're child in?
       Fam famc = indi.getFamilyWhereBiologicalChild();
       if (famc!=null) {
         // stop when hiding ancestors
-        if (generation>MAX_GENERATION||model.isHideAncestors(indi)) {
+        if (model.isHideAncestors(indi)) {
           insertPlusMinus(indi, node, true, true);
         } else {
           // show minus
@@ -274,8 +268,8 @@ import java.util.List;
           // grab the family's husband/wife and their ancestors
           Indi wife = famc.getWife();
           Indi husb = famc.getHusband();
-          if (wife!=null) model.add(new TreeArc(minus, parse(wife, generation+1), true));
-          if (husb!=null) model.add(new TreeArc(minus, parse(husb, generation+1), true));
+          if (wife!=null) model.add(new TreeArc(minus, parse(wife), true));
+          if (husb!=null) model.add(new TreeArc(minus, parse(husb), true));
           // done
         }
       } 
@@ -334,10 +328,6 @@ import java.util.List;
      * @see genj.tree.Model.Parser#parse(genj.gedcom.Fam)
      */
     protected TreeNode parse(Fam fam) {
-      return parse(fam, 0);
-    }
-    
-    private TreeNode parse(Fam fam, int generation) {
 
       // node for the fam
       TreeNode node = model.add(new TreeNode(fam, shapeFams, padFams));
@@ -348,7 +338,7 @@ import java.util.List;
 
       // node for wife & arc fam-wife 
       TreeNode nWife = model.add(new TreeNode(wife, shapeIndis, padHusband));
-      model.add(new TreeArc(node, parse(wife, nWife, hasParents(husb)?-offsetSpouse:0, generation+1), false)); 
+      model.add(new TreeArc(node, parse(wife, nWife, hasParents(husb)?-offsetSpouse:0), false)); 
       
       // node for marr & arc fam-marr 
       TreeNode nMarr = model.add(new TreeNode(null, shapeMarrs, null));
@@ -356,7 +346,7 @@ import java.util.List;
       
       // node for husband & arc fam-husb 
       TreeNode nHusb = model.add(new TreeNode(husb, shapeIndis, padWife));
-      model.add(new TreeArc(node, parse(husb, nHusb, hasParents(wife)?+offsetSpouse:0, generation+1), false));
+      model.add(new TreeArc(node, parse(husb, nHusb, hasParents(wife)?+offsetSpouse:0), false));
       
       // done
       return node;
@@ -366,26 +356,26 @@ import java.util.List;
      * @see genj.tree.Model.Parser#parse(genj.gedcom.Indi)
      */
     protected TreeNode parse(Indi indi) {
-      return parse(indi, model.add(new TreeNode(indi, shapeIndis, padIndis)), 0, 0);
+      return parse(indi, model.add(new TreeNode(indi, shapeIndis, padIndis)), 0);
     }
     
     /**
      * parse an individual's ancestors
      */
-    private TreeNode parse(Indi indi, TreeNode nIndi, int align, int generation) {
+    private TreeNode parse(Indi indi, TreeNode nIndi, int align) {
       // might be a placeholder call
       if (indi==null) return nIndi;
       // do we have a family we're child in? 
       Fam famc = indi.getFamilyWhereBiologicalChild();
       if (famc!=null) {
         // no more ancestors?
-        if (generation>MAX_GENERATION||model.isHideAncestors(indi)) {
+        if (model.isHideAncestors(indi)) {
           insertPlusMinus(indi, nIndi, true, true);
         } else {
           
           // patch with minus
           TreeNode nMinus = insertPlusMinus(indi, nIndi, true, false);
-          model.add(new TreeArc(nMinus, parse(famc, generation), true));
+          model.add(new TreeArc(nMinus, parse(famc), true));
           
           // patch alignment
           nMinus.align = align;
@@ -420,10 +410,6 @@ import java.util.List;
      * @see genj.tree.Model.Parser#parse(genj.gedcom.Indi)
      */
     protected TreeNode parse(Indi indi) {
-      return parse(indi, 0);
-    }
-    
-    private TreeNode parse(Indi indi, int generation) {
       // create node for indi
       TreeNode node = model.add(new TreeNode(indi, shapeIndis, padIndis)); 
       // grab fams
@@ -442,7 +428,7 @@ import java.util.List;
           // on first arc
           if (node.getArcs().isEmpty()) {
             // stop when hiding descendants
-            if (generation>MAX_GENERATION||model.isHideDescendants(indi)) {
+            if (model.isHideDescendants(indi)) {
               // insert plus
               insertPlusMinus(indi, node, false, true);
               // break
@@ -453,7 +439,7 @@ import java.util.List;
           }
           
           // parse child and arc from pivot to child
-          model.add(new TreeArc(pivot, parse(children[c], generation+1), true));       
+          model.add(new TreeArc(pivot, parse(children[c]), true));       
 
           // next child          
           } 
@@ -545,7 +531,7 @@ import java.util.List;
       // parse under artificial pivot
       TreeNode nPivot = model.add(new TreeNode(null, null, null));
       // the origin is not nPivot!!!
-      origin = parse(indi, nPivot, 0);
+      origin = parse(indi, nPivot);
       // done
       return nPivot;
     }
@@ -561,7 +547,7 @@ import java.util.List;
       Indi[] children = fam.getChildren();
       for (int c=0; c<children.length; c++) {
         // create an arc from node to node for indi
-        parse(children[c], nFam, 0);       
+        parse(children[c], nFam);       
          // next child
       }
 
@@ -578,7 +564,7 @@ import java.util.List;
      * @param pivot all nodes of descendant are added to pivot
      * @return MyNode
      */
-    private TreeNode parse(Indi indi, TreeNode pivot, int generation) {
+    private TreeNode parse(Indi indi, TreeNode pivot) {
 
       // lookup its families      
       Fam[] fams = indi.getFamiliesWhereSpouse();
@@ -628,7 +614,7 @@ import java.util.List;
         
         // on first : no descendants for indi?
         if (c==0) {
-          if (generation>MAX_GENERATION||model.isHideDescendants(indi)) {
+          if (model.isHideDescendants(indi)) {
             insertPlusMinus(indi, nFam, false, true);
             break;
           }
@@ -636,7 +622,7 @@ import java.util.List;
         }
 
         // recurse into child        
-        parse(children[c], nFam, generation+1);
+        parse(children[c], nFam);
         
         // next child       
       }

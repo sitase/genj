@@ -22,12 +22,11 @@ package genj.edit.beans;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyAge;
 import genj.gedcom.time.Delta;
-import genj.util.Registry;
 import genj.util.swing.Action2;
+import genj.util.swing.ButtonHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextFieldWidget;
 
-import javax.swing.JButton;
 import javax.swing.JLabel;
 
 /**
@@ -40,19 +39,19 @@ public class AgeBean extends PropertyBean {
   /** members */
   private TextFieldWidget tfield;
   private ActionUpdate update;
-  private String newAge;
   
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    super.commit(property);
+  public void commit() {
     property.setValue(tfield.getText());
   }
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
+  /** 
+   * Initialize once
+   */
+  protected void initializeImpl() {
+
     tfield = new TextFieldWidget("", TEMPLATE.length());
     tfield.addChangeListener(changeSupport);
     
@@ -61,25 +60,21 @@ public class AgeBean extends PropertyBean {
     add(new JLabel(TEMPLATE));
     
     update =  new ActionUpdate();
-    add(new JButton(update));
+    add(new ButtonHelper().create(update));
     
   }
   
   /**
    * Set context to edit
    */
-  public void setProperty(PropertyAge age) {
+  protected void setContextImpl(Property prop) {
 
-    // remember property
-    property = age;
-    
     // update components
-    tfield.setText(age.getValue());
-
-    Delta delta = Delta.get(age.getEarlier(), age.getLater());
-    newAge = delta==null ? null : delta.getValue();
-    update.setEnabled(newAge!=null);
+    PropertyAge age = (PropertyAge)property;
     
+    tfield.setText(property.getValue());
+    update.setEnabled(age.getEarlier()!=null&&age.getLater()!=null);
+
     // Done
   }
   
@@ -87,7 +82,6 @@ public class AgeBean extends PropertyBean {
    * Action Update age
    */
   private class ActionUpdate extends Action2 {
-    
     /**
      * Constructor
      */
@@ -99,7 +93,11 @@ public class AgeBean extends PropertyBean {
      * @see genj.util.swing.Action2#execute()
      */
     protected void execute() {
-      tfield.setText(newAge);
+      PropertyAge age = (PropertyAge)property;
+      Delta delta = Delta.get(age.getEarlier(), age.getLater());
+      if (delta==null)
+        return;
+      tfield.setText(delta.getValue());
     }
   } //ActionUpdate
 

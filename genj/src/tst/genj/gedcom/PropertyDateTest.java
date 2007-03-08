@@ -3,8 +3,6 @@
  */
 package genj.gedcom;
 
-import java.util.Locale;
-
 import genj.gedcom.PropertyDate.Format;
 import genj.gedcom.time.Calendar;
 import genj.gedcom.time.Delta;
@@ -17,7 +15,6 @@ import junit.framework.TestCase;
 public class PropertyDateTest extends TestCase {
   
   private PropertyDate date = new PropertyDate();
-  private PointInTime pit = new PointInTime();
 
   private Calendar
     GREGORIAN = PointInTime.GREGORIAN,
@@ -25,55 +22,13 @@ public class PropertyDateTest extends TestCase {
     HEBREW = PointInTime.HEBREW,
     FRENCHR = PointInTime.FRENCHR;
   
-  private int
-    FORMAT_GEDCOM = PointInTime.FORMAT_GEDCOM,
-    FORMAT_SHORT = PointInTime.FORMAT_SHORT,
-    FORMAT_LONG = PointInTime.FORMAT_LONG,
-    FORMAT_NUMERIC = PointInTime.FORMAT_NUMERIC;
-   
-  
-  /**
-   * Test dates
-   */
-  public void testFormatting() {     
-    
-    testFormat("25 JAN 1970", FORMAT_GEDCOM, "25 JAN 1970");
-    testFormat("25 JAN 1970", FORMAT_SHORT, "25 Jan 1970");
-    testFormat("25 JAN 1970", FORMAT_LONG, "25 January 1970");
-    
-    Locale.setDefault(Locale.ENGLISH);
-    PointInTime.localeChangedNotify();
-    testFormat("25 JAN 1970", FORMAT_NUMERIC, "1/25/1970");
-    testFormat("JAN 1970", FORMAT_NUMERIC, "Jan 1970");
-    testFormat("1970", FORMAT_NUMERIC, "1970");
-    
-    Locale.setDefault(Locale.GERMAN);
-    PointInTime.localeChangedNotify();
-    testFormat("25 JAN 1970", FORMAT_NUMERIC, "25.01.1970");
-    testFormat("JAN 1970", FORMAT_NUMERIC, "Jan 1970");
-    testFormat("1970", FORMAT_NUMERIC, "1970");
-    
-  }
-  
-  private void testFormat(String value, int format, String display) {
-    Options.getInstance().dateFormat = format;
-    pit.set(value);
-    assertEquals(display, pit.toString());
-  }
-  
-  
   /**
    * Test dates
    */
   public void testDates() {     
 
     testParsing("", PropertyDate.DATE, GREGORIAN, 0, 0, 0, true);
-    assertFalse(date.isValid());
-    date.setValue(PropertyDate.DATE, PointInTime.getNow(), null, null);
-    assertTrue(date.isValid()); // 2.4.1 BUG setValue(...) on invalid property didn't make it valid again
-    
     testParsing("25 MAY 1970", PropertyDate.DATE, GREGORIAN, 1970, 5, 25, true);
-    
     testParsing("@#DJULIAN@ 25 MAY 1970", PropertyDate.DATE, JULIAN, 1970, 5, 25, true);
     testParsing("@#DFRENCH R@ 3 GERM An I", PropertyDate.DATE, FRENCHR, 1, 7, 3, false);
     testParsing("@#DHEBREW@ 1     CSH 5000", PropertyDate.DATE, HEBREW, 5000,  2, 1, false);
@@ -93,8 +48,7 @@ public class PropertyDateTest extends TestCase {
     
     testParsing("INT 25 MAY 1970 (foo)", PropertyDate.INTERPRETED, GREGORIAN, 1970, 5, 25, true);
     testParsing("(sometime in may)", PropertyDate.INTERPRETED, GREGORIAN, 0, 0, 0, true);
-    testParsing("foo bar", PropertyDate.DATE, GREGORIAN, 0, 0, 0, false);
-    assertFalse(date.isValid());
+    testParsing("foo bar", PropertyDate.INTERPRETED, GREGORIAN, 0, 0, 0, false);
     
     // nmeier 20050109 
     // + make calendar escapes case insensitive
@@ -108,7 +62,7 @@ public class PropertyDateTest extends TestCase {
     date.setValue(value);
     if (verbatim)
       assertEquals(value, date.getValue());
-    assertEquals("wrong format", format, date.getFormat());
+    assertEquals("wrong format", date.getFormat(), format);
     testPIT(date.getStart(), cal, year, month, day);
   }
   

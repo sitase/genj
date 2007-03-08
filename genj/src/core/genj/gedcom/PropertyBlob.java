@@ -24,6 +24,7 @@ import genj.util.ByteArray;
 import genj.util.swing.ImageIcon;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 
 /**
@@ -56,7 +57,7 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
     try {
       content = Base64.decode(content.toString());
     } catch (IllegalArgumentException e) {
-      content = new byte[0];
+      content = "";
     }
 
     return (byte[])content;
@@ -68,6 +69,13 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
   public String getTitle() {
     Entity e = getEntity();
     return (e instanceof Media) ? ((Media)e).getTitle() : getTag();
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "File";
   }
 
   /**
@@ -170,7 +178,7 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
     isIconChecked = false;
 
     // Remember changed property
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
 
     // Done
   }
@@ -197,16 +205,16 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
       // Try to open file
       try {
         InputStream in = getGedcom().getOrigin().open(file);
-        byte[] newContent = new ByteArray(in, in.available(), false).getBytes();
+        byte[] newContent = new ByteArray(in, in.available()).getBytes();
         in.close();
         content = newContent;
-      } catch (Throwable t) {
+      } catch (IOException ex) {
         return false;
       }
     }
     
     // Remember changed property
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // check
     Property media = getParent();

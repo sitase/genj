@@ -48,9 +48,9 @@ public class PropertyAge extends Property {
   /**
    * @see genj.gedcom.Property#addNotify(genj.gedcom.Property)
    */
-  /*package*/ void addNotify(Property parent, int pos) {
+  /*package*/ void addNotify(Property parent) {
     // continue
-    super.addNotify(parent, pos);
+    super.addNotify(parent);
     // try to update age
     updateAge();
     // done
@@ -102,7 +102,7 @@ public class PropertyAge extends Property {
     else
       ageAsString = newValue;
     // notify
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     // Done
   }
 
@@ -131,6 +131,13 @@ public class PropertyAge extends Property {
     if (!isValid()||!other.isValid())
       return super.compareTo(o);
     return age.compareTo(other.age);
+  }
+
+  /**
+   * @see genj.gedcom.Property#getProxy()
+   */
+  public String getProxy() {
+    return "Age";
   }
 
   /**

@@ -19,9 +19,6 @@
  */
 package genj.gedcom;
 
-import java.util.List;
-import java.util.regex.Pattern;
-
 
 
 
@@ -44,8 +41,9 @@ public class Note extends Entity implements MultiLineProperty {
     // create a delegate we're using for storing the 
     // note's multiline value
     if (delegate==null) {
-      delegate = (PropertyMultilineValue)addProperty("NOTE", "");
+      delegate = (PropertyMultilineValue)getMetaProperty().getNested("NOTE", true).create("");
       delegate.isTransient = true;
+      addProperty(delegate);
     }
     
     // done
@@ -89,15 +87,6 @@ public class Note extends Entity implements MultiLineProperty {
    */
   public String getValue() {
     return delegate.getValue();
-  }
-  
-  public List findProperties(Pattern tag, Pattern value) {
-    // let super do its thing
-    List result = super.findProperties(tag, value);
-    // don't let 'this' in there
-    result.remove(this);
-    // done
-    return result;
   }
   
   /**

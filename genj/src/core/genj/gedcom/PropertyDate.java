@@ -37,7 +37,6 @@ public class PropertyDate extends Property {
     start = new PIT(),
     end = new PIT();
   private boolean isAdjusting = false;
-  private String valueAsString = null;
 
   /** the format of the contained date */
   private Format format = DATE;
@@ -113,6 +112,13 @@ public class PropertyDate extends Property {
   }
 
   /**
+   * Returns generic proxy's logical name
+   */
+  public String getProxy() {
+    return "Date";
+  }
+
+  /**
    * Accessor Tag
    */
   public String getTag() {
@@ -123,7 +129,7 @@ public class PropertyDate extends Property {
    * Accessor Value
    */
   public String getValue() {
-    return valueAsString!=null ? valueAsString : format.getValue(this);
+    return format.getValue(this);
   }
 
   /**
@@ -138,7 +144,7 @@ public class PropertyDate extends Property {
    * @return <code>boolean</code> indicating validity
    */
   public boolean isValid() {
-    return valueAsString==null && format.isValid(this);
+    return format.isValid(this);
   }
   
   /**
@@ -169,7 +175,6 @@ public class PropertyDate extends Property {
       else
         end.set(newEnd);
       phrase = newPhrase;
-      valueAsString = null;
       
       format = (newFormat.needsValidStart() && !start.isValid()) || (newFormat.needsValidEnd() && !end.isValid()) ? DATE : newFormat ;
     } finally {
@@ -177,7 +182,7 @@ public class PropertyDate extends Property {
     }
     
     // remember as modified      
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
 
     // Done
   }
@@ -202,7 +207,7 @@ public class PropertyDate extends Property {
     }
     
     // remember as modified      
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
 
     // Done
   }
@@ -212,35 +217,34 @@ public class PropertyDate extends Property {
    */
   public void setValue(String newValue) {
 
-    // 20070128 don't bother with calculating old if this is happening in init()
-    String old = getParent()==null ? null : getValue();
+    String old = getValue();
 
     // do an atomic change
     isAdjusting = true;
     try {
-      
       // Reset value
       start.reset();
       end.reset();
       format = DATE;
       phrase= "";
-      valueAsString = newValue.trim();
   
-      // try to apply one of the formats for non empty
-      if (valueAsString.length()>0) for (int f=0; f<FORMATS.length;f++) {
-        if (FORMATS[f].setValue(newValue, this)) {
-          format  = FORMATS[f];
-          valueAsString = null;
-          break;
-        }
-      } 
-      
+      // empty string is fine
+      newValue = newValue.trim();
+      if (newValue.length()>0) {
+        // try to apply one of the formats
+        for (int f=0; f<FORMATS.length;f++) {
+          if (FORMATS[f].setValue(newValue, this)) {
+            format  = FORMATS[f];
+            break;
+          }
+        } 
+      }
     } finally {
       isAdjusting = false;
     }
 
     // remember as modified      
-    if (old!=null) propagatePropertyChanged(this, old);
+    propagateChange(old);
 
     // done
   }
@@ -315,7 +319,7 @@ public class PropertyDate extends Property {
   /** 
    * A point in time 
    */
-  private final class PIT extends PointInTime {
+  private class PIT extends PointInTime {
     
     /**
      * Setter
@@ -327,11 +331,11 @@ public class PropertyDate extends Property {
         super.set(d,m,y);
       } else {
         // grab old
-        String old = super.getValue();
+        String old = getValue();
         // set it
         super.set(d,m,y);
         // notify about change 
-        propagatePropertyChanged(PropertyDate.this, old);
+        propagateChange(old);
       }
       
       // done
@@ -349,10 +353,6 @@ public class PropertyDate extends Property {
     private Format(String s, String e) {
       start  = s; 
       end    = e;
-    }
-    
-    public String toString() {
-      return start+end;
     }
     
     public boolean usesPhrase() {
@@ -416,17 +416,17 @@ public class PropertyDate extends Property {
         if (start.length()>0)
           result.append(Gedcom.getResources().getString("prop.date.mod."+start));
         if (calendar==null||date.start.getCalendar()==calendar) 
-          date.start.toString(result);
+          date.start.toString(result, true);
         else 
-          date.start.getPointInTime(calendar).toString(result);
+          date.start.getPointInTime(calendar).toString(result, true);
     
         // end modifier & point in time
         if (isRange()) {
           result.append(Gedcom.getResources().getString("prop.date.mod."+end));
           if (calendar==null||date.end.getCalendar()==calendar) 
-            date.end.toString(result);
+            date.end.toString(result,true);
           else 
-            date.end.getPointInTime(calendar).toString(result);
+            date.end.getPointInTime(calendar).toString(result, true);
         }
     
         // done    
@@ -517,13 +517,14 @@ public class PropertyDate extends Property {
         }
       }
       
-      // need bracketed phrase ''(...)'?
-      if (!text.startsWith("(")||!text.endsWith(")"))
-        return false;
+      // trim possible brackets in case of ''(...)'?
+      int from = 0, to = text.length();
+      if (text.startsWith("(")) from++;
+      if (text.endsWith(")")) to--;
       
-      date.phrase = text.substring(1, text.length()-1).trim();
+      date.phrase = text.substring(from, to).trim();
       
-      // didn't work
+      // basically it's the fallback that always works
       return true;
     }
     
@@ -535,9 +536,9 @@ public class PropertyDate extends Property {
         // start modifier & point in time
         if (date.start.isValid()) {
           if (calendar==null||date.start.getCalendar()==calendar) 
-            date.start.toString(result);
+            date.start.toString(result, true);
           else 
-            date.start.getPointInTime(calendar).toString(result);
+            date.start.getPointInTime(calendar).toString(result, true);
         }
         
         // phrase

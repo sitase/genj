@@ -20,43 +20,25 @@
 package genj.edit.beans;
 
 import genj.gedcom.Property;
-import genj.util.Registry;
 import genj.view.ViewManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A factory for cached PropertyBeans
  */
 public class BeanFactory {
   
-  private Logger LOG = Logger.getLogger("genj.edit"); 
-  
-  private final static Class[] beanTypes = {
-    EntityBean.class,
-    PlaceBean.class, // before choice!
-    AgeBean.class,
-    ChoiceBean.class,
-    DateBean.class,
-    EventBean.class,
-    FileBean.class,
-    MLEBean.class,
-    NameBean.class,
-    SexBean.class,
-    XRefBean.class,
-    SimpleValueBean.class // last!
-  };
-  
-  /** registry used for all beans */
-  private Registry registry;
+  /** manager reference */
+  private ViewManager viewManager;
   
   /** cached instances */
-  private final static Map property2cached= new HashMap();
+  private final static Map proxy2instances = new HashMap();
   
   /** map a 'proxy' to a resolved type */
   private static Map proxy2type = new HashMap();
@@ -64,99 +46,70 @@ public class BeanFactory {
   /**
    * Constructor
    */
-  public BeanFactory(ViewManager viewManager, Registry registry) {
-    this.registry = registry;
+  public BeanFactory(ViewManager viewManager) {
+    this.viewManager = viewManager;
   }
 
-  /**
-   * Returns a cached property bean of given type name
-   */
-  public PropertyBean get(String type, Property prop) {
-    
-    // grab a bean
-    PropertyBean bean = getBeanOfType(type);
-    
-    // set its value
-    bean.setProperty(prop);
-    
-    // done
-    return bean;
-  }
-  
   /**
    * Returns a cached property bean suitable to let the user edit given property
    */
   public PropertyBean get(Property prop) {
-
-    // grab a bean
-    PropertyBean bean = getBeanFor(prop);
-    
-    // set its value
-    bean.setProperty(prop);
-    
-    // done
-    return bean;
+    return get(prop.getProxy());
   }
   
   /**
-   * Try to lookup a recycled bean
+   * Returns a cached property bean for given 'name' (genj.edit.beans.{PROXY}Bean)
    */
-  private synchronized PropertyBean getBeanOfType(String type) {
-    
-    try {
-      // create new instance
-      PropertyBean bean = (PropertyBean)Class.forName(type).newInstance();
-      bean.initialize(registry);
-      // done
-      return bean;
-      
-    } catch (Throwable t) {
-      LOG.log(Level.WARNING, "can't instantiate bean of type "+type, t);
+  public PropertyBean get(String proxy) {
+    PropertyBean result = null;
+    // maybe we can use a cached version?
+    synchronized (proxy2instances) {
+      List instances = (List)proxy2instances.get(proxy);
+      if (instances!=null&&!instances.isEmpty())
+        return (PropertyBean)instances.remove(instances.size()-1);
     }
-    
-    // fallback with new instance
-    PropertyBean bean = (PropertyBean)new SimpleValueBean();
-    bean.initialize(registry);
-    return bean;
-  }
-  
-  /**
-   * Try to lookup a recycled bean
-   */
-  private synchronized PropertyBean getBeanFor(Property prop) {
-    // look into cache
-    List cached = (List)property2cached.get(prop.getClass());
-    if (cached!=null&&!cached.isEmpty()) 
-      return (PropertyBean)cached.remove(cached.size()-1);
-    // create new instances
-    try {
-      for (int i=0;i<beanTypes.length;i++) {
-        PropertyBean bean = (PropertyBean)beanTypes[i].newInstance();
-        if (bean.accepts(prop)) {
-          bean.initialize(registry);
-          return bean;
-        }
+    // lookup a type for that proxy key
+    Class type = (Class)proxy2type.get(proxy);
+    if (type==null) {
+      try {
+        type = Class.forName( "genj.edit.beans." + proxy + "Bean");
+        result = (PropertyBean)type.newInstance();
+      } catch (Throwable t) {
+        type = SimpleValueBean.class;
       }
-    } catch (Throwable t) {
-      LOG.log(Level.WARNING, "can't instantiate/init bean for "+prop.getClass().getName(), t);
+      proxy2type.put(proxy, type);
     }
-    return new SimpleValueBean();
+    // instantiate if still necessary
+    if (result==null) try {
+      result = (PropertyBean)type.newInstance();
+    } catch (Throwable t) {
+      result = new SimpleValueBean();
+    }
+    // initialize it
+    result.initialize(this, viewManager);
+
+    // done
+    return result;
   }
   
   /**
    * Recycle a bean
    */
-  public synchronized void recycle(PropertyBean bean) {
-    Property property = bean.getProperty();
-    if (property==null)
+  public void recycle(PropertyBean bean) {
+
+    Matcher m = Pattern.compile("genj.edit.beans.(.*)Bean").matcher(bean.getClass().getName());
+    if (!m.matches())
       return;
-    // look into cache
-    List cached = (List)property2cached.get(property.getClass());
-    if (cached==null) {
-      cached = new ArrayList();
-      property2cached.put(property.getClass(), cached);
+    String proxy = m.group(1);
+
+    synchronized (proxy2instances) {
+      List instances = (List)proxy2instances.get(proxy);
+      if (instances==null) {
+        instances = new ArrayList();
+        proxy2instances.put(proxy, instances);
+      }
+      instances.add(bean);
     }
-    cached.add(bean);
     // done
   }
   

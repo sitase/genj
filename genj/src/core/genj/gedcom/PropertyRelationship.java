@@ -58,17 +58,9 @@ public class PropertyRelationship extends PropertyChoiceValue {
     // parse anchor if one is still needed
     int i = value.lastIndexOf('@');
     if (i>=0) {
-      try {
+      if (getTarget()==null) try {
         anchor = new TagPath(value.substring(i+1));
-        // relink association if anchor is still different (means, we're linked)
-        if (!getAnchor().equals(anchor)) {
-          PropertyAssociation asso = (PropertyAssociation)getParent();
-          Property target = asso.getTarget();
-          asso.unlink();
-          target.getParent().delProperty(target);
-          asso.link();
-        }
-      } catch (Throwable t) {
+      } catch (IllegalArgumentException e) {
       }
       value = value.substring(0,i);
     }
@@ -97,12 +89,8 @@ public class PropertyRelationship extends PropertyChoiceValue {
     Property target = getTarget();
     if (target!=null) {
       Property panchor = target.getParent();
-      if (!(panchor instanceof Entity)&&panchor!=null) {
-        // try non-unique path first - this is the simplest case e.g. INDI:BIRT:DATE
-        TagPath result = panchor.getPath(false);
-        // .. fallback to unique path if necessary INDI:BIRT#2:DATE
-        return panchor.getEntity().getProperty(result) == panchor ? result : panchor.getPath(true); 
-      }
+      if (panchor!=null)
+        return panchor.getPath();
     }
     
     // fallback to current cached anchor

@@ -23,8 +23,6 @@ package genj.gedcom;
  * Class for encapsulating a submitter
  */
 public class Submitter extends Entity {
-  
-  private final static TagPath PATH_NAME =new TagPath("SUBM:NAME");
 
   /**
    * Returns this property as a string
@@ -37,14 +35,8 @@ public class Submitter extends Entity {
    * Name of Submitter
    */
   public String getName() {
-    return getValue(PATH_NAME, "");
-  }
-  
-  /**
-   * Name of Submitter
-   */
-  public void setName(String name) {
-    setValue(PATH_NAME, name);
+    Property name = getProperty("NAME");
+    return name!=null ? name.getValue() : "";
   }
   
 } //Submitter

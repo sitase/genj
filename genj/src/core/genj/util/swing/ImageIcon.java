@@ -184,9 +184,7 @@ public class ImageIcon extends javax.swing.ImageIcon {
     try {
       return new ByteArray(in).getBytes();
     } catch (IOException ex) {
-      throw new IllegalArgumentException("can't read "+name+": "+ex.getMessage());
-    } catch (InterruptedException e) {
-      throw new IllegalStateException("interrupted while reading "+name);
+      throw new IllegalArgumentException("loading "+name+": "+ex.getMessage());
     }
   }
 

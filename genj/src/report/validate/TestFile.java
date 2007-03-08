@@ -10,9 +10,7 @@ package validate;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyFile;
 import genj.gedcom.TagPath;
-import genj.view.ViewContext;
-
-import java.util.List;
+import genj.report.PropertyList;
 
 /**
  * Test whether files that are pointed to actually exist
@@ -29,14 +27,14 @@ public class TestFile extends Test {
   /**
    * Do the test 
    */
-  void test(Property prop, TagPath path, List issues, ReportValidate report) {
+  void test(Property prop, TagPath path, PropertyList issues, ReportValidate report) {
     
     // assuming PropertyFile
     PropertyFile file = (PropertyFile)prop;
     
     // check it
     if (file.getFile()==null) 
-      issues.add(new ViewContext(prop).setText(report.translate("err.nofile")));
+      issues.add(report.translate("err.nofile"), prop.getImage(false), prop);
 
   }
 

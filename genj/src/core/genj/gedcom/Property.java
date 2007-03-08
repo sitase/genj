@@ -20,13 +20,11 @@
 package genj.gedcom;
 
 import genj.util.Resources;
-import genj.util.WordBuffer;
 import genj.util.swing.ImageIcon;
 
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 import java.util.regex.Matcher;
@@ -47,8 +45,7 @@ public abstract class Property implements Comparable {
   private Property parent=null;
   
   /** children of this property */
-  // 20070128 made this a lazy list so we're not wasting the space for all those leaf nodes out there
-  private List children = null;
+  private List children = new ArrayList();
   
   /** images */
   protected ImageIcon image, imageErr;
@@ -69,115 +66,90 @@ public abstract class Property implements Comparable {
   private MetaProperty meta = null;
 
   /**
-   * Lifecycle - callback after being added to parent.
+   * Lifecycle - callback when being added to parent.
+   * This is called by the parent of the property after
+   * it has been added.
    */
-  /*package*/ void addNotify(Property parent, int pos) {
-    
-    // NM 20070307 ok, so why does propagation of the add happen here now? Previously
-    // the sequence was
-    //
-    // Property.addProperty(added)
-    //   added.addNotify()
-    //   propagateAdded(this.added)
-    //
-    // If addNotify() requires some adjustments in a Property subtype then
-    // the order of change propagations would break like so
-    //
-    // Property.addProperty(added)
-    //   added.addNotify()
-    //    subtype.addNotify()
-    //      super.addNotify()
-    //      ...
-    //      propagate...(...) #1
-    //   propagateAdded(this.added) #2
-    //
-    // What we want is this
-    //
-    // Property.addProperty(added)
-    //   added.addNotify()
-    //    subtype.addNotify()
-    //      super.addNotify()
-    //        propagateAdded(this.added) #1
-    //      ...
-    //      propagate...(...) #2
-    //
-    // A subtype can now successfully intercept addNotify(), let that initialize and
-    // propagate completely (#1) before other changes are made (#2)
-    
+  /*package*/ void addNotify(Property parent) {
+
     // remember parent
     this.parent=parent;
 
-    // propagate
-    propagatePropertyAdded(parent, pos, this);
-    
+    // propage to still active children
+    Property[] props = getProperties();
+    for (int i=0,j=props.length;i<j;i++) {
+      Property child = (Property)props[i];
+      child.addNotify(this);
+    }
+
+    // remember being added
+    Transaction tx = getTransaction();
+    if (tx!=null)
+      tx.get(Transaction.PROPERTIES_ADDED).add(this);
+
   }
 
   /**
-   * Lifecycle - callback before being removed from parent
+   * Lifecycle - callback when being removed from parent.
+   * This is called by the parent of the property after
+   * it has been removed.
    */
-  /*package*/ void delNotify(Property parent, int pos) {
-    
-    // delete children
-    delProperties();
-    
-    // propagate change (see addNotify() for motivation why propagate is here)
-    parent.propagatePropertyDeleted(parent, pos, this);
-
-    // reset parent
-    this.parent = null;
+  /*package*/ void delNotify(Property oldParent) {
   
     // reset meta
     meta = null;
+    
+    // tell children first (they might have to do some cleanup themselves)
+    Property[] props = getProperties();
+    for (int i=props.length-1;i>=0;i--) {
+      props[i].delNotify(this);
+    }
+    
+    // remember being deleted
+    Transaction tx = getTransaction();
+    if (tx!=null)
+      tx.get(Transaction.PROPERTIES_DELETED).add(this);
+      
+    // reset parent
+    parent = null;
     
     // continue
   }
   
   /**
-   * Propagate a change to the containing hierarchy
+   * This called by the property in process of being
+   * changed before the value has changed.
    */
-  /*package*/ void propagateXRefLinked(PropertyXRef property1, PropertyXRef property2) {
-    if (parent!=null)
-      parent.propagateXRefLinked(property1, property2);
+  protected void propagateChange(String old) {
+    
+    // remember being modified
+    Transaction tx = getTransaction();
+    if (tx!=null) {
+      Change change = new Change.PropertyValue(this, old);
+      tx.get(Transaction.PROPERTIES_MODIFIED).add(this);
+      tx.addChange(change);
+      
+      // propagate change
+      propagateChange(change);
+    }
+    
   }
   
   /**
-   * Propagate a change to the containing hierarchy
+   * Propagate something has changed to the
+   * parent hierarchy
    */
-  /*package*/ void propagateXRefUnlinked(PropertyXRef property1, PropertyXRef property2) {
+  protected void propagateChange(Change change) {
+    // tell it to parent
     if (parent!=null)
-      parent.propagateXRefUnlinked(property1, property2);
+      parent.propagateChange(change);
   }
   
   /**
-   * Propagate a change to the containing hierarchy
+   * get current transaction
    */
-  /*package*/ void propagatePropertyAdded(Property container, int pos, Property added) {
-    if (parent!=null)
-      parent.propagatePropertyAdded(container, pos, added);
-  }
-  
-  /**
-   * Propagate a change to the containing hierarchy
-   */
-  /*package*/ void propagatePropertyDeleted(Property container, int pos, Property deleted) {
-    if (parent!=null)
-      parent.propagatePropertyDeleted(container, pos, deleted);
-  }
-  
-  /**
-   * Propagate a change to the containing hierarchy
-   */
-  /*package*/ void propagatePropertyChanged(Property property, String oldValue) {
-    if (parent!=null)
-      parent.propagatePropertyChanged(property, oldValue);
-  }
-  
-  /**
-   * Propagate a change to the containing hierarchy
-   */
-  /*package*/ void propagatePropertyMoved(Property property, Property moved, int from, int to) {
-    if (parent!=null)
-      parent.propagatePropertyMoved(property, moved, from, to);
+  protected Transaction getTransaction() {
+    return parent==null ? null : parent.getTransaction();
   }
   
   /**
@@ -209,110 +181,95 @@ public abstract class Property implements Comparable {
    * Adds a sub-property to this property 
    */
   public Property addProperty(String tag, String value) {
-    try {
-      return addProperty(tag, value, -1);
-    } catch (GedcomException e) {
-      // ugh, use a simple value here
-      return addProperty(new PropertySimpleReadOnly(tag, value), -1);
-    }
+    return addProperty(tag, value, true);
   }
   
   /**
    * Adds a sub-property to this property
    */
-  public Property addProperty(String tag, String value, int pos) throws GedcomException {
+  public Property addProperty(String tag, String value, boolean place) {
+    return addProperty(getMetaProperty().getNested(tag, true).create(value), place);
+  }
+  
+  /**
+   * Adds a sub-property to this property
+   */
+  public Property addProperty(String tag, String value, int pos) {
     return addProperty(getMetaProperty().getNested(tag, true).create(value), pos);
-  }
-  
-  /**
-   * Adds a sub-property to this property
-   */
-  public Property addSimpleProperty(String tag, String value, int pos) {
-    return addProperty(new PropertySimpleValue(tag, value), pos);
   }
   
   /**
    * Adds a sub-property to this property
    * @param prop new property to add
    */
-  /*package*/ Property addProperty(Property prop) {
-    return addProperty(prop, -1);
+  protected Property addProperty(Property prop) {
+    return addProperty(prop, true);
   }
 
   /**
    * Adds another property to this property
-   * @param child the property to add
-   * @param pos, 0-n for position, -1 for placement
+   * @param prop new property to add
+   * @param place whether to place the sub-property according to grammar
    */
-  /*package*/ Property addProperty(Property child, int pos) {
-    
-    // check child
-    if (child.getParent()!=null||child.getNoOfProperties()>0)
-      throw new IllegalArgumentException("Can't add a property that is already contained or contains properties");
-    
+  protected Property addProperty(Property prop, boolean place) {
+
     // check grammar for placement if applicable
-    if (pos<0) {
+    int pos = -1;
+    
+    if (place&&getNoOfProperties()>0&&getEntity()!=null) {
+
       MetaProperty meta = getMetaProperty();
+      
       pos = 0;
-      int index = meta.getNestedIndex(child.getTag());
+      int index = meta.getNestedIndex(prop.getTag());
       for (;pos<getNoOfProperties();pos++) {
         if (meta.getNestedIndex(getProperty(pos).getTag())>index)
           break;
       }
-    } else {
-      // patch to end of properties if appropriate
-      if (pos>getNoOfProperties())
-        pos = getNoOfProperties();
     }
     
-    // keep child now
-    if (children==null)
-      children = new ArrayList();
-    children.add(pos, child);
+    // add property
+    return addProperty(prop, pos);
     
+  }
+  
+  /**
+   * Adds another property to this property
+   */
+  protected Property addProperty(Property child, int pos) {
+
+    // position valid?
+    if (pos>=0&&pos<children.size())
+      children.add(pos, child);
+    else {
+      children.add(child);
+      pos = children.size()-1;
+    }
+
+	  // tell to added
+	  child.addNotify(this);
     if (isTransient) child.isTransient = true;
-    
-    // tell to added
-    child.addNotify(this, pos);
-    
+	
+	  // remember change
+	  Transaction tx = getTransaction();
+	  if (tx!=null) {
+	    Change change = new Change.PropertyAdd(this, pos, child);
+	    tx.get(Transaction.PROPERTIES_MODIFIED).add(this);
+	    tx.addChange(change);
+	    
+			// propagate
+			propagateChange(change);
+
+	  }
+	
     // Done
     return child;
-  }
-  
-  /**
-   * Removes all properties
-   */
-  public void delProperties() {
-    if (children!=null) {
-      // grab list of children once - subsequent dels might lead to changes to the array
-      Property[] cs = (Property[])children.toArray(new Property[children.size()]);
-      for (int c = cs.length-1; c>=0; c--) 
-        delProperty(cs[c]);
-      if (children.isEmpty()) children = null;
-    }
-  }
-  
-  /**
-   * Removes all properties with given tag
-   */
-  public void delProperties(String tag) {
-    if (children!=null) {
-      Property[] cs = (Property[])children.toArray(new Property[children.size()]);
-      for (int c = 0; c < cs.length; c++) {
-        if (cs[c].getTag().equals(tag))
-          delProperty(cs[c]);
-      }
-      if (children.isEmpty()) children = null;
-    }
   }
   
   /**
    * Removes a property by looking in the property's properties
    */
   public void delProperty(Property deletee) {
-    
-    if (children==null)
-      throw new IndexOutOfBoundsException("no such child");
 
     // find position (throw outofbounds if n/a)
     int pos = 0;
@@ -332,50 +289,27 @@ public abstract class Property implements Comparable {
   public void delProperty(int pos) {
 
     // range check
-    if (children==null||pos<0||pos>=children.size())
-      throw new IndexOutOfBoundsException("No property "+pos);
-    Property removed = (Property)children.get(pos);
+    if (pos<0||pos>=children.size())
+      throw new IndexOutOfBoundsException();
 
-    // tell to removed next
-    removed.delNotify(this, pos);
-  
-    // remove it now
-    children.remove(pos);
+    // remove   
+    Property removed = (Property)children.remove(pos);
 
-    // done
-  }
-  
-  /**
-   * Move contained properties
-   */
-  public void moveProperties(List properties, int pos) {
-    
-    // move children around
-    for (int i = 0; i < properties.size(); i++) {
-      Property prop = (Property)properties.get(i);
-      pos = moveProperty(prop, pos);
-    }
-    
-  }
-
-  /**
-   * Move a property
-   */
-  public int moveProperty(Property prop, int to) {
-    return moveProperty(children.indexOf(prop), to);
-  }
-  
-  /**
-   * Move a property
-   */
-  public int moveProperty(int from, int to) {
-    Property prop = (Property)children.remove(from);
-    if (from<to) to--;
-    children.add(to, prop);
-    // propagate moved
-    propagatePropertyMoved(this, prop, from, to);
-    // return next position
-    return to+1;
+	  // tell to removed
+	  removed.delNotify(this);
+	
+	  // remember change
+	  Transaction tx = getTransaction();
+	  if (tx!=null) {
+	    Change change = new Change.PropertyDel(this, pos, removed);
+	    tx.get(Transaction.PROPERTIES_MODIFIED).add(this);
+	    tx.addChange(change);
+	    
+			// tell it to parent
+			propagateChange(change);
+	  
+	  }
+	
   }
   
   /**
@@ -424,13 +358,13 @@ public abstract class Property implements Comparable {
    * Calculates the number of properties this property has.
    */
   public int getNoOfProperties() {
-    return children==null?0:children.size();
+    return children.size();
   }
 
   /**
-   * Return a containgin property of given type in the hierarchy of parents 
+   * Return a parent of given type in the hierarchy of parents 
    */
-  public Property getContaining(Class type) {
+  public Property getParent(Class type) {
     Property prop = this;
     while (prop!=null) {
       if (type.isAssignableFrom(prop.getClass())) 
@@ -446,15 +380,6 @@ public abstract class Property implements Comparable {
    */
   public Property getParent() {
     return parent;
-  }
-  
-  /**
-   * Returns the path from this to containing property
-   */
-  public TagPath getPathToContaining(Property rparent) {    
-    Stack result = new Stack();
-    getPathToContaining(rparent, result);
-    return new TagPath(result);
   }
   
   /**
@@ -476,45 +401,27 @@ public abstract class Property implements Comparable {
   }
   
   /**
-   * Returns the path to this property. This is a sequence of tags leading to this property from its containing entity.
+   * Returns the path to this property
    */
   public TagPath getPath() {
-    return getPath(false);
-  }
-  
-  /**
-   * Returns the path to this property. This is a sequence of tags leading to this property from its containing entity.
-   * @param unique whether tags should be unqiue, e.g. INDI:BIRT#0:DATE and INDI:BIRT#1:DATE vs INDI:BIRT:DATE
-   */
-  public TagPath getPath(boolean unique) {
 
     Stack stack = new Stack();
 
-    // loop through parents
+    // build path start with this
     String tag = getTag();
+    if (tag==null)
+      throw new IllegalArgumentException("encountered getTag()==null");
+    stack.push(tag);
+    
+    // loop through parents
     Property parent = getParent();
     while (parent!=null) {
-      
-      // check qualifier?
-      if (unique) {
-        int qualifier = 0;
-        for (int i=0, j=parent.getNoOfProperties(); i<j; i++) {
-          Property sibling = parent.getProperty(i);
-          if (sibling==this) break;
-          if (sibling.getTag().equals(tag)) qualifier++;
-        }
-        stack.push(tag + "#" + qualifier);
-      } else {
-        stack.push(tag);
-      }
-
-      // next up
       tag = parent.getTag();
+      if (tag==null)
+        throw new IllegalArgumentException("encountered getTag()==null");
+      stack.push(tag);
       parent = parent.getParent();
     }
-    
-    // add last
-    stack.push(tag);
 
     // done
     return new TagPath(stack);
@@ -525,8 +432,6 @@ public abstract class Property implements Comparable {
    * Test for (recursive) containment
    */
   public boolean contains(Property prop) {
-    if (children==null)
-      return false;
     for (int c = 0; c < children.size(); c++) {
       Property child = (Property)children.get(c);
       if (child==prop||child.contains(prop))
@@ -536,32 +441,51 @@ public abstract class Property implements Comparable {
   }
 
   /**
-   * Test for (recursive) containment
-   */
-  public boolean isContained(Property in) {
-    Property parent = getParent();
-    if (parent==in) return true;
-    return parent==null ? false : parent.isContained(in);
-  }
-
-  /**
    * Test properties
    */
-  public boolean hasProperties(List props) {
-    return children==null ? false : children.containsAll(props);
+  public boolean isProperties(List props) {
+    return children.containsAll(props);
+  }
+  
+  /**
+   * Allows to change the order of the properties contained. This
+   * method will throw an IllegalArgumentException if 
+   * ! set.contains(getProperties()) && getProperties.contains(set)
+   */
+  public void setProperties(List set) {
+    // check mutual inclusion
+    if (!(children.containsAll(set)&&set.containsAll(children)))
+      throw new IllegalArgumentException("change of properties not allowed");
+    // do the change
+    List old = new ArrayList(children);
+    children.clear();
+    children.addAll(set);
+	  // remember change
+	  Transaction tx = getTransaction();
+	  if (tx!=null) {
+	    Change change = new Change.PropertyShuffle(this, old);
+	    tx.get(Transaction.PROPERTIES_MODIFIED).add(this);
+	    tx.addChange(change);
+	    
+			// propagate
+      propagateChange(change);
+
+	  }
+    // done
   }
   
   /**
    * Returns this property's properties (all children)
    */
   public Property[] getProperties() {
-    return children==null ? new Property[0] : toArray(children);
+    return toArray(children);
   }
   
   /**
    * Returns property's properties by criteria
    * @param tag  regular expression pattern of tag to match
    * @param value regular expression pattern of value to match
+   * @param recursively whether to recurse into sub-properties
    * @return matching properties
    */
   public List findProperties(Pattern tag, Pattern value) {
@@ -574,14 +498,10 @@ public abstract class Property implements Comparable {
     // done
     return result;
   }
-
-  protected boolean findPropertiesRecursivelyTest(Pattern tag, Pattern value) {
-    return tag.matcher(getTag()).matches() && value.matcher(getValue()).matches(); 
-  }
   
   private void findPropertiesRecursively(Collection result, Pattern tag, Pattern value, boolean recursively) {
     // check current
-    if (findPropertiesRecursivelyTest(tag, value))
+    if (tag.matcher(getTag()).matches() && value.matcher(getValue()).matches() ) 
       result.add(this);
     // recurse into properties
     for (int i=0, j=getNoOfProperties(); i<j ; i++) {
@@ -633,13 +553,11 @@ public abstract class Property implements Comparable {
    * Returns a sub-property position
    */
   public int getPropertyPosition(Property prop) {
-    if (children==null)
-      throw new IllegalArgumentException("no such property");
     for (int i=0;i<children.size();i++) {
       if (children.get(i)==prop)
         return i;
     }
-    throw new IllegalArgumentException("no such property");
+    throw new IllegalArgumentException();
   }
 
   /**
@@ -652,8 +570,6 @@ public abstract class Property implements Comparable {
    * correct parameter
    */
   public Property getProperty(int n) {
-    if (children==null)
-      throw new IndexOutOfBoundsException("no property "+n);
     return (Property)children.get(n);
   }
 
@@ -672,14 +588,11 @@ public abstract class Property implements Comparable {
     // safety check
     if (tag.indexOf(':')>0) throw new IllegalArgumentException("Path not allowed");
     // loop children
-    // NM 20070128 use direct field access - it's less expensive
-    if (children!=null) {
-      for (int i=0, j=children.size();i<j;i++) {
-        Property child = (Property)children.get(i);
-        if (!child.getTag().equals(tag)) continue;
-        if (validOnly&&!child.isValid()) continue;
-        return child;
-      }
+    for (int c=0;c<getNoOfProperties();c++) {
+      Property child = getProperty(c);
+      if (!child.getTag().equals(tag)) continue;
+      if (validOnly&&!child.isValid()) continue;
+      return child;
     }
     // not found
     return null;
@@ -700,38 +613,33 @@ public abstract class Property implements Comparable {
    * Returns one of this property's properties by path
    */
   public Property getProperty(TagPath path) {
-    
-    final Property[] result = new Property[1];
 
     PropertyVisitor visitor = new PropertyVisitor() {
       protected boolean leaf(Property prop) {
-        result[0] = prop;
-        return false;
+       return keep(prop, false);
       }
     };
     
     path.iterate(this, visitor);
     
-    return result[0];
+    return visitor.getProperty();
+    
   }
   
   /**
    * Returns this property's properties by path
    */
   public Property[] getProperties(TagPath path) {
-    
-   final  List result = new ArrayList(10);
 
     PropertyVisitor visitor = new PropertyVisitor() {
       protected boolean leaf(Property prop) {
-        result.add(prop);
-        return true;
+       return keep(prop, true);
       }
     };
     
     path.iterate(this, visitor);
     
-    return Property.toArray(result);
+    return visitor.getProperties();
   }
 
 //  private static Property getPropertyRecursively(Property prop, TagPath path, int pos, List listAll, boolean checkPropsTagFirst) {
@@ -814,6 +722,13 @@ public abstract class Property implements Comparable {
 //  }
 
   /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "SimpleValue";
+  }
+
+  /**
    * Returns the Gedcom-Tag of this property
    */
   public abstract String getTag();
@@ -846,16 +761,6 @@ public abstract class Property implements Comparable {
   }
 
   /**
-   * Returns a property value of a child property. This is
-   * a convenient method to access a child-property without having
-   * to check for null before calling its getValue()
-   */
-  public String getPropertyValue(String tag) {
-    Property child = getProperty(tag);
-    return child!=null ? child.getValue() : "";
-  }
-
-  /**
    * Returns a user-readable property value of a child property. This is
    * a convenient method to access a child-property without having
    * to check for null before calling its getDisplayValue()
@@ -873,30 +778,14 @@ public abstract class Property implements Comparable {
   }
   
   /**
-   * Returns a value at given path or fallback
-   */
-  public String getValue(final TagPath path, String fallback) {
-    Property prop = getProperty(path);
-    return prop==null ? fallback : prop.getValue();
-  }
-  
-  /**
    * Set a value at given path
    */
   public Property setValue(final TagPath path, final String value) {
-
-    final Property[] result = new Property[1];
     
     PropertyVisitor visitor = new PropertyVisitor() {
       protected boolean leaf(Property prop) {
-        // don't apply setValue to xref - use substitute instead
-        if (prop instanceof PropertyXRef && ((PropertyXRef)prop).getTarget()!=null) 
-          prop = prop.getParent().addProperty(prop.getTag(), "");
-        // set it and remember
         prop.setValue(value);
-        result[0] = prop;
-        // done - don't continue;
-        return false;
+        return keep(prop, false);
       }
       protected boolean recursion(Property parent,String child) {
         if (parent.getProperty(child, false)==null)
@@ -906,9 +795,9 @@ public abstract class Property implements Comparable {
     };
     
     path.iterate(this, visitor);
-
-    // done
-    return result[0];
+    
+    return visitor.getProperty();
+    
   }
   
   /**
@@ -985,7 +874,7 @@ public abstract class Property implements Comparable {
     MetaProperty[] subs = getNestedMetaProperties(MetaProperty.FILTER_DEFAULT); 
     for (int s=0; s<subs.length; s++) {
       if (getProperty(subs[s].getTag())==null)
-        addProperty(subs[s].getTag(), "").addDefaultProperties();
+        addProperty(subs[s].create("")).addDefaultProperties();
     }
 
     // done    
@@ -1045,7 +934,7 @@ public abstract class Property implements Comparable {
     isPrivate = set;
     
     // bookkeeping
-    propagatePropertyChanged(this, getValue());
+    propagateChange(getValue());
     
     // done
   }
@@ -1067,54 +956,7 @@ public abstract class Property implements Comparable {
   public String getPropertyName() {
     return Gedcom.getName(getTag());
   }
-  
-  /**
-   * Returns a list of property names for given list of properties
-   * @param properties the properties to look at
-   * @param limit max number of names followed by "..." where zero is all
-   */
-  public static String getPropertyNames(Property[] properties, int limit) {
-    
-    WordBuffer result = new WordBuffer(", ");
-    int i=0;
-    while (i<properties.length) {
-      result.append(properties[i++].getPropertyName());
-      if (i==limit) break;
-    }
-    if (i<properties.length)
-      result.append("...");
-    
-    return result.toString();
-  }
-  
-  /**
-   * Returns a normalized list of properties for given argument. Normalization
-   * means that there are no two properties in the result shareing a common 
-   * containing property and no transient property.
-   * @param properties properties to normalize
-   * @return normalized list
-   */
-  public static List normalize(List properties) {
-    
-    ArrayList result = new ArrayList(properties.size());
-    
-    for (Iterator it = properties.iterator(); it.hasNext(); ) {
-      Property prop = (Property)it.next();
-      if (prop.isTransient())
-        continue;
-      // any containing in selection as well?
-      Property parent = prop.getParent();
-      while (parent!=null) {
-        if (properties.contains(parent)) break;
-        parent = parent.getParent();
-      }
-      if (parent==null) result.add(prop);
-    }
-    
-    // done
-    return result;
-  }
-  
+
   /**
    * Generate a string representation based on given template.
    * @see Property#format(String, PrivacyPolicy)
@@ -1191,48 +1033,7 @@ public abstract class Property implements Comparable {
     result.append(format.substring(cursor));
     
     // got anything at all?
-    return matches>0 ? result.toString() : "";
-  }
-
-  /**
-   * Calculates an appropriate date that puts this property into a time context
-   */
-  public PropertyDate getWhen() {
-    Property cursor = this;
-    while (cursor!=null) {
-      if (this instanceof PropertyDate)
-        return (PropertyDate)this;
-      if (this instanceof PropertyEvent)
-        return ((PropertyEvent)this).getDate();
-      cursor = cursor.getParent();
-    }
-    // none
-    return null;
-  }
-  
-  /**
-   * Copy a property and all its sub-properties
-   */
-  public void copyProperties(Property root, boolean useValues) throws GedcomException {
-    // create copy for prop?
-    Property copy = getProperty(root.getTag(), false);
-    if (copy==null) {
-      copy = addProperty(root.getTag(), useValues ? root.getValue() : "");
-      if (useValues&&copy instanceof PropertyXRef) try {
-        ((PropertyXRef)copy).link();
-      } catch (GedcomException e) {
-        throw new GedcomException("Can't copy '"+root.getTag()+" "+root.getDisplayValue()+"' to "+this.getPath()+": "+e.getMessage());
-      }
-    }
-    // loop over children of prop
-    for (int i=0, j=root.getNoOfProperties(); i<j; i++) {
-      Property child = root.getProperty(i);
-      // apply to non-transient
-      if (!child.isTransient()) 
-        copy.copyProperties(child, useValues);
-      // next
-    }
-    // done
+    return matches>0 ? result.toString().trim() : "";
   }
   
 } //Property

@@ -26,9 +26,7 @@ import genj.util.swing.ImageIcon;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Class for encapsulating a person
@@ -48,47 +46,19 @@ public class Indi extends Entity {
     IMG_UNKNOWN = Grammar.getMeta(PATH_INDI).getImage();
     
   /**
-   * @return a PropertyDate corresponding to the INDI:BIRT:DATE property.  
-   *          Return null if the property is unset.   
-   * 
+   * Calculate indi's birth date
    */
   public PropertyDate getBirthDate() {
-    return getBirthDate( false );
+    // Calculate BIRT|DATE
+    return (PropertyDate)getProperty(PATH_INDIBIRTDATE);
   }
 
   /**
-   * Calculate the INDI's Birthdate 
-   * @param create if false, return null when the property is unset.   
-   *     If true, return an empty PropertyDate when the property is unset
-   * @return  date or null unless create
-   */
-  public PropertyDate getBirthDate( boolean create )
-  {
-      PropertyDate date =  (PropertyDate)getProperty(PATH_INDIBIRTDATE);
-      if( null != date || !create )
-          return date;
-      return (PropertyDate)setValue(PATH_INDIBIRTDATE,"");
-  }
-
-  /**
-   * Calculate the death date of the Indi.
-   * @return a PropertyDate corresponding to the INDI:DEAT:DATE property.  
-   *          Return null if the property is unset.   
+   * Calculate indi's death date
    */
   public PropertyDate getDeathDate() {
-      return getDeathDate( false );
-  }
-
-  /**
-   * Calculate indi's death date.
-   * @param create if false, return null when the property is unset.   
-   *     If true, return an empty PropertyDate when the property is unset
-   */
-  public PropertyDate getDeathDate( boolean create ) {
-      PropertyDate date =  (PropertyDate)getProperty(PATH_INDIDEATDATE);
-      if( null != date || !create )
-          return date;
-      return (PropertyDate)setValue(PATH_INDIDEATDATE,"");
+    // Calculate DEAT|DATE
+    return (PropertyDate)getProperty(PATH_INDIDEATDATE);
   }
   
   /**
@@ -342,9 +312,7 @@ public class Indi extends Entity {
    */
   public String getName() {
     PropertyName p = (PropertyName)getProperty(PropertyName.TAG,true);
-    if (p==null)
-      return "";
-    return p.isSecret() ? "" : p.getName(); 
+    return p!=null ? p.getName() : ""; 
   }
   
   /**
@@ -396,46 +364,26 @@ public class Indi extends Entity {
    * Check wether this person is ancestor of given person
    */
   public boolean isAncestorOf(Indi indi) {
-    // 20070115 while we make sure that no circle exists in our gedcom data (invariants) there are cases where sub-trees of a tree occur multiple times
-    // (e.g. cousin marrying cousin, ancestor marrying descendant, cloned families pointing to identical ancestors, ...)
-    // So we're carrying a set of visited indis to abbreviate the ancestor check by looking for revisits.
-    return recursiveIsAncestorOf(indi, new HashSet());
-  }
-  
-  private boolean recursiveIsAncestorOf(Indi indi, Set visited) {
-
-    // if we've visited the individual already then there's obviously no need to check twice 
-    if (visited.contains(indi)) 
-      return false;
-    visited.add(indi);
     
-    // check all possible of indi's parents
-    List famcs = indi.getProperties(PropertyFamilyChild.class);
-    for (int i=0; i<famcs.size(); i++) {
-      
-      PropertyFamilyChild famc = (PropertyFamilyChild)famcs.get(i);
-      
-      // not valid or not biological- not interesting
-      if (!famc.isValid()||famc.isBiological()==PropertyFamilyChild.NOT_BIOLOGICAL) continue;
-      
-      Fam fam = famc.getFamily();
-        
-      // check his mom/dad
-      Indi father = fam.getHusband();
-      if (father!=null) {
-        if (father==this)
-          return true;
-        if (recursiveIsAncestorOf(father, visited))
-          return true;
-      }
-      Indi mother = fam.getWife();
-      if (mother!=null) {
-        if (mother==this)
-          return true;
-        if (recursiveIsAncestorOf(mother, visited))
-          return true;
-      }
-        
+    // check indi's parents
+    Fam fam = indi.getFamilyWhereBiologicalChild();
+    if (fam==null)
+      return false;
+    
+    // check his mom/dad
+    Indi father = fam.getHusband();
+    if (father!=null) {
+      if (father==this)
+        return true;
+      if (isAncestorOf(father))
+        return true;
+    }
+    Indi mother = fam.getWife();
+    if (mother!=null) {
+      if (mother==this)
+        return true;
+      if (isAncestorOf(mother))
+        return true;
     }
     
     // nope
@@ -449,13 +397,9 @@ public class Indi extends Entity {
   public boolean isDescendantOf(Fam fam) {
     
     // check the family's children
-    // NM 20070128 don't sort for existance check only - that's expensive
-    Indi[] children = fam.getChildren(false);
+    Indi[] children = fam.getChildren();
     for (int i = 0; i < children.length; i++) {
-      Indi child = children[i];
-      if (child==this)
-        return true;
-      if (child.isAncestorOf(this))
+      if (children[i].isAncestorOf(this))
         return true;
     }
     

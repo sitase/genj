@@ -33,16 +33,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.text.MessageFormat;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.logging.FileHandler;
 import java.util.logging.Formatter;
 import java.util.logging.Handler;
 import java.util.logging.Level;
-import java.util.logging.LogManager;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.logging.StreamHandler;
@@ -54,41 +50,19 @@ import javax.swing.SwingUtilities;
  */
 public class App {
   
-  /*package*/ static Logger LOG;
-  
-  /*package*/ static File LOGFILE; 
+  /*package*/ static Logger LOG = Logger.getLogger("genj");
   
   /**
    * GenJ Main Method
    */
   public static void main(java.lang.String[] args) {
-    
-    // we're ready to be run twice
-    if (LOG!=null) {
-      LOG.info("GenJ.main() being called a second time with arguments "+Arrays.asList(args));
-      return;
-    }
 
     // Catch anything that might happen
     try {
       
-      // prepare our master log and own LogManager for GenJ
-      System.setProperty("java.util.logging.manager", "genj.app.App$PatchedLogManager");
-      LOG = Logger.getLogger("genj");
-      
       // prepare some basic logging for now
       Formatter formatter = new LogFormatter();
       Logger root = Logger.getLogger("");
-      
-      try {
-        // allow command line override of debug level - set non-genj level a tad higher
-        Level level = Level.parse(System.getProperty("genj.debug.level"));
-        LOG.setLevel(level);
-        if (Integer.MAX_VALUE!=level.intValue())
-          root.setLevel(new Level("genj.debug.level+1", level.intValue()+1) {} );
-      } catch (Throwable t) {
-      }
-      
       Handler[] handlers = root.getHandlers();
       for (int i=0;i<handlers.length;i++) root.removeHandler(handlers[i]);
       root.addHandler(new FlushingHandler(new StreamHandler(System.out, formatter)));
@@ -106,11 +80,9 @@ public class App {
       
       // initialize options first
       OptionProvider.getAllOptions(registry);
-      
+
       // Setup File Logging and check environment
-      LOGFILE = new File(home, "genj.log");
-      Handler handler = new FileHandler(LOGFILE.getAbsolutePath(), Options.getInstance().getMaxLogSizeKB()*1024, 1, true);
-      handler.setLevel(Level.ALL);
+      Handler handler = new FileHandler(new File(home, "genj.log").getAbsolutePath(), Options.getInstance().getMaxLogSizeKB()*1024, 1, true);
       handler.setFormatter(formatter);
       LOG.addHandler(handler);
       
@@ -135,8 +107,10 @@ public class App {
         }
       }
       
-      // run startup and hook up shutdown
+      // Startup the UI
       SwingUtilities.invokeLater(new Startup(registry, args));
+      
+      // Hook into Shutdown
       Runtime.getRuntime().addShutdownHook(new Thread(new Shutdown(registry)));
 
       // Done
@@ -189,13 +163,12 @@ public class App {
       ControlCenter center = new ControlCenter(registry, winMgr, args);
 
       // show it
-      winMgr.openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());
+      winMgr.openFrame("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());
 
       // done
       LOG.info("/Startup");
-      
     }
-    
+        
   } //Startup
 
   /**
@@ -222,13 +195,7 @@ public class App {
 	    Registry.persist();      
 	    // done
       LOG.info("/Shutdown");
-      // shutdown our patched log manager now
-      LogManager mgr = LogManager.getLogManager();
-      if (mgr instanceof PatchedLogManager)
-        ((PatchedLogManager)mgr).doReset();
-      // done
     }
-    
   } //Shutdown
 
   /**
@@ -238,8 +205,6 @@ public class App {
     private Handler wrapped;
     private FlushingHandler(Handler wrapped) {
       this.wrapped = wrapped;
-      wrapped.setLevel(Level.ALL);
-      setLevel(Level.ALL);
     }
     public void publish(LogRecord record) {
       wrapped.publish(record);
@@ -249,7 +214,6 @@ public class App {
       wrapped.flush();
     }
     public void close() throws SecurityException {
-      flush();
       wrapped.close();
     }
   }
@@ -272,20 +236,29 @@ public class App {
         result.append(record.getMessage());
       else 
         result.append(MessageFormat.format(msg, parms));
-      result.append(System.getProperty("line.separator"));
-
-      if (record.getThrown()!= null) {
+      result.append(":");
+      Throwable t =record.getThrown();
+      if (t!=null)  {
+        result.append(t);
+        result.append(" in ");
         
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        try {
-            record.getThrown().printStackTrace(pw);
-        } catch (Throwable t) {
+        StackTraceElement trace[] = t.getStackTrace();
+        if (trace.length>0) {
+          result.append(trace[0].getClassName());
+          result.append(".");
+          result.append(trace[0].getMethodName());
+          if (t.getMessage()!=null) {
+            result.append(", message=");
+            result.append(t.getMessage());
+          }
+          if (trace[0].getLineNumber()>0) {
+            result.append(", line=");
+            result.append(trace[0].getLineNumber());
+          }
         }
-        pw.close();
-        result.append(sw.toString());
-      }      
-      
+      }
+      result.append(":");
+      result.append(System.getProperty("line.separator"));
       return result.toString();
     }
   }
@@ -329,15 +302,6 @@ public class App {
         LOG.logp(level, sourceClass, sourceMethod, String.valueOf(buffer, 0, size).trim());
         size = 0;
       }
-    }
-  }
-  
-  public static class PatchedLogManager extends LogManager {
-    public void reset() throws SecurityException {
-      // noop
-    }
-    public void doReset() throws SecurityException {
-      super.reset();
     }
   }
   

@@ -63,11 +63,11 @@ public class PropertyMedia extends PropertyXRef implements IconValueAvailable {
     Media media = (Media)getCandidate();
 
     // Create a back-reference
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     media.addProperty(fxref);
 
     // .. and point to it
-    link(fxref);
+    setTarget(fxref);
 
     // Done
 

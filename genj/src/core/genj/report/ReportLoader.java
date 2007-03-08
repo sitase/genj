@@ -35,7 +35,7 @@ import java.util.logging.Level;
 /**
  * ClassLoad for Reports
  */
-public class ReportLoader {
+/*package*/ class ReportLoader {
 
   /** reports we have */
   private List instances = new ArrayList(10);
@@ -79,24 +79,19 @@ public class ReportLoader {
   }
   
   /**
-   * dir resolver
-   */
-  public static File getReportDirectory() {
-    
-    // where are the reports 
-    return new File(EnvironmentChecker.getProperty(ReportLoader.class,
-      new String[]{ "genj.report.dir", "user.dir/report"},
-      "report",
-      "find report class-files"
-    ));
-  }
-  
-  /**
    * Constructor
    */
   private ReportLoader() {
 
-    File base = getReportDirectory();
+    // where are the reports 
+    String dir = EnvironmentChecker.getProperty(
+      ReportLoader.class,
+      new String[]{ "genj.report.dir", "user.dir/report"},
+      "./report",
+      "find report class-files"
+    );
+    File base = new File(dir);
+    
     ReportView.LOG.info("Reading reports from "+base);
       
     // parse report directory
@@ -129,12 +124,7 @@ public class ReportLoader {
     // sort 'em
     Collections.sort(instances, new Comparator() { 
       public int compare(Object a, Object b) {
-        // 20063008 this can actually fail if the report is bad
-        try {
-          return ((Report)a).getName().compareTo(((Report)b).getName());
-        } catch (Throwable t) {
-          return 0;
-        }
+        return ((Report)a).getName().compareTo(((Report)b).getName());
       }
     });
     
