@@ -20,10 +20,9 @@
 package genj.gedcom;
 
 import genj.gedcom.time.PointInTime;
+import genj.util.WordBuffer;
 
 import java.text.DecimalFormat;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.StringTokenizer;
 
 /**
@@ -42,7 +41,7 @@ public class PropertyChange extends Property implements MultiLineProperty {
 
   private final static DecimalFormat decimal = new DecimalFormat("00");
   
-  public final static String
+  private final static String
    CHAN = "CHAN",
    TIME = "TIME",
    DATE = "DATE";
@@ -57,45 +56,31 @@ public class PropertyChange extends Property implements MultiLineProperty {
   }
   
   /**
-   * Get the last change display value - the date/time localized
+   * Get the last change date
    */
-  public String getDisplayValue() {
-    return time<0 ? "" : getDateDisplayValue() +','+getTimeDisplayValue();
+  public String getDateAsString() {
+    return time<0 ? "" : PointInTime.getPointInTime(time).toString(new WordBuffer(), true).toString();    
   }
   
   /**
-   * Get the last change display date
+   * Get the last change time
    */
-  public String getDateDisplayValue() {
-    return time<0 ? "" : PointInTime.getPointInTime(toLocal(time)).toString().toString();    
-  }
-  
-  /**
-   * Get the last change display time (local time)
-   */
-  public String getTimeDisplayValue() {
-    return time<=0 ? "" : toString(toLocal(time));
-  }
-  
-  private long toLocal(long utc) {
-    java.util.Calendar c = java.util.Calendar.getInstance();
-    return utc + c.get(java.util.Calendar.ZONE_OFFSET) + c.get(java.util.Calendar.DST_OFFSET);
-  }
-  
-  private String toString(long time) {
-    
+  public String getTimeAsString() {
+    if (time<=0)
+      return "";
+
     long
       sec = (time/1000)%60,
       min = (time/1000/60)%60,
       hr  = (time/1000/60/60)%24;
-    
+      
     StringBuffer buffer = new StringBuffer();
     buffer.append(decimal.format(hr));
     buffer.append(':');
     buffer.append(decimal.format(min));
     buffer.append(':');
     buffer.append(decimal.format(sec));
-  
+    
     return buffer.toString();
   }
   
@@ -111,12 +96,45 @@ public class PropertyChange extends Property implements MultiLineProperty {
    */
   Property init(MetaProperty meta, String value) throws GedcomException {
     meta.assertTag(CHAN);
-    super.init(meta,value);
-    if (value.length()==0)
-      setValue(System.currentTimeMillis());
-    return this;
+    return super.init(meta,value);
   }
 
+  /**
+   * Static update
+   */
+  /*package*/ static void update(Entity entity, Transaction tx, Change change) {
+
+    // tx isn't rollback?
+    if (tx.isRollback())
+      return;
+
+    // change itself?
+    if (change instanceof Change.PropertyAdd && ((Change.PropertyAdd)change).getAdded() instanceof PropertyChange)
+      return;
+    if (change instanceof Change.PropertyDel && ((Change.PropertyDel)change).getRemoved() instanceof PropertyChange)
+      return;
+    if (change instanceof Change.PropertyValue && ((Change.PropertyValue)change).getChanged() instanceof PropertyChange)
+      return;
+  
+    // is allowed?
+    MetaProperty meta = entity.getMetaProperty();
+    if (!meta.allows(CHAN))
+      return;
+      
+    // update values (tx time is UTC time!)
+    PropertyChange prop = (PropertyChange)entity.getProperty(CHAN);
+    if (prop==null) {
+      prop = (PropertyChange)meta.getNested(CHAN, true).create("");
+      prop.setValue(tx.getTime());
+      entity.addProperty(prop, Integer.MAX_VALUE);
+    } else {
+      prop.setValue(tx.getTime());
+    }
+    
+  
+    // done
+  }
+  
   /**
    * @see genj.gedcom.MultiLineProperty#getLineCollector()()
    */
@@ -146,13 +164,12 @@ public class PropertyChange extends Property implements MultiLineProperty {
     time = set;
     
     // notify
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // done
   }
   
   /**
-   * Interpret a gedcom value as "date, UTF" as passed in by DateTimeCollector
    * @see genj.gedcom.Property#setValue(java.lang.String)
    */
   public void setValue(String value) {
@@ -185,7 +202,7 @@ public class PropertyChange extends Property implements MultiLineProperty {
     }
     
     // notify
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // done
   }
@@ -194,7 +211,14 @@ public class PropertyChange extends Property implements MultiLineProperty {
    * Gedcom value - this is an intermittend value only that won't be saved (it's not Gedcom compliant but contains a valid gedcom date)
    */
   public String getValue() {
-    return time<0 ? "" : PointInTime.getPointInTime(time).getValue() +','+toString(time);
+    return time<0 ? "" : PointInTime.getPointInTime(time).getValue() +','+getTimeAsString();
+  }
+  
+  /**
+   * A display value - the date/time localized
+   */
+  public String getDisplayValue() {
+    return time<0 ? "" : getDateAsString() +','+getTimeAsString();
   }
   
   /**
@@ -225,7 +249,7 @@ public class PropertyChange extends Property implements MultiLineProperty {
    */
   private class DateTimeCollector implements MultiLineProperty.Collector {
 
-    private String dateCollected, timeCollected;
+    private String date, time;
     
     /**
      * @see genj.gedcom.MultiLineSupport.Continuation#append(int, java.lang.String, java.lang.String)
@@ -234,13 +258,13 @@ public class PropertyChange extends Property implements MultiLineProperty {
       
       // DATE
       if (indent==1&&DATE.equals(tag)) {
-        dateCollected = value; 
+        date = value; 
         return true;
       }
     
       // TIME
       if (indent==2&&TIME.equals(tag)) {
-        timeCollected = value;
+        time = value;
         return true;
       }
       
@@ -252,7 +276,7 @@ public class PropertyChange extends Property implements MultiLineProperty {
      * @see genj.gedcom.MultiLineProperty.Collector#getValue()
      */
     public String getValue() {
-      return dateCollected+','+timeCollected;
+      return date+','+time;
     }
     
   } //MyContinuation
@@ -268,7 +292,7 @@ public class PropertyChange extends Property implements MultiLineProperty {
     /** lines */
     private String[] 
       tags = { CHAN, DATE, TIME  },
-      values = { "", PointInTime.getPointInTime(time).getValue(), PropertyChange.this.toString(time) };
+      values = { "", PointInTime.getPointInTime(time).getValue(), getTimeAsString() };
       
     /**
      * @see genj.gedcom.MultiLineProperty.Iterator#setValue(java.lang.String)
@@ -301,83 +325,10 @@ public class PropertyChange extends Property implements MultiLineProperty {
      * @see genj.gedcom.MultiLineSupport.Line#next()
      */
     public boolean next() {
-      return time>=0 && ++i!=tags.length;
+      return ++i!=tags.length;
     }
     
   } //Lines
 
-  /**
-   * A gedcom listener that will update CHANs
-   */
-  /*package*/ static class Monitor implements GedcomMetaListener {
-    
-    private Set updated = new HashSet();
-
-    /** update entity for given property */ 
-    private void update(Property where) {
-      
-      Entity entity = where.getEntity();
-      if (updated.contains(entity))
-        return;
-      
-      // ignore if something happened below PropertyChange
-      while (where!=null) {
-        if (where instanceof PropertyChange)
-          return;
-        where = where.getParent();
-      }
-      
-      // update it
-      Gedcom.LOG.finer("updating CHAN for "+entity.getId());
-      
-      // is allowed?
-      MetaProperty meta = entity.getMetaProperty();
-      if (!meta.allows(PropertyChange.CHAN))
-        return;
-        
-      // update values (tx time is UTC time!)
-      PropertyChange prop = (PropertyChange)entity.getProperty(PropertyChange.CHAN);
-      if (prop==null) 
-        prop = (PropertyChange)entity.addProperty("CHAN", "");
-      else
-        prop.setValue(System.currentTimeMillis());
-      
-      // remember
-      updated.add(entity);
-    }
-    
-    public void gedcomHeaderChanged(Gedcom gedcom) {
-      // ignored
-    }
-    
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-    }
-    
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
-      // ignored
-    }
-    
-    public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-      update(entity);
-    }
-
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      updated.remove(entity);
-    }
-
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      update(added);
-    }
-
-    public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      update(property);
-    }
-
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
-      if (!(deleted instanceof PropertyChange))
-        update(property);
-    } 
-    
-  } //Tracker
   
 } //PropertyChange

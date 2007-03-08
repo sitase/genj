@@ -21,7 +21,6 @@ package genj.view;
 
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.util.Map;
@@ -116,7 +115,7 @@ import javax.swing.border.TitledBorder;
       setText(ViewManager.RESOURCES, "view.close");
     }
     protected void execute() {
-      WindowManager.getInstance(getTarget()).close("settings");
+      viewManager.getWindowManager().close("settings");
     }
   } //ActionClose
   

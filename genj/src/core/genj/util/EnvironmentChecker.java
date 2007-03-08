@@ -23,10 +23,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
 import java.net.URLClassLoader;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
-import java.util.Locale;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -58,34 +55,17 @@ public class EnvironmentChecker {
   }
   
   /**
-   * Check for Java 1.5 and higher
-   */
-  public static boolean isJava15(Object receipient) {
-    String version = getProperty(receipient, "java.version", "", "Checking Java VM version");
-    // o.k. this should be more flexible 8)
-    return version.startsWith("1.5") || version.startsWith("1.6");
-  }
-  
-  /**
    * Check for Mac
    */
   public static boolean isMac() {
-    return getProperty(EnvironmentChecker.class, "mrj.version", null, "isMac()")!=null;
+    return System.getProperty("mrj.version")!=null;
   }
   
   /**
    * Check for Windows
    */
   public static boolean isWindows() {
-    return getProperty(EnvironmentChecker.class, "os.name", "", "isWindows()").indexOf("Windows")>-1;
-  }
-  
-  private static String getDatePattern(int format) {
-    try {
-      return ((SimpleDateFormat)DateFormat.getDateInstance(format)).toPattern();
-    } catch (Throwable t) {
-      return "?";
-    }
+    return System.getProperty("os.name").indexOf("Windows")>-1;
   }
 
   /**
@@ -94,21 +74,13 @@ public class EnvironmentChecker {
   public static void log() {
     
     // Go through system properties
-    for (int i=0; i<SYSTEM_PROPERTIES.length; i++) {
-      LOG.info(SYSTEM_PROPERTIES[i] + " = "+getProperty(EnvironmentChecker.class, SYSTEM_PROPERTIES[i], "", "check system props"));
-    }
-    
-    // check locale specific stuff
-    LOG.info("Locale = "+Locale.getDefault());
-    LOG.info("DateFormat (short) = "+getDatePattern(DateFormat.SHORT));
-    LOG.info("DateFormat (medium) = "+getDatePattern(DateFormat.MEDIUM));
-    LOG.info("DateFormat (long) = "+getDatePattern(DateFormat.LONG));
-    LOG.info("DateFormat (full) = "+getDatePattern(DateFormat.FULL));
+    try {
+      for (int i=0; i<SYSTEM_PROPERTIES.length; i++) {
+        LOG.info(SYSTEM_PROPERTIES[i] + " = "+System.getProperty(SYSTEM_PROPERTIES[i]));
+      }
 
-      try {
-        
       // check classpath
-      String cpath = getProperty(EnvironmentChecker.class, "java.class.path", "", "check classpath");
+      String cpath = System.getProperty("java.class.path");
       StringTokenizer tokens = new StringTokenizer(cpath,System.getProperty("path.separator"),false);
       while (tokens.hasMoreTokens()) {
         String entry = tokens.nextToken();
@@ -133,7 +105,7 @@ public class EnvironmentChecker {
 
       // DONE
     } catch (Throwable t) {
-      LOG.log(Level.WARNING, "unexpected exception in log()", t);
+      LOG.log(Level.WARNING, "Couldn't test for system properties", t);
     }
   }
 
@@ -179,11 +151,11 @@ public class EnvironmentChecker {
         }
       }
     } catch (Throwable t) {
-      LOG.log(Level.INFO, "Couldn't access system property "+key+" ("+t.getMessage()+")");
+      LOG.log(Level.WARNING, "Couldn't access system properties", t);
     }
     // fallback
     if (fallback!=null)
-      LOG.fine("Using fallback for system-property "+key+'='+fallback+" ("+msg+')');
+      LOG.info("Using fallback for system-property "+key+'='+fallback+" ("+msg+')');
     return fallback;
   }
 

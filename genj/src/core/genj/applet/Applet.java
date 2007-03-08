@@ -103,12 +103,13 @@ public class Applet extends java.applet.Applet {
       log(RESOURCES.getString("applet.missing"));
       return;
     }
-    
+    if (gedcom.indexOf(':')<0) {
+      String base = getDocumentBase().toString();
+      gedcom = base.substring(0, base.lastIndexOf('/')+1)+gedcom;
+    } 
     URL url;
     try {
-      log("document base="+getDocumentBase());
-      log("gedcom="+gedcom);
-      url = new URL(getDocumentBase(), gedcom);
+      url = new URL(gedcom);
     } catch (MalformedURLException e) {
       log(RESOURCES.getString("applet.missing"));
       return;
@@ -248,7 +249,7 @@ public class Applet extends java.applet.Applet {
         log(RESOURCES.getString("applet.ready"));
         
         // prepare view manager
-        ViewManager vmanager = new ViewManager(winMgr, FACTORIES);
+        ViewManager vmanager = new ViewManager(null, winMgr, FACTORIES);
 
         // change what we show
         removeAll();

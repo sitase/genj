@@ -22,7 +22,6 @@ package genj.report;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
-import genj.gedcom.UnitOfWork;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
@@ -33,7 +32,6 @@ import genj.view.ViewManager;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
 
 import javax.swing.JComponent;
 
@@ -68,8 +66,8 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
   /**
    * Plugin actions for entities
    */
-  public List createActions(Property[] properties, ViewManager manager) {
-    return getActions(properties, properties[0].getGedcom(), manager);
+  public List createActions(Entity[] entities, ViewManager manager) {
+    return getActions(entities, entities[0].getGedcom(), manager);
   }
 
   /**
@@ -102,13 +100,9 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
     Report[] reports = ReportLoader.getInstance().getReports();
     for (int r=0;r<reports.length;r++) {
       Report report = reports[r];
-      try {
-        String accept = report.accepts(context); 
-        if (accept!=null)
-          result.add(new ActionRun(accept, context, gedcom, report, manager));
-      } catch (Throwable t) {
-        ReportView.LOG.log(Level.WARNING, "Report "+report.getClass().getName()+" failed in accept()", t);
-      }
+      String accept = report.accepts(context); 
+      if (accept!=null)
+        result.add(new ActionRun(accept, context, gedcom, report, manager));
     }
     // done
     return result;
@@ -127,12 +121,12 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
     /** view mgr */
     private ViewManager manager;
     /** constructor */
-    private ActionRun(String txt, Object context, Gedcom gedcom, Report report, ViewManager manager) {
+    private ActionRun(String txt, Object coNtext, Gedcom geDcom, Report rePort, ViewManager maNager) {
       // remember
-      this.context = context;
-      this.gedcom = gedcom;
-      this.report = report;
-      this.manager = manager;
+      context = coNtext;
+      gedcom = geDcom;
+      report = rePort;
+      manager = maNager;
       // show
       setImage(report.getImage());
       setText(txt);
@@ -155,38 +149,28 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
         // we're done ourselves - don't go into execute()
         return false;
       }
+      // start transaction
+      if (!report.isReadOnly()) try {
+        gedcom.startTransaction();
+      } catch (IllegalStateException e) {
+        // tx didn't start - don't go into execute()
+        return false; 
+      }
       // go ahead into async execute
       return true;
     }
     /** callback */
     protected void execute() {
-      
-      final Report instance = report.getInstance(getTarget(), null);
-      
-      try{
-        
-        if (instance.isReadOnly())
-          instance.start(context);
-        else
-          gedcom.doUnitOfWork(new UnitOfWork() {
-            public void perform(Gedcom gedcom) {
-              try {
-                instance.start(context);
-              } catch (Throwable t) {
-                throw new RuntimeException(t);
-              }
-            }
-          });
-      
-      } catch (Throwable t) {
-        Throwable cause = t.getCause();
-        if (cause instanceof InterruptedException)
-          instance.println("***cancelled");
-        else
-          ReportView.LOG.log(Level.WARNING, "encountered throwable in "+instance.getClass().getName()+".start()", cause!=null?cause:t);
-      }
+      // run right here (should only be for non-uses-stdout
+      report.getInstance(manager, getTarget(), null).start(context);
+      // done
     }
-    
+    /** callback (edt sync) **/
+    protected void postExecute(boolean preExecuteResult) {
+      // tx to end? IF the preExecute was ok
+      if (preExecuteResult==true&&!report.isReadOnly())
+        gedcom.endTransaction();
+    }
   } //ActionRun
 
 } //ReportViewFactory

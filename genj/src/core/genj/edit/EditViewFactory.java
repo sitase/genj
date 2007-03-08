@@ -20,7 +20,6 @@
 package genj.edit;
 
 import genj.crypto.Enigma;
-import genj.edit.actions.CreateAlias;
 import genj.edit.actions.CreateAssociation;
 import genj.edit.actions.CreateChild;
 import genj.edit.actions.CreateEntity;
@@ -29,7 +28,6 @@ import genj.edit.actions.CreateSibling;
 import genj.edit.actions.CreateSpouse;
 import genj.edit.actions.CreateXReference;
 import genj.edit.actions.DelEntity;
-import genj.edit.actions.DelProperty;
 import genj.edit.actions.OpenForEdit;
 import genj.edit.actions.Redo;
 import genj.edit.actions.RunExternal;
@@ -59,13 +57,13 @@ import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.ActionProvider;
-import genj.view.ViewContext;
+import genj.view.Context;
+import genj.view.ContextListener;
+import genj.view.ContextSelectionEvent;
 import genj.view.ViewFactory;
 import genj.view.ViewManager;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -74,7 +72,7 @@ import javax.swing.JComponent;
 /**
  * The factory for the TableView
  */
-public class EditViewFactory implements ViewFactory, ActionProvider {
+public class EditViewFactory implements ViewFactory, ActionProvider, ContextListener {
     
   /** a noop is used for separators in returning actions */  
   private final static Action2 aNOOP = Action2.NOOP;
@@ -99,47 +97,34 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   public String getTitle(boolean abbreviate) {
     return EditView.resources.getString("title" + (abbreviate?".short":""));
   }
-
-// FIXME need to provide for auto-open edit on selection
-//  /**
-//   * Callback - context change information
-//   */
-//  public void handleContextSelectionEvent(ContextSelectionEvent event) {
-//    ViewContext context = event.getContext();
-//    ViewManager manager = context.getManager();
-//    // editor needed?
-//    if (!Options.getInstance().isOpenEditor)
-//      return;
-//    // what's the entity
-//    Entity[] entities = context.getEntities();
-//    if (entities.length!=1)
-//      return;
-//    Entity entity = entities[0];
-//    // noop if EditView non-sticky or current is open
-//    EditView[] edits = EditView.getInstances(context.getGedcom());
-//    for (int i=0;i<edits.length;i++) {
-//      if (!edits[i].isSticky()||edits[i].getEntity()==entity) 
-//        return;
-//    }
-//    // open
-//    new OpenForEdit(context, manager).trigger();
-//  }
+  
+  /**
+   * Callback - context change information
+   */
+  public void handleContextSelectionEvent(ContextSelectionEvent event) {
+    Context context = event.getContext();
+    ViewManager manager = context.getManager();
+    // editor needed?
+    if (!Options.getInstance().isOpenEditor)
+      return;
+    // what's the entity
+    Entity entity = context.getEntity();
+    // noop if EditView non-sticky or current is open
+    EditView[] edits = EditView.getInstances(context.getGedcom());
+    for (int i=0;i<edits.length;i++) {
+      if (!edits[i].isSticky()||edits[i].getEntity()==entity) 
+        return;
+    }
+    // open
+    new OpenForEdit(context, manager).trigger();
+  }
   
   /**
    * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
    */
-  public List createActions(Property[] properties, ViewManager manager) {
-    List result = new ArrayList();
-    // not accepting any entities here
-    for (int i = 0; i < properties.length; i++) 
-      if (properties[i] instanceof Entity) return result;
-    // Toggle "Private"
-    if (Enigma.isAvailable())
-      result.add(new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties), manager));
-    // Delete
-    result.add(new DelProperty(properties, manager));
-    // done
-    return result;
+  public List createActions(Entity[] entities, ViewManager manager) {
+    // not supported
+    return null;
   }
 
   /**
@@ -183,11 +168,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     
     // Toggle "Private"
     if (Enigma.isAvailable())
-      result.add(new TogglePrivate(property.getGedcom(), Collections.singletonList(property), manager));
-    
-    // Delete
-    if (!property.isTransient()) 
-      result.add(new DelProperty(property, manager));
+      result.add(new TogglePrivate(property, manager));
 
     // done
     return result;
@@ -233,7 +214,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     EditView[] edits = EditView.getInstances(entity.getGedcom());
     if (edits.length==0) {
       result.add(Action2.NOOP);
-      result.add(new OpenForEdit(new ViewContext(entity), manager));
+      result.add(new OpenForEdit(new Context(entity), manager));
     }
     // done
     return result;
@@ -269,9 +250,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     result.add(new CreateChild(indi, manager));
     result.add(new CreateParent(indi, manager));
     result.add(new CreateSpouse(indi, manager));
-    result.add(new CreateSibling(indi, manager, true));
-    result.add(new CreateSibling(indi, manager, false));
-    result.add(new CreateAlias(indi, manager));
+    result.add(new CreateSibling(indi, manager));
   }
   
   /**
@@ -301,14 +280,10 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     String suffix = file.getSuffix();
       
     // lookup associations
-    List assocs = FileAssociation.getAll(suffix);
-    if (assocs.isEmpty()) {
-      result.add(new RunExternal(file));
-    } else {
-      for (Iterator it = assocs.iterator(); it.hasNext(); ) {
-        FileAssociation fa = (FileAssociation)it.next(); 
-        result.add(new RunExternal(file,fa));
-      }
+    Iterator it = FileAssociation.getAll(suffix).iterator();
+    while (it.hasNext()) {
+      FileAssociation fa = (FileAssociation)it.next(); 
+      result.add(new RunExternal(file,fa));
     }
     // done
   }

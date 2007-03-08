@@ -31,6 +31,7 @@ import java.util.Stack;
 
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -43,7 +44,7 @@ import javax.swing.JPopupMenu;
 public class MenuHelper  {
   
   private Stack menus            = new Stack();  // JMenu or JPopupMenu or JMenuBar
-  private Component target       = null;
+  private JComponent target       = null;
 
   /** Setters */    
   public MenuHelper popMenu() { 
@@ -56,7 +57,7 @@ public class MenuHelper  {
     return this; 
   }
   public MenuHelper pushMenu(JPopupMenu popup) { menus.push(popup); return this; }
-  public MenuHelper setTarget(Component set) { target=set; return this; }
+  public MenuHelper setTarget(JComponent set) { target=set; return this; }
 
   /**
    * Creates a menubar
@@ -167,26 +168,21 @@ public class MenuHelper  {
    * @param actions either ActionDelegates or lists of ActionDelegates that
    * will be separated visually by createSeparator
    */
-  public void createItems(List actions) {
+  public void createItems(List actions, boolean addLeadingSeparator) {
     // nothing to do?
     if (actions==null||actions.isEmpty())
       return;
-    createSeparator();
+    // add separator
+    if (addLeadingSeparator)
+      createSeparator(false);      
     // Loop through list
     Iterator it = actions.iterator();
     while (it.hasNext()) {
       Object o = it.next();
-      // an action group?
-      if (o instanceof Action2.Group) {
-        createMenu(((Action2.Group)o).getName());
-        createItems((List)o);
-        popMenu();
-        continue;
-      }
       // a nested list ?
       if (o instanceof List) {
-        createSeparator();
-        createItems((List)o);
+        createSeparator(false);
+        createItems((List)o, false);
         continue;
       }
       // a component?
@@ -212,7 +208,7 @@ public class MenuHelper  {
     
     // a NOOP results in separator
     if (action == Action2.NOOP) {
-      createSeparator();
+      createSeparator(false);
       return null;
     }
     
@@ -244,18 +240,25 @@ public class MenuHelper  {
    * Creates an separator
    */
   public MenuHelper createSeparator() {
+    return createSeparator(true);
+  }
+  
+  /**
+   * Creates an separator
+   * @param force whether to force the separator even though the current
+   * menu is empty
+   */
+  public MenuHelper createSeparator(boolean force) {
     // try to create one
     Object menu = peekMenu();
     if (menu instanceof JMenu) {
       JMenu jmenu = (JMenu)menu;
-      int count = jmenu.getMenuComponentCount();
-      if (count>0 && jmenu.getMenuComponent(count-1).getClass() != JPopupMenu.Separator.class)
+      if (force||jmenu.getItemCount()>0)
         jmenu.addSeparator();
     }
     if (menu instanceof JPopupMenu) {
       JPopupMenu pmenu = (JPopupMenu)menu;
-      int count = pmenu.getComponentCount();
-      if (count>0 && pmenu.getComponent(count-1).getClass() != JPopupMenu.Separator.class)
+      if (force||pmenu.getComponentCount()>0)
         pmenu.addSeparator();
     }
     // done      

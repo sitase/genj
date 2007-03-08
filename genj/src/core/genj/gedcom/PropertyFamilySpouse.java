@@ -25,6 +25,10 @@ package genj.gedcom;
  */
 public class PropertyFamilySpouse extends PropertyXRef {
 
+  private final static TagPath
+    PATH_FAMHUSB = new TagPath("FAM:HUSB"),
+    PATH_FAMWIFE = new TagPath("FAM:WIFE");
+
   /**
    * Empty Constructor
    */
@@ -32,14 +36,18 @@ public class PropertyFamilySpouse extends PropertyXRef {
   }
   
   /**
+   * Constructor with reference
+   */
+  protected PropertyFamilySpouse(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
    * Returns a warning string that describes what happens when this
    * property would be deleted
    * @return warning as <code>String</code>, <code>null</code> when no warning
    */
   public String getDeleteVeto() {
-    // warn if linked
-    if (getTargetEntity()==null) 
-      return null;
     return resources.getString("prop.fams.veto");
   }
 
@@ -96,30 +104,30 @@ public class PropertyFamilySpouse extends PropertyXRef {
         throw new GedcomException(resources.getString("error.already.child", new String[]{ indi.toString(), fam.toString()}));
     }
     
-    // Make sure indi isn't already descendant of family 
+    // Enclosing individual is descendant of family
     if (indi.isDescendantOf(fam)) 
       throw new GedcomException(resources.getString("error.already.descendant", new String[]{ indi.toString(), fam.toString()}));
-    
+
     // place as husband or wife according to gender
     if (indi.getSex()==PropertySex.UNKNOWN) 
       indi.setSex(husband==null ? PropertySex.MALE : PropertySex.FEMALE);
 
     // check for already existing back reference which takes precedence
-    // NM 20070128 don't use tag paths for simple sub-property get - it's expensive
-    Property[] husbands = fam.getProperties("HUSB", false);
+    Property[] husbands = fam.getProperties(PATH_FAMHUSB);
     for (int i=0;i<husbands.length;i++) {
       PropertyHusband ph = (PropertyHusband)husbands[i];
       if (ph.isCandidate(indi)) {
-        link(ph);
+        ph.setTarget(this);
+        setTarget(ph);
         return;
       }
     }
-    // NM 20070128 don't use tag paths for simple sub-property get - it's expensive
-    Property[] wifes = fam.getProperties("WIFE", false);
+    Property[] wifes = fam.getProperties(PATH_FAMWIFE);
     for (int i=0;i<wifes.length;i++) {
       PropertyWife pw = (PropertyWife)wifes[i];
       if (pw.isCandidate(indi)) {
-        link(pw);
+        pw.setTarget(this);
+        setTarget(pw);
         return;
       }
     }
@@ -130,17 +138,17 @@ public class PropertyFamilySpouse extends PropertyXRef {
       if (husband!=null)
         fam.swapSpouses();
       // create new back ref
-      PropertyXRef backref = new PropertyHusband();
+      PropertyXRef backref = new PropertyHusband(this);
       fam.addProperty(backref);
-      link(backref);
+      setTarget(backref);
     } else {
       // swap if necessary
       if (wife!=null)
         fam.swapSpouses();
       // create new back ref
-      PropertyXRef backref = new PropertyWife();
+      PropertyXRef backref = new PropertyWife(this);
       fam.addProperty(backref);
-      link(backref);
+      setTarget(backref);
     }
 
     // Done

@@ -120,7 +120,7 @@ public class PropertyName extends Property {
    * Returns localized label for last name
    */
   static public String getLabelForSuffix() {
-    return Gedcom.getResources().getString("prop.name.suffix");
+    return "Suffix";
   }
 
   /**
@@ -146,6 +146,13 @@ public class PropertyName extends Property {
     if (firstName.length()==0) 
       return lastName;
     return lastName + ", " + firstName;
+  }
+
+  /**
+   * a proxy tag
+   */
+  public String getProxy() {
+    return "Name";
   }
 
   /**
@@ -191,9 +198,7 @@ public class PropertyName extends Property {
       return nameAsString;
     
     WordBuffer b = new WordBuffer();
-    String last = getLastName();
-    if (last.length()==0) last = "?";
-    b.append(last);
+    b.append(getLastName());
     b.append(getSuffix());
     b.setFiller(", ");
     b.append(getFirstName());
@@ -204,32 +209,17 @@ public class PropertyName extends Property {
   /**
    * Sets name to a new value
    */
-  public PropertyName setName(String setLast) {
-    return setName(firstName,setLast,suffix);
+  public PropertyName setName(String first, String last) {
+    return setName(first,last,"");
   }
 
   /**
    * Sets name to a new value
    */
-  public PropertyName setName(String setFirst, String setLast) {
-    return setName(setFirst,setLast,suffix);
-  }
+  public PropertyName setName(String first, String last, String suff) {
 
-  /**
-   * Sets name to a new value
-   */
-  public PropertyName setName(String setFirst, String setLast, String setSuffix) {
-    return setName(setFirst, setLast, setSuffix, false);
-  }
-  
-  /**
-   * Sets name to a new value
-   */
-  public PropertyName setName(String first, String last, String suff, boolean replaceAllLastNames) {
-
-    // 20070128 don't bother with calculating old if this is happening in init()
-    String old = getParent()==null?null:getValue();
-
+    String old = getValue();
+    
     // check for uppercase lastname
     if (Options.getInstance().isUpperCaseNames)
       last = last.toUpperCase();
@@ -241,18 +231,6 @@ public class PropertyName extends Property {
     last = last.trim().intern();
     suff = suff.trim();
 
-    // replace all last names?
-    if (replaceAllLastNames) {
-      // change value of all with value
-      Property[] others = getSameLastNames();
-      for (int i=0;i<others.length;i++) {
-        Property other = others[i];
-        if (other instanceof PropertyName&&other!=this) {
-          ((PropertyName)other).setName(last);
-        }
-      }
-    }    
-    
     // remember us
     remember(first, last);
 
@@ -264,7 +242,7 @@ public class PropertyName extends Property {
     suffix    = suff;
 
     // tell about it 
-    if (old!=null) propagatePropertyChanged(this, old);
+    propagateChange(old);
     
     // Done
     return this;
@@ -276,9 +254,9 @@ public class PropertyName extends Property {
    * 
    * @see genj.gedcom.PropertyName#addNotify(genj.gedcom.Property)
    */
-  /*package*/ void addNotify(Property parent, int pos) {
+  /*package*/ void addNotify(Property parent) {
     // continue
-    super.addNotify(parent, pos);
+    super.addNotify(parent);
     // our change to remember the last name
     remember(firstName, lastName);
     // done
@@ -289,11 +267,11 @@ public class PropertyName extends Property {
    * + Forget last names in reference set
    * @see genj.gedcom.Property#delNotify()
    */
-  /*package*/ void delNotify(Property parent, int pos) {
+  /*package*/ void delNotify(Property old) {
     // forget value
     remember("", "");
     // continue
-    super.delNotify(parent, pos);
+    super.delNotify(old);
     // done
   }
 

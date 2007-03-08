@@ -89,7 +89,6 @@ public class DefaultDnDTreeModel extends DefaultTreeModel implements DnDTreeMode
                 }
             }
         }
-        currentDrag = null;
     }
     
     public void drop(Transferable transferable, Object parent, int index, int action) throws UnsupportedFlavorException, IOException {

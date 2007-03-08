@@ -24,9 +24,8 @@ package genj.common;
  */
 public interface PropertyTableModelListener {
 
-  public void handleRowsChanged(PropertyTableModel model, int rowStart, int rowEnd, int col);
+  public void handleRowsChange(PropertyTableModel model);
   
-  public void handleRowsAdded(PropertyTableModel model, int rowStart, int rowEnd);
+  public void handleContentChange(PropertyTableModel model);
 
-  public void handleRowsDeleted(PropertyTableModel model, int rowStart, int rowEnd);
 }

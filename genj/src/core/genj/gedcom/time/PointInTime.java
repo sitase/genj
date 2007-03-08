@@ -20,25 +20,15 @@
 package genj.gedcom.time;
 
 import genj.gedcom.GedcomException;
-import genj.gedcom.Options;
 import genj.util.DirectAccessTokenizer;
 import genj.util.Resources;
 import genj.util.WordBuffer;
-
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 
 /**
  * A point in time - either hebrew, roman, frenchr, gregorian or julian
  */
 public class PointInTime implements Comparable {
   
-  public final static int
-    FORMAT_GEDCOM = 0,
-    FORMAT_SHORT = 1,
-    FORMAT_LONG = 2,
-    FORMAT_NUMERIC = 3;
-
   /** resources */
   /*package*/ final static Resources resources = Resources.get(PointInTime.class);
 
@@ -425,7 +415,7 @@ public class PointInTime implements Comparable {
   public WordBuffer getValue(WordBuffer buffer) {
     if (calendar!=GREGORIAN)
       buffer.append(calendar.escape);
-    toString(buffer, FORMAT_GEDCOM);
+    toString(buffer, false);
     return buffer;
   }
     
@@ -433,75 +423,28 @@ public class PointInTime implements Comparable {
    * String representation
    */
   public String toString() {
-    return toString(new WordBuffer()).toString();
+    return toString(new WordBuffer(),true).toString();
   }
 
   /**
    * String representation
    */
-  public WordBuffer toString(WordBuffer buffer) {
-    return toString(buffer, Options.getInstance().dateFormat);
-  }
-  
-  /** our numeric format */
-  private static DateFormat NUMERICDATEFORMAT = initNumericDateFormat();
-  
-  private static DateFormat initNumericDateFormat() {
-    DateFormat result = DateFormat.getDateInstance(DateFormat.SHORT);
-    try {
-      // check SHORT pattern
-      String pattern = ((SimpleDateFormat)DateFormat.getDateInstance(DateFormat.SHORT)).toPattern();
-      // patch yy to yyyy if necessary
-      int yyyy = pattern.indexOf("yyyy");
-      if (yyyy<0) 
-        result = new SimpleDateFormat(pattern.replaceAll("yy", "yyyy"));
-    } catch (Throwable t) {
-    }
-    return result;
-  }
-  
-  /**
-   * Notifies all PointInTimes of a change in locale. This is exposed for
-   * testing purposes only.
-   */
-  public static void localeChangedNotify() {
-    NUMERICDATEFORMAT = initNumericDateFormat();
-  }
-  
-  /**
-   * String representation
-   */
-  public WordBuffer toString(WordBuffer buffer, int format) {
+  public WordBuffer toString(WordBuffer buffer, boolean localize) {
     
-    // numeric && gregorian && complete
-    if (format==FORMAT_NUMERIC) {
-      if (calendar==GREGORIAN&&isComplete()) {
-        java.util.Calendar c = java.util.Calendar.getInstance();
-        c.set(year, month, day+1);
-        buffer.append(NUMERICDATEFORMAT.format(c.getTime()));
-        return buffer;
-      }
-      
-      // fallback to short
-      format = FORMAT_SHORT;
-    }
-        
-    // non-gregorian, Gedcom, short or long
     if (year!=UNKNOWN) {
       if (month!=UNKNOWN) {
         if (day!=UNKNOWN) {
           buffer.append(new Integer(day+1));
         }
-        buffer.append(format==FORMAT_GEDCOM ? calendar.getMonth(month) : calendar.getDisplayMonth(month, format==FORMAT_SHORT));
+        buffer.append(calendar.getMonth(month, localize));
       }
-      buffer.append(format==FORMAT_GEDCOM ? calendar.getYear(year) : calendar.getDisplayYear(year));
+          
+      buffer.append(calendar.getYear(year, localize));
       
-      // add calendar indicator for julian
-      if (format!=FORMAT_GEDCOM&&calendar==JULIAN)
+      if (localize&&calendar==JULIAN)
         buffer.append("(j)");
-    }      
+    }
     
-    // done
     return buffer;
   }
 

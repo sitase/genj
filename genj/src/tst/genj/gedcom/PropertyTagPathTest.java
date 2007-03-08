@@ -4,10 +4,6 @@
 package genj.gedcom;
 
 import genj.util.Origin;
-
-import java.util.HashSet;
-import java.util.Set;
-
 import junit.framework.TestCase;
 
 /**
@@ -17,7 +13,7 @@ public class PropertyTagPathTest extends TestCase {
 
   private Gedcom gedcom;
   
-  private Indi husband, wife1, wife2;
+  private Indi indi;
   
   /**
    * Prepare a fake indi
@@ -27,27 +23,13 @@ public class PropertyTagPathTest extends TestCase {
     // create gedcom
     gedcom = new Gedcom(Origin.create("file://foo.ged"));
 
-    // create individuals
-    husband = (Indi)gedcom.createEntity("INDI");
-    wife1 = (Indi)gedcom.createEntity("INDI");
-    wife2 = (Indi)gedcom.createEntity("INDI");
+    // create individual
+    indi = (Indi)gedcom.createEntity("INDI");
     
     // .. with default sub-properties
-    husband.addDefaultProperties(); 
-    wife1.addDefaultProperties(); 
-    wife2.addDefaultProperties(); 
-    
-    // connect
-    addWife(husband, wife1);
-    addWife(husband, wife2);
+    indi.addDefaultProperties(); 
 
     // done
-  }
-  
-  private void addWife(Indi husband, Indi wife) throws GedcomException {
-    Fam fam = (Fam)gedcom.createEntity("FAM");
-    ((PropertyXRef)fam.addProperty("HUSB", "@"+husband.getId()+"@")).link();
-    ((PropertyXRef)fam.addProperty("WIFE", "@"+wife.getId()+"@")).link();
   }
   
   /**
@@ -55,35 +37,9 @@ public class PropertyTagPathTest extends TestCase {
    */
   public void testGetPropertyByPath() {
     
-    assertProperty(husband, "INDI"                          , husband);
-    assertProperty(husband, ".."                               ,null);
-    assertProperty(husband, "."                                , husband);
-    assertProperty(husband, "INDI:BIRT:DATE:..:..:BIRT:DATE", husband.getProperty(new TagPath("INDI:BIRT:DATE")));
-
-    final Set wifes = new HashSet();
-    new TagPath("INDI:FAMS:*:..:WIFE:*:..").iterate(husband, new PropertyVisitor() { 
-      protected boolean leaf(Property leaf) {
-        wifes.add(leaf);
-        return true; // continue
-      }
-    });
+    assertProperty(indi, "INDI"                          , indi);
+    assertProperty(indi, "INDI:BIRT:DATE:..:..:BIRT:DATE", indi.getProperty(new TagPath("INDI:BIRT:DATE")));
     
-    assertEquals("should reach two wifes", wifes.size(), 2);
-    
-    assertProperty(husband, "INDI:FAMS:*:..:WIFE:*:..", wife1);
-    assertProperty(husband, "INDI:FAMS#0:*:..:WIFE:*:..", wife1);
-    assertProperty(husband, "INDI:FAMS#1:*:..:WIFE:*:..", wife2);
-    
-    assertPath(husband, "INDI:FAMS#0");
-    assertPath(husband, "INDI:FAMS#1");
-    
-    
-  }
-  
-  private void assertPath(Property root, String path) {
-    TagPath result = root.getProperty(new TagPath(path)).getPath(true);
-    assertEquals(result, new TagPath(path));
-    assertEquals(result.toString(), path);
   }
 
   /**

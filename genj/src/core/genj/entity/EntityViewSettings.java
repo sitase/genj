@@ -20,7 +20,6 @@
 package genj.entity;
 
 import genj.renderer.BlueprintList;
-import genj.renderer.BlueprintManager;
 import genj.view.Settings;
 import genj.view.ViewManager;
 
@@ -58,7 +57,7 @@ public class EntityViewSettings extends JTabbedPane implements Settings {
     main.add(checkAntialiasing);
     
     // blueprint options
-    blueprintList = new BlueprintList(BlueprintManager.getInstance());
+    blueprintList = new BlueprintList(manager.getBlueprintManager(),manager.getWindowManager());
     
     // add those tabs
     add(EntityView.resources.getString("page.main")      , main);

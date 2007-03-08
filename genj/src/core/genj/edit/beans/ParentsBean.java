@@ -20,6 +20,7 @@
 package genj.edit.beans;
 
 import genj.common.AbstractPropertyTableModel;
+import genj.common.PropertyTableModel;
 import genj.common.PropertyTableWidget;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
@@ -28,7 +29,6 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertyHusband;
 import genj.gedcom.PropertyWife;
 import genj.gedcom.TagPath;
-import genj.util.Registry;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -38,15 +38,15 @@ import java.awt.Dimension;
  */
 public class ParentsBean extends PropertyBean {
   
-  private final static String COLS_KEY = "bean.parents.cols";
-  
   private PropertyTableWidget table;
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  /**
+   * Initialization
+   */
+  protected void initializeImpl() {
     
     // setup layout & table
-    table = new PropertyTableWidget();
+    table = new PropertyTableWidget(viewManager);
     table.setPreferredSize(new Dimension(64,64));
     
     setLayout(new BorderLayout());
@@ -56,35 +56,62 @@ public class ParentsBean extends PropertyBean {
   }
   
   /**
-   * on add - set column widths
+   * we can't focus anything
    */
-  public void addNotify() {
-    // let super continue
-    super.addNotify();
-    // set widths
-    table.setColumnLayout(registry.get(COLS_KEY, (String)null));
-  }
-  
-  /**
-   * on remove - keep column widths
-   */
-  public void removeNotify() {
-    registry.put(COLS_KEY, table.getColumnLayout());
-    // let super continue
-    super.removeNotify();
+  public boolean canFocus(Property prop) {
+    return false;
   }
   
   /**
    * Set context to edit
    */
-  public void setProperty(Indi indi) {
+  protected void setContextImpl(Property prop) {
 
-    // don't propagate property since we're technically not looking at it
-    // property = indi;
+    // a table for the families
+    PropertyTableModel model = null;
+    if (prop instanceof Indi)
+      model = new ParentsOfChild((Indi)prop);
+    if (prop instanceof Fam)
+      model = new ParentsInFamily((Fam)prop);
     
-    table.setModel(new ParentsOfChild(indi));
+    table.setModel(model);
     
     // done
+  }
+  
+  private static class ParentsInFamily extends AbstractPropertyTableModel {
+    
+    private final static TagPath[] PATHS = {
+//        new TagPath("FAM:HUSB:*:..", Relationship.LABEL_FATHER),  
+//        new TagPath("FAM:HUSB:*:..:NAME"),  
+//        new TagPath("FAM:WIFE:*:..", Relationship.LABEL_MOTHER),
+//        new TagPath("FAM:WIFE:*:..:NAME")
+        new TagPath("INDI"),
+        new TagPath("INDI:NAME"),
+        new TagPath("INDI:BIRT:DATE"),
+        new TagPath("INDI:BIRT:PLAC"),
+    };
+    
+    private Fam fam;
+    
+    private ParentsInFamily(Fam fam) {
+      this.fam = fam;
+    }
+    public Gedcom getGedcom() {
+      return fam.getGedcom();
+    }
+    public int getNumCols() {
+      return PATHS.length;
+    }
+    public int getNumRows() {
+      return fam.getNoOfSpouses();
+    }
+    public TagPath getPath(int col) {
+      return PATHS[col];
+    }
+    public Property getProperty(int row) {
+      return fam.getSpouse(row);
+    }
   }
   
   private static class ParentsOfChild extends AbstractPropertyTableModel {

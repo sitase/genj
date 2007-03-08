@@ -44,11 +44,11 @@ public class PropertySubmitter extends PropertyXRef {
     Submitter subm = (Submitter)getCandidate();
 
     // Create Backlink
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
     subm.addProperty(fxref);
 
     // ... and point
-    link(fxref);
+    setTarget(fxref);
 
     // Done
   }

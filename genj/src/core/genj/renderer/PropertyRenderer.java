@@ -19,18 +19,11 @@
  */
 package genj.renderer;
 
-import genj.gedcom.Entity;
 import genj.gedcom.IconValueAvailable;
 import genj.gedcom.MultiLineProperty;
 import genj.gedcom.Property;
-import genj.gedcom.PropertyBlob;
-import genj.gedcom.PropertyDate;
-import genj.gedcom.PropertyFile;
-import genj.gedcom.PropertyMultilineValue;
 import genj.gedcom.PropertyPlace;
-import genj.gedcom.PropertySex;
 import genj.gedcom.PropertyXRef;
-import genj.gedcom.TagPath;
 import genj.util.Dimension2d;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.UnitGraphics;
@@ -43,13 +36,14 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.font.FontRenderContext;
 import java.awt.font.LineMetrics;
-import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Dimension2D;
 import java.awt.geom.Rectangle2D;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * A property renderer knows how to render a property into a graphics context
+ * 
  */
 public class PropertyRenderer {
 
@@ -68,53 +62,61 @@ public class PropertyRenderer {
   /** an empty dimension */
   private final static Dimension EMPTY_DIM = new Dimension(0,0);
   
+  /** a default PropertyProxy */
+  public final static PropertyRenderer 
+    DEFAULT_RENDERER = new PropertyRenderer(),
+    SECRET_RENDERER  = new Secret();
+
   /** an replacement for a 'broken' image */  
   private final static ImageIcon broken = 
     new ImageIcon(PropertyRenderer.class, "Broken.gif");
-  
-  public final static PropertyRenderer DEFAULT_RENDERER = new PropertyRenderer();
 
   /** cached renderer instances */
-  private static PropertyRenderer[] renderers = new PropertyRenderer[]{
-    new RenderSecret(),
-    new RenderFile(),
-    new RenderPlace(),
-    new RenderMLE(),
-    new RenderXRef(),
-    new RenderDate(),
-    new RenderSex(),
-    new RenderEntity(),
-    DEFAULT_RENDERER
-  };
-
-  /**
-   * acceptable check
-   */
-  public boolean accepts(TagPath path, Property prop) {
-    // we take everything
-    return true;
+  private static Map cache = new HashMap();
+  
+  static {
+    cache.put("FILE", new PropertyRenderer.File());
   }
 
   /** 
    * static accessor  
    */
   public static PropertyRenderer get(Property prop) {
-    return get(null, prop);
+    
+    // check secret
+    if (prop.isSecret()) 
+      return SECRET_RENDERER;
+    
+    // continue with tag
+    return get(prop.getProxy());
   }
+
   /** 
    * static accessor  
    */
-  public static PropertyRenderer get(TagPath path, Property prop) {
+  public static PropertyRenderer get(String name) {
     
-    // loop over known renderers
-    for (int i=0;i<renderers.length;i++) {
-      PropertyRenderer renderer = renderers[i];
-      if (renderer.accepts(path, prop))
-        return renderer;
+    synchronized (cache) {
+      
+      // have one?
+      PropertyRenderer result = (PropertyRenderer)cache.get(name);
+      if (result!=null) return result;
+      
+      // create one
+      try {
+        result = (PropertyRenderer)Class.forName(PropertyRenderer.class.getName()+"$"+name).newInstance();
+      } catch (Throwable t) {
+        //Debug.log(Debug.INFO, PropertyRenderer.class, "Couldn't find renderer for "+name, t);
+        result = DEFAULT_RENDERER;
+      }
+      
+      // remember
+      cache.put(name, result);
+      
+      // done
+      return result;
+      
     }
-
-    // this shouldn't happen since PropertyRenderer is in the list
-    return DEFAULT_RENDERER;
   }  
   
   /**
@@ -137,10 +139,10 @@ public class PropertyRenderer {
       w = 0,
       h = 0;
     // calculate text size (the default size we use)
-    if (isPreference(preference, PREFER_TXT)&&txt.length()>0) {
-      TextLayout layout = new TextLayout(txt, font, context);
-      w += layout.getAdvance();
-      h = Math.max(h, layout.getAscent() + layout.getDescent());
+    if (isPreference(preference, PREFER_TXT)) {
+      Rectangle2D bounds = font.getStringBounds(txt, context);
+      w += bounds.getWidth();
+      h = Math.max(h, bounds.getHeight());
     }
     // add image size
     if (isPreference(preference, PREFER_IMAGE)) {
@@ -217,22 +219,19 @@ public class PropertyRenderer {
    */
   protected void renderImpl(Graphics2D g, Rectangle bounds, String txt, int preference) {
     
-    // check for empty string
-    if (txt.length()==0)
-      return;
-    
-    // prepare layout
-    TextLayout layout = new TextLayout(txt, g.getFont(), g.getFontRenderContext());
+    Font font = g.getFont();
+    LineMetrics lm = font.getLineMetrics("", g.getFontRenderContext());
     
     // alignment?
     double x = bounds.getX();
     if (isPreference(preference, PREFER_RIGHTALIGN)) {
-      if (layout.getAdvance()< bounds.getWidth())
-        x = bounds.getMaxX() - layout.getAdvance();
+      Rectangle2D r = font.getStringBounds(txt, g.getFontRenderContext());
+      if (r.getWidth()< bounds.getWidth())
+        x = bounds.getMaxX() - r.getWidth();
     }
     
     // draw it
-    layout.draw(g, (float)x, (float)bounds.getY()+layout.getAscent());
+    g.drawString(txt, (float)x, (float)bounds.getY()+lm.getHeight()-lm.getDescent());
   }
   
   /** 
@@ -252,12 +251,7 @@ public class PropertyRenderer {
   /**
    * Place
    */
-  /*package*/ static class RenderPlace extends PropertyRenderer {
-    
-    /** acceptance */
-    public boolean accepts(TagPath path, Property prop) {
-      return prop instanceof PropertyPlace;
-    }
+  /*package*/ static class Place extends PropertyRenderer {
 
     /** 
      * size override
@@ -284,12 +278,7 @@ public class PropertyRenderer {
   /**
    * Sex
    */
-  /*package*/ static class RenderSex extends PropertyRenderer {
-
-    /** acceptance */
-    public boolean accepts(TagPath path, Property prop) {
-      return prop instanceof PropertySex;
-    }
+  /*package*/ static class Sex extends PropertyRenderer {
 
     /** 
      * size override
@@ -310,13 +299,8 @@ public class PropertyRenderer {
   /**
    * MLE
    */
-  /*package*/ static class RenderMLE extends PropertyRenderer {
+  /*package*/ static class MLE extends PropertyRenderer {
   
-    /** acceptance */
-    public boolean accepts(TagPath path, Property prop) {
-      return prop instanceof PropertyMultilineValue;
-    }
-
     /**
      * size override
      */
@@ -390,14 +374,7 @@ public class PropertyRenderer {
   /**
    * File
    */
-  /*package*/ static class RenderFile extends PropertyRenderer {
-
-    /** acceptance */
-    public boolean accepts(TagPath path, Property prop) {
-      return prop instanceof PropertyFile 
-      || prop instanceof PropertyBlob 
-      || (path!=null&&path.getLast().equals("FILE"));
-    }
+  /*package*/ static class File extends PropertyRenderer {
 
     /**
      * size override 
@@ -490,13 +467,8 @@ public class PropertyRenderer {
   /**
    * Entity
    */
-  /*package*/ static class RenderEntity extends PropertyRenderer {
+  /*package*/ static class Entity extends PropertyRenderer {
   
-    /** acceptance */
-    public boolean accepts(TagPath path, Property prop) {
-      return prop instanceof Entity;
-    }
-
     /**
      * size override
      */
@@ -516,27 +488,41 @@ public class PropertyRenderer {
   /**
    * XRef
    */
-  /*package*/ static class RenderXRef extends PropertyRenderer {
+  /*package*/ static class XRef extends PropertyRenderer {
     
-    /** acceptance */
-    public boolean accepts(TagPath path, Property prop) {
-      return prop instanceof PropertyXRef;
+    /** 
+     * size override
+     */
+    public Dimension2D getSizeImpl(Font font, FontRenderContext context, Property prop, int preference, Point dpi) {
+      if (prop instanceof PropertyXRef) {
+        Object e = ((PropertyXRef)prop).getTargetEntity();
+        if (e!=null) 
+          return super.getSizeImpl(font, context, prop, e.toString(), preference, dpi);
+      }
+      return super.getSizeImpl(font, context, prop, preference, dpi);
     }
 
-    // 20050416 the same as default - use displayValue
+    /**
+     * render override
+     */
+    public void renderImpl( Graphics2D g, Rectangle bounds, Property prop, int preference, Point dpi) {
+      if (prop instanceof PropertyXRef) {
+        Object e = ((PropertyXRef)prop).getTargetEntity();
+        if (e!=null) {
+          super.renderImpl(g, bounds, prop, e.toString(), preference, dpi);
+          return;
+        }
+      }
+      super.renderImpl(g, bounds, prop, preference, dpi);
+    }
   
   } //XRef
       
   /**
    * name
    */
-  /*package*/ static class RenderSecret extends PropertyRenderer {
+  /*package*/ static class Secret extends PropertyRenderer {
   
-    /** acceptance */
-    public boolean accepts(TagPath path, Property prop) {
-      return prop!=null && prop.isSecret();
-    }
-
     /**
      * size override
      */
@@ -556,13 +542,8 @@ public class PropertyRenderer {
   /**
    * Date
    */
-  /*package*/ static class RenderDate extends PropertyRenderer {
+  /*package*/ static class Date extends PropertyRenderer {
   
-    /** acceptance */
-    public boolean accepts(TagPath path, Property prop) {
-      return prop instanceof PropertyDate;
-    }
-
     /**
      * render override - make it right aligned
      */

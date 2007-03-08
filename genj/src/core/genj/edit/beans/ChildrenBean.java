@@ -25,17 +25,15 @@ import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
-import genj.util.Registry;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 
 /**
  * A complex bean displaying children of a family
  */
 public class ChildrenBean extends PropertyBean {
 
-  private final static String COLS_KEY = "bean.children.layout";
-  
   private final static TagPath PATHS[] = {
     new TagPath("INDI", Gedcom.getName("CHIL")),
     new TagPath("INDI:NAME"),
@@ -45,11 +43,14 @@ public class ChildrenBean extends PropertyBean {
   
   private PropertyTableWidget table;
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  /**
+   * Init
+   */
+  protected void initializeImpl() {
     
     // a table for the families
-    table = new PropertyTableWidget();
+    table = new PropertyTableWidget(viewManager);
+    table.setPreferredSize(new Dimension(64,64));
     
     setLayout(new BorderLayout());
     add(BorderLayout.CENTER, table);
@@ -57,57 +58,38 @@ public class ChildrenBean extends PropertyBean {
   }
 
   /**
-   * on add - set column widths
+   * we can't focus anything
    */
-  public void addNotify() {
-    // let super continue
-    super.addNotify();
-    // set widths
-    table.setColumnLayout(registry.get(COLS_KEY, (String)null));
-  }
-  
-  /**
-   * on remove - keep column widths
-   */
-  public void removeNotify() {
-    registry.put(COLS_KEY, table.getColumnLayout());
-    // let super continue
-    super.removeNotify();
+  public boolean canFocus(Property prop) {
+    return false;
   }
   
   /**
    * Set context to edit
    */
-  public void setProperty(Fam fam) {
-    
-    //  don't propagate property since we're technically not looking at it
-    // property = fam;
+  protected void setContextImpl(Property prop) {
     
     // connect to current fam
-    table.setModel(new Children(fam));
+    table.setModel(new Children());
     
     // done
   }
   
   private class Children extends AbstractPropertyTableModel {
-    private Fam fam;
-    private Children(Fam fam) {
-      this.fam = fam;
-    }
     public Gedcom getGedcom() {
-      return fam.getGedcom();
+      return property.getGedcom();
     }
     public int getNumCols() {
       return PATHS.length;
     }
     public int getNumRows() {
-      return fam.getNoOfChildren();
+      return ((Fam)property).getNoOfChildren();
     }
     public TagPath getPath(int col) {
       return PATHS[col];
     }
     public Property getProperty(int row) {
-      return fam.getChild(row);
+      return ((Fam)property).getChild(row);
     }
   }
 

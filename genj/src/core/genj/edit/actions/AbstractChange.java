@@ -22,12 +22,13 @@ package genj.edit.actions;
 import genj.edit.Images;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
-import genj.gedcom.UnitOfWork;
+import genj.gedcom.Property;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
+import genj.view.Context;
 import genj.view.ViewManager;
 import genj.window.WindowManager;
 
@@ -40,7 +41,7 @@ import javax.swing.JTextArea;
 /**
  * ActionChange - change the gedcom information
  */
-public abstract class AbstractChange extends Action2 implements UnitOfWork {
+/*package*/ abstract class AbstractChange extends Action2 {
   
   /** resources */
   /*package*/ final static Resources resources = Resources.get(AbstractChange.class);
@@ -51,6 +52,9 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
   /** the manager in the background */
   protected ViewManager manager;
   
+  /** the focus */
+  protected Property focus = null;
+  
   /** image *new* */
   protected final static ImageIcon imgNew = Images.imgNewEntity;
   
@@ -59,7 +63,7 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
   /**
    * Constructor
    */
-  public AbstractChange(Gedcom ged, ImageIcon img, String text, ViewManager mgr) {
+  /*package*/ AbstractChange(Gedcom ged, ImageIcon img, String text, ViewManager mgr) {
     gedcom = ged;
     manager = mgr;
     super.setImage(img);
@@ -73,19 +77,13 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
     // for a NPE I've seen a null message - better convert that to string here
     String message = ""+t.getMessage();
     // show it
-    getWindowManager().openDialog("err", "Error", WindowManager.ERROR_MESSAGE, message, Action2.okOnly(), getTarget());
-  }
-  
-  protected WindowManager getWindowManager() {
-    return WindowManager.getInstance(getTarget());    
+    manager.getWindowManager().openDialog("err", "Error", WindowManager.ERROR_MESSAGE, message, Action2.okOnly(), getTarget());
   }
   
   /** 
    * Returns the confirmation message - null if none
    */
-  protected String getConfirmMessage() {
-    return null;
-  }
+  protected abstract String getConfirmMessage();
   
   /**
    * Return the dialog content to show to the user   */
@@ -130,25 +128,31 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
       };
       
       // Recheck with the user
-      int rc = getWindowManager().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, getTarget() );
+      int rc = manager.getWindowManager().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, getTarget() );
       if (rc!=0)
         return;
     }
         
-    // do the change
+    // lock gedcom
+    gedcom.startTransaction();
+    // let sub-class handle create
     try {
-      gedcom.doUnitOfWork(this);
+      change();
     } catch (Throwable t) {
-      getWindowManager().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), getTarget());
+      manager.getWindowManager().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), getTarget());
     }
-    
+    // unlock gedcom
+    gedcom.endTransaction();
+    // set focus?
+    if (focus!=null) 
+      manager.fireContextSelected(new Context(focus));
     // done
   }
   
   /**
    * perform the actual change
    */
-  public abstract void perform(Gedcom gedcom) throws GedcomException;
+  protected abstract void change() throws GedcomException;
   
 } //Change
 

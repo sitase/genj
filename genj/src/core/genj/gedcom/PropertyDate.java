@@ -113,6 +113,13 @@ public class PropertyDate extends Property {
   }
 
   /**
+   * Returns generic proxy's logical name
+   */
+  public String getProxy() {
+    return "Date";
+  }
+
+  /**
    * Accessor Tag
    */
   public String getTag() {
@@ -177,7 +184,7 @@ public class PropertyDate extends Property {
     }
     
     // remember as modified      
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
 
     // Done
   }
@@ -202,7 +209,7 @@ public class PropertyDate extends Property {
     }
     
     // remember as modified      
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
 
     // Done
   }
@@ -212,8 +219,7 @@ public class PropertyDate extends Property {
    */
   public void setValue(String newValue) {
 
-    // 20070128 don't bother with calculating old if this is happening in init()
-    String old = getParent()==null ? null : getValue();
+    String old = getValue();
 
     // do an atomic change
     isAdjusting = true;
@@ -240,7 +246,7 @@ public class PropertyDate extends Property {
     }
 
     // remember as modified      
-    if (old!=null) propagatePropertyChanged(this, old);
+    propagateChange(old);
 
     // done
   }
@@ -315,7 +321,7 @@ public class PropertyDate extends Property {
   /** 
    * A point in time 
    */
-  private final class PIT extends PointInTime {
+  private class PIT extends PointInTime {
     
     /**
      * Setter
@@ -327,11 +333,11 @@ public class PropertyDate extends Property {
         super.set(d,m,y);
       } else {
         // grab old
-        String old = super.getValue();
+        String old = getValue();
         // set it
         super.set(d,m,y);
         // notify about change 
-        propagatePropertyChanged(PropertyDate.this, old);
+        propagateChange(old);
       }
       
       // done
@@ -416,17 +422,17 @@ public class PropertyDate extends Property {
         if (start.length()>0)
           result.append(Gedcom.getResources().getString("prop.date.mod."+start));
         if (calendar==null||date.start.getCalendar()==calendar) 
-          date.start.toString(result);
+          date.start.toString(result, true);
         else 
-          date.start.getPointInTime(calendar).toString(result);
+          date.start.getPointInTime(calendar).toString(result, true);
     
         // end modifier & point in time
         if (isRange()) {
           result.append(Gedcom.getResources().getString("prop.date.mod."+end));
           if (calendar==null||date.end.getCalendar()==calendar) 
-            date.end.toString(result);
+            date.end.toString(result,true);
           else 
-            date.end.getPointInTime(calendar).toString(result);
+            date.end.getPointInTime(calendar).toString(result, true);
         }
     
         // done    
@@ -535,9 +541,9 @@ public class PropertyDate extends Property {
         // start modifier & point in time
         if (date.start.isValid()) {
           if (calendar==null||date.start.getCalendar()==calendar) 
-            date.start.toString(result);
+            date.start.toString(result, true);
           else 
-            date.start.getPointInTime(calendar).toString(result);
+            date.start.getPointInTime(calendar).toString(result, true);
         }
         
         // phrase

@@ -21,7 +21,6 @@ package genj.almanac;
 
 import genj.gedcom.GedcomException;
 import genj.gedcom.time.PointInTime;
-import genj.util.EnvironmentChecker;
 import genj.util.Resources;
 
 import java.io.BufferedReader;
@@ -285,11 +284,7 @@ public class Almanac {
     }
     /** look into ./contrib/almanac */
     protected File getDirectory() {
-      return new File(EnvironmentChecker.getProperty(this,
-          new String[]{ "genj.almanac.dir", "user.dir/contrib/almanac"},
-          "contrib/almanac",
-          "find almanac files"
-        ));
+      return new File("./contrib/almanac");
     }
     /**
      * get buffered reader from file
@@ -388,7 +383,9 @@ public class Almanac {
     // 19700525\Births\Nils Meier
     private Pattern REGEX_LINE = Pattern.compile("(.*?)\\\\(.*?)\\\\(.*)");
     
-    private String SUFFIX = ".wikipedia.zip";
+    private final String DIR = "./contrib/wikipedia";
+    
+    private final String SUFFIX = ".wikipedia.zip";
     
     private String file;
     
@@ -396,10 +393,7 @@ public class Almanac {
     protected File getDirectory() {
       
       // we know were those are
-      File result = new File(EnvironmentChecker.getProperty(this,
-          new String[]{ "genj.wikipedia.dir", "user.dir/contrib/wikipedia"}, "contrib/wikipedia",
-          "find wikipedia files"
-        ));
+      File result = new File(DIR);
       
       // look for applicable one (language)
       String lang = Locale.getDefault().getLanguage();
@@ -479,7 +473,7 @@ public class Almanac {
     
     private Event next;
 
-    private Set cats;
+    private Set categories;
     
     /**
      * Constructor
@@ -516,7 +510,7 @@ public class Almanac {
     
     private void init(Set cats) {
       
-      this.cats = cats;
+      categories = cats;
       
 	    synchronized (events) {
 	      end = events.size();
@@ -554,7 +548,7 @@ public class Almanac {
 	        // here's the next
 		      next = (Event)events.get(start++);
 		      // good category?
-		      if (cats!=null&&!next.isCategory(cats)) 
+		      if (categories!=null&&!next.isCategory(categories)) 
 	          continue;
 		      // before earliest?
 		      PointInTime time = next.getTime();

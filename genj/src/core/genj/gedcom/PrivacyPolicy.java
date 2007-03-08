@@ -28,7 +28,7 @@ import genj.gedcom.time.Delta;
  */
 public class PrivacyPolicy {
   
-  public static final PrivacyPolicy 
+  public static PrivacyPolicy 
     PUBLIC = new PrivacyPolicy() { public boolean isPrivate(Property prop) { return false; } },
     PRIVATE = new PrivacyPolicy() { public boolean isPrivate(Property prop) { return true; } };
   

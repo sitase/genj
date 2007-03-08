@@ -19,23 +19,13 @@
  */
 package genj.edit.beans;
 
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-
 import genj.gedcom.Property;
 import genj.gedcom.PropertyName;
-import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextFieldWidget;
-import genj.window.WindowManager;
 
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
-import javax.swing.border.EmptyBorder;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 /**
  * A Proxy knows how to generate interaction components that the user
@@ -43,42 +33,21 @@ import javax.swing.event.ChangeListener;
  */
 public class NameBean extends PropertyBean {
 
-  private final static NestedBlockLayout LAYOUT = new NestedBlockLayout("<col><row><l/><v wx=\"1\"/></row><row><l/><v wx=\"1\"/><check/></row><row><l/><v wx=\"1\"/></row></col>");
+  private final static NestedBlockLayout LAYOUT = new NestedBlockLayout("<col><row><l/><v wx=\"1\"/></row><row><l/><v wx=\"1\"/></row><row><l/><v wx=\"1\"/></row></col>");
   
   /** our components */
-  private Property[] sameLastNames;
   private ChoiceWidget cLast, cFirst;
-  private JCheckBox cAll;
   private TextFieldWidget tSuff;
 
   /**
-   * Calculate message for replace all last names
+   * Initialization
    */
-  private String getReplaceAllMsg() {
-    if (sameLastNames.length<2)
-      return null;
-    // we're using getDisplayValue() here
-    // because like in PropertyRelationship's case there might be more
-    // in the gedcom value than what we want to display (witness@INDI:BIRT)
-    return resources.getString("choice.global.confirm", new String[]{ ""+sameLastNames.length, ((PropertyName)getProperty()).getLastName(), cLast.getText()});
-  }
-  
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  protected void initializeImpl() {
     
     setLayout(LAYOUT.copy());
 
     cLast  = new ChoiceWidget();
     cLast.addChangeListener(changeSupport);
-    cLast.addChangeListener(new ChangeListener() {
-      public void stateChanged(ChangeEvent e) {
-        String msg = getReplaceAllMsg();
-        if (msg!=null) {
-          cAll.setVisible(true);
-          cAll.setToolTipText(msg);
-        }
-      }
-    });
     cLast.setIgnoreCase(true);
     cFirst = new ChoiceWidget();
     cFirst.addChangeListener(changeSupport);
@@ -86,35 +55,16 @@ public class NameBean extends PropertyBean {
     tSuff  = new TextFieldWidget("", 10); 
     tSuff.addChangeListener(changeSupport);
 
-    cAll = new JCheckBox();
-    cAll.setBorder(new EmptyBorder(1,1,1,1));
-    cAll.setVisible(false);
-    cAll.setRequestFocusEnabled(false);
-    
     add(new JLabel(PropertyName.getLabelForFirstName()));
     add(cFirst);
 
     add(new JLabel(PropertyName.getLabelForLastName()));
     add(cLast);
-    add(cAll);
 
     add(new JLabel(PropertyName.getLabelForSuffix()));
     add(tSuff);
 
-    // listen to selection of global and ask for confirmation
-    cAll.addActionListener(new ActionListener() {
-      public void actionPerformed(ActionEvent e) {
-        String msg = getReplaceAllMsg();
-        WindowManager wm = WindowManager.getInstance(NameBean.this);
-        if (wm!=null&&msg!=null&&cAll.isSelected()) {
-          int rc = wm.openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), NameBean.this);
-          cAll.setSelected(rc==0);
-        }        
-      }
-    });
-    
-    
-    // we're done aside from declaring the default focus
+
     defaultFocus = cFirst;
 
   }
@@ -122,10 +72,8 @@ public class NameBean extends PropertyBean {
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
+  public void commit() {
 
-    super.commit(property);
-    
     // ... calc texts
     String first = cFirst.getText().trim();
     String last  = cLast .getText().trim();
@@ -133,7 +81,7 @@ public class NameBean extends PropertyBean {
 
     // ... store changed value
     PropertyName p = (PropertyName) property;
-    p.setName( first, last, suff, cAll.isSelected());
+    p.setName( first, last, suff );
 
     // Done
   }
@@ -141,23 +89,16 @@ public class NameBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  public void setProperty(PropertyName name) {
+  protected void setContextImpl(Property prop) {
 
-    // remember property
-    property = name;
-    
-    // keep track of who has the same last name
-    sameLastNames = name.getSameLastNames();
-    
     // first, last, suff
-    cLast.setValues(name.getLastNames(true));
-    cLast.setText(name.getLastName());
-    cFirst.setValues(name.getFirstNames(true));
-    cFirst.setText(name.getFirstName()); 
-    tSuff.setText(name.getSuffix()); 
+    PropertyName pname = (PropertyName)property;
     
-    cAll.setVisible(false);
-    cAll.setSelected(false);
+    cLast.setValues(pname.getLastNames(true));
+    cLast.setText(pname.getLastName());
+    cFirst.setValues(pname.getFirstNames(true));
+    cFirst.setText(pname.getFirstName()); 
+    tSuff.setText(pname.getSuffix()); 
 
     // done
   }

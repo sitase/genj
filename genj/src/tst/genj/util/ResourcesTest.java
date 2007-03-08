@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.regex.Pattern;
 
 import junit.framework.TestCase;
 
@@ -91,8 +90,6 @@ public class ResourcesTest extends TestCase {
     return diffs;
   }
   
-  private final static Pattern PATTERN_IGNORE = Pattern.compile(".*[A-Z]{2}.*");
-  
   private void diffResource(String pckg, Resources original, Resources translation, List diffs) {
     // go key bey key
     for (Iterator keys = original.getKeys().iterator(); keys.hasNext(); ) {
@@ -100,8 +97,8 @@ public class ResourcesTest extends TestCase {
       String key = (String)keys.next();
       String val1 = (String)original.getString(key);
       String val2 = (String)translation.getString(key, false);
-      // ignore key?
-      if (PATTERN_IGNORE.matcher(key).matches())
+      // any uppercase in it and we assume it doesn't need to be translated
+      if (!key.toLowerCase().equals(key))
         continue;
       // check translation
       if (val2==null) {

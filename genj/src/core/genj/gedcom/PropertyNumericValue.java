@@ -83,7 +83,7 @@ public class PropertyNumericValue extends Property {
     }
     
     // propagate change
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
   }
   
   /**

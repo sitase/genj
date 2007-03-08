@@ -20,8 +20,8 @@
 package genj.edit.beans;
 
 import genj.gedcom.Entity;
+import genj.gedcom.Property;
 import genj.gedcom.PropertyChange;
-import genj.util.Registry;
 
 import java.awt.BorderLayout;
 
@@ -37,15 +37,23 @@ public class EntityBean extends PropertyBean {
   private JLabel changed;
 
   /**
+   * Finish editing a property through proxy (no changes here unless
+   * hasChanged()==true since this will be called in all cases)
+   */
+  public void commit() {
+  }
+
+  /**
    * Nothing to edit
    */  
   public boolean isEditable() {
     return false;
   }
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
-    
+  /**
+   * Initialize
+   */
+  protected void initializeImpl() {
     preview = new Preview();
     changed = new JLabel();
     
@@ -57,10 +65,9 @@ public class EntityBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  public void setProperty(Entity entity) {
+  protected void setContextImpl(Property prop) {
 
-    // remember property
-    property = entity;
+    Entity entity = (Entity)property;
     
     // show it
     preview.setEntity(entity);
@@ -70,7 +77,7 @@ public class EntityBean extends PropertyBean {
     if (entity!=null) {
       PropertyChange change = entity.getLastChange();
       if (change!=null)
-        changed.setText(resources.getString("entity.change", new String[] {change.getDateDisplayValue(), change.getTimeDisplayValue()} ));      
+        changed.setText(resources.getString("entity.change", new String[] {change.getDateAsString(), change.getTimeAsString()} ));      
         changed.setVisible(true);
     }
     

@@ -61,6 +61,13 @@ public class PropertyEvent extends Property {
   }
 
   /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "Event";
+  }
+
+  /**
    * Returns the tag of this property
    */
   public String getTag() {
@@ -118,7 +125,7 @@ public class PropertyEvent extends Property {
   public void setKnownToHaveHappened(boolean set) {
     String old = getValue();
     knownToHaveHappened = set;
-    propagatePropertyChanged(this, old);
+    propagateChange(old);
   }
 
 // Could do an automatic 'y' here but that would pollute

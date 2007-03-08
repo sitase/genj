@@ -58,6 +58,9 @@ public class OptionsWidget extends JPanel {
   /** tree we're using */
   private JTree tree;
   
+  /** reference to window manager */
+  private WindowManager manager;
+  
   /** tree model */
   private Model model = new Model();
   
@@ -70,16 +73,17 @@ public class OptionsWidget extends JPanel {
   /**
    * Constructor
    */
-  public OptionsWidget(String title) {
-    this(title, null);
+  public OptionsWidget(String title, WindowManager manager) {
+    this(title, manager, null);
   }
   
   /**
    * Constructor
    */
-  public OptionsWidget(String title, List options) {
+  public OptionsWidget(String title, WindowManager manager, List options) {
 
     this.title = title;
+    this.manager = manager;
         
     // setup
     tree = new JTree(model) {
@@ -165,7 +169,7 @@ public class OptionsWidget extends JPanel {
    * Access to window manager
    */  
   public WindowManager getWindowManager() {
-    return WindowManager.getInstance(this);
+    return manager;
   } 
   
   /**
@@ -174,7 +178,7 @@ public class OptionsWidget extends JPanel {
   private class Cell extends AbstractCellEditor implements TreeCellRenderer, TreeCellEditor {
     
     /** current ui */
-    private OptionUI optionUi;
+    private OptionUI ui;
     
     /** panel container */
     private JPanel panel = new JPanel() {
@@ -221,18 +225,18 @@ public class OptionsWidget extends JPanel {
       if (panel.getComponentCount()>1) 
         panel.remove(1);
       // lookup option and ui
-      optionUi = option.getUI(OptionsWidget.this);
+      ui = option.getUI(OptionsWidget.this);
       // prepare name
       labelForName.setText(option.getName());
       labelForName.setPreferredSize(new Dimension(widthOf1stColumn,16));
       // and value (either text or ui)
       JComponent compForValue;
-      String text = optionUi.getTextRepresentation();
+      String text = ui.getTextRepresentation();
       if (text!=null&&!forceUI) {
         labelForValue.setText(text);
         compForValue = labelForValue;
       } else {
-        compForValue = optionUi.getComponentRepresentation();
+        compForValue = ui.getComponentRepresentation();
       }
       panel.add(compForValue, BorderLayout.CENTER);
       
@@ -256,14 +260,14 @@ public class OptionsWidget extends JPanel {
 
     /** callback - cancel editing */     
     public void cancelCellEditing() {
-      optionUi = null;
+      ui = null;
       super.cancelCellEditing();
     }
   
     /** callback - stop editing = commit */     
     public boolean stopCellEditing() {
-      if (optionUi!=null)
-        optionUi.endRepresentation();
+      if (ui!=null)
+        ui.endRepresentation();
       return super.stopCellEditing();
     }
 
@@ -306,13 +310,14 @@ public class OptionsWidget extends JPanel {
       cat2options.clear();
       categories.clear();
       
+      HashMap categories = new HashMap();
       for (int i = 0; i < set.size(); i++) {
         Option option = (Option)set.get(i);
         getCategory(option.getCategory()).add(option);
       }
       
       // notify
-      fireTreeStructureChanged(this, new Object[] {this}, null, null);
+      fireTreeStructureChanged(this, new TreePath(this), null, null);
     }
     
     /**

@@ -19,7 +19,6 @@
  */
 package genj.gedcom;
 
-
 /**
  * Abstract base type for all Entities - don't make abstract since we actually
  * instantiate this for entities we don't know 
@@ -39,31 +38,68 @@ public class Entity extends Property {
   private String value;
   
   /**
-   * Lifecycle - callback after being added to Gedcom
+   * Lookup current transaction
+   */
+  protected Transaction getTransaction() {
+    return gedcom!=null ? gedcom.getTransaction() : null;
+  }
+  
+  /**
+   * Lifecycle - callback when being added to Gedcom
    */
   /*package*/ void addNotify(Gedcom ged) {
+    
     // remember
     gedcom = ged;
-    // propagate change (see Property.addNotify() for motivation why propagate is here)
-    ged.propagateEntityAdded(this);
+
+    // note
+    Transaction tx = getTransaction();
+    if (tx!=null) {
+      tx.get(Transaction.ENTITIES_ADDED).add(this);
+      tx.addChange(new Change.EntityAdd(this));
+    }
+    
     // done    
   }
   
   /**
-   * Lifecycle - callback before being removed from Gedcom
+   * Lifecycle - callback when being removed from Gedcom
    */
   /*package*/ void delNotify() {
     
     // delete children
-    delProperties();
+    Property[] props = getProperties();
+    for (int p = 0; p < props.length; p++) {
+      delProperty(props[p]);
+    }
 
-    // propagate change (see addNotify() for motivation why propagate is here)
-    gedcom.propagateEntityDeleted(this);
+    // housekeeping
+    Transaction tx = getTransaction();
+    if (tx!=null) {
+      tx.get(Transaction.ENTITIES_DELETED).add(this);
+      tx.addChange(new Change.EntityDel(this));
+    }
     
     // forget gedcom
     gedcom = null;
     
     // done    
+  }
+  
+  /**
+   * Propagate changed property
+   */
+  protected void propagateChange(Change change) {
+    
+    super.propagateChange(change);
+
+    // mark entity as changed and update CHAN
+    Transaction tx = getTransaction();
+    if (tx!=null) {
+      tx.get(Transaction.ENTITIES_MODIFIED).add(this);
+      PropertyChange.update(this, tx, change);
+    }
+    
   }
   
   /**
@@ -89,25 +125,6 @@ public class Entity extends Property {
   }
 
   /**
-   * Changes an entity's ID
-   */
-  public void setId(String set) throws GedcomException {
-    
-    // change it
-    String old = id;
-    id = set;
-    
-    // tell Gedcom about it
-    if (gedcom!=null) try {
-      gedcom.propagateEntityIDChanged(this, old);
-    } catch (Throwable t) {
-      id = old;
-    }
-
-    // done
-  }
-  
-  /**
    * Returns entity's id
    * @return id
    */
@@ -115,6 +132,29 @@ public class Entity extends Property {
     return id;
   }
   
+  /**
+   * Changes an entity's ID
+   */
+  public void setId(String set) throws GedcomException {
+    
+    // tell Gedcom about it
+    Gedcom ged = getGedcom();
+    if (ged!=null) ged.handleChangeOfID(this, set);
+    
+    // remember now
+    String old = id;
+    id = set;
+    
+    // setup undo
+    Transaction tx = getTransaction();
+    if (tx!=null) {
+      Change change = new Change.EntityID(this, old);
+      tx.addChange(change);
+      propagateChange(change);
+    }
+    
+  }
+
   /**
    * Initialize entity
    */
@@ -143,6 +183,13 @@ public class Entity extends Property {
     return prefix.toString();
   }
 
+  /**
+   * @see genj.gedcom.PropertyNote#getProxy()
+   */
+  public String getProxy() {
+    return "Entity";
+  }
+  
   /**
    * @see genj.gedcom.Property#getTag()
    */
@@ -200,38 +247,5 @@ public class Entity extends Property {
   public String format(String propertyTag, String format) {
     Property p = getProperty(propertyTag);
     return p!=null ? p.format(format) : "";
-  }
-
-  /**
-   * Propagate changed property
-   */
-  void propagateXRefLinked(PropertyXRef property1, PropertyXRef property2) {
-    if (gedcom!=null)
-      gedcom.propagateXRefLinked(property1, property2);
-  }
-
-  void propagateXRefUnlinked(PropertyXRef property1, PropertyXRef property2) {
-    if (gedcom!=null)
-      gedcom.propagateXRefUnlinked(property1, property2);
-  }
-
-  void propagatePropertyAdded(Property container, int pos, Property added) {
-    if (gedcom!=null)
-      gedcom.propagatePropertyAdded(this, container, pos, added);
-  }
-
-  void propagatePropertyDeleted(Property container, int pos, Property deleted) {
-    if (gedcom!=null)
-      gedcom.propagatePropertyDeleted(this, container, pos, deleted);
-  }
-
-  void propagatePropertyChanged(Property property, String oldValue) {
-    if (gedcom!=null)
-      gedcom.propagatePropertyChanged(this, property, oldValue);
-  }
-
-  void propagatePropertyMoved(Property property, Property moved, int from, int to) {
-    if (gedcom!=null)
-      gedcom.propagatePropertyMoved(property, moved, from, to);
   }
 } //Entity
