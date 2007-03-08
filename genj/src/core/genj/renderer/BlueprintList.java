@@ -70,15 +70,25 @@ public class BlueprintList extends JSplitPane {
   /** the current Gedcom */
   private Gedcom gedcom; 
   
+  /** a reference to the BlueprintManager */
+  private BlueprintManager blueprintManager;
+  
+  /** the window manager */
+  private WindowManager windowManager;
+  
   /** model used for tree on left */
   private Model model = new Model();
   
   /**
    * Constructor   */
-  public BlueprintList(BlueprintManager bpMgr) {
+  public BlueprintList(BlueprintManager bpMgr, WindowManager winMgr) {
+    
+    // remember
+    blueprintManager = bpMgr;
+    windowManager = winMgr;
     
     // create editor
-    editor = new BlueprintEditor(bpMgr);
+    editor = new BlueprintEditor(bpMgr, windowManager);
     
     // prepare tree
     treeBlueprints = new JTree(model);
@@ -145,7 +155,7 @@ public class BlueprintList extends JSplitPane {
         return;
       Object node = path.getLastPathComponent();
       // get name
-      String name = WindowManager.getInstance(BlueprintList.this).openDialog(
+      String name = windowManager.openDialog(
         null,
         null,
         WindowManager.QUESTION_MESSAGE,
@@ -159,7 +169,7 @@ public class BlueprintList extends JSplitPane {
       String html = node instanceof Blueprint ? ((Blueprint)node).getHTML() : "";
       // add it
       try {
-        Blueprint blueprint = BlueprintManager.getInstance().addBlueprint(new Blueprint(
+        Blueprint blueprint = blueprintManager.addBlueprint(new Blueprint(
           node instanceof Blueprint ? ((Blueprint)node).getTag() : (String)node,
           name, html, false
         ));
@@ -169,7 +179,7 @@ public class BlueprintList extends JSplitPane {
         treeBlueprints.setSelectionPath(new TreePath(model.getPathToRoot(blueprint)));
         editor.setHTMLVisible(true);
       } catch (IOException e) {
-        // TODO add user dialog 
+        // FIXME add user dialog 
       }
       // done
     }
@@ -199,16 +209,16 @@ public class BlueprintList extends JSplitPane {
         return;
       // confirm
       Blueprint blueprint = (Blueprint)node;
-      int rc = WindowManager.getInstance(BlueprintList.this).openDialog(null,null,WindowManager.QUESTION_MESSAGE,resources.getString("blueprint.del.confirm", blueprint.getName()),Action2.okCancel(),BlueprintList.this); 
+      int rc = windowManager.openDialog(null,null,WindowManager.QUESTION_MESSAGE,resources.getString("blueprint.del.confirm", blueprint.getName()),Action2.okCancel(),BlueprintList.this); 
       if (rc!=0) 
         return;
       // remove selection
       selection.remove(blueprint.getTag());
       // delete it
       try {
-        BlueprintManager.getInstance().delBlueprint(blueprint);
+        blueprintManager.delBlueprint(blueprint);
       } catch (IOException e) {
-        // TODO show a warning dialog
+        // FIXME show a warning dialog
       }
       // show it
       model.fireStructureChanged();
@@ -341,7 +351,7 @@ public class BlueprintList extends JSplitPane {
       // child one of the blueprints?
       if (child instanceof Blueprint) {
         Blueprint bp = (Blueprint)child;
-        return BlueprintManager.getInstance().getBlueprints(bp.getTag()).indexOf(bp);
+        return blueprintManager.getBlueprints(bp.getTag()).indexOf(bp);
       }
   
       // must be tag
@@ -377,7 +387,7 @@ public class BlueprintList extends JSplitPane {
         return Gedcom.ENTITIES[index];
       // has to be entity tag
       String tag = (String)parent;
-      return BlueprintManager.getInstance().getBlueprints(tag).get(index);
+      return blueprintManager.getBlueprints(tag).get(index);
     }
 
     /**
@@ -392,7 +402,7 @@ public class BlueprintList extends JSplitPane {
         return 0;
       // entity tag
       String tag = (String)parent;
-      return BlueprintManager.getInstance().getBlueprints(tag).size();
+      return blueprintManager.getBlueprints(tag).size();
     }
 
     /**

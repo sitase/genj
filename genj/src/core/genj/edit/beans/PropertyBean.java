@@ -21,13 +21,13 @@ package genj.edit.beans;
 
 import genj.gedcom.Entity;
 import genj.gedcom.Property;
-import genj.renderer.BlueprintManager;
 import genj.renderer.EntityRenderer;
 import genj.util.ChangeSupport;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.view.ContextProvider;
 import genj.view.ViewContext;
+import genj.view.ContextProvider;
+import genj.view.ViewManager;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -57,6 +57,9 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   /** the property to edit */
   protected Property property;
   
+  /** the current view manager */
+  protected ViewManager viewManager;
+  
   /** current registry */
   protected Registry registry;
   
@@ -69,7 +72,9 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   /**
    * Initialize (happens once)
    */
-  /*package*/ void initialize(Registry setRegistry) {
+  /*package*/ void initialize(ViewManager setViewManager, Registry setRegistry) {
+    // our state
+    viewManager = setViewManager;
     registry = setRegistry;
   }
   
@@ -93,8 +98,6 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
     } catch (Throwable t) {
       throw new RuntimeException("unexpected throwable in "+getClass().getName()+".setProperty("+prop.getClass().getName());
     }
-    
-    changeSupport.setChanged(false);
   }
   
   private Method getSetter(Property prop) {
@@ -249,14 +252,14 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
       g.setColor(Color.WHITE); 
       g.fillRect(box.x, box.y, box.width, box.height);
       // render entity
-      if (renderer!=null&&entity!=null) 
+      if (renderer!=null) 
         renderer.render(g, entity, box);
       // done
     }
     protected void setEntity(Entity ent) {
       entity = ent;
       if (entity!=null)
-        renderer = new EntityRenderer(BlueprintManager.getInstance().getBlueprint(entity.getGedcom().getOrigin(), entity.getTag(), ""));
+        renderer = new EntityRenderer(viewManager.getBlueprintManager().getBlueprint(entity.getGedcom().getOrigin(), entity.getTag(), ""));
       repaint();
     }
   } //Preview

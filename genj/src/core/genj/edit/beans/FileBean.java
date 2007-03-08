@@ -28,6 +28,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.FileChooserWidget;
 import genj.util.swing.ImageWidget;
 import genj.view.ViewContext;
+import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -60,51 +61,35 @@ public class FileBean extends PropertyBean {
   /** file chooser  */
   private FileChooserWidget chooser = new FileChooserWidget();
   
-  private ActionListener doPreview = new ActionListener() {
-    public void actionPerformed(ActionEvent e) {
-      
-      // remember directory
-      registry.put("bean.file.dir", chooser.getDirectory());
-      
-      // show file
-      File file = getProperty().getGedcom().getOrigin().getFile(chooser.getFile().toString());
-      if (file==null) {
-        preview.setSource(null);
-        return;
-      }
-      preview.setSource(new ImageWidget.FileSource(file));
-      
-      // calculate relative
-      String relative = getProperty().getGedcom().getOrigin().calcRelativeLocation(file.getAbsolutePath());
-      if (relative!=null)
-        chooser.setFile(relative);
-      
-      // and warn about size
-      WindowManager wm = WindowManager.getInstance(FileBean.this);
-      if (wm!=null&&file.exists()&&file.length()>PropertyFile.getMaxValueAsIconSize(false)) {
-      
-        String txt = resources.getString("file.max", new String[]{
-          file.getName(),
-          String.valueOf(file.length()/1024+1),
-          String.valueOf(PropertyFile.getMaxValueAsIconSize(true)),
-        }); 
-      
-        wm.openDialog(null,null,WindowManager.INFORMATION_MESSAGE,txt,Action2.okOnly(), FileBean.this);
-      }
-
-      // done
-    }
-  };
-  
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     setLayout(new BorderLayout());
     
     // setup chooser
     chooser.setAccessory(updateFormatAndTitle);
     chooser.addChangeListener(changeSupport);
-    chooser.addActionListener(doPreview);
+    chooser.addActionListener(new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+        registry.put("bean.file.dir", chooser.getDirectory());
+        File file = getProperty().getGedcom().getOrigin().getFile(chooser.getFile().toString());
+        preview.setSource(new ImageWidget.FileSource(file));
+
+        // warn about size
+        if (file.exists()&&file.length()>PropertyFile.getMaxValueAsIconSize(false)) {
+        
+          String txt = resources.getString("file.max", new String[]{
+            file.getName(),
+            String.valueOf(file.length()/1024+1),
+            String.valueOf(PropertyFile.getMaxValueAsIconSize(true)),
+          }); 
+        
+          viewManager.getWindowManager().openDialog(null,null,WindowManager.INFORMATION_MESSAGE,txt,Action2.okOnly(), FileBean.this);
+        }
+
+        // done
+      }
+    });
 
     add(chooser, BorderLayout.NORTH);      
     
@@ -200,18 +185,17 @@ public class FileBean extends PropertyBean {
     super.commit(property);
     
     // propagate
-    String value = chooser.getFile().toString();
+    String file = chooser.getFile().toString();
     
     if (property instanceof PropertyFile)
-      ((PropertyFile)property).setValue(value, updateFormatAndTitle.isSelected());
+      ((PropertyFile)property).setValue(file, updateFormatAndTitle.isSelected());
     
     if (property instanceof PropertyBlob) 
-      ((PropertyBlob)property).load(value, updateFormatAndTitle.isSelected());
+      ((PropertyBlob)property).load(file, updateFormatAndTitle.isSelected());
 
-    // update preview
-    File file = getProperty().getGedcom().getOrigin().getFile(value);
-    preview.setSource(file!=null?new ImageWidget.FileSource(file):null);
-    
+    // update chooser
+    chooser.setFile(property.getValue());
+
     // done
   }
 

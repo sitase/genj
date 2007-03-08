@@ -56,8 +56,6 @@ public class App {
   
   /*package*/ static Logger LOG;
   
-  /*package*/ static File LOGFILE; 
-  
   /**
    * GenJ Main Method
    */
@@ -108,8 +106,7 @@ public class App {
       OptionProvider.getAllOptions(registry);
       
       // Setup File Logging and check environment
-      LOGFILE = new File(home, "genj.log");
-      Handler handler = new FileHandler(LOGFILE.getAbsolutePath(), Options.getInstance().getMaxLogSizeKB()*1024, 1, true);
+      Handler handler = new FileHandler(new File(home, "genj.log").getAbsolutePath(), Options.getInstance().getMaxLogSizeKB()*1024, 1, true);
       handler.setLevel(Level.ALL);
       handler.setFormatter(formatter);
       LOG.addHandler(handler);

@@ -31,6 +31,7 @@ import java.util.Stack;
 
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
@@ -43,7 +44,7 @@ import javax.swing.JPopupMenu;
 public class MenuHelper  {
   
   private Stack menus            = new Stack();  // JMenu or JPopupMenu or JMenuBar
-  private Component target       = null;
+  private JComponent target       = null;
 
   /** Setters */    
   public MenuHelper popMenu() { 
@@ -56,7 +57,7 @@ public class MenuHelper  {
     return this; 
   }
   public MenuHelper pushMenu(JPopupMenu popup) { menus.push(popup); return this; }
-  public MenuHelper setTarget(Component set) { target=set; return this; }
+  public MenuHelper setTarget(JComponent set) { target=set; return this; }
 
   /**
    * Creates a menubar

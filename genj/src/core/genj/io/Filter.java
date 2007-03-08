@@ -29,12 +29,7 @@ public interface Filter {
   /**
    * Whether given property is "in" (not "out")
    */  
-  public boolean checkFilter(Property property);
-  
-  /**
-   * Name of filter
-   */
-  public String getFilterName();
-  
+  public boolean accept(Property property);
+
 } //Filter
   

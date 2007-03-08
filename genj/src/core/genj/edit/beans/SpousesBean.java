@@ -26,6 +26,7 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
 import genj.util.Registry;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -39,11 +40,11 @@ public class SpousesBean extends PropertyBean {
   
   private PropertyTableWidget table;
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     // setup layout & table
-    table = new PropertyTableWidget();
+    table = new PropertyTableWidget(viewManager);
     table.setPreferredSize(new Dimension(64,64));
     
     setLayout(new BorderLayout());

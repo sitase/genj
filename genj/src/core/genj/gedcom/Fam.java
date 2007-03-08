@@ -159,7 +159,7 @@ public class Fam extends Entity {
   /**
    * Sets the husband of this family
    */
-  public PropertyXRef setHusband(Indi husband) throws GedcomException {
+  public Indi setHusband(Indi husband) throws GedcomException {
     
     // Remove old husband (first valid one would be the one)
     for (int i=0,j=getNoOfProperties();i<j;i++) {
@@ -191,13 +191,13 @@ public class Fam extends Entity {
       husband.setSex(PropertySex.MALE);
 
     // done    
-    return ph;
+    return husband;
   }
 
   /**
    * Sets the wife of the family
    */
-  public PropertyXRef setWife(Indi wife) throws GedcomException {
+  public Indi setWife(Indi wife) throws GedcomException {
 
     // Remove old wife (first valid one would be the one)
     for (int i=0,j=getNoOfProperties();i<j;i++) {
@@ -229,15 +229,13 @@ public class Fam extends Entity {
       wife.setSex(PropertySex.FEMALE);
 
     // Done
-    return pw;
+    return wife;
   }
 
   /**
    * Sets one of the spouses
-   * @param spouse the spouse to set as husband or wife
-   * @return the property pointing to spouse after the change
    */
-  public PropertyXRef setSpouse(Indi spouse) throws GedcomException {  
+  public void setSpouse(Indi spouse) throws GedcomException {  
     
     Indi husband = getHusband();
     Indi wife = getWife();
@@ -247,37 +245,39 @@ public class Fam extends Entity {
       throw new GedcomException(resources.getString("error.already.spouses", this));
 
     // check gender of spouse 
-    PropertyXRef HUSBorWIFE;
     switch (spouse.getSex()) {
       default:
       case PropertySex.UNKNOWN:
-        // set as blank spouse
-        HUSBorWIFE = husband!=null ? setWife(spouse) : setHusband(spouse);
+        // remember new spouse
+        if (husband!=null) setWife(spouse);
+        else setHusband(spouse);
+        // done
         break;
       case PropertySex.MALE:
-        // overwrite husband
-        HUSBorWIFE = setHusband(spouse);
+        // remember new husband
+        setHusband(spouse);
         // keep old husband as wife if necessary
         if (husband!=null)
-          setWife(husband);
+          wife = setWife(husband);
+        // done
         break;
       case PropertySex.FEMALE:
-        // overwrite wife
-        HUSBorWIFE = setWife(spouse);
+        // remember new wife
+        setWife(spouse);
         // keep old wife as husband if necessary
         if (wife!=null)
-          setHusband(wife);
+          husband = setHusband(wife);
+        // done
         break;
     }
     
     // done
-    return HUSBorWIFE;
   }
   
   /**
    * Adds another child to the family
    */
-  public PropertyXRef addChild(Indi newChild) throws GedcomException {
+  public Fam addChild(Indi newChild) throws GedcomException {
 
     // Remember Indi who is child
     PropertyChild pc = new PropertyChild(newChild.getId());
@@ -291,7 +291,7 @@ public class Fam extends Entity {
       throw ex;
     }
 
-    return pc;
+    return this;
   }
 
   /**

@@ -31,7 +31,11 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
+import genj.view.ContextListener;
+import genj.view.ContextProvider;
+import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
+import genj.view.ViewContext;
 import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
@@ -54,7 +58,7 @@ import javax.swing.table.TableModel;
 /**
  * Component for showing entities of a gedcom file in a tabular way
  */
-public class TableView extends JPanel implements ToolBarSupport  {
+public class TableView extends JPanel implements ToolBarSupport, ContextListener, ContextProvider {
   
   private final static Logger LOG = Logger.getLogger("genj.table");
 
@@ -109,7 +113,7 @@ public class TableView extends JPanel implements ToolBarSupport  {
     loadProperties();
     
     // create our table
-    propertyTable = new PropertyTableWidget(null);
+    propertyTable = new PropertyTableWidget(null, manager);
     propertyTable.setAutoResize(false);
 
     // lay it out
@@ -125,6 +129,13 @@ public class TableView extends JPanel implements ToolBarSupport  {
   
   /*package*/ TableModel getModel() {
     return propertyTable.getTableModel();
+  }
+  
+  /**
+   * ContextProvider callback 
+   */
+  public ViewContext getContext() {
+    return new ViewContext(gedcom);
   }
   
   /**
@@ -194,11 +205,18 @@ public class TableView extends JPanel implements ToolBarSupport  {
   }
   
   /**
+   * callback - context changed
+   */
+  public void handleContextSelectionEvent(ContextSelectionEvent event) {
+    propertyTable.handleContextSelectionEvent(event);
+  }
+
+  /**
    * @see genj.view.ToolBarSupport#populate(JToolBar)
    */
   public void populate(JToolBar bar) {
     // create buttons for mode switch
-    ButtonHelper bh = new ButtonHelper().setInsets(0).setContainer(bar);
+    ButtonHelper bh = new ButtonHelper();
     
     InputMap inputs = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
     
@@ -207,7 +225,7 @@ public class TableView extends JPanel implements ToolBarSupport  {
       // don't offer OBJEct button unless there are some of those already or the option to create them is selected
       if (!tag.equals("OBJE")||!gedcom.getEntities(tag).isEmpty()||Options.getInstance().isAllowNewOBJEctEntities) {
         SwitchMode change = new SwitchMode(getMode(tag));
-        bh.create(change);
+        bar.add(bh.create(change));
       }
     }
     

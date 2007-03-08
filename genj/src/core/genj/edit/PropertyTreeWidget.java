@@ -41,7 +41,6 @@ import java.awt.Point;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.awt.datatransfer.UnsupportedFlavorException;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import java.io.IOException;
@@ -95,18 +94,6 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
     setCellRenderer(new Renderer());
     getSelectionModel().setSelectionMode(TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION);
     setToggleClickCount(Integer.MAX_VALUE);
-    addMouseListener(new MouseAdapter() {
-      public void mousePressed(MouseEvent e) {
-        // make sure something is selected but don't screw current multi-selection
-        TreePath path = getPathForLocation(e.getX(), e.getY());
-        if (path!=null&&getSelection().contains(path.getLastPathComponent()))
-          return;
-        if (path==null)
-          clearSelection();
-        else
-          setSelection(Collections.singletonList(path.getLastPathComponent()));
-      }
-    });
 
     setExpandsSelectedPaths(true);
     ToolTipManager.sharedInstance().registerComponent(this);
@@ -607,13 +594,14 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
     }
 
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      // can't serve anymore?
-      if (root==entity)
-        setRoot(null);
+      // us?
+      if (root!=entity)
+        return;
+      setRoot(gedcom.getFirstEntity(Gedcom.INDI));
     }
 
     public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      // TODO we should check if added belongs to a property one of our xrefs is pointing to
+      // FIXME we should check if added belongs to a property one of our xrefs is pointing to
       // us?
       if (root!=property.getEntity())
         return;

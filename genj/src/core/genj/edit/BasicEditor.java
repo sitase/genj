@@ -38,7 +38,9 @@ import genj.util.swing.ImageIcon;
 import genj.util.swing.LinkWidget;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.PopupWidget;
+import genj.view.ContextListener;
 import genj.view.ContextProvider;
+import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
 
 import java.awt.BorderLayout;
@@ -92,6 +94,8 @@ import spin.Spin;
   /** edit */
   private EditView view;
   
+  private boolean disableSetEntity = false;
+
   /** actions */
   private Action2 ok = new OK(), cancel = new Cancel();
   
@@ -99,7 +103,27 @@ import spin.Spin;
   private BeanPanel beanPanel;
   private JPanel buttonPanel;
   
-  private GedcomListener callback = new Callback();
+  private GedcomListener callback = new GedcomListenerAdapter() {
+    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
+      if (entity==currentEntity) {
+        setEntity(gedcom.getFirstEntity(currentEntity.getTag()), currentEntity);
+        // dont' commit anything anymore
+        ok.setEnabled(false);
+      }
+    }
+    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
+      if (property.getEntity()==currentEntity)
+        setEntity(currentEntity, added);
+    }
+    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
+      if (property.getEntity()==currentEntity)
+        setEntity(currentEntity, null);
+    }
+    public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
+      if (property.getEntity()==currentEntity)
+        setEntity(currentEntity, property);
+    }
+  };
 
   /**
    * Callback - init for edit
@@ -188,6 +212,9 @@ import spin.Spin;
    * Set current entity
    */
   public void setEntity(Entity set, Property focus) {
+    
+    if (disableSetEntity)
+      return;
     
     // commit what needs to be committed
     if (!gedcom.isWriteLocked()&&currentEntity!=null&&ok.isEnabled()&&view.isCommitChanges()) 
@@ -388,17 +415,12 @@ import spin.Spin;
       if (beanPanel==null)
         return;
       
-      // commit changes (without listing to the change itself)
-      try {
-        gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
-        gedcom.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) {
-            beanPanel.commit();
-          }
-        });
-      } finally {
-        gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
-      }
+      // commit changes
+      gedcom.doMuteUnitOfWork(new UnitOfWork() {
+        public void perform(Gedcom gedcom) {
+          beanPanel.commit();
+        }
+      });
 
       // lookup current focus now (any temporary props are committed now)
       PropertyBean focussedBean = getFocus();
@@ -461,7 +483,7 @@ import spin.Spin;
   /**
    * A panel containing all the beans for editing
    */
-  private class BeanPanel extends JPanel implements ChangeListener {
+  private class BeanPanel extends JPanel implements ContextListener, ChangeListener {
 
     /** top level tags */
     private Set topLevelTags = new HashSet();
@@ -515,6 +537,9 @@ import spin.Spin;
      */
     void commit() {
       
+      // stop listening
+      disableSetEntity = true;
+      
       // loop over beans 
       try{
         for (Iterator it = beans.iterator(); it.hasNext();) {
@@ -532,6 +557,7 @@ import spin.Spin;
           }
         }
       } finally {
+        disableSetEntity = false;
         ok.setEnabled(false);
       }
       // done
@@ -575,6 +601,16 @@ import spin.Spin;
     public void stateChanged(ChangeEvent e) {
       ok.setEnabled(true);
       cancel.setEnabled(true);
+    }
+    
+    /**
+     * ContextListener callback - a bean tells us about a possible context change
+     */
+    public void handleContextSelectionEvent(ContextSelectionEvent event) {
+      if (event.isActionPerformed())
+        view.setContext(event.getContext(), true);
+      else
+        view.fireContextSelected(event.getContext());
     }
     
     /**
@@ -877,34 +913,4 @@ import spin.Spin;
    }
  }
 
-  /**
-   * our gedcom callback for others changing the gedcom information
-   */
-  private class Callback extends GedcomListenerAdapter {
-    
-    private Property setFocus;
-    
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-      setFocus = null;
-    }
-    
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
-      setEntity(currentEntity, setFocus);
-    }
-    
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      if (currentEntity==entity)
-        currentEntity = null;
-    }
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      if (property.getEntity()==currentEntity) {
-        setFocus = added;
-      }
-    }
-    public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      if (property.getEntity()==currentEntity)
-        setFocus = property;
-    }
-  };
-  
 } //BasicEditor

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="GenJ" default="dist" basedir=".">
   
+  <property file="./build.properties"/>
+
   <path id="project.class.path">
     <pathelement path ="./build/version"/>
     <pathelement path ="./build/classes/contrib"/>
@@ -25,17 +27,24 @@
     <mkdir dir="./build/run"/>
     <mkdir dir="./build/dist"/>
     <mkdir dir="./build/lib"/>
-
-    <tstamp><format property="now.long" pattern="yyyy/MM/dd HH:mm:ss"/></tstamp>
-    <tstamp><format property="now.short" pattern="yyyyMMdd"/></tstamp>
-  	<property name="version" value="${now.short}"/>
-    <property name="build" value="${version} ${now.long} ${user.name}"/>
   	
-    <echo level="info">version = ${version}</echo>
-    <echo level="info">build = ${build}</echo>
+    <tstamp>
+      <format property="now" pattern="yyyy/MM/dd HH:mm:ss"/>
+    </tstamp>
+    
+    <property name="app.build" value="${version} ${now} ${user.name}"/>
   	
   </target>
     	
+  <!--
+   Run Compilation
+   -->
+  <target name="keyfile" depends="init">
+    <!-- generate a key -->
+    <delete file="./build/keyfile"/>    
+    <genkey alias="genj" storepass="password" dname="CN=Nils Meier, OU=Unknown, O=genj.sourceforge.net, C=CA" keystore="./build/keyfile"/>    
+  </target>
+
   <!--
    Launcher Compilation
    -->
@@ -112,7 +121,7 @@
   <target name="version" depends="init">
     <echo level="info">Generating version number</echo>
     <mkdir dir="./build/version/genj"/>
-    <echo file="./build/version/genj/resources.properties">version=${version}${line.separator}build=${build}</echo>
+    <echo file="./build/version/genj/resources.properties">version=${version}${line.separator}build=${app.build}</echo>
   </target>
 
   <!--
@@ -234,7 +243,7 @@
   <!--
    Distribution - Applet
    -->
-  <target name="dist.applet" depends="init,compile,version">
+  <target name="dist.applet" depends="init,keyfile,compile,version">
   
   	 <!-- what we exclude - would be great to derive that automatically :( -->
      <property name="exclude" value="
@@ -268,6 +277,11 @@
       <fileset dir="./gedcom"/>
 	  </copy> 	
   	
+  	 <!-- sign em -->
+     <signjar keystore="./build/keyfile" alias="genj" storepass="password">
+      <fileset dir="./build/applet" includes="*.jar"/>
+     </signjar>	
+
      <!-- create genj_applet_xyz.jar -->
      <zip zipfile="./build/dist/genj_applet-${version}.zip" update="True">
        <fileset dir="./build" includes="applet/*"/>

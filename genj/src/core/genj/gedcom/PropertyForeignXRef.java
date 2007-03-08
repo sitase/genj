@@ -54,9 +54,7 @@ import genj.util.swing.ImageIcon;
    * A human readable text representation 
    */
   public String getDisplayValue() {
-    // 20070212 target can be null (on unlink() for example)
-    PropertyXRef target = getTarget();
-    return target != null ? target.getForeignDisplayValue() : "";
+    return getTarget().getForeignDisplayValue();
   }
 
   /**
@@ -77,9 +75,7 @@ import genj.util.swing.ImageIcon;
    * @see genj.gedcom.PropertyXRef#getImage(boolean)
    */
   public ImageIcon getImage(boolean checkValid) {
-    // 20070212 target can be null (on unlink() for example)
-    PropertyXRef target = getTarget();
-    return target != null ? overlay(target.getEntity().getImage(false)) : MetaProperty.IMG_ERROR;
+    return overlay(getTarget().getEntity().getImage(false));
   }
 
   /**

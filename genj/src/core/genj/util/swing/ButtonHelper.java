@@ -19,6 +19,7 @@
  */
 package genj.util.swing;
 
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
@@ -27,7 +28,6 @@ import javax.swing.AbstractButton;
 import javax.swing.Action;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
@@ -40,7 +40,7 @@ public class ButtonHelper {
   /** Members */
   private Class buttonType        = JButton.class;
   private Insets insets           = null;
-  private JComponent container     = null;
+  private Container container     = null;
   private ButtonGroup group       = null;
   private int fontSize            = -1;
   
@@ -48,7 +48,7 @@ public class ButtonHelper {
   public ButtonHelper setButtonType(Class set) { buttonType=set; return this; }
   public ButtonHelper setInsets(Insets set) { insets=set; return this; }
   public ButtonHelper setInsets(int val) { insets=new Insets(val,val,val,val); return this; }
-  public ButtonHelper setContainer(JComponent set) { container=set; return this; }
+  public ButtonHelper setContainer(Container set) { container=set; return this; }
   public ButtonHelper setFontSize(int set) { fontSize=set; return this; }
   
   /**
@@ -106,8 +106,6 @@ public class ButtonHelper {
       group.add(result);
     }
     if (container!=null) {
-      if (action instanceof Action2)
-        ((Action2)action).setTarget(container);
       container.add(result);
       if (container instanceof JToolBar) result.setMaximumSize(new Dimension(128,128));
     }

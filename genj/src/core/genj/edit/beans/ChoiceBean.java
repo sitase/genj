@@ -25,6 +25,7 @@ import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
+import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
@@ -59,8 +60,8 @@ public class ChoiceBean extends PropertyBean {
     return resources.getString("choice.global.confirm", new String[]{ ""+sameChoices.length, sameChoices[0].getDisplayValue(), choices.getText()});
   }
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     // prepare a choice for the user
     choices = new ChoiceWidget();
@@ -88,9 +89,8 @@ public class ChoiceBean extends PropertyBean {
     global.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         String msg = getGlobalReplaceMsg();
-        WindowManager wm = WindowManager.getInstance(ChoiceBean.this);
-        if (wm!=null&&msg!=null&&global.isSelected()) {
-          int rc = wm.openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), ChoiceBean.this);
+        if (msg!=null&&global.isSelected()) {
+          int rc = viewManager.getWindowManager().openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), ChoiceBean.this);
           global.setSelected(rc==0);
         }        
       }
@@ -116,14 +116,7 @@ public class ChoiceBean extends PropertyBean {
     PropertyChoiceValue choice = (PropertyChoiceValue)property;
 
     // change value
-    String text = choices.getText();
-    choice.setValue(text, global.isSelected());
-    
-    // reset
-    choices.setValues(((PropertyChoiceValue)property).getChoices(true));
-    choices.setText(text);
-    global.setEnabled(false);
-    global.setVisible(false);
+    choice.setValue(choices.getText(), global.isSelected());
       
     // Done
   }

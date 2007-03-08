@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.123 $ $Author: nmeier $ $Date: 2007-03-07 21:33:59 $
+ * $Revision: 1.120 $ $Author: nmeier $ $Date: 2007-02-05 21:15:39 $
  */
 package genj.gedcom;
 
@@ -201,8 +201,25 @@ public class Gedcom implements Comparable {
    * Gedcom's Constructor
    */
   public Gedcom(Origin origin) {
+    this(origin, false);
+  }
+
+  /**
+   * Gedcom's Constructor
+   */
+  public Gedcom(Origin origin, boolean createAdam) {
     // remember
     this.origin = origin;
+    // create Adam
+    if (createAdam) {
+      try {
+        Indi adam = (Indi) createEntity(Gedcom.INDI);
+        adam.addDefaultProperties();
+        adam.setName("Adam","");
+        adam.setSex(PropertySex.MALE);
+      } catch (GedcomException e) {
+      }
+    }
     // Done
   }
 
@@ -670,6 +687,9 @@ public class Gedcom implements Comparable {
     // notify
     entity.addNotify(this);
     
+    // tell others
+    propagateEntityAdded(entity);
+
   }
 
   /**
@@ -750,6 +770,9 @@ public class Gedcom implements Comparable {
     // was it the submitter?    
     if (submitter==which) submitter = null;
 
+    // tell others
+    propagateEntityDeleted(which);
+    
     // Done
   }
 

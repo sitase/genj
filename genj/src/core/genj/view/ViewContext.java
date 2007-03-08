@@ -41,13 +41,6 @@ public class ViewContext extends Context {
   /**
    * Constructor
    */
-  public ViewContext(Context context) {
-    super(context);
-  }
-  
-  /**
-   * Constructor
-   */
   public ViewContext(Gedcom ged) {
     super(ged);
   }

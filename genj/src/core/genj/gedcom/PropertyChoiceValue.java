@@ -92,9 +92,6 @@ public class PropertyChoiceValue extends PropertySimpleValue {
    * @see genj.gedcom.PropertySimpleValue#setValue(java.lang.String)
    */
   public void setValue(String value) {
-    // TUNING: for choices we expect a lot of repeating values so
-    // we build the intern representation of value here - this makes
-    // us share string instances for an upfront cost
     setValueInternal(value.intern());
   }
   
@@ -103,6 +100,11 @@ public class PropertyChoiceValue extends PropertySimpleValue {
    */
   public void setValue(String value, boolean global) {
     
+    // TUNING: for choices we expect a lot of repeating values so
+    // we build the intern representation of value here - this makes
+    // us share string instances for an upfront cost
+    value = value.intern();
+    
     // more?
     if (global) {
       // change value of all with value
@@ -110,12 +112,12 @@ public class PropertyChoiceValue extends PropertySimpleValue {
       for (int i=0;i<others.length;i++) {
         Property other = others[i];
         if (other instanceof PropertyChoiceValue&&other!=this) 
-          ((PropertyChoiceValue)other).setValue(value);
+          ((PropertyChoiceValue)other).setValueInternal(value);
       }
     }    
       
     // change me
-    setValue(value);
+    setValueInternal(value);
     
     // done
   }
@@ -130,9 +132,9 @@ public class PropertyChoiceValue extends PropertySimpleValue {
   /**
    * @see genj.gedcom.Property#addNotify(genj.gedcom.Property)
    */
-  /*package*/ void addNotify(Property parent, int pos) {
+  /*package*/ void addNotify(Property parent) {
     // delegate
-    super.addNotify(parent, pos);
+    super.addNotify(parent);
     // a remember wouldn't have worked until now
     remember("", super.getValue());
     // done
@@ -142,11 +144,11 @@ public class PropertyChoiceValue extends PropertySimpleValue {
    * Removing us from the reference set (our value is not used anymore)
    * @see genj.gedcom.PropertyRelationship#delNotify()
    */
-  /*package*/ void delNotify(Property parent, int pos) {
+  /*package*/ void delNotify(Property old) {
     // forget value
     remember(super.getValue(), "");
     // continue
-    super.delNotify(parent, pos);
+    super.delNotify(old);
   }
 
 } //PropertyChoiceValue

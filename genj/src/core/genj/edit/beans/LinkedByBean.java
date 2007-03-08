@@ -27,6 +27,7 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
 import genj.util.Registry;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -43,11 +44,11 @@ public class LinkedByBean extends PropertyBean {
   
   private final static String COLS_KEY = "bean.linkedby.cols";
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     // prepare a simple table
-    table = new PropertyTableWidget();
+    table = new PropertyTableWidget(viewManager);
     table.setPreferredSize(new Dimension(64,64));
     
     setLayout(new BorderLayout());

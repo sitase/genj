@@ -71,63 +71,26 @@ public abstract class Property implements Comparable {
   /**
    * Lifecycle - callback after being added to parent.
    */
-  /*package*/ void addNotify(Property parent, int pos) {
-    
-    // NM 20070307 ok, so why does propagation of the add happen here now? Previously
-    // the sequence was
-    //
-    // Property.addProperty(added)
-    //   added.addNotify()
-    //   propagateAdded(this.added)
-    //
-    // If addNotify() requires some adjustments in a Property subtype then
-    // the order of change propagations would break like so
-    //
-    // Property.addProperty(added)
-    //   added.addNotify()
-    //    subtype.addNotify()
-    //      super.addNotify()
-    //      ...
-    //      propagate...(...) #1
-    //   propagateAdded(this.added) #2
-    //
-    // What we want is this
-    //
-    // Property.addProperty(added)
-    //   added.addNotify()
-    //    subtype.addNotify()
-    //      super.addNotify()
-    //        propagateAdded(this.added) #1
-    //      ...
-    //      propagate...(...) #2
-    //
-    // A subtype can now successfully intercept addNotify(), let that initialize and
-    // propagate completely (#1) before other changes are made (#2)
+  /*package*/ void addNotify(Property parent) {
     
     // remember parent
     this.parent=parent;
 
-    // propagate
-    propagatePropertyAdded(parent, pos, this);
-    
   }
 
   /**
    * Lifecycle - callback before being removed from parent
    */
-  /*package*/ void delNotify(Property parent, int pos) {
+  /*package*/ void delNotify(Property oldParent) {
+  
+    // reset meta
+    meta = null;
     
     // delete children
     delProperties();
     
-    // propagate change (see addNotify() for motivation why propagate is here)
-    parent.propagatePropertyDeleted(parent, pos, this);
-
     // reset parent
-    this.parent = null;
-  
-    // reset meta
-    meta = null;
+    parent = null;
     
     // continue
   }
@@ -270,10 +233,12 @@ public abstract class Property implements Comparable {
       children = new ArrayList();
     children.add(pos, child);
     
+	  // tell to added
+	  child.addNotify(this);
     if (isTransient) child.isTransient = true;
-    
-    // tell to added
-    child.addNotify(this, pos);
+	
+    // propagate
+    propagatePropertyAdded(this, pos, child);
     
     // Done
     return child;
@@ -284,10 +249,10 @@ public abstract class Property implements Comparable {
    */
   public void delProperties() {
     if (children!=null) {
-      // grab list of children once - subsequent dels might lead to changes to the array
       Property[] cs = (Property[])children.toArray(new Property[children.size()]);
-      for (int c = cs.length-1; c>=0; c--) 
+      for (int c = 0; c < cs.length; c++) {
         delProperty(cs[c]);
+      }
       if (children.isEmpty()) children = null;
     }
   }
@@ -333,14 +298,17 @@ public abstract class Property implements Comparable {
 
     // range check
     if (children==null||pos<0||pos>=children.size())
-      throw new IndexOutOfBoundsException("No property "+pos);
+      throw new IndexOutOfBoundsException();
     Property removed = (Property)children.get(pos);
 
-    // tell to removed next
-    removed.delNotify(this, pos);
+    // tell to removed before removing it
+    removed.delNotify(this);
   
     // remove it now
     children.remove(pos);
+
+	  // propagate change
+    propagatePropertyDeleted(this, pos, removed);
 
     // done
   }
@@ -476,45 +444,27 @@ public abstract class Property implements Comparable {
   }
   
   /**
-   * Returns the path to this property. This is a sequence of tags leading to this property from its containing entity.
+   * Returns the path to this property
    */
   public TagPath getPath() {
-    return getPath(false);
-  }
-  
-  /**
-   * Returns the path to this property. This is a sequence of tags leading to this property from its containing entity.
-   * @param unique whether tags should be unqiue, e.g. INDI:BIRT#0:DATE and INDI:BIRT#1:DATE vs INDI:BIRT:DATE
-   */
-  public TagPath getPath(boolean unique) {
 
     Stack stack = new Stack();
 
-    // loop through parents
+    // build path start with this
     String tag = getTag();
+    if (tag==null)
+      throw new IllegalArgumentException("encountered getTag()==null");
+    stack.push(tag);
+    
+    // loop through parents
     Property parent = getParent();
     while (parent!=null) {
-      
-      // check qualifier?
-      if (unique) {
-        int qualifier = 0;
-        for (int i=0, j=parent.getNoOfProperties(); i<j; i++) {
-          Property sibling = parent.getProperty(i);
-          if (sibling==this) break;
-          if (sibling.getTag().equals(tag)) qualifier++;
-        }
-        stack.push(tag + "#" + qualifier);
-      } else {
-        stack.push(tag);
-      }
-
-      // next up
       tag = parent.getTag();
+      if (tag==null)
+        throw new IllegalArgumentException("encountered getTag()==null");
+      stack.push(tag);
       parent = parent.getParent();
     }
-    
-    // add last
-    stack.push(tag);
 
     // done
     return new TagPath(stack);

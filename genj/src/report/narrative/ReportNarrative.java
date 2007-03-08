@@ -71,7 +71,6 @@ public class ReportNarrative extends Report {
   public boolean includePersonalTags = false;
   public boolean includeUnknownTags = false;
   public boolean useAbbrevations = false;
-  public int maxGenerations = 99;
 
   public String htmlStylesheet = null;
   private boolean alignImages = true; // TODO: option - in formatter.DocumentWriter or doc-wide options; make public when implemented
@@ -126,7 +125,7 @@ public class ReportNarrative extends Report {
     String title = getUtterance(ancestors ? "doc.ancestors.title" : "doc.descendants.title",
                                 new String[] { new IndiWriter(indi, null).getName(indi) }).toString();
     Document doc = new Document(title);
-    doc.startSection(title, 1);
+    doc.startSection(title);
 
     // todo bk: used to set style inline if no .css given.  Can of course also
     // put it into a defualt .css.  The text was
@@ -163,7 +162,7 @@ public class ReportNarrative extends Report {
       nextGen = printGenerations(doc, generationNumber, gen, printed);
       generationNumber++;
       gen = nextGen;
-    } while(gen.size() > 0 && generationNumber <= maxGenerations);
+    } while(gen.size() > 0);
 
     if (withNameIndex)
       println(translate("log.printingNameIndex")); // Printing name index
@@ -209,7 +208,7 @@ public class ReportNarrative extends Report {
   private Utterance getUtterance(String key, String[] params) {
     String template1 = translate(key);
     if (template1 == null) template1 = key;
-//    System.err.println("getUtteranceForTag: key=" + key + " => " + template1);
+    System.err.println("getUtteranceForTag: key=" + key + " => " + template1);
     return Utterance.forTemplate(getResources(), template1, params);
 //    for (int i = 0; i < params.length; i++) {
 //      result.set(Integer.toString()) params[i];
@@ -217,11 +216,11 @@ public class ReportNarrative extends Report {
 //    }
   }
 
-  private Set printGenerations(Document doc, int n, Set gen, Set printed) {
+  private Set printGenerations(Document doc, int n, Set gen0, Set printed) {
 
     Utterance generations = getUtterance("individuals.in.generation",
         new String[] {
-          Integer.toString(gen.size()),
+          Integer.toString(gen0.size()),
           Integer.toString(n)
         });
     println(generations.toString());
@@ -229,9 +228,10 @@ public class ReportNarrative extends Report {
     Set nextGen = new LinkedHashSet(); // important: LinkedHashSet preserves insertion order
 
     Utterance docTitle = getUtterance("section.title", new String[] { Integer.toString(n) });
-    doc.startSection(docTitle.toString(), 2);
+    // Originally I had a 3-parameter beginSection() method: level, title, link(?)
+    doc.startSection(docTitle.toString());
 
-    for (Iterator i = gen.iterator(); i.hasNext();) {
+    for (Iterator i = gen0.iterator(); i.hasNext();) {
 
       Indi indi = (Indi) i.next();
       IndiWriter writer = new IndiWriter(indi, doc);
@@ -246,7 +246,7 @@ public class ReportNarrative extends Report {
           sectionTitle = title + " " + sectionTitle;
         }
       }
-      doc.startSection(sectionTitle, indi, 3);
+      doc.startSection(sectionTitle, indi);
 
       boolean showKids = indi.getSex() == PropertySex.MALE; // TODO: track families shown, print with first parent
 
@@ -326,7 +326,6 @@ public class ReportNarrative extends Report {
         // handled as part of name: "TITL", // <NOBILITY_TYPE_TITLE>  {1:1}
      }
     ));
-    // TODO bk: sentence.NCHI.singular defined in properties but not used.
     // TODO bk: added this June 2005: public static boolean alignImages = true; // TODO: option - in DocumentWriter or doc-wide options
 
     /**
@@ -428,12 +427,11 @@ public class ReportNarrative extends Report {
           String date = getDateString(indi.getBirthDate());
           if (date.length() > 0) {
             doc.addText(", ");
-            addGenderSpecificUtterance("born", indi, date);
-//            if (!useAbbrevations) {
-//              addUtterance(genderSpecificKey("phrase.born", indi.getSex()), date);
-//            } else {
-//              addUtterance("abbrev.born", date); // phrase w gender, later case
-//            }
+            if (!useAbbrevations) {
+              addUtterance(genderSpecificKey("phrase.born", indi.getSex()), date);
+            } else {
+              addUtterance("abbrev.born", date); // phrase w gender, later case
+            }
           }
 
           // (child of X and Y)
@@ -469,7 +467,6 @@ public class ReportNarrative extends Report {
                   new Entity[] { parent } );
             }
             if (parenPhrase != null) {
-              parenPhrase.setSubject(indi);
               doc.addText(" (");
               parenPhrase.addText(doc); // knows how to link the parents
               doc.addText(")");
@@ -482,7 +479,7 @@ public class ReportNarrative extends Report {
             PropertyDate marriage = fam.getMarriageDate();
             doc.addText(", ");
             if (!useAbbrevations) {
-              addUtterance(indi, genderSpecificKey("phrase.married", indi.getSex()), date);
+              addUtterance(genderSpecificKey("phrase.married", indi.getSex()), date);
             } else {
               addUtterance("abbrev.married");
             }
@@ -512,7 +509,7 @@ public class ReportNarrative extends Report {
           if (date.length() > 0) {
             doc.addText(", ");
             if (!useAbbrevations) {
-              addUtterance(indi, genderSpecificKey("phrase.died", indi.getSex()), date);
+              addUtterance(genderSpecificKey("phrase.died", indi.getSex()), date);
             } else {
               addUtterance("abbrev.died", date);
             }
@@ -675,24 +672,6 @@ public class ReportNarrative extends Report {
 //      }
     }
 
-    /**
-     * Translates with abbreviation, if useAbbrevations set and abbreviation
-     * available, else with phrase.  phrase.KEY.GENDER.LANG or abbrev.KEY.LANG
-     * must exist in the resources.
-     * @param key
-     * @param indi
-     * @param param1
-     */
-    private void addGenderSpecificUtterance(String key, Indi indi, String param1) {
-      // todo bk should pass indi to Utterance, as it also resolves gender
-      String abbrevKey = "abbrev" + key;
-      if (useAbbrevations && Utterance.isTranslatable(abbrevKey, getResources())) {
-        addUtterance(indi, abbrevKey, param1); // phrase w gender, later case
-      } else {
-        addUtterance(indi, genderSpecificKey("phrase." + key, indi.getSex()), param1);
-      }
-    }
-
     private void addUtterance(String key) {
       doc.addText(Utterance.forProperty(getResources(), key).toString());
     }
@@ -703,24 +682,6 @@ public class ReportNarrative extends Report {
 
     private void addUtterance(String key, String[] values) {
       doc.addText(Utterance.forProperty(getResources(), key, values).toString());
-    }
-
-    private void addUtterance(Indi indi, String key) {
-      Utterance u = Utterance.forProperty(getResources(), key);
-      u.setSubject(indi);
-      doc.addText(u.toString());
-    }
-
-    private void addUtterance(Indi indi, String key, String value1) {
-      Utterance u = Utterance.forProperty(getResources(), key, new String[] { value1 } );
-      u.setSubject(indi);
-      doc.addText(u.toString());
-    }
-
-    private void addUtterance(Indi indi, String key, String[] values) {
-      Utterance u = Utterance.forProperty(getResources(), key, values);
-      u.setSubject(indi);
-      doc.addText(u.toString());
     }
 
     /* Get date in nicely formatted, localized, human-readable form. */
@@ -1135,12 +1096,11 @@ public class ReportNarrative extends Report {
       if (propertyDefined(key + suffix)) {
         return key + suffix;
       }
-      // The language may not require gender-specific forms, or may have that information embedded within the template.
       return key;
    }
 
     private int printEventUtterance(Property[] props) {
-//      System.err.println("Printing event utterance for " + props[0].getTag());
+      System.err.println("Printing event utterance for " + props[0].getTag());
       String seriesKey = "listFirst." + props[0].getTag();
       String itemKey = "listItem." + props[0].getTag();
       if (props.length == 1 ||
@@ -1255,7 +1215,7 @@ public class ReportNarrative extends Report {
     private Utterance getSentenceForTag(String tag, String[] params) {
       String template1 = translate("sentence." + tag);
       if (template1 == null) template1 = "{SUBJECT} " + tag + "{OPTIONAL_AGENCY}{OPTIONAL_PP_PLACE}{OPTIONAL_PP_DATE}.";
-//      System.err.println("getSentenceForTag: tag=" + tag + " => " + template1);
+      System.err.println("getSentenceForTag: tag=" + tag + " => " + template1);
       Utterance u = Utterance.forTemplate(getResources(), template1, params);
       u.setSubject(indi);
       return u;
@@ -1265,7 +1225,7 @@ public class ReportNarrative extends Report {
     private Utterance getPhraseForTag(String tag, String[] params) {
       String template1 = translate("phrase." + tag);
       if (template1 == null) template1 = tag + "{OPTIONAL_AGENCY}{OPTIONAL_PP_PLACE}{OPTIONAL_PP_DATE}.";
-//      System.err.println("getPhraseForTag: tag=" + tag + " => " + template1);
+      System.err.println("getPhraseForTag: tag=" + tag + " => " + template1);
       Utterance u = Utterance.forTemplate(getResources(), template1, params);
       return u;
     }

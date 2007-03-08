@@ -3,25 +3,13 @@
 
   <taskdef name="izpack" classpath="./contrib/izpack/lib/standalone-compiler.jar" classname="com.izforge.izpack.ant.IzPackTask"/>
 
+  <property file="./app/build.properties"/>
+
   <!--
    Initialization
    -->
   <target name="init">
-
-    <tstamp><format property="now.short" pattern="yyyyMMdd"/></tstamp>
-  	
-    <loadproperties srcfile="./build.properties">
-    	<filterchain>
-          <replaceregex pattern="^version[\s]*=[\s]*\$[N][a][m][e]:[\s]+([^\s]+)[\s]*\$$" replace="version=\1-${now.short}" flags="i" byline="true"/>
-          <replaceregex pattern="^version[\s]*=[\s]*\$[N][a][m][e]:[\s]*\$$" replace="version=HEAD-${now.short}" flags="i" byline="true"/>
-          <replaceregex pattern="^version[\s]*=[\s]*$" replace="" flags="i"/>
-    	</filterchain>
-    </loadproperties>
-  	  	
-  	<fail unless="version" message="no version information available - check build.properties"/>
-  	<echo level="info">version = ${version}</echo>
-  		
-  	<echo level="info">Creating output directories</echo>
+    <echo level="info">Creating output directories</echo>
     <mkdir dir="./build"/>
     <mkdir dir="./build/dist"/>
   </target>
@@ -29,7 +17,7 @@
   <!--
    Initialization
    -->
-  <target name="clean" depends="init">
+  <target name="clean">
     <echo level="info">Cleaning output directories</echo>
     <delete includeemptydirs="true" failonerror="false">
       <fileset dir="./build" excludes="eclipse/*"/>
@@ -42,9 +30,7 @@
    Nested Project - App
    -->  
   <target name="dist.app" depends="init">
-  	<ant dir="./app" inheritall="false" target="dist">
-      <property name="version" value="${version}"/>
-    </ant>
+  	<ant dir="./app" inheritall="false" target="dist"/>
   	<move todir="./build/dist">
   		<fileset dir="./app/build/dist/"/>
   	</move>
@@ -53,9 +39,8 @@
   <!--
    Nested Project - Geo
    -->  
-  <target name="dist.geo" depends="dist.app">
+  <target name="dist.geo" depends="init">
     <ant dir="./geo" inheritall="false" target="dist">
-      <property name="version" value="${version}"/>
       <property name="dir.app" value="../app"/>
     </ant>
     <move todir="./build/dist">
@@ -66,7 +51,7 @@
 	<!-- 
 	izpack packaging
 	-->
-	<target name="dist.installer" depends="dist.app, dist.geo">
+	<target name="dist.installer">
 		
     <copy tofile="./build/installer.xml" file="./src/installer/installer.xml">
       <filterset><filter token="version" value="${version}"/></filterset>
@@ -79,7 +64,7 @@
   <!--
    Distribution
    -->
-  <target name="dist" depends="dist.installer">
+  <target name="dist" depends="dist.app, dist.geo, dist.installer">
 
   </target>
 

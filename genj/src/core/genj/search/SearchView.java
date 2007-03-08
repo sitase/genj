@@ -36,7 +36,6 @@ import genj.util.swing.HeadlessLabel;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
 import genj.view.ViewManager;
@@ -240,7 +239,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
    */
   public void populate(JToolBar bar) {
-    ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
+    ButtonHelper bh = new ButtonHelper().setContainer(bar);
     ActionSearch search = new ActionSearch();
     ActionStop   stop   = new ActionStop  (search);
     bSearch = bh.create(search);
@@ -441,7 +440,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
         matcher = getMatcher(value, checkRegExp.isSelected());
         tagPath = path.length()>0 ? new TagPath(path) : null;
       } catch (IllegalArgumentException e) {
-        WindowManager.getInstance(getTarget()).openDialog(null,value,WindowManager.ERROR_MESSAGE,e.getMessage(),Action2.okOnly(),SearchView.this);
+        manager.getWindowManager().openDialog(null,value,WindowManager.ERROR_MESSAGE,e.getMessage(),Action2.okOnly(),SearchView.this);
         return false;
       }
       // remember
@@ -469,7 +468,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
      * @see genj.util.swing.Action2#handleThrowable(java.lang.String, java.lang.Throwable)
      */
     protected void handleThrowable(String phase, Throwable t) {
-      WindowManager.getInstance(getTarget()).openDialog(null,null,WindowManager.INFORMATION_MESSAGE,t.getMessage() ,Action2.okOnly(),SearchView.this);
+      manager.getWindowManager().openDialog(null,null,WindowManager.INFORMATION_MESSAGE,t.getMessage() ,Action2.okOnly(),SearchView.this);
     }
 
     /**
@@ -510,7 +509,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
       boolean searchThis = true;
       if (tagPath!=null) {
         // break if we don't match path
-        if (pathIndex<tagPath.length()&&!tagPath.get(pathIndex).equals(prop.getTag())) 
+        if (pathIndex<tagPath.length()&&!tagPath.equals(pathIndex,prop.getTag())) 
           return;
         // search this if path is consumed 
         searchThis = pathIndex>=tagPath.length()-1;
@@ -632,7 +631,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
     }
 
     public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-      // TODO could do a re-search here
+      // FIXME could do a re-search here
     }
 
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
@@ -640,7 +639,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
     }
 
     public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      // TODO could do a re-search here
+      // FIXME could do a re-search here
     }
 
     public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
@@ -734,7 +733,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
     public void valueChanged(ListSelectionEvent e) {
       int row = listResults.getSelectedIndex();
       if (row>=0)
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(results.getHit(row).getProperty()), this));
+        manager.fireContextSelected(new ViewContext(results.getHit(row).getProperty()));
     }
 
     

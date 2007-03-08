@@ -25,9 +25,8 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
 import genj.gedcom.Property;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
+import genj.view.ViewManager;
 
 import java.awt.Component;
 import java.util.ArrayList;
@@ -51,6 +50,7 @@ import spin.Spin;
  */
 public class ContextListWidget extends JList implements ContextProvider {
 
+  private ViewManager mgr;
   private Gedcom ged;
   
   private Callback callback = new Callback();
@@ -58,8 +58,9 @@ public class ContextListWidget extends JList implements ContextProvider {
   /** 
    * Constructor
    */
-  public ContextListWidget(Gedcom gedcom) {
+  public ContextListWidget(ViewManager manager, Gedcom gedcom) {
     super(new Model());
+    mgr = manager;
     ged = gedcom;
     setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
     setCellRenderer(callback);
@@ -69,8 +70,8 @@ public class ContextListWidget extends JList implements ContextProvider {
   /** 
    * Constructor
    */
-  public ContextListWidget(Gedcom gedcom, List contextList) {
-    this(gedcom);
+  public ContextListWidget(ViewManager manager, Gedcom gedcom, List contextList) {
+    this(manager, gedcom);
     setContextList(contextList);
   }
   
@@ -184,7 +185,7 @@ public class ContextListWidget extends JList implements ContextProvider {
         Context context = (Context)it.next();
         context.removeEntities(Collections.singletonList(entity));
       }
-      // TODO this could be less coarse grained
+      // FIXME this could be less coarse grained
       fireContentsChanged(this, 0, list.size());
     }
 
@@ -193,16 +194,16 @@ public class ContextListWidget extends JList implements ContextProvider {
     }
 
     public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
-      // TODO this could be less coarse grained
+      // FIXME this could be less coarse grained
       fireContentsChanged(this, 0, list.size());
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
       for (Iterator it=list.iterator(); it.hasNext(); ) {
         Context context = (Context)it.next();
-        context.removeProperties(Collections.singletonList(removed));
+        context.removeProperties(Collections.singletonList(property));
       }
-      // TODO this could be less coarse grained
+      // FIXME this could be less coarse grained
       fireContentsChanged(this, 0, list.size());
     }
     
@@ -219,7 +220,7 @@ public class ContextListWidget extends JList implements ContextProvider {
         return;
       ViewContext context = getContext();
       if (context!=null)
-        WindowManager.broadcast(new ContextSelectionEvent(context, ContextListWidget.this));
+        mgr.fireContextSelected(context);
     }
     
     /** our patched rendering */

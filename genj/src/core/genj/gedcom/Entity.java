@@ -44,8 +44,6 @@ public class Entity extends Property {
   /*package*/ void addNotify(Gedcom ged) {
     // remember
     gedcom = ged;
-    // propagate change (see Property.addNotify() for motivation why propagate is here)
-    ged.propagateEntityAdded(this);
     // done    
   }
   
@@ -57,9 +55,6 @@ public class Entity extends Property {
     // delete children
     delProperties();
 
-    // propagate change (see addNotify() for motivation why propagate is here)
-    gedcom.propagateEntityDeleted(this);
-    
     // forget gedcom
     gedcom = null;
     

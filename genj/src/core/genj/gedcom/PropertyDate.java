@@ -315,7 +315,7 @@ public class PropertyDate extends Property {
   /** 
    * A point in time 
    */
-  private final class PIT extends PointInTime {
+  private class PIT extends PointInTime {
     
     /**
      * Setter
@@ -327,7 +327,7 @@ public class PropertyDate extends Property {
         super.set(d,m,y);
       } else {
         // grab old
-        String old = super.getValue();
+        String old = getValue();
         // set it
         super.set(d,m,y);
         // notify about change 

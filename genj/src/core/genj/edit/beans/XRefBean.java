@@ -21,9 +21,8 @@ package genj.edit.beans;
 
 import genj.gedcom.PropertyXRef;
 import genj.util.Registry;
-import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -37,8 +36,8 @@ public class XRefBean extends PropertyBean {
 
   private Preview preview;
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     preview = new Preview();
     
@@ -54,7 +53,7 @@ public class XRefBean extends PropertyBean {
         if (property==null)
           return;
         // tell about it
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(property), preview, true));
+        viewManager.fireContextSelected(new ViewContext(property), true, XRefBean.this);
       }
     });
   }

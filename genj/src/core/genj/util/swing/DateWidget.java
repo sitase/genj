@@ -31,7 +31,6 @@ import java.awt.Dimension;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.logging.Logger;
 
 import javax.swing.Action;
 import javax.swing.JPanel;
@@ -54,6 +53,9 @@ public class DateWidget extends JPanel {
   /** current calendar */
   private Calendar calendar; 
   
+  /** window manager */
+  private WindowManager manager;
+  
   /** change support */
   private ChangeSupport changeSupport = new ChangeSupport(this) {
     protected void fireChangeEvent(Object source) {
@@ -67,15 +69,16 @@ public class DateWidget extends JPanel {
   /**
    * Constructor
    */
-  public DateWidget() {
-    this(new PointInTime());
+  public DateWidget(WindowManager mgr) {
+    this(new PointInTime(), mgr);
   }
   
   /**
    * Constructor
    */
-  public DateWidget(PointInTime pit) {
+  public DateWidget(PointInTime pit, WindowManager mgr) {
 
+    manager = mgr;
     calendar = pit.getCalendar();
         
     // create calendar switches
@@ -316,15 +319,10 @@ public class DateWidget extends JPanel {
         try {
           pit.set(newCalendar);
         } catch (GedcomException e) {
-          WindowManager wm = WindowManager.getInstance(DateWidget.this);
-          if (wm==null) {
-            Logger.getLogger("genj.util.swing").info(e.getMessage());
-          } else {
-            Action[] actions = { Action2.ok(),  new Action2(Calendar.TXT_CALENDAR_RESET) };
-            int rc = wm.openDialog(null, Calendar.TXT_CALENDAR_SWITCH, WindowManager.ERROR_MESSAGE, e.getMessage(), actions, DateWidget.this);
-            if (rc==0) 
-              return;
-          }
+          Action[] actions = { Action2.ok(),  new Action2(Calendar.TXT_CALENDAR_RESET) };
+          int rc = manager.openDialog(null, Calendar.TXT_CALENDAR_SWITCH, WindowManager.ERROR_MESSAGE, e.getMessage(), actions, DateWidget.this);
+          if (rc==0) 
+            return;
           pit = new PointInTime(newCalendar);
         }
         // change

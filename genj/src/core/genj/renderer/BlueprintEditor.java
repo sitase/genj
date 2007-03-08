@@ -31,6 +31,7 @@ import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.ButtonHelper;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -46,7 +47,6 @@ import java.util.Map;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -83,14 +83,18 @@ public class BlueprintEditor extends JSplitPane {
   /** whether we've changed */
   private boolean isChanged = false;
   
+  /** the window manager */
+  private WindowManager windowManager;
+
   /** the blueprint manager */
   private BlueprintManager blueprintManager;
     
   /**
    * Constructor   */
-  public BlueprintEditor(BlueprintManager bpMgr) { 
+  public BlueprintEditor(BlueprintManager bpMgr, WindowManager winMgr) { 
     // remember
     blueprintManager = bpMgr;
+    windowManager = winMgr;
     // preview
     preview = new Preview();
     preview.setBorder(BorderFactory.createTitledBorder(resources.getString("blueprint.preview")));
@@ -102,7 +106,8 @@ public class BlueprintEditor extends JSplitPane {
       JScrollPane scroll = new JScrollPane(html);
       scroll.setBorder(BorderFactory.createTitledBorder("HTML"));
       // buttons
-      bInsert = new JButton(new ActionInsert());
+      ButtonHelper helper = new ButtonHelper();
+      bInsert = helper.create(new ActionInsert());
     edit.setMinimumSize(new Dimension(0,0));
     edit.add(scroll, BorderLayout.CENTER);
     edit.add(bInsert, BorderLayout.SOUTH);
@@ -163,7 +168,7 @@ public class BlueprintEditor extends JSplitPane {
         // mark unchanged
         isChanged = false;
       } catch (IOException e) {
-        // TODO add a user warning
+        // FIXME add a user warning
       }
     }
   }
@@ -230,7 +235,6 @@ public class BlueprintEditor extends JSplitPane {
     private ActionInsert() {
       super.setText(resources.getString("prop.insert"));
       super.setTip(resources.getString("prop.insert.tip"));
-      super.setTarget(BlueprintEditor.this);
     }
     /** @see genj.util.swing.Action2#execute() */
     protected void execute() {
@@ -241,7 +245,7 @@ public class BlueprintEditor extends JSplitPane {
       TagPath[] paths = Grammar.getAllPaths(blueprint.getTag(), Property.class);
       tree.setPaths(paths, new TagPath[0]);
       // Recheck with the user
-      int option =  WindowManager.getInstance(getTarget()).openDialog(null,resources.getString("prop.insert.tip"),WindowManager.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
+      int option =  windowManager.openDialog(null,resources.getString("prop.insert.tip"),WindowManager.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
       // .. OK?
       if (option!=0) return;
       // add those properties
@@ -298,7 +302,7 @@ public class BlueprintEditor extends JSplitPane {
      */
     public Property getProperty(TagPath path) {
       // safety check for root-tag
-      if (!path.get(0).equals(getTag())) 
+      if (!path.equals(0, getTag())) 
         return null;
       // this?
       if (path.length()==1)

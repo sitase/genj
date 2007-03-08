@@ -46,6 +46,7 @@ public class Note extends Entity implements MultiLineProperty {
     if (delegate==null) {
       delegate = (PropertyMultilineValue)addProperty("NOTE", "");
       delegate.isTransient = true;
+      //addProperty(delegate);
     }
     
     // done

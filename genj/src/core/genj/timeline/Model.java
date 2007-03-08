@@ -19,7 +19,6 @@
  */
 package genj.timeline;
 
-import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
@@ -201,33 +200,44 @@ import spin.Spin;
   }
   
   /**
-   * Returns the events that cover the given context
+   * Returns the first event of given entity
    */
-  protected Set getEvents(Context context) {
-    
-    Set propertyHits = new HashSet();
-    Set entityHits = new HashSet();
-    
-    Property[] props = context.getProperties();
-    Entity[] ents = context.getEntities();
-    
+  protected Event getEvent(Entity entity) {
+    // loop through all events
+    Event result = null;
     for (int l=0; l<layers.size(); l++) {
       Iterator events = ((List)layers.get(l)).iterator();
       while (events.hasNext()) {
         Event event = (Event)events.next();
-        for (int j = 0; j < ents.length; j++) {
-          if (ents[j]==event.getEntity())
-            entityHits.add(event);
-        }
-        for (int i = 0; i < props.length; i++) {
-          if (event.getProperty()==props[i]||event.getProperty().contains(props[i]))
-            propertyHits.add(event);
-        }
+        if (event.getEntity()!=entity) continue;
+        if (result==null||event.from<result.from) result = event;
       }
     }
-
-    return propertyHits.isEmpty() ? entityHits : propertyHits;
-  } 
+    // done
+    return result;
+  }
+  
+  /**
+   * Returns the first event for given property
+   */
+  protected Event getEvent(Property property) {
+    // a date? try parent!
+    if (property instanceof PropertyDate)
+      property = property.getParent();
+    // only events
+    if (!(property instanceof PropertyEvent)) 
+      return null;
+    // loop through all events
+    for (int l=0; l<layers.size(); l++) {
+      Iterator events = ((List)layers.get(l)).iterator();
+      while (events.hasNext()) {
+        Event event = (Event)events.next();
+        if (event.pe==property) return event;
+      }
+    }
+    // done
+    return null;
+  }
   
   /**
    * Returns the filter - set of Tags we consider

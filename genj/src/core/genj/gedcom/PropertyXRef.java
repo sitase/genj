@@ -47,20 +47,20 @@ public abstract class PropertyXRef extends Property {
   /**
    * Method for notifying being removed from another parent
    */
-  /*package*/ void delNotify(Property parent, int pos) {
+  /*package*/ void delNotify(Property oldParent) {
 
     // are we referencing something that points back?
     if (target!=null) {
       PropertyXRef other = target;
-      Property pother = other.getParent();
+      Property parent = other.getParent();
       unlink();
       
       // delete target as well
-      pother.delProperty(other);
+      parent.delProperty(other);
     }
 
     // Let it through
-    super.delNotify(parent, pos);
+    super.delNotify(oldParent);
     
     // done
   }
@@ -179,6 +179,15 @@ public abstract class PropertyXRef extends Property {
    */  
   public PropertyXRef getTarget() {
     return target;
+  }
+
+  /**
+   * Some references have a natural target value property 
+   * that can be accessed here (e.g. PropertyNote's target Note)
+   * @return property lending itself to be edited or null
+   */
+  public Property getTargetValueProperty() {
+    return null;
   }
 
   /**

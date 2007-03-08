@@ -22,22 +22,20 @@ package genj.timeline;
 import genj.almanac.Almanac;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
+import genj.gedcom.Property;
 import genj.gedcom.time.PointInTime;
-import genj.renderer.Options;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.WordBuffer;
 import genj.util.swing.SliderWidget;
 import genj.util.swing.UnitGraphics;
 import genj.util.swing.ViewPortAdapter;
+import genj.view.ViewContext;
+import genj.view.ContextListener;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
-import genj.view.ViewContext;
 import genj.view.ViewManager;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -72,7 +70,7 @@ import javax.swing.event.ChangeListener;
 /**
  * Component for showing entities' events in a timeline view
  */
-public class TimelineView extends JPanel implements WindowBroadcastListener, ToolBarSupport {
+public class TimelineView extends JPanel implements ContextListener, ToolBarSupport {
 
   /** the units we use */
   private final Point DPI;
@@ -89,9 +87,6 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
   
   /** our content */
   private Content content;
-  
-  /** our current selection */
-  private Set selectedEvents = new HashSet();
   
   /** our ruler */
   private Ruler ruler;
@@ -155,7 +150,7 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
     
     // remember
     manager = mgr;
-    DPI = Options.getInstance().getDPI();
+    DPI = mgr.getDPI();
     DPC = new Point2D.Float(
       DPI.x / 2.54F,
       DPI.y / 2.54F
@@ -366,21 +361,14 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
   /**
    * callback - context event
    */
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
-    
-    // ignore outbound or !ContextSelectionEvent
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, model.gedcom);
-    if (event.isOutbound() || cse==null) 
-      return true;
-      
-    // assemble selection
-    selectedEvents = model.getEvents(cse.getContext());
-    
+  public void handleContextSelectionEvent(ContextSelectionEvent e) {
+    // try to scroll to first event
+    ViewContext context = e.getContext();
+    Model.Event event = model.getEvent(context.getProperty());
+    if (event==null) event = model.getEvent(context.getEntity());
+    if (event!=null) makeVisible(event);
     // do a repaint, too
     content.repaint();
-      
-    // done
-    return false;
   }
 
   /**
@@ -545,13 +533,7 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
      * ContextProvider - callback
      */
     public ViewContext getContext() {
-      ViewContext ctx = new ViewContext(model.gedcom);
-      for (Iterator events = selectedEvents.iterator(); events.hasNext();) {
-        Model.Event event = (Model.Event) events.next();
-        ctx.addProperty(event.pe);
-        //ctx.addProperty(event.pd);
-      }
-      return ctx;
+      return manager.getLastSelectedContext(model.gedcom); 
     }
     
     /**
@@ -569,8 +551,12 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
      */
     protected void paintComponent(Graphics g) {
       
+      // find selection
+      ViewContext ctx = manager.getLastSelectedContext(model.gedcom);
+      Property selection = ctx.getProperty();
+      if (selection==null)
+        selection = ctx.getEntity();
       // let the renderer do its work
-      contentRenderer.selection = selectedEvents;
       contentRenderer.cBackground = (Color)colors.get("background" );
       contentRenderer.cText       = (Color)colors.get("text"    );
       contentRenderer.cDate       = (Color)colors.get("date"    );
@@ -578,6 +564,7 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
       contentRenderer.cTimespan   = (Color)colors.get("timespan");
       contentRenderer.cGrid       = (Color)colors.get("grid"    );
       contentRenderer.cSelected   = (Color)colors.get("selected");
+      contentRenderer.selection   = selection;
       contentRenderer.paintDates = isPaintDates;
       contentRenderer.paintGrid = isPaintGrid;
       contentRenderer.paintTags = isPaintTags;
@@ -597,25 +584,6 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
     }
     
     public void mouseClicked(MouseEvent e) {
-      
-      // selection?
-      if (e.getButton()!=MouseEvent.BUTTON1)
-        return;
-      
-      if (!e.isShiftDown())
-        selectedEvents.clear();
-      
-      // find context click to select and tell about
-      Model.Event hit = getEventAt(e.getPoint());
-      if (hit!=null) {
-        selectedEvents.add(hit);
-        
-        // tell about it
-        WindowManager.broadcast(new ContextSelectionEvent(getContext(), this));
-      }
-      
-      // show
-      repaint();
     }
     public void mouseEntered(MouseEvent e) {
     }
@@ -624,6 +592,14 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
     public void mouseReleased(MouseEvent e) {
     }
     public void mousePressed(MouseEvent e) {
+      
+      // find context click
+      Model.Event event = getEventAt(e.getPoint());
+
+      // tell about it
+      ViewContext context = null;
+      if (event!=null) 
+        manager.fireContextSelected(new ViewContext(event.pd));
     }
   } //Content
   

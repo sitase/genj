@@ -26,6 +26,7 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
 import genj.util.Registry;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 
@@ -45,11 +46,11 @@ public class ChildrenBean extends PropertyBean {
   
   private PropertyTableWidget table;
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     // a table for the families
-    table = new PropertyTableWidget();
+    table = new PropertyTableWidget(viewManager);
     
     setLayout(new BorderLayout());
     add(BorderLayout.CENTER, table);

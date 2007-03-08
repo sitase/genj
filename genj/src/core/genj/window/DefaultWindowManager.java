@@ -48,7 +48,7 @@ import javax.swing.JOptionPane;
 /**
  * The default 'heavyweight' window manager
  */
-public class DefaultWindowManager extends WindowManager {
+public class DefaultWindowManager extends AbstractWindowManager {
 
   /** screen we're dealing with */
   private Rectangle screen = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
@@ -67,7 +67,7 @@ public class DefaultWindowManager extends WindowManager {
   /**
    * Frame implementation
    */
-  protected Component openWindowImpl(final String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized, final Action onClosing) {
+  protected Object openWindowImpl(final String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized, final Action onClosing) {
     
     // Create a frame
     final JFrame frame = new JFrame() {
@@ -127,7 +127,7 @@ public class DefaultWindowManager extends WindowManager {
   /**
    * Dialog implementation
    */
-  protected Component openNonModalDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Component owner, Rectangle bounds) {
+  protected Object openDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Component owner, Rectangle bounds, final boolean isModal) {
 
     // create an option pane
     JOptionPane optionPane = new Content(messageType, content, actions);
@@ -135,7 +135,7 @@ public class DefaultWindowManager extends WindowManager {
     // let it create the dialog
     final JDialog dlg = optionPane.createDialog(owner != null ? owner : defaultFrame, title);
     dlg.setResizable(true);
-    dlg.setModal(false);
+    dlg.setModal(isModal);
     if (bounds==null) {
       dlg.pack();
       if (owner!=null)
@@ -161,47 +161,7 @@ public class DefaultWindowManager extends WindowManager {
     dlg.setVisible(true);
     
     // return result
-    return dlg;
-  }
-  
-  /**
-   * Dialog implementation
-   */
-  protected Object openDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Component owner, Rectangle bounds) {
-
-    // create an option pane
-    JOptionPane optionPane = new Content(messageType, content, actions);
-    
-    // let it create the dialog
-    final JDialog dlg = optionPane.createDialog(owner != null ? owner : defaultFrame, title);
-    dlg.setResizable(true);
-    dlg.setModal(true);
-    if (bounds==null) {
-      dlg.pack();
-      if (owner!=null)
-        dlg.setLocationRelativeTo(owner.getParent());
-    } else {
-      if (owner==null) {
-        dlg.setBounds(bounds.intersection(screen));
-      } else {
-        dlg.setBounds(new Rectangle(bounds.getSize()).intersection(screen));
-        dlg.setLocationRelativeTo(owner.getParent());
-      }
-    }
-
-    // hook up to the dialog being hidden by the optionpane - that's what is being called after the user selected a button (setValue())
-    dlg.addComponentListener(new ComponentAdapter() {
-      public void componentHidden(ComponentEvent e) {
-        closeNotify(key, dlg.getBounds(), false);
-        dlg.dispose();
-      }
-    });
-    
-    // show it
-    dlg.setVisible(true);
-    
-    // return result
-    return optionPane.getValue();
+    return isModal  ? optionPane.getValue() : dlg;
   }
   
   /**

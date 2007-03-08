@@ -24,10 +24,8 @@ import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Indi;
-import genj.gedcom.Options;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
-import genj.gedcom.PropertyXRef;
 import genj.view.ViewManager;
 
 /**
@@ -64,24 +62,22 @@ public class CreateSibling extends CreateRelationship {
   protected Property change(Entity target, boolean targetIsNew) throws GedcomException {
     
     // try to add target to sibling's family or vice versa
-    PropertyXRef CHIL;
-    
     Fam[] fams = sibling.getFamiliesWhereChild();
     if (fams.length>0) {
-      CHIL = fams[0].addChild((Indi)target);
+      fams[0].addChild((Indi)target);
     } else {
       
       // try to add sibling to target's family
       fams = ((Indi)target).getFamiliesWhereChild();
       if (fams.length>0) {
-        CHIL = fams[0].addChild(sibling);
+        fams[0].addChild(sibling);
       } else {
 
         // both indis are not children yet - create a new family
         Gedcom ged = sibling.getGedcom();
         Fam fam = (Fam)ged.createEntity(Gedcom.FAM);
         try {
-          CHIL = fam.addChild((Indi)target);
+          fam.addChild((Indi)target);
         } catch (GedcomException e) {
           ged.deleteEntity(fam);
           throw e;
@@ -92,8 +88,7 @@ public class CreateSibling extends CreateRelationship {
         Indi wife = (Indi)ged.createEntity(Gedcom.INDI).addDefaultProperties();
         
         husband.setName("", sibling.getLastName());
-        if (Options.getInstance().setWifeLastname)
-          wife.setName("", sibling.getLastName());
+        wife.setName("", sibling.getLastName());
         
         fam.setHusband(husband);
         fam.setWife(wife);
@@ -110,7 +105,7 @@ public class CreateSibling extends CreateRelationship {
     }    
     
     // focus stays with sibling
-    return CHIL.getTarget();
+    return sibling;
   }
 
 }

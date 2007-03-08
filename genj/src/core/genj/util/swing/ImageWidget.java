@@ -231,7 +231,7 @@ public class ImageWidget extends JPanel {
       Graphics2D g2d = (Graphics2D)g;
       
       // zoom==0 means 1:1
-      // TODO ImageWidget - do the dpi math
+      // FIXME ImageWidget - do the dpi math
       if (zoom>0)
         g2d.scale(zoom, zoom);
       
@@ -252,7 +252,7 @@ public class ImageWidget extends JPanel {
       
       // zoom of 0 means 1:1
       if (zoom>0) {
-        // TODO ImageWidget - do the dpi math
+        // FIXME ImageWidget - do the dpi math
         dim.width *= zoom;
         dim.height *= zoom;
       }
@@ -465,8 +465,7 @@ public class ImageWidget extends JPanel {
     /** constructor */
     Worker() {
       Thread t = new Thread(this);
-      // 20070225 use normal priority so we don't inherit a UI thread priority
-      t.setPriority(Thread.NORM_PRIORITY);
+      //t.setPriority(Thread.NORM_PRIORITY-1);
       t.setDaemon(true);
       t.start();
     }

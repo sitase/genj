@@ -36,23 +36,11 @@ public class Context implements Comparable {
   private Gedcom gedcom;
   private List entities = new ArrayList();
   private List properties = new ArrayList();
+  private List actions = new ArrayList();
   private Class entityType = null;
   private Class propertyType = null;
   private ImageIcon  img = null;
   private String txt = null;
-  
-  /**
-   * Constructor
-   */
-  public Context(Context context) {
-    this.gedcom = context.gedcom;
-    this.entities.addAll(context.entities);
-    this.properties.addAll(context.properties);
-    this.entityType = context.entityType;
-    this.propertyType = context.propertyType;
-    this.img = context.img;
-    this.txt = context.txt;
-  }
   
   /**
    * Constructor
@@ -107,16 +95,7 @@ public class Context implements Comparable {
    * Remove entities
    */
   public void removeEntities(Collection rem) {
-    
-    // easy for entities
     entities.removeAll(rem);
-    
-    // do properties to
-    for (ListIterator iterator = properties.listIterator(); iterator.hasNext();) {
-      Property prop = (Property) iterator.next();
-      if (rem.contains(prop.getEntity()))
-        iterator.remove();
-    }
   }
   
   /**
@@ -166,53 +145,58 @@ public class Context implements Comparable {
    * Accessor - last entity selected
    */
   public Entity getEntity() {
-    return entities.isEmpty() ? null : (Entity)entities.get(0);
+    Entity[] es = getEntities();
+    return es.length>0 ? es[es.length-1] : null;
   }
   
   /**
    * Accessor - last property selected
    */
   public Property getProperty() {
-    return properties.isEmpty() ? null : (Property)properties.get(0);
+    Property[] ps = getProperties();
+    return ps.length>0 ? ps[ps.length-1] : null;
   }
   
   /**
    * Accessor - all entities
    */
   public Entity[] getEntities() {
-    if (entityType==null)
+    // nothing there?
+    if (entities.isEmpty())
       return new Entity[0];
-    return (Entity[])entities.toArray((Entity[])Array.newInstance(entityType, entities.size()));
+    // check for still valid entities
+    for (ListIterator it = entities.listIterator(); it.hasNext(); ) {
+      if (!gedcom.contains((Entity)it.next()))
+        it.remove();
+    }
+    Entity[] result = (Entity[])Array.newInstance(entityType, entities.size());
+    entities.toArray(result);
+    return result;
   }
 
   /**
    * Accessor - properties
    */
   public Property[] getProperties() {
-    if (propertyType==null)
+    // nothing there?
+    if (properties.isEmpty())
       return new Property[0];
-    return (Property[])properties.toArray((Property[])Array.newInstance(propertyType, properties.size()));
+    // check for still valid properties
+    for (ListIterator it = properties.listIterator(); it.hasNext(); ) {
+      Property p = (Property)it.next();
+      Entity e = p.getEntity();
+      if (e==null||!gedcom.contains(e))
+        it.remove();
+    }
+    Property[] result = (Property[])Array.newInstance(propertyType, properties.size());
+    properties.toArray(result);
+    return result;
   }
 
   /** 
    * Accessor 
    */
   public String getText() {
-    
-    if (txt!=null)
-      return txt;
-    
-    if (properties.size()==1) {
-      Property prop = (Property)properties.get(0);
-      txt = Gedcom.getName(prop.getTag()) + "/" + prop.getEntity();
-    } else if (!properties.isEmpty())
-      txt = Property.getPropertyNames(Property.toArray(properties), 5);
-    else  if (entities.size()==1) 
-      txt = entities.get(0).toString();
-    else if (!entities.isEmpty())
-      txt = Entity.getPropertyNames(Property.toArray(entities), 5);
-    else txt = gedcom.getName();
-    
     return txt;
   }
   
@@ -231,13 +215,14 @@ public class Context implements Comparable {
     // an override?
     if (img!=null)
       return img;
-    // check prop/entity/gedcom
+    // check prop
     if (properties.size()==1)
-      img = ((Property)properties.get(0)).getImage(false);
-    else if (entities.size()==1)
-      img = ((Entity)entities.get(0)).getImage(false);
-    else img = Gedcom.getImage();
-    return img;
+      return ((Property)properties.get(0)).getImage(false);
+    // check entity
+    if (entities.size()==1)
+      return ((Entity)entities.get(0)).getImage(false);
+    // fallback
+    return Gedcom.getImage();
   }
   
   /** 

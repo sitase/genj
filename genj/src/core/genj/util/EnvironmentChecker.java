@@ -179,7 +179,7 @@ public class EnvironmentChecker {
         }
       }
     } catch (Throwable t) {
-      LOG.log(Level.INFO, "Couldn't access system property "+key+" ("+t.getMessage()+")");
+      LOG.log(Level.WARNING, "Couldn't access system property "+key, t);
     }
     // fallback
     if (fallback!=null)

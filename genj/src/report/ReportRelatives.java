@@ -58,14 +58,14 @@ public class ReportRelatives extends Report {
     new Relative("farmor"     , "father+mother"),
     new Relative("morfar"     , "mother+father"),
     new Relative("mormor"     , "mother+mother"),
-    new Relative("father"     , "INDI:FAMC:*:..:HUSB:*"   ),
-    new Relative("mother"     , "INDI:FAMC:*:..:WIFE:*"   ),
-    new Relative("husband"    , "INDI:FAMS:*:..:HUSB:*"   ),
-    new Relative("wife"       , "INDI:FAMS:*:..:WIFE:*"   ),
-    new Relative("daughter"   , "INDI:FAMS:*:..:CHIL:*"   , FEMALE),
-    new Relative("son"        , "INDI:FAMS:*:..:CHIL:*"   , MALE),
-    new Relative("brother"    , "INDI:FAMC:*:..:CHIL:*"   , MALE),
-    new Relative("sister"     , "INDI:FAMC:*:..:CHIL:*"   , FEMALE),
+    new Relative("father"     , "INDI:FAMC:*:..:HUSB:*:.."   ),
+    new Relative("mother"     , "INDI:FAMC:*:..:WIFE:*:.."   ),
+    new Relative("husband"    , "INDI:FAMS:*:..:HUSB:*:.."   ),
+    new Relative("wife"       , "INDI:FAMS:*:..:WIFE:*:.."   ),
+    new Relative("daughter"   , "INDI:FAMS:*:..:CHIL:*:.."   , FEMALE),
+    new Relative("son"        , "INDI:FAMS:*:..:CHIL:*:.."   , MALE),
+    new Relative("brother"    , "INDI:FAMC:*:..:CHIL:*:.."   , MALE),
+    new Relative("sister"     , "INDI:FAMC:*:..:CHIL:*:.."   , FEMALE),
 
     new Relative("grandson"     , "son+son|daughter+son"          , MALE),
     new Relative("granddaughter", "son+daughter|daughter+daughter", FEMALE),
@@ -100,7 +100,7 @@ public class ReportRelatives extends Report {
 
     Gedcom gedcom = indi.getGedcom();
     String title = translate("title", indi);
-    
+
     // prepare map of relationships
     Map key2relative = new HashMap();
     for (int i=0; i<RELATIVES.length;i++) {
@@ -110,7 +110,6 @@ public class ReportRelatives extends Report {
 
     // Loop over relative descriptions
     List items= new ArrayList();
-    items.add(new ViewContext(indi));
     for (int i=0; i<RELATIVES.length; i++) {
       Relative relative = RELATIVES[i];
       List result = find(indi, relative.expression, relative.sex, key2relative);
@@ -179,10 +178,10 @@ public class ReportRelatives extends Report {
     List result = new ArrayList();
     Property[] found = root.getProperties(new TagPath(expression));
     for (int i = 0; i < found.length; i++) {
-      Indi indi = (Indi)found[i].getEntity();
-      if (indi!=root) {
+      if (found[i]!=root) {
+        Indi indi = (Indi)found[i];
         if (sex==UNKNOWN||indi.getSex()==sex)
-          result.add(indi);
+          result.add(found[i]);
       }
     }
 

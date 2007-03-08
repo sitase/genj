@@ -28,11 +28,8 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.SortableTableModel;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
 import genj.view.ViewManager;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
 
 import java.awt.Dimension;
 import java.awt.Point;
@@ -52,7 +49,7 @@ import spin.Spin;
 /**
  * A component displaying a list of Gedcoms
  */
-/*package*/ class GedcomTableWidget extends JTable implements ContextProvider, WindowBroadcastListener {
+/*package*/ class GedcomTableWidget extends JTable implements ContextProvider {
   
   /** default column widths */
   private static final int defaultWidths[] = {
@@ -117,20 +114,14 @@ import spin.Spin;
     int row = getSelectedRow();
     return row<0 ? null : new ViewContext(model.getGedcom(row));
   }
-
+  
   /**
-   * A windows broadcast message
+   * Select a gedcom
    */
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
-    
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event);
-    if (cse!=null) {
-      int row = model.getRowFor(cse.getContext().getGedcom());
-      if (row>=0)
-        getSelectionModel().setSelectionInterval(row,row);
-    }
-    
-    return true;
+  public void setSelection(Gedcom gedcom) {
+    int row = model.getRowFor(gedcom);
+    if (row>=0)
+      getSelectionModel().setSelectionInterval(row,row);
   }
 
   /**

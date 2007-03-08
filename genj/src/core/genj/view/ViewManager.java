@@ -23,6 +23,9 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
+import genj.print.PrintManager;
+import genj.renderer.BlueprintManager;
+import genj.util.EnvironmentChecker;
 import genj.util.MnemonicAndText;
 import genj.util.Origin;
 import genj.util.Registry;
@@ -36,7 +39,9 @@ import java.awt.Component;
 import java.awt.Point;
 import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.lang.reflect.Array;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -52,11 +57,10 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.AbstractAction;
 import javax.swing.FocusManager;
-import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JPopupMenu;
-import javax.swing.KeyStroke;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 
@@ -67,6 +71,8 @@ import sun.misc.Service;
  */
 public class ViewManager {
   
+  /*package*/ ContextHook HOOK = new ContextHook();
+
   /*package*/ final static Logger LOG = Logger.getLogger("genj.view");
 
   /** resources */
@@ -75,9 +81,6 @@ public class ViewManager {
   /** global accelerators */
   /*package*/ Map keyStrokes2factories = new HashMap();
   
-  /** our context hook */
-  private ContextHook contextHook = new ContextHook();
-  
   /** factory instances of views */
   private ViewFactory[] factories = null;
   
@@ -85,13 +88,25 @@ public class ViewManager {
   private Map gedcom2factory2handles = new HashMap();
   private LinkedList allHandles = new LinkedList();
   
+  /** the currently valid context */
+  private Map gedcom2context = new HashMap();
+  
+  /** a print manager */
+  private PrintManager printManager = null;
+
   /** a window manager */
   private WindowManager windowManager = null;
+  
+  /** context listeners */
+  private List contextListeners = new LinkedList();
+  
+  /** ignore flag */
+  private boolean ignoreSetContext = false;
   
   /**
    * Constructor
    */
-  public ViewManager(WindowManager windowManager) {
+  public ViewManager(PrintManager printManager, WindowManager windowManager) {
 
     // lookup all factories dynamically
     List factories = new ArrayList();
@@ -100,13 +115,13 @@ public class ViewManager {
       factories.add(it.next());
 
     // continue with init
-    init(windowManager, factories);
+    init(printManager, windowManager, factories);
   }
   
   /**
    * Constructor
    */
-  public ViewManager(WindowManager windowManager, String[] factoryTypes) {
+  public ViewManager(PrintManager printManager, WindowManager windowManager, String[] factoryTypes) {
     
     // instantiate factories
     List factories = new ArrayList();
@@ -119,7 +134,7 @@ public class ViewManager {
     }
     
     // continue with init
-    init(windowManager, factories);
+    init(printManager, windowManager, factories);
   }
   
   /**
@@ -142,9 +157,10 @@ public class ViewManager {
   /**
    * Initialization
    */
-  private void init(WindowManager setWindowManager, List setFactories) {
+  private void init(PrintManager setPrintManager, WindowManager setWindowManager, List setFactories) {
     
     // remember
+    printManager = setPrintManager;
     windowManager = setWindowManager;
     
     // keep factories
@@ -153,6 +169,9 @@ public class ViewManager {
     // loop over factories, grab keyboard shortcuts and sign up context listeners
     for (int f=0;f<factories.length;f++) {    
       ViewFactory factory = factories[f];
+      // a context listener?
+      if (factory instanceof ContextListener)
+        addContextListener((ContextListener)factory);
       // check shortcut
       String keystroke = "ctrl "+new MnemonicAndText(factory.getTitle(false)).getMnemonic();
       if (!keyStrokes2factories.containsKey(keystroke)) {
@@ -173,6 +192,131 @@ public class ViewManager {
    */
   public ViewFactory[] getFactories() {
     return factories;
+  }
+  
+  /**
+   * Returns the last set context for given gedcom
+   * @return the context
+   */
+  public ViewContext getLastSelectedContext(Gedcom gedcom) {
+    
+    // grab one from map
+    ViewContext result = (ViewContext)gedcom2context.get(gedcom);
+    
+    // fallback to last stored?
+    if (result==null) {
+      try {
+        result = new ViewContext(gedcom.getEntity(getRegistry(gedcom).get("lastEntity", (String)null)));
+      } catch (Throwable t) {
+      }
+    }
+    
+    // fallback to first indi or gedcom 
+    if (result==null) {
+      Entity e = gedcom.getFirstEntity(Gedcom.INDI);
+      result = e!=null ? new ViewContext(e) : new ViewContext(gedcom);
+    }
+
+    // remember
+    gedcom2context.put(gedcom, result);
+    
+    // done here
+    return result;
+  }
+
+  /**
+   * Sets the current context
+   */
+  public void fireContextSelected(ViewContext context) {
+    fireContextSelected(context, null);
+  }
+  public void fireContextSelected(ViewContext context, ContextProvider provider) {
+    fireContextSelected(context, false, provider);
+  }
+  public void fireContextSelected(ViewContext context, boolean actionPerformed, ContextProvider provider) {
+    
+    // ignoring context?
+    if (ignoreSetContext)
+      return;
+    ignoreSetContext = true;
+    
+    // create event
+    ContextSelectionEvent e = new ContextSelectionEvent(context, provider, actionPerformed);
+
+    // remember context
+    Gedcom gedcom = context.getGedcom();
+    gedcom2context.put(gedcom, context);
+    
+    // keep last selected entity around
+    Entity[] es = context.getEntities();
+    if (es.length>0)
+      getRegistry(gedcom).put("lastEntity", es[es.length-1].getId());
+    
+    // clear any menu selections if different from last context
+    if (!context.equals(getLastSelectedContext(gedcom)))
+      MenuSelectionManager.defaultManager().clearSelectedPath();
+
+    // connect to us
+    context.setManager(ViewManager.this);
+    
+    // loop and tell to views 
+    Map factory2handles = (Map)gedcom2factory2handles.get(gedcom);
+    if (factory2handles!=null) for (Iterator lists = factory2handles.values().iterator(); lists.hasNext() ;) {
+      List list = (List)lists.next();
+      for(Iterator handles = list.iterator(); handles.hasNext(); ) {
+        ViewHandle handle = (ViewHandle)handles.next();
+        // empty ?
+        if (handle==null) continue;
+        // and context supported
+        if (handle.getView() instanceof ContextListener) try {
+          ((ContextListener)handle.getView()).handleContextSelectionEvent(e);
+        } catch (Throwable t) {
+          LOG.log(Level.WARNING, "ContextListener threw throwable", t);
+        }
+        // next viewhandle
+      }
+      // next list
+    }
+    
+    // loop and tell to context listeners
+    ContextListener[] ls = (ContextListener[])contextListeners.toArray(new ContextListener[contextListeners.size()]);
+    for (int l=0;l<ls.length;l++)
+      try {      
+        ls[l].handleContextSelectionEvent(e);
+      } catch (Throwable t) {
+        LOG.log(Level.WARNING, "ContextListener threw throwable", t);
+      }
+    
+    // done
+    ignoreSetContext = false;
+  }
+
+  /** 
+   * Accessor - DPI
+   */  
+  public Point getDPI() {
+    return Options.getInstance().getDPI();
+  }
+  
+  /**
+   * The print manager
+   */
+  public PrintManager getPrintManager() {
+    return printManager;
+  }
+  
+  /**
+   * The window manager
+   */
+  public WindowManager getWindowManager() {
+    return windowManager;
+  }
+  
+  /**
+   * The blueprint manager
+   */
+  public BlueprintManager getBlueprintManager() {
+    return BlueprintManager.getInstance();
   }
   
   /**
@@ -324,12 +468,6 @@ public class ViewManager {
     // wrap it into a container
     ViewContainer container = new ViewContainer(handle);
 
-    // add context hook for keyboard shortcuts
-    InputMap inputs = view.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-    inputs.put(KeyStroke.getKeyStroke("shift F10"), contextHook);
-    inputs.put(KeyStroke.getKeyStroke("CONTEXT_MENU"), contextHook); // this only works in Tiger 1.5 on Windows
-    view.getActionMap().put(contextHook, contextHook);
-
     // remember
     handles.set(handle.getSequence()-1, handle);
     allHandles.add(handle);
@@ -361,6 +499,9 @@ public class ViewManager {
         closeView(handles[i]);
     }
     
+    // remove its key from gedcom2current
+    gedcom2context.remove(gedcom);
+
     // done
   }
   
@@ -405,9 +546,23 @@ public class ViewManager {
   }
   
   /**
+   * Register a listener
+   */
+  public void addContextListener(ContextListener listener) {
+    contextListeners.add(listener);
+  }
+  
+  /**
+   * Deregister a listener
+   */
+  public void removeContextListener(ContextListener listener) {
+    contextListeners.remove(listener);
+  }
+  
+  /**
    * Get a context menu
    */
-  public JPopupMenu getContextMenu(ViewContext context, Component target) {
+  public JPopupMenu getContextMenu(ViewContext context, JComponent target) {
     
     // make sure context is valid
     if (context==null)
@@ -419,10 +574,6 @@ public class ViewManager {
 
     // make sure any existing popup is cleared
     MenuSelectionManager.defaultManager().clearSelectedPath();
-    
-    // hook up context menu to toplevel component - child components are more likely to have been 
-    // removed already by the time any of the associated actions are run
-    while (target.getParent()!=null) target = target.getParent();
 
     // create a popup
     MenuHelper mh = new MenuHelper().setTarget(target);
@@ -437,7 +588,7 @@ public class ViewManager {
     
     // items for set or single property?
     if (properties.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
+      mh.createMenu(Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
       for (int i = 0; i < as.length; i++) try {
         mh.createSeparator();
         mh.createItems(as[i].createActions(properties, this));
@@ -464,7 +615,7 @@ public class ViewManager {
         
     // items for set or single entity
     if (entities.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
+      mh.createMenu(Gedcom.getName(entities[0].getTag())+"' ("+entities.length+")");
       for (int i = 0; i < as.length; i++) try {
         mh.createSeparator();
         mh.createItems(as[i].createActions(entities, this));
@@ -502,7 +653,7 @@ public class ViewManager {
   /**
    * Our hook into keyboard and mouse operated context changes / menues
    */
-  private class ContextHook extends Action2 implements AWTEventListener {
+  private class ContextHook extends AbstractAction implements AWTEventListener {
     
     /** constructor */
     private ContextHook() {
@@ -514,26 +665,33 @@ public class ViewManager {
           }
         });
       } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Cannot install ContextHook ("+t.getMessage()+")");
+        LOG.log(Level.WARNING, "Cannot install ContextHook", t);
       }
     }
     
     /**
-     * Resolve context for given component
+     * Resolve context provider for given 'source'
      */
-    private ViewContext getContext(Component component) {
-      ViewContext context;
+    private ContextProvider getProvider(Object source) {
+      // a component?
+      if (!(source instanceof Component))
+        return null;
       // find context provider in component hierarchy
-      while (component!=null) {
+      Component c = (Component)source;
+      while (c!=null) {
         // component can provide context?
-        if (component instanceof ContextProvider) {
-          ContextProvider provider = (ContextProvider)component;
-          context = provider.getContext();
-          if (context!=null)
-            return context;
+        if (c instanceof ContextProvider) {
+          ContextProvider provider = (ContextProvider)c;
+          if (provider.getContext()!=null)
+            return provider;
+        }
+        if (c instanceof JComponent) {
+          ContextProvider provider = (ContextProvider)((JComponent)c).getClientProperty(ContextProvider.class);
+          if (provider!=null&&provider.getContext()!=null) 
+            return provider;
         }
         // try parent
-        component = component.getParent();
+        c = c.getParent();
       }
       // not found
       return null;
@@ -542,17 +700,20 @@ public class ViewManager {
     /**
      * A Key press initiation of the context menu
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent e) {
       // only for jcomponents with focus
-      Component focus = FocusManager.getCurrentManager().getFocusOwner();
-      if (!(focus instanceof JComponent))
+      if (!(FocusManager.getCurrentManager().getFocusOwner() instanceof JComponent))
         return;
+      JComponent focus = (JComponent)FocusManager.getCurrentManager().getFocusOwner();
       // look for ContextProvider and show menu if appropriate
-      ViewContext context = getContext(focus);
-      if (context!=null) {
-        JPopupMenu popup = getContextMenu(context, focus);
-        if (popup!=null)
-          popup.show(focus, 0, 0);
+      ContextProvider provider = getProvider(focus);
+      if (provider!=null) {
+        ViewContext context = provider.getContext();
+        if (context!=null) {
+          JPopupMenu popup = getContextMenu(context, focus);
+          if (popup!=null)
+            popup.show(focus, 0, 0);
+        }
       }
       // done
     }
@@ -562,43 +723,69 @@ public class ViewManager {
      */
     public void eventDispatched(AWTEvent event) {
       
-      // a mouse popup/click event?
-      if (!(event instanceof MouseEvent)) 
+      // a mouse event?
+      if ((event.getID() & AWTEvent.MOUSE_EVENT_MASK) == 0) 
         return;
       MouseEvent me = (MouseEvent) event;
-      if (!(me.isPopupTrigger()||me.getID()==MouseEvent.MOUSE_CLICKED))
-        return;
       
       // find deepest component (since components without attached listeners
       // won't be the source for this event)
-      Component component  = SwingUtilities.getDeepestComponentAt(me.getComponent(), me.getX(), me.getY());
+      final Component component  = SwingUtilities.getDeepestComponentAt(me.getComponent(), me.getX(), me.getY());
+      if (component==null)
+        return;
+      final Point point = SwingUtilities.convertPoint(me.getComponent(), me.getX(), me.getY(), component );
+      
+      // gotta be a jcomponent
       if (!(component instanceof JComponent))
         return;
-      Point point = SwingUtilities.convertPoint(me.getComponent(), me.getX(), me.getY(), component );
+      JComponent jcomponent = (JComponent)component;
+      
+      // fake a normal click event so that popup trigger does a selection as well as non-popup trigger
+      if (!EnvironmentChecker.isMac()&&!me.isControlDown() && !me.isShiftDown() && me.getButton()!=MouseEvent.BUTTON1) {
+        MouseListener[] ms = me.getComponent().getMouseListeners();
+        MouseEvent fake = new MouseEvent(me.getComponent(), me.getID(), me.getWhen(), 0, me.getX(), me.getY(), me.getClickCount(), false, MouseEvent.BUTTON1);
+        for (int m = 0; m < ms.length; m++)  {
+          switch (me.getID()) {
+            case MouseEvent.MOUSE_PRESSED:
+              ms[m].mousePressed(fake); break;
+            case MouseEvent.MOUSE_RELEASED:
+              ms[m].mouseReleased(fake); break;
+          }
+        }
+      }
+      
+      // we're interested in popup trigger and double-click 
+      boolean isDoubleClick = me.getID()==MouseEvent.MOUSE_CLICKED&&me.getClickCount()>1;
+      if(!me.isPopupTrigger()&&!isDoubleClick)  
+        return;
       
       // try to identify context
-      ViewContext context = getContext(component);
+      final ContextProvider provider = getProvider(component);
+      if (provider==null)
+        return;
+      ViewContext context = provider.getContext();
       if (context==null) 
         return;
 
-      // a popup?
-      if(me.isPopupTrigger())  {
+      // proceed with popup?
+      if(!me.isPopupTrigger())  {
         
-        // cancel any menu
-        MenuSelectionManager.defaultManager().clearSelectedPath();
+        // at least double click on provider itself?
+        if (isDoubleClick&&provider==me.getComponent()) {
+          fireContextSelected(context, true, provider);
+        }
         
-        // show context menu
-        JPopupMenu popup = getContextMenu(context, (JComponent)component);
-        if (popup!=null)
-          popup.show((JComponent)component, point.x, point.y);
-        
+        return;
       }
       
-      // a double-click on provider?
-      if (me.getButton()==MouseEvent.BUTTON1&&me.getID()==MouseEvent.MOUSE_CLICKED&&me.getClickCount()>1) {
-        WindowManager.broadcast(new ContextSelectionEvent(context, component, true));
-      }
-        
+      // cancel any menu
+      MenuSelectionManager.defaultManager().clearSelectedPath();
+      
+      // show context menu
+      JPopupMenu popup = getContextMenu(context, jcomponent);
+      if (popup!=null)
+        popup.show(jcomponent, point.x, point.y);
+      
       // done
     }
     

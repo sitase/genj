@@ -23,6 +23,7 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertyMultilineValue;
 import genj.util.Registry;
 import genj.util.swing.TextAreaWidget;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 
@@ -37,8 +38,8 @@ public class MLEBean extends PropertyBean {
   /** members */
   private TextAreaWidget tarea;
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     tarea = new TextAreaWidget("",3,20);
     tarea.addChangeListener(changeSupport);

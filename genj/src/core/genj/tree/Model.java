@@ -611,7 +611,6 @@ import spin.Spin;
   private class Callback extends GedcomListenerAdapter implements GedcomMetaListener {
     
     private Set repaint = new HashSet();
-    private boolean update = false;
     private Entity added;
     
     public void gedcomWriteLockAcquired(Gedcom gedcom) {
@@ -626,12 +625,6 @@ import spin.Spin;
         if (added==null||!gedcom.contains(added))
           added = gedcom.getFirstEntity(Gedcom.INDI);
         root = added;
-        update();
-        return;
-      }
-      
-      // update necessary?
-      if (update) {
         update();
         return;
       }
@@ -673,7 +666,7 @@ import spin.Spin;
     public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
       // a reference update?
       if (property instanceof PropertyXRef) {
-        update = true;
+        root = null;
         return;
       }
       // something visible?
@@ -685,7 +678,7 @@ import spin.Spin;
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
       // a reference update?
       if (deleted instanceof PropertyXRef)
-        update = true;
+        root = null;
       // repaint still makes sense?
       if (root!=null)
         repaint.add(getNode(property.getEntity()));

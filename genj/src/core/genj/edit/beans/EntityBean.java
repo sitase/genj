@@ -22,6 +22,7 @@ package genj.edit.beans;
 import genj.gedcom.Entity;
 import genj.gedcom.PropertyChange;
 import genj.util.Registry;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 
@@ -43,8 +44,8 @@ public class EntityBean extends PropertyBean {
     return false;
   }
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     preview = new Preview();
     changed = new JLabel();

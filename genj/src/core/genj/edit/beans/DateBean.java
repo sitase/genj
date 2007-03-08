@@ -28,6 +28,7 @@ import genj.util.swing.ImageIcon;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.PopupWidget;
 import genj.util.swing.TextFieldWidget;
+import genj.view.ViewManager;
 
 import java.util.ArrayList;
 
@@ -49,8 +50,8 @@ public class DateBean extends PropertyBean {
   private JLabel label2;
   private TextFieldWidget phrase;
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     // setup Laout
     setLayout(LAYOUT.copy());
@@ -65,7 +66,7 @@ public class DateBean extends PropertyBean {
     add(choose);
     
     // .. first date
-    date1 = new DateWidget();
+    date1 = new DateWidget(viewManager.getWindowManager());
     date1.addChangeListener(changeSupport);
     add(date1);
 
@@ -73,7 +74,7 @@ public class DateBean extends PropertyBean {
     label2 = new JLabel();
     add(label2);
     
-    date2 = new DateWidget();
+    date2 = new DateWidget(viewManager.getWindowManager());
     date2.addChangeListener(changeSupport);
     add(date2);
     

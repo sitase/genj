@@ -25,10 +25,7 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomMetaListener;
-import genj.gedcom.Indi;
 import genj.gedcom.Property;
-import genj.gedcom.PropertySex;
-import genj.gedcom.Submitter;
 import genj.gedcom.UnitOfWork;
 import genj.io.Filter;
 import genj.io.GedcomEncodingException;
@@ -38,6 +35,7 @@ import genj.io.GedcomReader;
 import genj.io.GedcomWriter;
 import genj.option.OptionProvider;
 import genj.option.OptionsWidget;
+import genj.print.PrintManager;
 import genj.util.DirectAccessTokenizer;
 import genj.util.EnvironmentChecker;
 import genj.util.MnemonicAndText;
@@ -53,6 +51,8 @@ import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.ProgressWidget;
+import genj.view.ContextListener;
+import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
 import genj.view.ViewFactory;
 import genj.view.ViewHandle;
@@ -108,6 +108,7 @@ public class ControlCenter extends JPanel {
   private Resources resources = Resources.get(this);
   private WindowManager windowManager;
   private ViewManager viewManager;
+  private PrintManager printManager;
   private List gedcomActions = new ArrayList();
   private List toolbarActions = new ArrayList();
   private Stats stats = new Stats();
@@ -121,7 +122,8 @@ public class ControlCenter extends JPanel {
     // Initialize data
     registry = new Registry(setRegistry, "cc");
     windowManager = winManager;
-    viewManager = new ViewManager(windowManager);
+    printManager = new PrintManager(windowManager);
+    viewManager = new ViewManager(printManager, windowManager);
     
     // Table of Gedcoms
     tGedcoms = new GedcomTableWidget(viewManager, registry) {
@@ -140,6 +142,12 @@ public class ControlCenter extends JPanel {
       public void valueChanged(ListSelectionEvent e) {
         for (int i=0;i<gedcomActions.size();i++)
           ((Action2)gedcomActions.get(i)).setEnabled(tGedcoms.getSelectedGedcom() != null);
+      }
+    });
+    
+    viewManager.addContextListener(new ContextListener() {
+      public void handleContextSelectionEvent(ContextSelectionEvent event) {
+        tGedcoms.setSelection(event.getContext().getGedcom());
       }
     });
     
@@ -525,19 +533,7 @@ public class ControlCenter extends JPanel {
         }
         // form the origin
         try {
-          Gedcom gedcom  = new Gedcom(Origin.create(new URL("file", "", file.getAbsolutePath())));
-          // create default entities
-          try {
-            Indi adam = (Indi)gedcom.createEntity(Gedcom.INDI);
-            adam.addDefaultProperties();
-            adam.setName("Adam","");
-            adam.setSex(PropertySex.MALE);
-            Submitter submitter = (Submitter)gedcom.createEntity(Gedcom.SUBM);
-            submitter.setName(EnvironmentChecker.getProperty(this, "user.name", "?", "user name used as submitter in new gedcom"));
-          } catch (GedcomException e) {
-          }
-          // remember
-          addGedcom(gedcom);
+          addGedcom(new Gedcom(Origin.create(new URL("file", "", file.getAbsolutePath())), true));
         } catch (MalformedURLException e) {
         }
 
@@ -730,7 +726,7 @@ public class ControlCenter extends JPanel {
             null,
             resources.getString("cc.open.warnings", gedcomBeingLoaded.getName()),
             WindowManager.WARNING_MESSAGE,
-            new JScrollPane(new ContextListWidget(gedcomBeingLoaded, warnings)),
+            new JScrollPane(new ContextListWidget(viewManager, gedcomBeingLoaded, warnings)),
             Action2.okOnly(),
             ControlCenter.this
           );
@@ -970,7 +966,7 @@ public class ControlCenter extends JPanel {
       if (ask || origin==null || origin.getFile()==null) {
 
         // .. choose file
-        SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved, (Filter[])viewManager.getViews(Filter.class, gedcomBeingSaved));
+        SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved, viewManager);
         file = chooseFile(resources.getString("cc.save.title"), resources.getString("cc.save.action"), options);
         if (file==null)
           return false;
@@ -1244,7 +1240,7 @@ public class ControlCenter extends JPanel {
       // tell options about window manager - curtesy only
       Options.getInstance().setWindowManager(windowManager);
       // create widget for options
-      OptionsWidget widget = new OptionsWidget(getText());
+      OptionsWidget widget = new OptionsWidget(getText(), windowManager);
       widget.setOptions(OptionProvider.getAllOptions());
       // open dialog
       windowManager.openDialog("options", getText(), WindowManager.INFORMATION_MESSAGE, widget, Action2.okOnly(), ControlCenter.this);

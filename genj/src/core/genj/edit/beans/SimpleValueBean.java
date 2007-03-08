@@ -22,6 +22,7 @@ package genj.edit.beans;
 import genj.gedcom.Property;
 import genj.util.Registry;
 import genj.util.swing.TextFieldWidget;
+import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 
@@ -34,8 +35,8 @@ public class SimpleValueBean extends PropertyBean {
   /** members */
   private TextFieldWidget tfield;
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  void initialize(ViewManager setViewManager, Registry setRegistry) {
+    super.initialize(setViewManager, setRegistry);
     
     tfield = new TextFieldWidget("", 8);
     tfield.addChangeListener(changeSupport);
@@ -84,9 +85,6 @@ public class SimpleValueBean extends PropertyBean {
     tfield.setVisible(!property.isReadOnly()||txt.length()>0);
     
     defaultFocus = tfield.isEditable() ? tfield : null;
-    
-    // not change
-    changeSupport.setChanged(false);
   }
   
 }

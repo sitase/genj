@@ -60,24 +60,7 @@ import org.w3c.dom.Node;
  * </ul>
  */
 public class Document {
-  /** Symbolic constant for font size for sections.
-   * @see #setSectionSizes
-   * @see #startSection(String, String, int)
-   */
-  public final static int FONT_XX_SMALL=0;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_X_SMALL=1;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_SMALL=2;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_MEDIUM=3;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_LARGE=4;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_X_LARGE=5;
-  /** Symbolic constant for font size for sections. */
-  public final static int FONT_XX_LARGE=6;
-
+  
   private final static Resources RESOURCES = Resources.get(Document.class);
   
   /** matching a=b,c-d=e,f:g=h,x=y(m,n,o),z=1 */
@@ -94,13 +77,7 @@ public class Document {
   private boolean needsTOC = false;
   private Map file2elements = new HashMap();
   private List toc = new ArrayList();
-  private String formatSection = "font-weight=bold,space-before=0.5cm,space-after=0.2cm,keep-with-next.within-page=always";
-  private String formatSectionLarger = "font-size=larger," + formatSection;
-  private static final String[] fontSizes = new String[] {
-      "xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large"
-  };
-  private int minSectionFontSize;
-  private int maxSectionFontSize;
+  private String formatSection = "font-size=larger,font-weight=bold,space-before=0.5cm,space-after=0.2cm,keep-with-next.within-page=always";
   private Map index2primary2secondary2elements = new TreeMap();
   private int idSequence = 0;
   private boolean containsCSV = false;
@@ -112,9 +89,7 @@ public class Document {
     
     // remember title
     this.title = title;
-
-    // section size range
-    setSectionSizes(FONT_MEDIUM, FONT_XX_LARGE);
+    
     // create a dom document
     try {
       DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -152,51 +127,6 @@ public class Document {
     push("region-after", "extent=0.8cm").pop();
     pop().pop().push("page-sequence","master-reference=master");
 
-    /*
-      Paul Grosso offers this suggestion for left-center-right header formatting
-      at http://www.dpawson.co.uk/xsl/sect3/headers.html#d13432e123:
-
-      <fo:static-content flow-name="xsl-region-before">
-    <!-- header-width is the width of the full header in picas -->
-    <xsl:variable name="header-width" select="36"/>
-    <xsl:variable name="header-field-width">
-    <xsl:value-of
-select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
-    </xsl:variable>
-    <fo:list-block font-size="8pt" provisional-label-separation="0pt">
-        <xsl:attribute name="provisional-distance-between-starts">
-            <xsl:value-of select="$header-field-width"/>
-        </xsl:attribute>
-        <fo:list-item>
-            <fo:list-item-label end-indent="label-end()">
-                <fo:block text-align="left">
-                    <xsl:text>The left header field</xsl:text>
-                </fo:block>
-            </fo:list-item-label>
-            <fo:list-item-body start-indent="body-start()">
-                <fo:list-block provisional-label-separation="0pt">
-                    <xsl:attribute
-                 name="provisional-distance-between-starts">
-                        <xsl:value-of select="$header-field-width"/>
-                    </xsl:attribute>
-                    <fo:list-item>
-                        <fo:list-item-label end-indent="label-end()">
-                            <fo:block text-align="center">
-                                <fo:page-number/>
-                            </fo:block>
-                        </fo:list-item-label>
-                        <fo:list-item-body start-indent="body-start()">
-                            <fo:block text-align="right">
-                    <xsl:text>The right header field</xsl:text>
-                            </fo:block>
-                        </fo:list-item-body>
-                    </fo:list-item>
-                </fo:list-block>
-            </fo:list-item-body>
-        </fo:list-item>
-    </fo:list-block>
-</fo:static-content>
-    */
     push("static-content", "flow-name=xsl-region-after");
     push("block", "text-align=center");
     // text("p. ", ""); // todo bk better w/o text, to avoid language-dependency, but with title
@@ -206,29 +136,13 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
 
     // don't use title - see above
     // push("title").text(getTitle(), "").pop();
-
+    
     push("flow", "flow-name=xsl-region-body");
     push("block");
-
+    
     // done - cursor points to first block
   }
-
-  /**
-   * Sets the range of logical font sizes to be used for section headings.
-   * The outermost section (depth 1) has size {@link #FONT_XX_LARGE}
-   * by default, with each nested section having a smaller font,
-   * until minSize (default {@link #FONT_MEDIUM}) is reached, after which
-   * all section headings appear the same.
-   * @param minSize Smallest size for nested section headings
-   * @param maxSize Largest size for outermost section headings
-   * @see #startSection(String, String, int)
-   */
-  public void setSectionSizes(int minSize, int maxSize) {
-    if (minSize < 0 || minSize > maxSize || maxSize > fontSizes.length-1) throw new IllegalArgumentException("setSectionSizes("+minSize+","+maxSize+")");
-    minSectionFontSize = minSize;
-    maxSectionFontSize = maxSize;
-  }
-
+  
   /**
    * Check if there's any CSV in this document
    */
@@ -299,28 +213,11 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
     // done
     return this;
   }
-
+  
   /**
-   * Outermost section with largest font size is 1.
-   * @param sectionDepth
-   * @return XSL-FO font-size parameter
+   * Add section
    */
-  private String getFontSize(int sectionDepth) {
-    int i = maxSectionFontSize + 1 - sectionDepth;
-    if (i < minSectionFontSize) i=minSectionFontSize;
-    return fontSizes[i];
-  }
-
-  /**
-   * Add section at specified depth.  The depth is used to determine the
-   * font size and should in the future be used for numbering in
-   * X.Y.Z format.  1 is the usual outermost section and maps to
-   * {@link #FONT_XX_LARGE} by default.
-   * <a href="http://www.w3.org/TR/REC-CSS2/fonts.html#font-styling">http://www.w3.org/TR/REC-CSS2/fonts.html#font-styling</a>
-   * describes the meaning of logical font sizes in XSL/FO.
-   * @see #setSectionSizes
-   */
-  public Document startSection(String title, String id, int sectionDepth) {
+  public Document startSection(String title, String id) {
     
     // check if
     if (id.startsWith("_"))
@@ -335,8 +232,7 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
       id = "toc"+toc.size();
       
     // start a new block
-    String fontSize = getFontSize(sectionDepth);
-    pop().push("block", "font-size="+fontSize + "," + formatSection + ",id="+id);
+    pop().push("block", formatSection + ",id="+id);
     
     // remember
     toc.add(new TOCEntry(id, title));
@@ -350,37 +246,16 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
     // done
     return this;
   }
-
+    
   /**
-   * Add section at depth 1.
-   */
-  public Document startSection(String title, String id) {
-    return startSection(title, id, 1);
-  }
-
-  /**
-   * Add section at specified depth with reference to a GEDCOM entity.
-   */
-  public Document startSection(String title, Entity entity, int sectionDepth) {
-    return startSection(title,entity.getTag()+"_"+entity.getId(), sectionDepth);
-  }
-
-  /**
-   * Add section at depth.
+   * Add section
    */
   public Document startSection(String title, Entity entity) {
     return startSection(title,entity.getTag()+"_"+entity.getId());
   }
-
+    
   /**
-   * Add section at specified depth.
-   */
-  public Document startSection(String title, int sectionDepth) {
-    return startSection(title, "", sectionDepth);
-  }
-
-  /**
-   * Add section at depth 1.
+   * Add section
    */
   public Document startSection(String title) {
     return startSection(title, "");
@@ -915,7 +790,6 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
       Map primary2secondary2elements = (Map)index2primary2secondary2elements.get(index);
       
       // add section
-      nextPage();
       startSection(index);
       push("block", "start-indent=1cm");
       
@@ -996,7 +870,7 @@ select="$header-width * 0.3333"/><xsl:text>pc</xsl:text>
     //</block>
     
     // add toc header
-    push("block", formatSectionLarger);
+    push("block", formatSection);
     text(RESOURCES.getString("toc"), "");
     pop();
 

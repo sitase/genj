@@ -39,7 +39,6 @@ public class TagPath {
 
   /** the list of tags that describe the path */
   private String tags[];
-  private int qualifiers[];
   
   /** the length (= number of elements) in tags (length<=tags.length) */
   private int len;
@@ -50,7 +49,6 @@ public class TagPath {
   /** our marker */
   public final static char SEPARATOR = ':';
   public final static String SEPARATOR_STRING = String.valueOf(SEPARATOR);
-  private final static char SELECTOR = '#';
 
   /**
    * Constructor for TagPath
@@ -79,41 +77,15 @@ public class TagPath {
 
     // ... setup data
     tags = new String[len];
-    qualifiers = new int[len];
     for (int i=0;i<len;i++) {
-      
-      // next token
-      String tag = tokens.nextToken().trim();
-      if (tag.length()==0) 
-        throw new IllegalArgumentException("Empty tag in '"+path+"' is not valid");
-
-      // remember
-      set(i, tag);
-      
+      String token = tokens.nextToken().trim();
+      if (token.length()==0) 
+        throw new IllegalArgumentException("No valid path token #"+(i+1)+" in '"+path+"'");
+      tags[i] = token;
+      hash += tags[i].hashCode();
     }
     
     // Done
-  }
-  
-  private void set(int pos, String tag) {
-    
-    // check qualifier
-    int qualifier = -1;
-    int separator = tag.indexOf('#');
-    if (separator>0) {
-      try {
-        qualifier = Integer.parseInt(tag.substring(separator+1));
-      } catch (NumberFormatException e) {
-        throw new IllegalArgumentException("Illegal tag qualifier in '"+tag+"'");
-      }
-      tag = tag.substring(0, separator);
-    }
-
-    // remember 
-    tags[pos] = tag;
-    qualifiers[pos] = qualifier;
-    hash += tag.hashCode();
-
   }
   
   /**
@@ -130,7 +102,6 @@ public class TagPath {
     // copyup to len and rehash
     len = length;
     tags = other.tags;
-    qualifiers = other.qualifiers;
     for (int i=0; i<len; i++)
       hash += tags[i].hashCode();
     // done
@@ -146,16 +117,11 @@ public class TagPath {
   
     // copy and append   
     tags = new String[len];
-    qualifiers = new int[len];
-    
     System.arraycopy(other.tags, 0, tags, 0, other.len);
-    System.arraycopy(other.qualifiers, 0, qualifiers, 0, other.len);
-    
     tags[len-1] = tag;
-    qualifiers[len-1] = -1;
     
     // prepare our hash
-    hash = other.hash + tag.hashCode();
+    hash = other.hash+tag.hashCode();
   }
   
   /**
@@ -168,9 +134,10 @@ public class TagPath {
     // grab stack elements
     len = path.size();
     tags = new String[len];
-    qualifiers = new int[len];
-    for (int i=0;i<len;i++) 
-      set(i, path.pop().toString());
+    for (int i=0;i<len;i++) {
+      tags[i] = path.pop().toString();
+      hash += tags[i].hashCode();
+    }
     // done
   }
   
@@ -183,8 +150,7 @@ public class TagPath {
       return false;
     // check
     for (int i=0;i<prefix.len;i++) {
-      if (!tags[i].equals(prefix.tags[i]) || qualifiers[i]!=prefix.qualifiers[i]) 
-        return false;
+      if (!tags[i].equals(prefix.tags[i])) return false;
     }
     // yes
     return true;
@@ -210,12 +176,27 @@ public class TagPath {
 
     // Elements ?
     for (int i=0;i<len;i++) {
-      if (!tags[i].equals(other.tags[i]) || qualifiers[i]!=other.qualifiers[i]) 
+      if (!tags[i].equals(other.tags[i])) 
         return false;
     }
 
     // Equal
     return true;
+  }
+  
+  public final static int
+    MATCH_NONE = 0,
+    MATCH_TAG  = 1,
+    MATCH_ALL  = 2;
+
+  /**
+   * Compares the tag at given position with argument
+   */
+  public boolean equals(int at, String tag) {
+    
+    // what's the element 'at'
+    String element = tags[at];
+    return element.equals(tag);
   }
   
   /**
@@ -255,16 +236,10 @@ public class TagPath {
    * Returns the path as a string
    */
   public String toString() {
-    StringBuffer result = new StringBuffer();
-    for (int i=0;i<len;i++) {
-      if (i>0) result.append(':');
-      result.append(tags[i]);
-      if (qualifiers[i]>=0) {
-        result.append('#');
-        result.append(qualifiers[i]);
-      }
-    }
-    return result.toString();
+    String result = tags[0];
+    for (int i=1;i<len;i++)
+      result = result + ":" + tags[i];
+    return result;
   }
   
   /**
@@ -333,65 +308,64 @@ public class TagPath {
    * Iterate a properties nodes corresponding to this path
    */
   public void iterate(Property root, PropertyVisitor visitor) {
-    
-    // first tag has to match
-    String tag = get(0);
-    char c = tag.charAt(0);
-    if (c=='.'||c=='*')
-      iterate(0, root, visitor);
-    else if (tag.equals(root.getTag()))
-      iterate(1, root, visitor);
+    iterate(0, root, visitor, get(0));
   }
-  
-  private boolean iterate(int pos, Property prop, PropertyVisitor visitor) {
+
+  private boolean iterate(int pos, Property prop, PropertyVisitor visitor, String unconfirmedTag) {
     
-    String tag;
+    // traversed path?
+    if (pos==length())
+      return visitor.leaf(prop);
     
-    // follow as far as we can without recursing into children
-    for (;;pos++) {
-      
-      // walked the path?
-      if (pos==length()) 
-        return visitor.leaf(prop);
-      
-      // check next tag
-      tag = get(pos);
-      
-       // up?
-      if (tag.equals("..")) {
-        if ((prop=prop.getParent())==null)
-          return false;
-        continue;
-      }
-      // stay?
-      if (tag.equals( ".")) {
-        continue;
-      }
-      // follow?
-      if (tag.equals( "*")) {
-        // check out target
-        if (!(prop instanceof PropertyXRef)||((PropertyXRef)prop).getTarget()==null)
-          return false;
-        prop = ((PropertyXRef)prop).getTarget();
-        continue;
-      }
-      // looks like we have a child at hand
-      break;
+    // a '..'?
+    if (get(pos).equals("..")) {
+      Property parent = prop.getParent();
+      // no parent?
+      if (parent==null)
+        return false;
+      // continue with parent
+      return iterate(pos+1, parent, visitor, null);
+    }
+    
+    // a '.'?
+    if (get(pos).equals( ".")) {
+      // continue with self
+      return iterate(pos+1, prop, visitor, null);
+    }
+
+    // a '*'?
+    if (get(pos).equals( "*")) {
+      // check out target
+      if (!(prop instanceof PropertyXRef))
+        return false;
+      prop = ((PropertyXRef)prop).getTarget();
+      if (prop==null)
+        return false;
+      // continue with target
+      return iterate(pos+1, prop, visitor, null);
+    }
+
+    // still have to confirm a tag?
+    if (unconfirmedTag!=null) {
+      if (!get(pos).equals(unconfirmedTag))
+        return true;
+      // go with prop then
+      return iterate(pos+1, prop, visitor, null);
     }
     
     // let visitor know that we're recursing now
-    if (!visitor.recursion(prop, tag))
+    if (!visitor.recursion(prop, get(pos)))
       return false;
     
-    // recurse into children
-    int qualifier = qualifiers[pos];
-    for (int i=0, c=0;i<prop.getNoOfProperties();i++) {
-      Property child = prop.getProperty(i);
-      if (tag.equals(child.getTag())) {
-        if (qualifier<0||qualifier==c++) {
-          if (!iterate(pos+1, child, visitor))
-            return false;
-        }
+    // recurse into each appropriate child
+    for (int i=0;i<prop.getNoOfProperties();i++) {
+
+      Property ith = prop.getProperty(i);
+
+      // tag is good?
+      if (get(pos).equals(ith.getTag())) {
+        if (!iterate(pos+1, ith, visitor, null))
+          return false;
       }
     }
     

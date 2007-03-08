@@ -21,11 +21,9 @@ package genj.io;
 
 import genj.util.Resources;
 
-import java.awt.Component;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -37,6 +35,7 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 
 /**
@@ -184,10 +183,9 @@ public class FileAssociation {
     
     private void runCommand(String cmd) {
       
-      // make sure there's at least one file argument somewhere - quote if necessary
-      if (cmd.indexOf('%')<0) {
-        cmd = cmd + " " + (file.indexOf(' ')<0 ?  "%" : "\"%\"");
-      }
+      // never applied file argument?
+      if (cmd.indexOf('%')<0) 
+        cmd = cmd + " \"%\"";
 
       // look for % replacements
       // example - the forward slash is meant to be a backward slash here
@@ -204,14 +202,11 @@ public class FileAssociation {
       // replace file placholders % next
       cmd = Pattern.compile("%").matcher(cmd).replaceAll(pathRegEx);
       
-      // parse it
-      String[] cmdarray = parse(cmd);
-      
       // run it
-      LOG.info("Running command: "+Arrays.asList(cmdarray));
+      LOG.fine("Running command: "+cmd);
       
       try {
-        int rc = Runtime.getRuntime().exec(cmdarray).waitFor(); 
+        int rc = Runtime.getRuntime().exec(cmd).waitFor(); 
         if (rc!=0) 
           LOG.log(Level.INFO, "External returned "+rc);
       } catch (Throwable t) {
@@ -221,54 +216,6 @@ public class FileAssociation {
     }
     
   } // Sequence of Commands run sequentially
-
-  /**
-   * Our own parse cmd into tokens - the Java implementation breaks down the cmd into
-   * strings not minding quotes. The string is re-assembled fine in the windows implementation
-   * but fails to assemble nicely on Linux. This leads to no-quotes and therefore no-spaces
-   * on Linux otherwise.
-   */
-  public static String[] parse(String cmd) {
-    
-    List tokens = new ArrayList();
-    StringBuffer token = new StringBuffer(32);
-    boolean quoted=false;
-    for (int i=0;i<cmd.length();i++) {
-      char c = cmd.charAt(i);
-      switch (c) {
-        case ' ': 
-        case '\t':
-          if (quoted) {
-            token.append(c);
-          } else {
-            if (token.length()>0) tokens.add(token.toString());
-            token.setLength(0);
-          }
-          break;
-        case '\"':
-          if (quoted) {
-            tokens.add(token.toString());
-            token.setLength(0);
-            quoted = false;
-          } else {
-            if (token.length()>0) tokens.add(token.toString());
-            token.setLength(0);
-            quoted = true;
-          }
-          break;
-        default:
-          token.append(c);
-      }
-    }
-    if (quoted) {
-      LOG.warning("Umatched quotes in "+cmd);
-    }
-    if (token.length()>0) tokens.add(token.toString());
-    
-    // done 
-    return (String[])tokens.toArray(new String[tokens.size()]);
-    
-  }
   
   /**
    * Gets all
@@ -309,7 +256,7 @@ public class FileAssociation {
   /**
    * Gets first available association or asks the user for appropriate one
    */
-  public static FileAssociation get(File file, String name, Component owner) {
+  public static FileAssociation get(File file, String name, JComponent owner) {
     String suffix = getSuffix(file);
     if (suffix.length()==0)
       return null;
@@ -319,7 +266,7 @@ public class FileAssociation {
   /**
    * Gets first available association or asks the user for appropriate one for a browser url and executes it
    */
-  public static void open(URL url, Component owner) {
+  public static void open(URL url, JComponent owner) {
     // find browser capable assoc
     FileAssociation association = FileAssociation.get("html", "html, htm, xml", "Browse", owner);
     if (association!=null)  
@@ -329,7 +276,7 @@ public class FileAssociation {
   /**
    * Gets first available association or asks the user for appropriate one
    */
-  public static FileAssociation get(String suffix, String suffixes, String name, Component owner) {
+  public static FileAssociation get(String suffix, String suffixes, String name, JComponent owner) {
     // look for it
     Iterator it = associations.iterator();
     while (it.hasNext()) {
@@ -342,13 +289,10 @@ public class FileAssociation {
     chooser.setDialogTitle(Resources.get(FileAssociation.class).getString("assocation.choose", suffixes));
     int rc = chooser.showOpenDialog(owner);
     File file = chooser.getSelectedFile(); 
-    if (rc!=JFileChooser.APPROVE_OPTION||file==null||!file.exists())
+    if (rc!=JFileChooser.APPROVE_OPTION||file==null)
       return null;
-    // find out path
-    String executable =  file.getAbsolutePath();
-    if (executable.indexOf(' ')>=0) executable = "\"" +executable + "\"";
     // keep it
-    FileAssociation association = new FileAssociation(suffixes, name, executable);
+    FileAssociation association = new FileAssociation(suffixes, name, file.getAbsolutePath());
     add(association);
     // done
     return association;

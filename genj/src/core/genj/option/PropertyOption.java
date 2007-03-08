@@ -331,7 +331,7 @@ public abstract class PropertyOption extends Option {
       super(instance, property);
       this.type     = type;
       
-      // TODO Options - hardcoded mapper for fonts
+      // FIXME Options - hardcoded mapper for fonts
       this.mapper   = type==Font.class ? new FontMapper() : new Mapper();
     }
 
@@ -382,7 +382,7 @@ public abstract class PropertyOption extends Option {
      * Provider a UI for this option
      */  
     public OptionUI getUI(OptionsWidget widget) {
-      // TODO Options - hardcoded UI 
+      // FIXME Options - hardcoded UI 
       // a font?
       if (Font.class.isAssignableFrom(type))
         return new FontUI(this);
