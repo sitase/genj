@@ -38,6 +38,8 @@ import genj.io.GedcomReader;
 import genj.io.GedcomWriter;
 import genj.option.OptionProvider;
 import genj.option.OptionsWidget;
+import genj.plugin.GedcomLifecycleEvent;
+import genj.plugin.PluginManager;
 import genj.util.DirectAccessTokenizer;
 import genj.util.EnvironmentChecker;
 import genj.util.MnemonicAndText;
@@ -112,7 +114,8 @@ public class ControlCenter extends JPanel {
   private List toolbarActions = new ArrayList();
   private Stats stats = new Stats();
   private ActionExit exit = new ActionExit();
-    
+  private PluginManager pluginManager;
+  
   /**
    * Constructor
    */
@@ -122,6 +125,7 @@ public class ControlCenter extends JPanel {
     registry = new Registry(setRegistry, "cc");
     windowManager = winManager;
     viewManager = new ViewManager(windowManager);
+    pluginManager = new PluginManager(windowManager);
     
     // Table of Gedcoms
     tGedcoms = new GedcomTableWidget(viewManager, registry) {
@@ -421,6 +425,8 @@ public class ControlCenter extends JPanel {
       for (Iterator gedcoms=tGedcoms.getAllGedcoms().iterator(); gedcoms.hasNext(); ) {
         // next gedcom
         Gedcom gedcom = (Gedcom) gedcoms.next();
+        // tell plugin manager
+        pluginManager.fireEvent(new GedcomLifecycleEvent(gedcom, GedcomLifecycleEvent.BEFORE_GEDCOM_CLOSED));
         // changes need saving?
         if (gedcom.hasUnsavedChanges()) {
           // close file officially
@@ -457,6 +463,8 @@ public class ControlCenter extends JPanel {
           }
           // no - skip it
         }
+        // tell plugin manager
+        pluginManager.fireEvent(new GedcomLifecycleEvent(gedcom, GedcomLifecycleEvent.AFTER_GEDCOM_CLOSED));
         // remember as being open, password and open views
         File file =gedcom.getOrigin().getFile(); 
         if (file==null||file.exists()) { 
@@ -700,12 +708,15 @@ public class ControlCenter extends JPanel {
         
         return;
 
-      } 
+      }
         
       // got a successfull gedcom
       if (gedcomBeingLoaded != null) {
         
         addGedcom(gedcomBeingLoaded);
+        
+        // tell plugins
+        pluginManager.fireEvent(new GedcomLifecycleEvent(gedcomBeingLoaded, GedcomLifecycleEvent.AFTER_GEDCOM_LOADED));
       
         // open views again
         if (Options.getInstance().isRestoreViews) {
@@ -1166,6 +1177,9 @@ public class ControlCenter extends JPanel {
       if (gedcom == null)
         return;
   
+      // tell plugin manager
+      pluginManager.fireEvent(new GedcomLifecycleEvent(gedcom, GedcomLifecycleEvent.BEFORE_GEDCOM_CLOSED));
+      
       // changes we should care about?      
       if (gedcom.hasUnsavedChanges()) {
         
@@ -1196,6 +1210,9 @@ public class ControlCenter extends JPanel {
       // Remove it
       removeGedcom(gedcom);
   
+      // tell plugin manager
+      pluginManager.fireEvent(new GedcomLifecycleEvent(gedcom, GedcomLifecycleEvent.AFTER_GEDCOM_CLOSED));
+      
       // Done
     }
   } //ActionClose
