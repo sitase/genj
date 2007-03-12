@@ -45,10 +45,10 @@ import genj.window.WindowManager;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Stack;
 import java.util.logging.Logger;
 
@@ -554,12 +554,9 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
       // parse stack
       for (Iterator it = stack.listIterator(); it.hasNext(); ) {
         Context ctx = (Context)it.next();
-        Entity[] ents = ctx.getEntities();
-        for (int i = 0; i < ents.length; i++) {
-          if (ents[i]==entity) {
-            it.remove();
-            break;
-          }
+        if (ctx.contains(entity)) {
+          it.remove();
+          break;
         }
       }
       // update status
@@ -567,11 +564,10 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     }
     
     void remove(Property prop) {
-      List list = Collections.singletonList(prop);
       // parse stack
-      for (Iterator it = stack.listIterator(); it.hasNext(); ) {
+      for (ListIterator it = stack.listIterator(); it.hasNext(); ) {
         Context ctx = (Context)it.next();
-        ctx.removeProperties(list);
+        it.set(ctx.less(prop));
       }
       
     }

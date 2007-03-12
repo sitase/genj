@@ -22,16 +22,11 @@ package genj.gedcom;
 /**
  * Interface for Listeners of changes in gedcom data
  */
-public interface GedcomMetaListener extends GedcomListener {
+public interface GedcomLifecycleListener {
 
-  public void gedcomHeaderChanged(Gedcom gedcom);
-  
-  public void gedcomWriteLockAcquired(Gedcom gedcom);
-  
-  public void gedcomBeforeUnitOfWork(Gedcom gedcom);
-  
-  public void gedcomAfterUnitOfWork(Gedcom gedcom);
-  
-  public void gedcomWriteLockReleased(Gedcom gedcom);
-  
+  /**
+   * Event handling
+   */
+  public void handleLifecycleEvent(GedcomLifecycleEvent event);
+
 }

@@ -19,8 +19,6 @@
  */
 package genj.gedcom;
 
-import genj.util.swing.ImageIcon;
-
 import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,15 +29,13 @@ import java.util.ListIterator;
  * A context represents a 'current context in Gedcom terms', a gedcom
  * an entity and a property
  */  
-public class Context implements Comparable {
+public class Context {
   
   private Gedcom gedcom;
   private List entities = new ArrayList();
   private List properties = new ArrayList();
   private Class entityType = null;
   private Class propertyType = null;
-  private ImageIcon  img = null;
-  private String txt = null;
   
   /**
    * Constructor
@@ -50,8 +46,27 @@ public class Context implements Comparable {
     this.properties.addAll(context.properties);
     this.entityType = context.entityType;
     this.propertyType = context.propertyType;
-    this.img = context.img;
-    this.txt = context.txt;
+  }
+  
+  /**
+   * Constructor
+   */
+  public Context(Context[] contexts) {
+    if (contexts.length==0)
+      throw new IllegalArgumentException("can't construct context from empty list of contexts");
+    
+    Context context = contexts[0];
+    gedcom = context.gedcom;
+    entities.addAll(context.entities);
+    properties.addAll(context.properties);
+    entityType = context.entityType;
+    propertyType = context.propertyType;
+    
+    for (int i = 1; i < contexts.length; i++) {
+      context = contexts[i];
+      addProperties(context.getProperties());
+      addEntities(context.getEntities());
+    }
   }
   
   /**
@@ -66,6 +81,14 @@ public class Context implements Comparable {
   /**
    * Constructor
    */
+  public Context(Entity entity) {
+    this(entity.getGedcom());
+    addEntity(entity);
+  }
+  
+  /**
+   * Constructor
+   */
   public Context(Property prop) {
     this(prop.getGedcom());
     addProperty(prop);
@@ -74,15 +97,55 @@ public class Context implements Comparable {
   /**
    * Constructor
    */
-  public Context(Entity entity) {
-    this(entity.getGedcom());
-    addEntity(entity);
+  public Context(Gedcom ged, Property[] props) {
+    this(ged);
+    addProperties(props);
+  }
+  
+  /**
+   * A context less a given property
+   */
+  public Context less(Property prop) {
+    if (prop instanceof Entity)
+      return less((Entity)prop);
+    if (!properties.contains(prop))
+      return this;
+    Context clone = new Context(this);
+    clone.properties.remove(prop);
+    return clone;
+  }
+  
+  /**
+   * A context less a given entity
+   */
+  public Context less(Entity entity) {
+    if (!entities.contains(entity))
+      return this;
+    Context clone = new Context(this);
+    clone.entities.remove(entity);
+    return clone;
+  }
+  
+  /**
+   * containment check
+   */
+  public boolean contains(Property prop) {
+    if (prop instanceof Entity)
+      return contains((Entity)prop);
+    return properties.contains(prop);
+  }
+  
+  /**
+   * containment check
+   */
+  public boolean contains(Entity entity) {
+    return entities.contains(entity);
   }
   
   /**
    * Add an entity
    */
-  public void addEntity(Entity e) {
+  private void addEntity(Entity e) {
     // check gedcom
     if (e.getGedcom()!=gedcom)
       throw new IllegalArgumentException("entity's gedcom can't be different");
@@ -98,7 +161,7 @@ public class Context implements Comparable {
   /**
    * Add entities
    */
-  public void addEntities(Entity[] es) {
+  private void addEntities(Entity[] es) {
     for (int i = 0; i < es.length; i++) 
       addEntity(es[i]);
   }
@@ -106,7 +169,7 @@ public class Context implements Comparable {
   /**
    * Remove entities
    */
-  public void removeEntities(Collection rem) {
+  private void removeEntities(Collection rem) {
     
     // easy for entities
     entities.removeAll(rem);
@@ -122,7 +185,7 @@ public class Context implements Comparable {
   /**
    * Add a property
    */
-  public void addProperty(Property p) {
+  private void addProperty(Property p) {
     // keep entity
     addEntity(p.getEntity());
     if (p instanceof Entity)
@@ -143,7 +206,7 @@ public class Context implements Comparable {
   /**
    * Add properties
    */
-  public void addProperties(Property[] ps) {
+  private void addProperties(Property[] ps) {
     for (int i = 0; i < ps.length; i++) 
       addProperty(ps[i]);
   }
@@ -151,7 +214,7 @@ public class Context implements Comparable {
   /**
    * Remove properties
    */
-  public void removeProperties(Collection rem) {
+  private void removeProperties(Collection rem) {
     properties.removeAll(rem);
   }
   
@@ -169,6 +232,13 @@ public class Context implements Comparable {
     return entities.isEmpty() ? null : (Entity)entities.get(0);
   }
   
+  /**
+   * number of entities
+   */
+  public int getNumEntities() {
+    return entities.size();
+  }
+
   /**
    * Accessor - last property selected
    */
@@ -193,79 +263,12 @@ public class Context implements Comparable {
       return new Property[0];
     return (Property[])properties.toArray((Property[])Array.newInstance(propertyType, properties.size()));
   }
-
-  /** 
-   * Accessor 
-   */
-  public String getText() {
-    
-    if (txt!=null)
-      return txt;
-    
-    if (properties.size()==1) {
-      Property prop = (Property)properties.get(0);
-      txt = Gedcom.getName(prop.getTag()) + "/" + prop.getEntity();
-    } else if (!properties.isEmpty())
-      txt = Property.getPropertyNames(Property.toArray(properties), 5);
-    else  if (entities.size()==1) 
-      txt = entities.get(0).toString();
-    else if (!entities.isEmpty())
-      txt = Entity.getPropertyNames(Property.toArray(entities), 5);
-    else txt = gedcom.getName();
-    
-    return txt;
-  }
   
-  /** 
-   * Accessor
-   */
-  public Context setText(String text) {
-    txt = text;
-    return this;
-  }
-  
-  /** 
-   * Accessor
-   */
-  public ImageIcon getImage() {
-    // an override?
-    if (img!=null)
-      return img;
-    // check prop/entity/gedcom
-    if (properties.size()==1)
-      img = ((Property)properties.get(0)).getImage(false);
-    else if (entities.size()==1)
-      img = ((Entity)entities.get(0)).getImage(false);
-    else img = Gedcom.getImage();
-    return img;
-  }
-  
-  /** 
-   * Accessor
-   */
-  public Context setImage(ImageIcon set) {
-    img = set;
-    return this;
-  }
-
   /**
-   * Add given context to this context
+   * number of properties
    */
-  public void addContext(Context context) {
-    if (context.getGedcom()!=getGedcom())
-      throw new IllegalArgumentException();
-    addProperties(context.getProperties());
-    addEntities(context.getEntities());
+  public int getNumProperties() {
+    return properties.size();
   }
-  
-  /** comparison  */
-  public int compareTo(Object o) {
-    Context that = (Context)o;
-    if (this.txt==null)
-      return -1;
-    if (that.txt==null)
-      return 1;
-    return this.txt.compareTo(that.txt);
-  }
-  
+
 } //Context

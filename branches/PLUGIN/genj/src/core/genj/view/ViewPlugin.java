@@ -19,8 +19,8 @@
  */
 package genj.view;
 
+import genj.gedcom.Gedcom;
 import genj.plugin.Plugin;
-import genj.plugin.PluginEvent;
 import genj.plugin.PluginManager;
 
 /**
@@ -33,11 +33,18 @@ public class ViewPlugin implements Plugin {
    */
   public void initPlugin(PluginManager manager) {
   }
-  
+
   /**
-   * @see genj.plugin.Plugin#handlePluginEvent(genj.plugin.PluginEvent)
+   * @see genj.plugin.Plugin#registerGedcom(genj.gedcom.Gedcom)
    */
-  public void handlePluginEvent(PluginEvent event) {
+  public void registerGedcom(Gedcom gedcom) {
   }
+
+  /**
+   * @see genj.plugin.Plugin#unregisterGedcom(genj.gedcom.Gedcom)
+   */
+  public void unregisterGedcom(Gedcom gedcom) {
+  }
+  
 
 } //ViewPlugin

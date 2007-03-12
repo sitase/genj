@@ -128,9 +128,7 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
     if (selection.length==0)
       return new ViewContext(root);
     // we can be specific now
-    ViewContext result = new ViewContext(gedcom);
-    result.addProperties(selection);
-    return result;
+    return new ViewContext(gedcom, selection);
   }
   
   /**
@@ -162,7 +160,7 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
     super.addNotify();
     
     // connect model to gedcom
-    gedcom.addGedcomListener((GedcomListener)Spin.over(getPropertyModel()));
+    gedcom.addGedcomListener((GedcomListener)Spin.over((GedcomListener)getPropertyModel()));
     
   }
 
@@ -634,6 +632,13 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
         return;
       // update
       fireTreeNodesChanged(this, getPathFor(property), null, null);
+      // update selection if property was included - this is as a curtsey to listeners of selection changes
+      // who might want to know that a node in the selection has changed
+      List selection = getSelection();
+      if (selection.contains(property)) {
+        clearSelection();
+        setSelection(selection);
+      }
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {

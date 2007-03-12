@@ -22,9 +22,10 @@ package genj.tree;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
+import genj.gedcom.GedcomLifecycleEvent;
+import genj.gedcom.GedcomLifecycleListener;
 import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomListenerAdapter;
-import genj.gedcom.GedcomMetaListener;
 import genj.gedcom.Indi;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
@@ -246,8 +247,11 @@ import spin.Spin;
     listeners.add(l);
     
     // first?
-    if (listeners.size()==1)
-      gedcom.addGedcomListener((GedcomListener)Spin.over((GedcomListener)callback));
+    if (listeners.size()==1) {
+      Callback spinned =  (Callback)Spin.over(callback);
+      gedcom.addGedcomListener(spinned);
+      gedcom.addLifecycleListener(spinned);
+    }
   }
   
   /**
@@ -257,8 +261,11 @@ import spin.Spin;
     listeners.remove(l);
     
     // last?
-    if (listeners.isEmpty())
-      gedcom.removeGedcomListener((GedcomListener)Spin.over((GedcomListener)callback));
+    if (listeners.isEmpty()) {
+      Callback spinned =  (Callback)Spin.over(callback);
+      gedcom.removeGedcomListener(spinned);
+      gedcom.removeLifecycleListener(spinned);
+    }
  }
   
   /**
@@ -608,40 +615,43 @@ import spin.Spin;
   /**
    * Our gedcom Callbacks 
    */
-  private class Callback extends GedcomListenerAdapter implements GedcomMetaListener {
+  private class Callback extends GedcomListenerAdapter implements GedcomListener, GedcomLifecycleListener {
     
     private Set repaint = new HashSet();
     private boolean update = false;
     private Entity added;
     
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-      added = null;
-      repaint.clear();
-    }
-    
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
+    public void handleLifecycleEvent(GedcomLifecycleEvent event) {
+      // a new tx?
+      if (event.getId()==GedcomLifecycleEvent.WRITE_LOCK_ACQUIRED) {
+        added = null;
+        repaint.clear();
+        return;
+      }
+      // done with a tx?
+      if (event.getId()==GedcomLifecycleEvent.WRITE_LOCK_RELEASED) {
+        // we're without root we could set now?
+        if (root==null) {
+          if (added==null||!gedcom.contains(added))
+            added = gedcom.getFirstEntity(Gedcom.INDI);
+          root = added;
+          update();
+          return;
+        }
         
-      // we're without root we could set now?
-      if (root==null) {
-        if (added==null||!gedcom.contains(added))
-          added = gedcom.getFirstEntity(Gedcom.INDI);
-        root = added;
-        update();
-        return;
-      }
-      
-      // update necessary?
-      if (update) {
-        update();
-        return;
-      }
+        // update necessary?
+        if (update) {
+          update();
+          return;
+        }
 
-      // signal repaint 
-      if (!repaint.isEmpty()) 
-        fireNodesChanged(repaint);
-   
+        // signal repaint 
+        if (!repaint.isEmpty()) 
+          fireNodesChanged(repaint);
+      }
+      // done
     }
-    
+
     public void gedcomEntityAdded(Gedcom gedcom, Entity added) {
       if (added instanceof Fam || added instanceof Indi) {
         if ( !(this.added instanceof Indi) || added instanceof Indi)

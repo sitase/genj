@@ -22,6 +22,7 @@ package genj.timeline;
 import genj.almanac.Almanac;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
+import genj.gedcom.Property;
 import genj.gedcom.time.PointInTime;
 import genj.renderer.Options;
 import genj.util.Registry;
@@ -545,13 +546,13 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
      * ContextProvider - callback
      */
     public ViewContext getContext() {
-      ViewContext ctx = new ViewContext(model.gedcom);
+      List props = new ArrayList();
       for (Iterator events = selectedEvents.iterator(); events.hasNext();) {
         Model.Event event = (Model.Event) events.next();
-        ctx.addProperty(event.pe);
+        props.add(event.pe);
         //ctx.addProperty(event.pd);
       }
-      return ctx;
+      return new ViewContext(model.gedcom, Property.toArray(props));
     }
     
     /**

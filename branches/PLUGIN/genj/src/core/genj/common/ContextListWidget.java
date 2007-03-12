@@ -31,9 +31,8 @@ import genj.window.WindowManager;
 
 import java.awt.Component;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Vector;
 
 import javax.swing.AbstractListModel;
@@ -82,18 +81,13 @@ public class ContextListWidget extends JList implements ContextProvider {
     Object[] selection = getSelectedValues();
     
     // one selected?
-    if (selection.length==1&&selection[0] instanceof ViewContext)
+    if (selection.length==1)
       return (ViewContext)selection[0];
     
     // merge
-    ViewContext result = new ViewContext(ged);
-    for (int i = 0; i < selection.length; i++) {
-      Context context = (Context)selection[i];
-      result.addContext(context);
-    }
-    
-    // done
-    return result;
+    Context[] contexts = new Context[selection.length];
+    System.arraycopy(selection, 0, contexts, 0, selection.length);
+    return new ViewContext(new Context(contexts));
   }
   
   /**
@@ -180,9 +174,9 @@ public class ContextListWidget extends JList implements ContextProvider {
     }
 
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      for (Iterator it=list.iterator(); it.hasNext(); ) {
+      for (ListIterator it=list.listIterator(); it.hasNext(); ) {
         Context context = (Context)it.next();
-        context.removeEntities(Collections.singletonList(entity));
+        it.set(context.less(entity));
       }
       // TODO this could be less coarse grained
       fireContentsChanged(this, 0, list.size());
@@ -198,9 +192,9 @@ public class ContextListWidget extends JList implements ContextProvider {
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-      for (Iterator it=list.iterator(); it.hasNext(); ) {
+      for (ListIterator it=list.listIterator(); it.hasNext(); ) {
         Context context = (Context)it.next();
-        context.removeProperties(Collections.singletonList(removed));
+        it.set(context.less(removed));
       }
       // TODO this could be less coarse grained
       fireContentsChanged(this, 0, list.size());
@@ -227,7 +221,7 @@ public class ContextListWidget extends JList implements ContextProvider {
       // let super do its thing
       super.getListCellRendererComponent(list, null, index, isSelected, cellHasFocus);
       // patch up
-      Context ctx = (Context)value;
+      ViewContext ctx = (ViewContext)value;
       setIcon(ctx.getImage());
       setText(ctx.getText());
       // done

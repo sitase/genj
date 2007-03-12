@@ -20,11 +20,9 @@
 package genj.edit.actions;
 
 import genj.edit.Images;
-import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomMetaListener;
-import genj.gedcom.Property;
+import genj.gedcom.GedcomLifecycleEvent;
+import genj.gedcom.GedcomLifecycleListener;
 import genj.util.swing.Action2;
 
 import java.beans.PropertyChangeListener;
@@ -34,7 +32,7 @@ import spin.Spin;
 /**
  * Redo on Gedcom
  */  
-public class Undo extends Action2 implements GedcomMetaListener {
+public class Undo extends Action2 implements GedcomLifecycleListener {
   
   /** the gedcom */
   private Gedcom gedcom;
@@ -66,7 +64,7 @@ public class Undo extends Action2 implements GedcomMetaListener {
     super.addPropertyChangeListener(listener);
     // hook up to events
     if (getPropertyChangeListeners().length==1) {
-      gedcom.addGedcomListener((GedcomListener)Spin.over(this));
+      gedcom.addLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)this));
       setEnabled(gedcom.canUndo());
     }
   }
@@ -75,7 +73,7 @@ public class Undo extends Action2 implements GedcomMetaListener {
     super.removePropertyChangeListener(listener);
     // unhook from events
     if (getPropertyChangeListeners().length==0)
-      gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
+      gedcom.removeLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)this));
   }
 
   /**
@@ -86,43 +84,10 @@ public class Undo extends Action2 implements GedcomMetaListener {
       gedcom.undoUnitOfWork();
   }
   
-  public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-    // ignored
-  }
-
-  public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-    // ignored
-  }
-
-  public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-    // ignored
-  }
-
-  public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
-    // ignored
-  }
-
-  public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-    // ignored
-  }
-
-  public void gedcomHeaderChanged(Gedcom gedcom) {
-    // ignored
-  }
-
-  public void gedcomBeforeUnitOfWork(Gedcom gedcom) {
-    // ignored
-  }
-  
-  public void gedcomAfterUnitOfWork(Gedcom gedcom) {
-    // ignored
-  }
-
-  public void gedcomWriteLockAcquired(Gedcom gedcom) {
-    // ignored
-  }
-
-  public void gedcomWriteLockReleased(Gedcom gedcom) {
+  /**
+   * intercept end of write lock
+   */
+  public void handleLifecycleEvent(GedcomLifecycleEvent event) {
     setEnabled(gedcom.canUndo());
   }
 } //Undo

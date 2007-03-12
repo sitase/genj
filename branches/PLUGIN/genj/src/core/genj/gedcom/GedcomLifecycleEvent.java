@@ -17,11 +17,45 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.plugin;
+package genj.gedcom;
+
+import genj.gedcom.Gedcom;
 
 /**
- * An event that can be broadcasted to plugins
+ * A gedcom lifecycle event
  */
-public class PluginEvent {
+public class GedcomLifecycleEvent {
 
-}
+  public final static int
+    HEADER_CHANGED = 0,
+    WRITE_LOCK_ACQUIRED = 1,
+    BEFORE_UNIT_OF_WORK = 2,
+    AFTER_UNIT_OF_WORK = 3,
+    WRITE_LOCK_RELEASED = 4;
+  
+  private Gedcom gedcom;
+  private int id;
+  
+  /**
+   * Constructor
+   */
+  public GedcomLifecycleEvent(Gedcom gedcom, int id) {
+    this.gedcom = gedcom;
+    this.id = id;
+  }
+  
+  /**
+   * Accessor - event id
+   */
+  public int getId() {
+    return id;
+  }
+
+  /**
+   * Accessor - gedcom object
+   */
+  public Gedcom getGedcom() {
+    return gedcom;
+  }
+
+} //GedcomLifecycleEvent

@@ -19,6 +19,7 @@
  */
 package genj.plugin;
 
+import genj.gedcom.Gedcom;
 import genj.window.WindowManager;
 
 import java.util.ArrayList;
@@ -54,13 +55,27 @@ public class PluginManager {
   }
   
   /**
-   * Fire an event 
+   * register a gedcom instance with all plugins 
    */
-  public void fireEvent(PluginEvent event) {
+  public void registerGedcom(Gedcom gedcom) {
     Plugin[] plugins = getPlugins();
     for (int i = 0; i < plugins.length; i++) {
       try {
-        plugins[i].handlePluginEvent(event);
+        plugins[i].registerGedcom(gedcom);
+      } catch (Throwable t) {
+        LOG.log(Level.WARNING, "Unexpected throwable in plugin "+plugins[i].getClass().getName(), t);
+      }
+    }
+  }
+  
+  /**
+   * unregister a gedcom instance with all plugins 
+   */
+  public void unregisterGedcom(Gedcom gedcom) {
+    Plugin[] plugins = getPlugins();
+    for (int i = 0; i < plugins.length; i++) {
+      try {
+        plugins[i].unregisterGedcom(gedcom);
       } catch (Throwable t) {
         LOG.log(Level.WARNING, "Unexpected throwable in plugin "+plugins[i].getClass().getName(), t);
       }

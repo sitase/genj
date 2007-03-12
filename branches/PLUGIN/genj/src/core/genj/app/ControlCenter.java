@@ -20,13 +20,12 @@
 package genj.app;
 
 import genj.common.ContextListWidget;
-import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
+import genj.gedcom.GedcomLifecycleEvent;
+import genj.gedcom.GedcomLifecycleListener;
 import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomMetaListener;
 import genj.gedcom.Indi;
-import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
 import genj.gedcom.Submitter;
 import genj.gedcom.UnitOfWork;
@@ -38,7 +37,6 @@ import genj.io.GedcomReader;
 import genj.io.GedcomWriter;
 import genj.option.OptionProvider;
 import genj.option.OptionsWidget;
-import genj.plugin.GedcomLifecycleEvent;
 import genj.plugin.PluginManager;
 import genj.util.DirectAccessTokenizer;
 import genj.util.EnvironmentChecker;
@@ -174,7 +172,7 @@ public class ControlCenter extends JPanel {
    */
   /*package*/ void addGedcom(Gedcom gedcom) {
     tGedcoms.addGedcom(gedcom);
-    gedcom.addGedcomListener((GedcomListener)Spin.over(stats));
+    gedcom.addLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)stats));
   }
 
   /**
@@ -425,8 +423,6 @@ public class ControlCenter extends JPanel {
       for (Iterator gedcoms=tGedcoms.getAllGedcoms().iterator(); gedcoms.hasNext(); ) {
         // next gedcom
         Gedcom gedcom = (Gedcom) gedcoms.next();
-        // tell plugin manager
-        pluginManager.fireEvent(new GedcomLifecycleEvent(gedcom, GedcomLifecycleEvent.BEFORE_GEDCOM_CLOSED));
         // changes need saving?
         if (gedcom.hasUnsavedChanges()) {
           // close file officially
@@ -463,8 +459,8 @@ public class ControlCenter extends JPanel {
           }
           // no - skip it
         }
-        // tell plugin manager
-        pluginManager.fireEvent(new GedcomLifecycleEvent(gedcom, GedcomLifecycleEvent.AFTER_GEDCOM_CLOSED));
+        // tell plugins
+        pluginManager.unregisterGedcom(gedcom);
         // remember as being open, password and open views
         File file =gedcom.getOrigin().getFile(); 
         if (file==null||file.exists()) { 
@@ -715,8 +711,8 @@ public class ControlCenter extends JPanel {
         
         addGedcom(gedcomBeingLoaded);
         
-        // tell plugins
-        pluginManager.fireEvent(new GedcomLifecycleEvent(gedcomBeingLoaded, GedcomLifecycleEvent.AFTER_GEDCOM_LOADED));
+        // tell plugin manager
+        pluginManager.registerGedcom(gedcomBeingLoaded);
       
         // open views again
         if (Options.getInstance().isRestoreViews) {
@@ -1177,9 +1173,6 @@ public class ControlCenter extends JPanel {
       if (gedcom == null)
         return;
   
-      // tell plugin manager
-      pluginManager.fireEvent(new GedcomLifecycleEvent(gedcom, GedcomLifecycleEvent.BEFORE_GEDCOM_CLOSED));
-      
       // changes we should care about?      
       if (gedcom.hasUnsavedChanges()) {
         
@@ -1211,7 +1204,7 @@ public class ControlCenter extends JPanel {
       removeGedcom(gedcom);
   
       // tell plugin manager
-      pluginManager.fireEvent(new GedcomLifecycleEvent(gedcom, GedcomLifecycleEvent.AFTER_GEDCOM_CLOSED));
+      pluginManager.unregisterGedcom(gedcom);
       
       // Done
     }
@@ -1272,7 +1265,7 @@ public class ControlCenter extends JPanel {
   /**
    * a little status tracker
    */
-  private class Stats extends JLabel implements GedcomMetaListener {
+  private class Stats extends JLabel implements GedcomLifecycleListener {
     
     private int commits;
     private int read,written;
@@ -1281,9 +1274,11 @@ public class ControlCenter extends JPanel {
       setHorizontalAlignment(SwingConstants.LEFT);
     }
 
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
-      commits++;
-      update();
+    public void handleLifecycleEvent(GedcomLifecycleEvent event) {
+      if (event.getId()==GedcomLifecycleEvent.WRITE_LOCK_RELEASED) {
+        commits++;
+        update();
+      }
     }
     
     public synchronized void handleRead(int lines) {
@@ -1305,33 +1300,6 @@ public class ControlCenter extends JPanel {
       if (written>0)
         buf.append(resources.getString("stat.lines.written", new Integer(written)));
       setText(buf.toString());
-    }
-
-    public void gedcomHeaderChanged(Gedcom gedcom) {
-    }
-
-    public void gedcomBeforeUnitOfWork(Gedcom gedcom) {
-    }
-    
-    public void gedcomAfterUnitOfWork(Gedcom gedcom) {
-    }
-
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-    }
-
-    public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-    }
-
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-    }
-
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-    }
-
-    public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
-    }
-
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
     }
     
   } //Stats

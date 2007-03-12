@@ -141,7 +141,8 @@ public class ReportValidate extends Report {
     // test if there's a submitter
     if (gedcom.getSubmitter()==null) {
       final ViewContext ctx = new ViewContext(gedcom);
-      ctx.setText(translate("err.nosubmitter", gedcom.getName())).setImage(Gedcom.getImage());
+      ctx.setText(translate("err.nosubmitter", gedcom.getName()));
+      ctx.setImage(Gedcom.getImage());
       ctx.addAction(new Action2(translate("fix")) {
         protected void execute() {
           setEnabled(false);

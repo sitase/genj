@@ -19,11 +19,9 @@
  */
 package genj.app;
 
-import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomMetaListener;
-import genj.gedcom.Property;
+import genj.gedcom.GedcomLifecycleEvent;
+import genj.gedcom.GedcomLifecycleListener;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.SortableTableModel;
@@ -201,7 +199,7 @@ import spin.Spin;
   /**
    * A model keeping track of a bunch of Gedcoms
    */
-  private class Model extends AbstractTableModel implements GedcomMetaListener {
+  private class Model extends AbstractTableModel implements GedcomLifecycleListener {
     
     /** the Gedcoms we know about */
     private List gedcoms = new ArrayList(10);
@@ -235,7 +233,7 @@ import spin.Spin;
     public void addGedcom(Gedcom gedcom) {
       gedcoms.add(gedcom);
       Collections.sort(gedcoms);
-      gedcom.addGedcomListener((GedcomListener)Spin.over(this));
+      gedcom.addLifecycleListener((GedcomLifecycleListener)Spin.over(this));
       fireTableDataChanged();
     }
 
@@ -244,7 +242,7 @@ import spin.Spin;
      */
     public void removeGedcom(Gedcom gedcom) {
       gedcoms.remove(gedcom);
-      gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
+      gedcom.removeLifecycleListener((GedcomLifecycleListener)Spin.over(this));
       fireTableDataChanged();
     }
     
@@ -284,36 +282,13 @@ import spin.Spin;
     public Class getColumnClass(int col) {
       return col==0 ? String.class : Integer.class;
     }
-
-    public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-    }
-
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-    }
-
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-    }
-
-    public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
-    }
-
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-    }
-
-    public void gedcomHeaderChanged(Gedcom gedcom) {
-    }
-
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-    }
-
-    public void gedcomBeforeUnitOfWork(Gedcom gedcom) {
-    }
     
-    public void gedcomAfterUnitOfWork(Gedcom gedcom) {
-    }
-
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
-      int i = getRowFor(gedcom);
+    /**
+     * we're interested in any end of write lock - checking for update to row 
+     * @see genj.gedcom.GedcomLifecycleListener#handleLifecycleEvent(genj.gedcom.GedcomLifecycleEvent)
+     */
+    public void handleLifecycleEvent(GedcomLifecycleEvent event) {
+      int i = getRowFor(event.getGedcom());
       if (i>=0) fireTableRowsUpdated(i,i);
     }
 

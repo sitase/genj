@@ -22,23 +22,8 @@ package genj.gedcom;
 /**
  * Interface for Listeners of changes in gedcom data
  */
-public class GedcomListenerAdapter implements GedcomListener, GedcomMetaListener {
+public class GedcomListenerAdapter implements GedcomListener {
   
-  public void gedcomHeaderChanged(Gedcom gedcom) {
-  }
-  
-  public void gedcomWriteLockAcquired(Gedcom gedcom) {
-  }
-  
-  public void gedcomWriteLockReleased(Gedcom gedcom) {
-  }
-  
-  public void gedcomBeforeUnitOfWork(Gedcom gedcom) {
-  }
-  
-  public void gedcomAfterUnitOfWork(Gedcom gedcom) {
-  }
-
   public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
   }
 

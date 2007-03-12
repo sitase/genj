@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.124 $ $Author: nmeier $ $Date: 2007-03-11 14:40:45 $
+ * $Revision: 1.124.2.1 $ $Author: nmeier $ $Date: 2007-03-12 19:58:07 $
  */
 package genj.gedcom;
 
@@ -164,6 +164,7 @@ public class Gedcom implements Comparable {
   
   /** listeners */
   private List listeners = new ArrayList(10);
+  private List lifecycleListeners = new ArrayList(10);
   
   /** mapping tags refence sets */
   private Map tags2refsets = new HashMap();
@@ -247,15 +248,7 @@ public class Gedcom implements Comparable {
     });
     
     // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomHeaderChanged(this);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
+    fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.HEADER_CHANGED));
     
     // done
   }
@@ -292,6 +285,31 @@ public class Gedcom implements Comparable {
       listeners.remove(listener);
     }
     LOG.log(Level.FINER, "removeGedcomListener() from "+new Throwable().getStackTrace()[1]);
+  }
+  
+  /**
+   * Adds a Listener which will be notified when data changes
+   */
+  public void addLifecycleListener(GedcomLifecycleListener listener) {
+    if (listener==null)
+      throw new IllegalArgumentException("listener can't be null");
+    synchronized (lifecycleListeners) {
+      if (!lifecycleListeners.add(listener))
+        throw new IllegalArgumentException("can't add listener "+listener+"twice");
+    }
+    LOG.log(Level.FINER, "addLifecycleListener() from "+new Throwable().getStackTrace()[1]);
+    
+  }
+
+  /**
+   * Removes a Listener from receiving notifications
+   */
+  public void removeLifecycleListener(GedcomLifecycleListener listener) {
+    synchronized (listeners) {
+      // see removeGedcomListener for why we allow multiple removes
+      lifecycleListeners.remove(listener);
+    }
+    LOG.log(Level.FINER, "removeLifecycleListener() from "+new Throwable().getStackTrace()[1]);
   }
   
   /**
@@ -561,65 +579,19 @@ public class Gedcom implements Comparable {
   }
   
   /**
-   * Final destination for a change propagation
+   * Send a lifecycle event
    */
-  protected void propagateWriteLockAqcuired() {
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
+  public void fireLifecycleEvent(GedcomLifecycleEvent event) {
+    GedcomLifecycleListener[] gls = (GedcomLifecycleListener[])lifecycleListeners.toArray(new GedcomLifecycleListener[lifecycleListeners.size()]);
     for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomWriteLockAcquired(this);
+      GedcomLifecycleListener gl = (GedcomLifecycleListener)gls[l];
+      try {
+        gl.handleLifecycleEvent(event);
       } catch (Throwable t) {
-        LOG.log(Level.WARNING, "exception in gedcom listener "+gls[l], t);
+        LOG.log(Level.WARNING, "exception in gedcom lifecycle listener "+gls[l], t);
       }
     }
   }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateBeforeUnitOfWork() {
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomBeforeUnitOfWork(this);
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateAfterUnitOfWork() {
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomAfterUnitOfWork(this);
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateWriteLockReleased() {
-    
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomWriteLockReleased(this);
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
-      }
-    }
-  }  
   
   /**
    * Final destination for a change propagation
@@ -957,15 +929,7 @@ public class Gedcom implements Comparable {
       return;
     
     // let listeners know
-    GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
-    for (int l=0;l<gls.length;l++) {
-      GedcomListener gl = (GedcomListener)gls[l];
-      if (gl instanceof GedcomMetaListener) try {
-        ((GedcomMetaListener)gl).gedcomHeaderChanged(this);
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "exception in gedcom listener "+gls[l], t);
-      }
-    }
+    fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.HEADER_CHANGED));
 
     // done
   }
@@ -1012,7 +976,7 @@ public class Gedcom implements Comparable {
     }
 
     // let listeners know
-    propagateWriteLockAqcuired();
+    fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.WRITE_LOCK_ACQUIRED));
     
     // run the runnable
     Throwable rethrow = null;
@@ -1022,6 +986,10 @@ public class Gedcom implements Comparable {
       rethrow = t;
     }
     
+    // let listeners know
+    fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.AFTER_UNIT_OF_WORK));
+    
+    // release lock
     synchronized (writeSemaphore) {
 
       // keep undos (within limits)
@@ -1032,7 +1000,7 @@ public class Gedcom implements Comparable {
       }
       
       // let listeners know
-      propagateWriteLockReleased();
+      fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.WRITE_LOCK_RELEASED));
         
       // release
       lock = null;
@@ -1074,7 +1042,7 @@ public class Gedcom implements Comparable {
     }
     
     // let listeners know
-    propagateWriteLockAqcuired();
+    fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.WRITE_LOCK_ACQUIRED));
     
     // run through undos
     List todo = (List)undoHistory.remove(undoHistory.size()-1);
@@ -1093,7 +1061,7 @@ public class Gedcom implements Comparable {
       redoHistory.add(lock.undos);
       
       // let listeners know
-      propagateWriteLockReleased();
+      fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.WRITE_LOCK_RELEASED));
       
       // release
       lock = null;
@@ -1127,7 +1095,7 @@ public class Gedcom implements Comparable {
     }
     
     // let listeners know
-    propagateWriteLockAqcuired();
+    fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.WRITE_LOCK_ACQUIRED));
     
     // run the redos
     List todo = (List)redoHistory.remove(redoHistory.size()-1);
@@ -1147,7 +1115,7 @@ public class Gedcom implements Comparable {
       undoHistory.add(lock.undos);
 
       // let listeners know
-      propagateWriteLockReleased();
+      fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.WRITE_LOCK_RELEASED));
       
       // clear
       lock = null;

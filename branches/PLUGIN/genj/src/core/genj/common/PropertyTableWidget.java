@@ -507,9 +507,10 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
       if (ignoreSelection||e.getValueIsAdjusting())
         return;
 
-      ViewContext context = null;
       ListSelectionModel rows = getSelectionModel();
       ListSelectionModel cols  = getColumnModel().getSelectionModel();
+      
+      List props = new ArrayList();
       
       for (int r=rows.getMinSelectionIndex() ; r<=rows.getMaxSelectionIndex() ; r++) {
         for (int c=cols.getMinSelectionIndex(); c<=cols.getMaxSelectionIndex(); c++) {
@@ -521,19 +522,18 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
           if (r<0||r>=model.getRowCount()||c<0||c>=model.getColumnCount())
             continue;
           Property prop = (Property)getValueAt(r,c);
-          if (prop==null)
+          if (prop==null) 
             prop = propertyModel.getProperty(model.modelIndex(r));
           // keep it
-          if (context==null) context = new ViewContext(prop);
-          else context.addProperty(prop);
+          props.add(prop);
         }
       }
+      if (props.isEmpty()) 
+        return;
       
       // tell about it
-      if (context!=null)
-        WindowManager.broadcast(new ContextSelectionEvent(context, this));
+      WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(propertyModel.getGedcom(), Property.toArray(props)), this));
 
-      
       // done
     }
     
@@ -558,7 +558,7 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
       SortableTableModel model = (SortableTableModel)getModel();
       
       // prepare result
-      ViewContext result = new ViewContext(ged);
+      List props = new ArrayList();
       
       // one row one col?
       int[] rows = getSelectedRows();
@@ -574,7 +574,7 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
             // add property for each cell
             Property p = (Property)getValueAt(rows[r], cols[c]);
             if (p!=null) {
-              result.addProperty(p);
+              props.add(p);
               rowRepresented = true;
             }
             // next selected col
@@ -582,14 +582,14 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
           
           // add representation for each row that wasn't represented by a property
           if (!rowRepresented)
-            result.addProperty(propertyModel.getProperty(model.modelIndex(rows[r])));
+            props.add(propertyModel.getProperty(model.modelIndex(rows[r])));
           
           // next selected row
         }
       }
       
       // done
-      return result;
+      return new ViewContext(ged, Property.toArray(props));
     }
     
     /**

@@ -29,14 +29,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import javax.swing.ImageIcon;
+
 /**
- * A context represents a 'current context in Gedcom terms', a gedcom
- * an entity and a property
+ * A view context is a gedcom context enriched with UI actions
+ * @see Context
  */  
-public class ViewContext extends Context {
+public class ViewContext extends Context implements Comparable {
   
   private ViewManager manager;
   private List actions = new ArrayList();
+  private ImageIcon  img = null;
+  private String txt = null;
   
   /**
    * Constructor
@@ -55,6 +59,13 @@ public class ViewContext extends Context {
   /**
    * Constructor
    */
+  public ViewContext(Entity entity) {
+    super(entity);
+  }
+  
+  /**
+   * Constructor
+   */
   public ViewContext(Property prop) {
     super(prop);
   }
@@ -62,8 +73,8 @@ public class ViewContext extends Context {
   /**
    * Constructor
    */
-  public ViewContext(Entity entity) {
-    super(entity);
+  public ViewContext(Gedcom ged, Property[] props) {
+    super(ged, props);
   }
   
   /**
@@ -103,4 +114,68 @@ public class ViewContext extends Context {
     return manager;
   }
   
-} //Context
+  /** 
+  * Accessor 
+  */
+  public String getText() {
+   
+   if (txt!=null)
+     return txt;
+   
+   if (getNumProperties()==1) {
+     Property prop = getProperty();
+     txt = Gedcom.getName(prop.getTag()) + "/" + prop.getEntity();
+   } else if (getNumProperties()>1)
+     txt = Property.getPropertyNames(getProperties(), 5);
+   else  if (getNumEntities()==1) 
+     txt = getEntity().toString();
+   else if (getNumEntities()>1)
+     txt = Entity.getPropertyNames(getEntities(), 5);
+   else txt = getGedcom().getName();
+   
+   return txt;
+  }
+  
+  /** 
+  * Accessor
+  */
+  public ViewContext setText(String text) {
+   txt = text;
+   return this;
+  }
+  
+  /** 
+  * Accessor
+  */
+  public ImageIcon getImage() {
+   // an override?
+   if (img!=null)
+     return img;
+   // check prop/entity/gedcom
+   if (getNumProperties()==1)
+     img = getProperty().getImage(false);
+   else if (getNumEntities()==1)
+     img = getEntity().getImage(false);
+   else img = Gedcom.getImage();
+   return img;
+  }
+  
+  /** 
+  * Accessor
+  */
+  public ViewContext setImage(ImageIcon set) {
+   img = set;
+   return this;
+  }
+  
+  /** comparison  */
+  public int compareTo(Object o) {
+    ViewContext that = (ViewContext)o;
+    if (this.txt==null)
+      return -1;
+    if (that.txt==null)
+      return 1;
+    return this.txt.compareTo(that.txt);
+  }
+
+} //ViewContext

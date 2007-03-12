@@ -214,7 +214,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
    */
   public void addNotify() {
     // start listening
-    gedcom.addGedcomListener((GedcomListener)Spin.over(results));
+    gedcom.addGedcomListener((GedcomListener)Spin.over((GedcomListener)results));
     // continue
     super.addNotify();
     // set focus
@@ -701,14 +701,15 @@ public class SearchView extends JPanel implements ToolBarSupport {
      */
     public ViewContext getContext() {
       
-      ViewContext result = new ViewContext(gedcom);
+      List props = new ArrayList();
       
       Object[] selection = getSelectedValues();
       for (int i = 0; i < selection.length; i++) {
         Hit hit = (Hit)selection[i];
-        result.addProperty(hit.getProperty());
+        props.add(hit.getProperty());
       }
-      return result;
+      
+      return new ViewContext(gedcom, Property.toArray(props));
     }
 
     /**

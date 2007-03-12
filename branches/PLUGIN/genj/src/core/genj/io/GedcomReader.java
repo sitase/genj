@@ -20,7 +20,6 @@
 package genj.io;
 
 import genj.crypto.Enigma;
-import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
@@ -31,6 +30,7 @@ import genj.gedcom.Submitter;
 import genj.util.Origin;
 import genj.util.Resources;
 import genj.util.Trackable;
+import genj.view.ViewContext;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -663,7 +663,7 @@ public class GedcomReader implements Trackable {
   /**
    * A generated warning 
    */
-  private static class Warning extends Context implements Comparable {
+  private static class Warning extends ViewContext implements Comparable {
     
     private int lineNumber;
     
@@ -698,7 +698,7 @@ public class GedcomReader implements Trackable {
     /**
      * @see Annotation#setText(String)
      */
-    public Context setText(String text) {
+    public ViewContext setText(String text) {
       super.setText(RESOURCES.getString("read.warn", new Object[] { Integer.toString(lineNumber), text }));
       return this;
     }
