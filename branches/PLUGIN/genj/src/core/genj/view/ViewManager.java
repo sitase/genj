@@ -19,16 +19,13 @@
  */
 package genj.view;
 
-import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.Property;
-import genj.gedcom.TagPath;
+import genj.plugin.PluginManager;
 import genj.util.MnemonicAndText;
 import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.MenuHelper;
 import genj.window.WindowManager;
 
 import java.awt.AWTEvent;
@@ -87,11 +84,12 @@ public class ViewManager {
   
   /** a window manager */
   private WindowManager windowManager = null;
+  private PluginManager pluginManager = null;
   
   /**
    * Constructor
    */
-  public ViewManager(WindowManager windowManager) {
+  public ViewManager(WindowManager windowManager, PluginManager pluginManager) {
 
     // lookup all factories dynamically
     List factories = new ArrayList();
@@ -100,13 +98,13 @@ public class ViewManager {
       factories.add(it.next());
 
     // continue with init
-    init(windowManager, factories);
+    init(windowManager, pluginManager, factories);
   }
   
   /**
    * Constructor
    */
-  public ViewManager(WindowManager windowManager, String[] factoryTypes) {
+  public ViewManager(WindowManager windowManager, PluginManager pluginManager, String[] factoryTypes) {
     
     // instantiate factories
     List factories = new ArrayList();
@@ -119,7 +117,7 @@ public class ViewManager {
     }
     
     // continue with init
-    init(windowManager, factories);
+    init(windowManager,pluginManager, factories);
   }
   
   /**
@@ -142,10 +140,11 @@ public class ViewManager {
   /**
    * Initialization
    */
-  private void init(WindowManager setWindowManager, List setFactories) {
+  private void init(WindowManager setWindowManager, PluginManager setPluginManager, List setFactories) {
     
     // remember
     windowManager = setWindowManager;
+    pluginManager = setPluginManager;
     
     // keep factories
     factories = (ViewFactory[])setFactories.toArray(new ViewFactory[setFactories.size()]);
@@ -408,95 +407,96 @@ public class ViewManager {
    * Get a context menu
    */
   public JPopupMenu getContextMenu(ViewContext context, Component target) {
-    
-    // make sure context is valid
-    if (context==null)
-      return null;
-    
-    Property[] properties = context.getProperties();
-    Entity[] entities = context.getEntities();
-    Gedcom gedcom = context.getGedcom();
 
-    // make sure any existing popup is cleared
-    MenuSelectionManager.defaultManager().clearSelectedPath();
-    
-    // hook up context menu to toplevel component - child components are more likely to have been 
-    // removed already by the time any of the associated actions are run
-    while (target.getParent()!=null) target = target.getParent();
-
-    // create a popup
-    MenuHelper mh = new MenuHelper().setTarget(target);
-    JPopupMenu popup = mh.createPopup();
-
-    // popup local actions?
-    mh.createItems(context.getActions());
-    mh.createSeparator(); // it's lazy
-  
-    // find ActionSupport implementors
-    ActionProvider[] as = (ActionProvider[])getViews(ActionProvider.class, context.getGedcom());
-    
-    // items for set or single property?
-    if (properties.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
-      for (int i = 0; i < as.length; i++) try {
-        mh.createSeparator();
-        mh.createItems(as[i].createActions(properties, this));
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Action Provider threw "+t.getClass()+" on createActions(Property[])", t);
-      }
-      mh.popMenu();
-    }
-    if (properties.length==1) {
-      Property property = properties[0];
-      while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
-        // a sub-menu with appropriate actions
-        mh.createMenu(Property.LABEL+" '"+TagPath.get(property).getName() + '\'' , property.getImage(false));
-        for (int i = 0; i < as.length; i++) try {
-          mh.createItems(as[i].createActions(property, this));
-        } catch (Throwable t) {
-          LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Property)", t);
-        }
-        mh.popMenu();
-        // recursively for parents
-        property = property.getParent();
-      }
-    }
-        
-    // items for set or single entity
-    if (entities.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
-      for (int i = 0; i < as.length; i++) try {
-        mh.createSeparator();
-        mh.createItems(as[i].createActions(entities, this));
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Action Provider threw "+t.getClass()+" on createActions(Entity[])", t);
-      }
-      mh.popMenu();
-    }
-    if (entities.length==1) {
-      Entity entity = entities[0];
-      String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
-      mh.createMenu(title, entity.getImage(false));
-      for (int i = 0; i < as.length; i++) try {
-        mh.createItems(as[i].createActions(entity, this));
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Entity)", t);
-      }
-      mh.popMenu();
-    }
-        
-    // items for gedcom
-    String title = "Gedcom '"+gedcom.getName()+'\'';
-    mh.createMenu(title, Gedcom.getImage());
-    for (int i = 0; i < as.length; i++) try {
-      mh.createItems(as[i].createActions(gedcom, this));
-    } catch (Throwable t) {
-      LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Gedcom", t);
-    }
-    mh.popMenu();
-
-    // done
-    return popup;
+      return ContextMenuHelper.createContextMenu(context, target, pluginManager);
+//    // make sure context is valid
+//    if (context==null)
+//      return null;
+//    
+//    Property[] properties = context.getProperties();
+//    Entity[] entities = context.getEntities();
+//    Gedcom gedcom = context.getGedcom();
+//
+//    // make sure any existing popup is cleared
+//    MenuSelectionManager.defaultManager().clearSelectedPath();
+//    
+//    // hook up context menu to toplevel component - child components are more likely to have been 
+//    // removed already by the time any of the associated actions are run
+//    while (target.getParent()!=null) target = target.getParent();
+//
+//    // create a popup
+//    MenuHelper mh = new MenuHelper().setTarget(target);
+//    JPopupMenu popup = mh.createPopup();
+//
+//    // popup local actions?
+//    mh.createItems(context.getActions());
+//    mh.createSeparator(); // it's lazy
+//  
+//    // find ActionSupport implementors
+//    ActionProvider[] as = (ActionProvider[])getViews(ActionProvider.class, context.getGedcom());
+//    
+//    // items for set or single property?
+//    if (properties.length>1) {
+//      mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
+//      for (int i = 0; i < as.length; i++) try {
+//        mh.createSeparator();
+//        mh.createItems(as[i].createActions(properties, this));
+//      } catch (Throwable t) {
+//        LOG.log(Level.WARNING, "Action Provider threw "+t.getClass()+" on createActions(Property[])", t);
+//      }
+//      mh.popMenu();
+//    }
+//    if (properties.length==1) {
+//      Property property = properties[0];
+//      while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
+//        // a sub-menu with appropriate actions
+//        mh.createMenu(Property.LABEL+" '"+TagPath.get(property).getName() + '\'' , property.getImage(false));
+//        for (int i = 0; i < as.length; i++) try {
+//          mh.createItems(as[i].createActions(property, this));
+//        } catch (Throwable t) {
+//          LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Property)", t);
+//        }
+//        mh.popMenu();
+//        // recursively for parents
+//        property = property.getParent();
+//      }
+//    }
+//        
+//    // items for set or single entity
+//    if (entities.length>1) {
+//      mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
+//      for (int i = 0; i < as.length; i++) try {
+//        mh.createSeparator();
+//        mh.createItems(as[i].createActions(entities, this));
+//      } catch (Throwable t) {
+//        LOG.log(Level.WARNING, "Action Provider threw "+t.getClass()+" on createActions(Entity[])", t);
+//      }
+//      mh.popMenu();
+//    }
+//    if (entities.length==1) {
+//      Entity entity = entities[0];
+//      String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
+//      mh.createMenu(title, entity.getImage(false));
+//      for (int i = 0; i < as.length; i++) try {
+//        mh.createItems(as[i].createActions(entity, this));
+//      } catch (Throwable t) {
+//        LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Entity)", t);
+//      }
+//      mh.popMenu();
+//    }
+//        
+//    // items for gedcom
+//    String title = "Gedcom '"+gedcom.getName()+'\'';
+//    mh.createMenu(title, Gedcom.getImage());
+//    for (int i = 0; i < as.length; i++) try {
+//      mh.createItems(as[i].createActions(gedcom, this));
+//    } catch (Throwable t) {
+//      LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Gedcom", t);
+//    }
+//    mh.popMenu();
+//
+//    // done
+//    return popup;
   }
   
   /**

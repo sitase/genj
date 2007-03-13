@@ -17,33 +17,26 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.edit.actions;
+package genj.app;
 
-import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomException;
+import genj.plugin.ExtensionPoint;
 
 /**
- * Swap HUSB/WIFE for family
+ * An extension point that doesn't allow to be enriched but signals plugins of a new gedcom file
  */
-public class SwapSpouses extends AbstractChange {
+public class AfterOpenGedcom extends ExtensionPoint {
   
-  /** fam */
-  private Fam fam;
+  private Gedcom gedcom;
   
-  /**
-   * Constructor
-   */
-  public SwapSpouses(Fam family) {
-    super(family.getGedcom(), family.getImage(false), resources.getString("swap.spouses"));
-    fam = family;
-  }
-  
-  /**
-   * @see genj.edit.actions.AbstractChange#change()
-   */
-  public void perform(Gedcom gedcom) throws GedcomException {
-    fam.swapSpouses();
+  /** constructor */
+  public AfterOpenGedcom(Gedcom gedcom) {
+    this.gedcom = gedcom;
   }
 
-} //SwapSpouses
+  /** accessor */
+  public Gedcom getGedcom() {
+    return gedcom;
+  }
+  
+}

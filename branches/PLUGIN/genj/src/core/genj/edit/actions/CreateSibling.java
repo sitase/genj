@@ -28,7 +28,6 @@ import genj.gedcom.Options;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
 import genj.gedcom.PropertyXRef;
-import genj.view.ViewManager;
 
 /**
  * knows how to create a sibling for an individual
@@ -39,8 +38,8 @@ public class CreateSibling extends CreateRelationship {
   private boolean isBrotherNotSister;
   
   /** constructor */
-  public CreateSibling(Indi sibling, ViewManager mgr, boolean isBrotherNotSister) {
-    super(calcName(isBrotherNotSister), sibling.getGedcom(), Gedcom.INDI, mgr);
+  public CreateSibling(Indi sibling, boolean isBrotherNotSister) {
+    super(calcName(isBrotherNotSister), sibling.getGedcom(), Gedcom.INDI);
     this.sibling = sibling;
     this.isBrotherNotSister = isBrotherNotSister;
   }

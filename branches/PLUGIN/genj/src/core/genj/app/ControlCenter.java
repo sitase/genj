@@ -24,7 +24,6 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.GedcomLifecycleEvent;
 import genj.gedcom.GedcomLifecycleListener;
-import genj.gedcom.GedcomListener;
 import genj.gedcom.Indi;
 import genj.gedcom.PropertySex;
 import genj.gedcom.Submitter;
@@ -122,8 +121,8 @@ public class ControlCenter extends JPanel {
     // Initialize data
     registry = new Registry(setRegistry, "cc");
     windowManager = winManager;
-    viewManager = new ViewManager(windowManager);
     pluginManager = new PluginManager(windowManager);
+    viewManager = new ViewManager(windowManager, pluginManager);
     
     // Table of Gedcoms
     tGedcoms = new GedcomTableWidget(viewManager, registry) {
@@ -171,8 +170,14 @@ public class ControlCenter extends JPanel {
    * Adds another Gedcom to the list of Gedcoms
    */
   /*package*/ void addGedcom(Gedcom gedcom) {
+    
+    // keep it
     tGedcoms.addGedcom(gedcom);
     gedcom.addLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)stats));
+    
+    // let plugins know
+    pluginManager.extend(new AfterOpenGedcom(gedcom));
+
   }
 
   /**
@@ -182,10 +187,13 @@ public class ControlCenter extends JPanel {
     
     // close views
     viewManager.closeViews(gedcom);
+    
+    // let plugins know
+    pluginManager.extend(new AfterCloseGedcom(gedcom));
 
     // forget about it
     tGedcoms.removeGedcom(gedcom);
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(stats));
+    gedcom.removeLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)stats));
   }
   
   /**
@@ -420,7 +428,7 @@ public class ControlCenter extends JPanel {
     protected void execute() {
       // Remember open gedcoms
       Collection save = new ArrayList();
-      for (Iterator gedcoms=tGedcoms.getAllGedcoms().iterator(); gedcoms.hasNext(); ) {
+      for (Iterator gedcoms=new ArrayList(tGedcoms.getAllGedcoms()).iterator(); gedcoms.hasNext(); ) {
         // next gedcom
         Gedcom gedcom = (Gedcom) gedcoms.next();
         // changes need saving?
@@ -459,8 +467,8 @@ public class ControlCenter extends JPanel {
           }
           // no - skip it
         }
-        // tell plugins
-        pluginManager.unregisterGedcom(gedcom);
+        // drop it
+        removeGedcom(gedcom);
         // remember as being open, password and open views
         File file =gedcom.getOrigin().getFile(); 
         if (file==null||file.exists()) { 
@@ -711,9 +719,6 @@ public class ControlCenter extends JPanel {
         
         addGedcom(gedcomBeingLoaded);
         
-        // tell plugin manager
-        pluginManager.registerGedcom(gedcomBeingLoaded);
-      
         // open views again
         if (Options.getInstance().isRestoreViews) {
           for (int i=0;i<views2restore.size();i++) {
@@ -1203,9 +1208,6 @@ public class ControlCenter extends JPanel {
       // Remove it
       removeGedcom(gedcom);
   
-      // tell plugin manager
-      pluginManager.unregisterGedcom(gedcom);
-      
       // Done
     }
   } //ActionClose

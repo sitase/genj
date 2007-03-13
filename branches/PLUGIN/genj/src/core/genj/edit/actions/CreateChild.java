@@ -27,7 +27,6 @@ import genj.gedcom.Indi;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyChild;
 import genj.gedcom.PropertyXRef;
-import genj.view.ViewManager;
 
 /**
  * Create a child of a family or person
@@ -38,14 +37,14 @@ public class CreateChild extends CreateRelationship {
   private Entity parentOrFamily;
   
   /** constructor */
-  public CreateChild(Fam family, ViewManager mgr) {
-    super(resources.getString("create.child"), family.getGedcom(), Gedcom.INDI, mgr);
+  public CreateChild(Fam family) {
+    super(resources.getString("create.child"), family.getGedcom(), Gedcom.INDI);
     this.parentOrFamily = family;
   }
   
   /** constructor */
-  public CreateChild(Indi parent, ViewManager mgr) {
-    super(resources.getString("create.child"), parent.getGedcom(), Gedcom.INDI, mgr);
+  public CreateChild(Indi parent) {
+    super(resources.getString("create.child"), parent.getGedcom(), Gedcom.INDI);
     this.parentOrFamily = parent;
   }
 

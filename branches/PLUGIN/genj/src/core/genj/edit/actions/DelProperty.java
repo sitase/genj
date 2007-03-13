@@ -23,7 +23,6 @@ import genj.edit.Images;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
-import genj.view.ViewManager;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -41,16 +40,16 @@ public class DelProperty extends AbstractChange {
   /**
    * Constructor
    */
-  public DelProperty(Property property, ViewManager manager) {
-    super(property.getGedcom(), Images.imgDelEntity, resources.getString("delete"), manager);
+  public DelProperty(Property property) {
+    super(property.getGedcom(), Images.imgDelEntity, resources.getString("delete"));
     candidates.add(property);
   }
 
   /**
    * Constructor
    */
-  public DelProperty(Property[] properties, ViewManager manager) {
-    super(properties[0].getGedcom(), Images.imgDelEntity, resources.getString("delete"), manager);
+  public DelProperty(Property[] properties) {
+    super(properties[0].getGedcom(), Images.imgDelEntity, resources.getString("delete"));
     candidates.addAll(Arrays.asList(properties));
   }
 

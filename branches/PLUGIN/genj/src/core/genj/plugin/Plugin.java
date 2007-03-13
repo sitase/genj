@@ -19,7 +19,6 @@
  */
 package genj.plugin;
 
-import genj.gedcom.Gedcom;
 
 /**
  * A plugin is anything plugging into the GenJ application framework
@@ -32,13 +31,8 @@ public interface Plugin {
   public void initPlugin(PluginManager manager);
   
   /**
-   * Gedcom instance has been made available
+   * Enrich an extension point
    */
-  public void registerGedcom(Gedcom gedcom);
-
-  /**
-   * Gedcom instance is not available anymore
-   */
-  public void unregisterGedcom(Gedcom gedcom);
-
+  public void extend(ExtensionPoint ep);
+  
 } //Plugin

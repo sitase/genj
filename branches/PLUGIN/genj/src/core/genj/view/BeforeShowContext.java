@@ -1,7 +1,7 @@
 /**
  * GenJ - GenealogyJ
  *
- * Copyright (C) 1997 - 2002 Nils Meier <nils@meiers.net>
+ * Copyright (C) 1997 - 2007 Nils Meier <nils@meiers.net>
  *
  * This piece of code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -19,26 +19,36 @@
  */
 package genj.view;
 
+import java.util.Iterator;
+
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
-import genj.plugin.PluginManager;
+import genj.util.swing.Action2;
 
 /**
- * A plugin that provides [a] view(s) onto gedcom data
+ * An extension point for providing context menu content
  */
-public class ViewPlugin implements Plugin {
+public class BeforeShowContext extends ExtensionPoint {
 
-  /**
-   * @see genj.plugin.Plugin#initPlugin(genj.plugin.PluginManage)
-   */
-  public void initPlugin(PluginManager manager) {
+  /** context to be shown */
+  private ViewContext context;
+  
+  /** constructor */
+  /*package*/ BeforeShowContext(ViewContext ctx) {
+    this.context = ctx;
   }
   
-  /**
-   * @see genj.plugin.Plugin#enrich(genj.plugin.ExtensionPoint)
-   */
-  public void extend(ExtensionPoint ep) {
-    // none by default
+  /** accessor - context */
+  public ViewContext getContext() {
+    return context;
   }
-
-} //ViewPlugin
+  
+  /** create a separator in view context before each plugin */
+  public void before(Plugin plugin) {
+    context.addAction(Action2.NOOP);
+    for (Iterator groups = context.getActionGroups().iterator(); groups.hasNext();) {
+      context.addAction(groups.next(), Action2.NOOP);
+    }
+  }
+  
+}

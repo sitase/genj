@@ -17,37 +17,21 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.view;
-
-import genj.gedcom.Entity;
-import genj.gedcom.Gedcom;
-import genj.gedcom.Property;
-
-import java.util.List;
+package genj.plugin;
 
 /**
- * Support for a actions of property/entity/gedcom
+ * A GenJ extension point marker
  */
-public interface ActionProvider {
+public class ExtensionPoint {
   
-  /**
-   * Callback for actions on a list of entities
-   */
-  public List createActions(Property[] properties, ViewManager manager);
+  /** Notification that this extension point is being passed to a plugin */
+  public void before(Plugin plugin) {
+    //noop
+  }
   
-  /**
-   * Callback for actions on a property
-   */
-  public List createActions(Property property, ViewManager manager);
-
-  /**
-   * Callback for actions on an entity
-   */
-  public List createActions(Entity entity, ViewManager manager);
-
-  /**
-   * Callback for actions on a gedcom
-   */
-  public List createActions(Gedcom gedcom, ViewManager manager);
-
-} //ContextMenuSupport
+  /** Notification that this extension point has been passed to a plugin */
+  public void after(Plugin plugin) {
+    //noop
+  }
+  
+}

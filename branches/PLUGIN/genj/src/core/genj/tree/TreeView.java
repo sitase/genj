@@ -41,7 +41,6 @@ import genj.util.swing.SliderWidget;
 import genj.util.swing.UnitGraphics;
 import genj.util.swing.ViewPortAdapter;
 import genj.util.swing.ViewPortOverview;
-import genj.view.ActionProvider;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
@@ -80,7 +79,7 @@ import javax.swing.event.ChangeListener;
 /**
  * TreeView
  */
-public class TreeView extends JPanel implements ContextProvider, WindowBroadcastListener, ToolBarSupport, ActionProvider, Filter {
+public class TreeView extends JPanel implements ContextProvider, WindowBroadcastListener, ToolBarSupport, Filter {
   
   /** an icon for bookmarking */
   private final static ImageIcon BOOKMARK_ICON = new ImageIcon(TreeView.class, "images/Bookmark.gif");      
@@ -558,43 +557,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   }
 
   /**
-   * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
-   */
-  public List createActions(Property[] properties, ViewManager manager) {
-    // not supported
-    return null;
-  }
-
-  /**
-   * @see genj.view.ContextSupport#createActions(genj.gedcom.Entity)
-   */
-  public List createActions(Entity entity, ViewManager manager) {
-    // fam or indi?
-    if (!(entity instanceof Indi||entity instanceof Fam)) 
-      return null;
-    // create an action for our tree
-    List result = new ArrayList(2);
-    result.add(new ActionRoot(entity));
-    result.add(new ActionBookmark(entity, false));
-    // done
-    return result;
-  }
-
-  /**
-   * @see genj.view.ContextSupport#createActions(genj.gedcom.Gedcom)
-   */
-  public List createActions(Gedcom gedcom, ViewManager manager) {
-    return null;
-  }
-
-  /**
-   * @see genj.view.ContextSupport#createActions(genj.gedcom.Property)
-   */
-  public List createActions(Property property, ViewManager manager) {
-    return null;
-  }
-
-  /**
    * Sets the root of this view
    */
   public void setRoot(Entity root) {
@@ -944,29 +906,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       overview.setVisible(!overview.isVisible());
     }
   } //ActionOverview    
-
-  /**
-   * ActionTree
-   */
-  private class ActionRoot extends Action2 {
-    /** entity */
-    private Entity root;
-    /**
-     * Constructor
-     */
-    private ActionRoot(Entity entity) {
-      root = entity;
-      setText(resources.getString("root",title));
-      setImage(Images.imgView);
-    }
-    
-    /**
-     * @see genj.util.swing.Action2#execute()
-     */
-    protected void execute() {
-      setRoot(root);
-    }
-  } //ActionTree
 
   /**
    * Action Orientation change   */

@@ -49,6 +49,10 @@ public class MenuHelper  {
   public MenuHelper popMenu() { 
     // pop it of the stack
     JMenu menu = (JMenu)menus.pop(); 
+    // remove trailing separator
+    int count = menu.getMenuComponentCount();
+    if (count>0 && menu.getMenuComponent(count-1).getClass() == JPopupMenu.Separator.class)
+      menu.remove(count-1);
     // remove it if empty
     if (menu.getMenuComponentCount()==0)
       menu.getParent().remove(menu);
@@ -176,13 +180,6 @@ public class MenuHelper  {
     Iterator it = actions.iterator();
     while (it.hasNext()) {
       Object o = it.next();
-      // an action group?
-      if (o instanceof Action2.Group) {
-        createMenu(((Action2.Group)o).getName());
-        createItems((List)o);
-        popMenu();
-        continue;
-      }
       // a nested list ?
       if (o instanceof List) {
         createSeparator();

@@ -719,7 +719,9 @@ import spin.Spin;
           if (prop==null)
             return null;
           // provide a context with delete
-          return new ViewContext(prop).addAction(new DelTab(prop));
+          ViewContext result = new ViewContext(prop);
+          result.addAction(new DelTab(prop));
+          return result;
         }
       });
       

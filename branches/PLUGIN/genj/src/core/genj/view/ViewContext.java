@@ -26,8 +26,12 @@ import genj.gedcom.Property;
 import genj.util.swing.Action2;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.ImageIcon;
 
@@ -38,7 +42,7 @@ import javax.swing.ImageIcon;
 public class ViewContext extends Context implements Comparable {
   
   private ViewManager manager;
-  private List actions = new ArrayList();
+  private Map sub2actions = new HashMap();
   private ImageIcon  img = null;
   private String txt = null;
   
@@ -78,26 +82,50 @@ public class ViewContext extends Context implements Comparable {
   }
   
   /**
-   * Add an action
-   */
-  public ViewContext addAction(Action2 action) {
-    actions.add(action);
-    return this;
-  }
-  
-  /**
-   * Add actions
-   */
-  public ViewContext addActions(Action2.Group group) {
-    actions.add(group);
-    return this;
-  }
-  
-  /**
-   * Access to actions
+   * Access to top-level actions
    */
   public List getActions() {
-    return Collections.unmodifiableList(actions);
+    return Collections.unmodifiableList(getActions(this));
+  }
+  
+  /** 
+   * returns actions for given sub-context
+   */
+  public List getActions(Object group) {
+    // we patch an array up to a list so the hash's equals method leads to the required result since
+    //  !new String[]{ "foo", "bar" }.equals(new String[]{ "foo", "bar" })
+    // but
+    //  new ArrayList(new String[]{ "foo", "bar" }).equals(new ArrayList(new String[]{ "foo", "bar" }))
+    if (group.getClass().isArray())
+      group = new ArrayList(Arrays.asList((Object[])group));
+    List actions = (List)sub2actions.get(group);
+    if (actions==null) {
+      actions = new ArrayList();
+      sub2actions.put(group, actions);
+    }
+    return actions;
+  }
+  
+  /**
+   * Returns list of action groups (basically corresponding to sub-menus later)
+   */
+  public Collection getActionGroups() {
+    return sub2actions.keySet();
+  }
+  
+  /**
+   * Add a top-level action
+   */
+  public void addAction(Action2 action) {
+    getActions(this).add(action);
+  }
+  
+  /**
+   * Add an action to an action group in this context 
+   * In context menus supported groups are String, Property, Property[], Entity, Entity[], Gedcom 
+   */
+  public void addAction(Object group, Action2 action) {
+    getActions(group).add(action);
   }
   
   /**

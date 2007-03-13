@@ -22,7 +22,6 @@ package genj.edit.actions;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Submitter;
-import genj.view.ViewManager;
 
 /**
  * Set the submitter of a gedcom file
@@ -35,8 +34,8 @@ public class SetSubmitter extends AbstractChange {
     /**
      * Constructor
      */
-    public SetSubmitter(Submitter sub, ViewManager mgr) {
-      super(sub.getGedcom(), Gedcom.getEntityImage(Gedcom.SUBM), resources.getString("submitter", sub.getGedcom().getName()), mgr);
+    public SetSubmitter(Submitter sub) {
+      super(sub.getGedcom(), Gedcom.getEntityImage(Gedcom.SUBM), resources.getString("submitter", sub.getGedcom().getName()));
       submitter = sub;
       if (sub.getGedcom().getSubmitter()==submitter) 
         setEnabled(false);

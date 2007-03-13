@@ -25,7 +25,6 @@ import genj.util.Resources;
 
 import java.awt.Component;
 import java.awt.event.ActionEvent;
-import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -430,7 +429,7 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
     into.getActionMap().put(this, this);
       
   }
-
+  
   /** convenience factory */
   public static Action yes() {
     return new Action2(Action2.TXT_YES);
@@ -563,25 +562,5 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
     }
   } //ActionNOOP
   
-  /**
-   * An action group
-   */
-  public static class Group extends ArrayList {
-    
-    /** a name */
-    private String name;
-    
-    /** constructor */
-    public Group(String name) {
-      
-      this.name = name;
-    }
-    
-    /** accessor */
-    public String getName() {
-      return name;
-    }
-  }
-
 } //ActionDelegate
 

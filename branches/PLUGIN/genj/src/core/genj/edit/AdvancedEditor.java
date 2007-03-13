@@ -785,18 +785,16 @@ import javax.swing.tree.TreePath;
         result.addAction(new Paste((Property)selection.get(0)));
         
         // add
-        result.addAction(Action2.NOOP);
         Property prop = (Property)selection.get(0);
         if (!prop.isTransient()) {
           result.addAction(new Add(prop));
-          Action2.Group group = new Action2.Group(resources.getString("action.add"));
+          String sub = resources.getString("action.add");
           MetaProperty[] metas = prop.getNestedMetaProperties(MetaProperty.FILTER_NOT_HIDDEN);
           Arrays.sort(metas);
           for (int i=0;i<metas.length;i++) {
             if (metas[i].isInstantiated())
-              group.add(new Add(prop, metas[i]));
+              result.addAction(sub, new Add(prop, metas[i]));
           }
-          result.addActions(group);
         }
       }
       
