@@ -19,14 +19,22 @@
  */
 package genj.view;
 
+import genj.app.ExtendMenubar;
+import genj.app.ExtendToolbar;
+import genj.gedcom.Gedcom;
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
 import genj.plugin.PluginManager;
+import genj.util.Resources;
+import genj.util.swing.Action2;
+import genj.util.swing.ImageIcon;
 
 /**
  * A plugin that provides [a] view(s) onto gedcom data
  */
-public class ViewPlugin implements Plugin {
+public abstract class ViewPlugin implements Plugin {
+  
+  private static Resources RESOURCES = Resources.get(ViewPlugin.class);
 
   /**
    * @see genj.plugin.Plugin#initPlugin(genj.plugin.PluginManage)
@@ -34,11 +42,60 @@ public class ViewPlugin implements Plugin {
   public void initPlugin(PluginManager manager) {
   }
   
+  /** 
+   * Provide an image
+   */
+  protected abstract ImageIcon getImage();
+  
+  /** 
+   * Provide a text
+   */
+  protected abstract String getTitle();
+  
   /**
    * @see genj.plugin.Plugin#enrich(genj.plugin.ExtensionPoint)
    */
   public void extend(ExtensionPoint ep) {
-    // none by default
+    
+    // menubar we can hook into?
+    if (ep instanceof ExtendMenubar) 
+      extend((ExtendMenubar)ep);
+    
+    // toolbar we can hook into?
+    if (ep instanceof ExtendToolbar) 
+      extend((ExtendToolbar)ep);
+    
+    // done
   }
+
+  /** extend toolbar */
+  private void extend(ExtendToolbar toolbar) {
+    toolbar.addAction(new Open(toolbar.getGedcom()));
+  }
+  
+  /** extend menubar */
+  private void extend(ExtendMenubar menu) {
+    
+    Gedcom gedcom = menu.getGedcom();
+    if (gedcom!=null)
+      menu.addAction(RESOURCES.getString("views"), new Open(gedcom));
+  }
+  
+  /**
+   * Action - Open
+   */
+  private class Open extends Action2 {
+    
+    private Gedcom gedcom;
+    
+    private Open(Gedcom gedcom) {
+      this.gedcom = gedcom;
+      String txt = RESOURCES.getString("view.open", ViewPlugin.this.getTitle());
+      setText(txt);
+      setTip(txt);
+      setImage(ViewPlugin.this.getImage());
+      setEnabled(gedcom!=null);
+    }
+  } //Open
 
 } //ViewPlugin

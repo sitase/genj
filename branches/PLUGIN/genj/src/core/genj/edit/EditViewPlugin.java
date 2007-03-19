@@ -57,7 +57,8 @@ import genj.gedcom.Submitter;
 import genj.io.FileAssociation;
 import genj.plugin.ExtensionPoint;
 import genj.util.swing.Action2;
-import genj.view.BeforeShowContext;
+import genj.util.swing.ImageIcon;
+import genj.view.ExtendContextMenu;
 import genj.view.ViewContext;
 import genj.view.ViewPlugin;
 
@@ -76,8 +77,23 @@ public class EditViewPlugin extends ViewPlugin {
    * @see genj.view.ViewPlugin#enrich(genj.plugin.ExtensionPoint)
    */
   public void extend(ExtensionPoint ep) {
-    if (ep instanceof BeforeShowContext)
-      enrich(((BeforeShowContext)ep).getContext());
+    
+    // let super do its thing
+    super.extend(ep);
+    
+    // our context extension
+    if (ep instanceof ExtendContextMenu)
+      enrich(((ExtendContextMenu)ep).getContext());
+  }
+
+  /** our image */
+  protected ImageIcon getImage() {
+    return Images.imgView;
+  }
+  
+  /** our text */
+  protected String getTitle() {
+    return EditView.resources.getString("title");
   }
   
   /**

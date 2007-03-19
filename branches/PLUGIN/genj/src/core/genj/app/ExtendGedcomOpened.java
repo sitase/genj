@@ -1,7 +1,7 @@
 /**
  * GenJ - GenealogyJ
  *
- * Copyright (C) 1997 - 2007 Nils Meier <nils@meiers.net>
+ * Copyright (C) 1997 - 2002 Nils Meier <nils@meiers.net>
  *
  * This piece of code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -17,38 +17,26 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.view;
+package genj.app;
 
-import java.util.Iterator;
-
+import genj.gedcom.Gedcom;
 import genj.plugin.ExtensionPoint;
-import genj.plugin.Plugin;
-import genj.util.swing.Action2;
 
 /**
- * An extension point for providing context menu content
+ * An extension point that doesn't allow to be enriched but signals plugins of a new gedcom file
  */
-public class BeforeShowContext extends ExtensionPoint {
-
-  /** context to be shown */
-  private ViewContext context;
+public class ExtendGedcomOpened extends ExtensionPoint {
+  
+  private Gedcom gedcom;
   
   /** constructor */
-  /*package*/ BeforeShowContext(ViewContext ctx) {
-    this.context = ctx;
+  public ExtendGedcomOpened(Gedcom gedcom) {
+    this.gedcom = gedcom;
   }
-  
-  /** accessor - context */
-  public ViewContext getContext() {
-    return context;
-  }
-  
-  /** create a separator in view context before each plugin */
-  public void before(Plugin plugin) {
-    context.addAction(Action2.NOOP);
-    for (Iterator groups = context.getActionGroups().iterator(); groups.hasNext();) {
-      context.addAction(groups.next(), Action2.NOOP);
-    }
+
+  /** accessor */
+  public Gedcom getGedcom() {
+    return gedcom;
   }
   
 }

@@ -60,6 +60,7 @@ public class MenuHelper  {
     return this; 
   }
   public MenuHelper pushMenu(JPopupMenu popup) { menus.push(popup); return this; }
+  public MenuHelper pushMenu(JMenuBar bar) { menus.push(bar); return this; }
   public MenuHelper setTarget(Component set) { target=set; return this; }
 
   /**

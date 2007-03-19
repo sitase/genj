@@ -25,12 +25,12 @@ package genj.plugin;
 public class ExtensionPoint {
   
   /** Notification that this extension point is being passed to a plugin */
-  public void before(Plugin plugin) {
+ protected void before(Plugin plugin) {
     //noop
   }
   
   /** Notification that this extension point has been passed to a plugin */
-  public void after(Plugin plugin) {
+ protected void after(Plugin plugin) {
     //noop
   }
   

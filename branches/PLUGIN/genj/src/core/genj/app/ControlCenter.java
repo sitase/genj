@@ -50,7 +50,6 @@ import genj.util.swing.ChoiceWidget;
 import genj.util.swing.FileChooser;
 import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
-import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.ProgressWidget;
 import genj.view.ViewContext;
 import genj.view.ViewFactory;
@@ -101,14 +100,13 @@ public class ControlCenter extends JPanel {
     ACC_OPEN = "ctrl O";
 
   /** members */
-  private JMenuBar menuBar; 
+  private JMenuBar menuBar = new JMenuBar();
+  private JToolBar toolBar = new JToolBar();
   private GedcomTableWidget tGedcoms;
   private Registry registry;
   private Resources resources = Resources.get(this);
   private WindowManager windowManager;
   private ViewManager viewManager;
-  private List gedcomActions = new ArrayList();
-  private List toolbarActions = new ArrayList();
   private Stats stats = new Stats();
   private ActionExit exit = new ActionExit();
   private PluginManager pluginManager;
@@ -136,23 +134,32 @@ public class ControlCenter extends JPanel {
       };
     };
     
-    // ... Listening
+    // toolbar
+    toolBar.setFloatable(false);
+    
+    // status bar
+    HeapStatusWidget mem = new HeapStatusWidget();
+    mem.setToolTipText(resources.getString("cc.heap"));
+    JPanel status = new JPanel(new BorderLayout());
+    status .add(BorderLayout.CENTER, stats);
+    status.add(BorderLayout.EAST, mem);
+    
+    // listen to selections
     tGedcoms.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
       public void valueChanged(ListSelectionEvent e) {
-        for (int i=0;i<gedcomActions.size();i++)
-          ((Action2)gedcomActions.get(i)).setEnabled(tGedcoms.getSelectedGedcom() != null);
+        updateActions(tGedcoms.getSelectedGedcom());
       }
     });
+
+    // update status
+    updateActions(null);
     
     // Layout
     setLayout(new BorderLayout());
-    add(createToolBar(), BorderLayout.NORTH);
+    add(toolBar, BorderLayout.NORTH);
     add(new JScrollPane(tGedcoms), BorderLayout.CENTER);
-    add(createStatusBar(), BorderLayout.SOUTH);
-
-    // Init menu bar at this point (so it's ready when the first file is loaded)
-    menuBar = createMenuBar();
-
+    add(status, BorderLayout.SOUTH);
+    
     // Load known gedcoms
     SwingUtilities.invokeLater(new ActionAutoOpen(args));
     
@@ -176,7 +183,7 @@ public class ControlCenter extends JPanel {
     gedcom.addLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)stats));
     
     // let plugins know
-    pluginManager.extend(new AfterOpenGedcom(gedcom));
+    pluginManager.extend(new ExtendGedcomOpened(gedcom));
 
   }
 
@@ -189,7 +196,7 @@ public class ControlCenter extends JPanel {
     viewManager.closeViews(gedcom);
     
     // let plugins know
-    pluginManager.extend(new AfterCloseGedcom(gedcom));
+    pluginManager.extend(new ExtendGedcomClosed(gedcom));
 
     // forget about it
     tGedcoms.removeGedcom(gedcom);
@@ -211,148 +218,79 @@ public class ControlCenter extends JPanel {
   }
   
   /**
-   * Returns a status bar for the bottom
+   * Updated  MenuBar
    */
-  private JPanel createStatusBar() {
+  private void updateActions(Gedcom selection) {
     
-    HeapStatusWidget mem = new HeapStatusWidget();
-    mem.setToolTipText(resources.getString("cc.heap"));
+    // cleanup menu
+    menuBar.removeAll();
+    menuBar.revalidate();
+    menuBar.repaint();
     
-    JPanel result = new JPanel(new NestedBlockLayout("<row><info wx=\"1\" gx=\"1\"/><mem/></row>"));
-    result.add(stats);
-    result.add(mem);
+    // collect our actions as an extension point
+    ExtendMenubar em = new ExtendMenubar(selection);
+
+    em.addAction(ExtendMenubar.FILE_MENU, new ActionNew());
+    em.addAction(ExtendMenubar.FILE_MENU, new ActionOpen());
+    em.addAction(ExtendMenubar.FILE_MENU, Action2.NOOP);
+    em.addAction(ExtendMenubar.FILE_MENU, new ActionSave(false, selection!=null));
+    em.addAction(ExtendMenubar.FILE_MENU, new ActionSave(true, selection!=null));
+    em.addAction(ExtendMenubar.FILE_MENU, new ActionClose(selection!=null));
+    if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in application menus apparently
+      em.addAction(ExtendMenubar.FILE_MENU, Action2.NOOP);
+      em.addAction(ExtendMenubar.FILE_MENU, exit);
+    }
     
-    return result;
-  }
-  
-  /**
-   * Returns a button bar for the top
-   */
-  private JToolBar createToolBar() {
+    // ask plugins for their contributions
+    pluginManager.extend(em);
+    
+    // add help menu
+    em.addAction(ExtendMenubar.HELP_MENU, new ActionHelp());
+    em.addAction(ExtendMenubar.HELP_MENU, new ActionAbout());
+    
+    // create menu now
+    MenuHelper mh = new MenuHelper();
+    mh.setTarget(this);
+    mh.pushMenu(menuBar);
+    
+    for (Iterator groups = em.getMenus().iterator(); groups.hasNext();) {
+      String group = (String) groups.next();
+      // TOOD we should parse groups for sub-groups (e.g. Plugin|Foo|Action)
+      if (group==ExtendMenubar.FILE_MENU)
+        mh.createMenu(resources.getString("cc.menu.file"));
+      else if (group==ExtendMenubar.HELP_MENU)
+        mh.createMenu(resources.getString("cc.menu.help"));
+      else
+        mh.createMenu(group);
+      for (Iterator actions = em.getActions(group).iterator(); actions.hasNext();) 
+        mh.createItem((Action2)actions.next());
+      mh.popMenu();
+    }
+
+    // cleanup toolbar
+    toolBar.removeAll();
+    toolBar.revalidate();
+    toolBar.repaint();
+      
+    // collect our actions as toolbar actions
+    ExtendToolbar et = new ExtendToolbar(selection);
+    et.addAction(new ActionNew());
+    et.addAction(new ActionOpen());
+    et.addAction(new ActionSave(false, selection!=null));
+    et.addAction(Action2.NOOP);
+
+    // ask plugins for their contributions
+    pluginManager.extend(et);
     
     // create toolbar and setup helper
-    JToolBar result = new JToolBar();
-    result.setFloatable(false);
-    ButtonHelper bh =
-      new ButtonHelper()
-        .setInsets(4)
-        .setContainer(result)
-        .setFontSize(10);
-
-    // Open & New |
-    Action2 
-      actionNew = new ActionNew(),
-      actionOpen = new ActionOpen(),
-      actionSave = new ActionSave(false, false);
-    actionNew.setText(null);
-    actionOpen.setText(null);
-    actionSave.setText(null);
-    gedcomActions.add(actionSave);
-    
-    toolbarActions.add(actionNew);
-    toolbarActions.add(actionOpen);
-    toolbarActions.add(actionSave);
-    
-    bh.create(actionNew);
-    bh.create(actionOpen);
-    bh.create(actionSave);
-    
-    result.addSeparator();
-
-    ViewFactory[] factories = viewManager.getFactories();
-    for (int i = 0; i < factories.length; i++) {
-      ActionView action = new ActionView(-1, factories[i]);
-      action.setText(null);
+    ButtonHelper bh = new ButtonHelper().setInsets(4).setContainer(toolBar);
+    for (Iterator actions=et.getActions().iterator(); actions.hasNext(); ) {
+      Action2 action = (Action2)actions.next();
       bh.create(action);
-      toolbarActions.add(action);
-      gedcomActions.add(action);
     }
+    toolBar.add(Box.createGlue());
     
-    // some glue at the end to space things out
-    result.add(Box.createGlue());
-
-    // setup a menu for enabling buttons' short titles
-//    MenuHelper mh = new MenuHelper();
-//    mh.createPopup(result);
-//    mh.createItem(new ActionToggleText());
-    
-    // done
-    return result;
-  }
-  
-  /**
-   * Creates our MenuBar
-   */
-  private JMenuBar createMenuBar() {
-
-    MenuHelper mh = new MenuHelper();
-    JMenuBar result = mh.createBar();
-    
-    // Create Menues
-    mh.createMenu(resources.getString("cc.menu.file"));
-    mh.createItem(new ActionNew());
-    mh.createItem(new ActionOpen());
-    mh.createSeparator();
-    
-    Action2
-      save = new ActionSave(false, false),
-      saveAs = new ActionSave(true, false),
-      close = new ActionClose(false);
-    
-    gedcomActions.add(save);
-    gedcomActions.add(saveAs);
-    gedcomActions.add(close);
-    
-    mh.createItem(save);
-    mh.createItem(saveAs);
-    mh.createItem(close);
-    
-    if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in application menus apparently
-      mh.createSeparator();
-      mh.createItem(exit);
-    }
-
-    mh.popMenu().createMenu(resources.getString("cc.menu.view"));
-
-    ViewFactory[] factories = viewManager.getFactories();
-    for (int i = 0; i < factories.length; i++) {
-      ActionView action = new ActionView(i+1, factories[i]);
-      gedcomActions.add(action);
-      mh.createItem(action);
-    }
-    mh.createSeparator();
-    mh.createItem(new ActionOptions());
-
-    // 20060209
-    //  Stephane reported a problem running GenJ on MacOS Tiger:
-    //
-    // java.lang.ArrayIndexOutOfBoundsException: 3 > 2::
-    // at java.util.Vector.insertElementAt(Vector.java:557)::
-    // at apple.laf.ScreenMenuBar.add(ScreenMenuBar.java:266)::
-    // at apple.laf.ScreenMenuBar.addSubmenu(ScreenMenuBar.java:207)::
-    // at apple.laf.ScreenMenuBar.addNotify(ScreenMenuBar.java:53)::
-    // at java.awt.Frame.addNotify(Frame.java:478)::
-    // at java.awt.Window.pack(Window.java:436)::
-    // atgenj.window.DefaultWindowManager.openFrameImpl(Unknown Source)::
-    // at genj.window.AbstractWindowManager.openFrame(Unknown Source)::
-    // at genj.app.App$Startup.run(Unknown Source)::
-    // 
-    // apparently something wrong with how the Mac parses the menu-bar
-    // According to this post
-    //   http://lists.apple.com/archives/java-dev/2005/Aug/msg00060.html
-    // the offending thing might be a non-menu-item (glue) added to the menu
-    // as we did here previously - so let's remove that for Macs for now
-    // 20061116 remove the glue in all situations - we don't have to hide help on the right
-    //    if (!EnvironmentChecker.isMac())
-    //      result.add(Box.createHorizontalGlue());
-
-    mh.popMenu().createMenu(resources.getString("cc.menu.help"));
-
-    mh.createItem(new ActionHelp());
-    mh.createItem(new ActionAbout());
-
     // Done
-    return result;
   }
   
   /**

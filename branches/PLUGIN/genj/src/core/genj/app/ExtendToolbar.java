@@ -21,22 +21,49 @@ package genj.app;
 
 import genj.gedcom.Gedcom;
 import genj.plugin.ExtensionPoint;
+import genj.util.swing.Action2;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * An extension point that doesn't allow to be enriched but signals plugins of a new gedcom file
+ * An extension point that allows to add toolbar items
  */
-public class AfterOpenGedcom extends ExtensionPoint {
+public class ExtendToolbar extends ExtensionPoint {
   
   private Gedcom gedcom;
   
-  /** constructor */
-  public AfterOpenGedcom(Gedcom gedcom) {
+  private List actions = new ArrayList();
+  
+  /** 
+   * Constructor 
+   */
+  protected ExtendToolbar(Gedcom gedcom) {
     this.gedcom = gedcom;
   }
-
-  /** accessor */
+  
+  /** 
+   * currently selected gedcom that will be reflected in the menu shown 
+   * @return current gedcom or null if none selected
+   */
   public Gedcom getGedcom() {
     return gedcom;
+  }
+
+  /** 
+   * add a toolbar action 
+   */
+  public void addAction(Action2 action) {
+    if (action!=Action2.NOOP&&action.getImage()==null)
+      throw new IllegalArgumentException("Extend Toolbar actions need to provide image");
+    action.setText(null);
+    actions.add(action);
+  }
+  
+  /** resolve actions */
+  public List getActions() {
+    return Collections.unmodifiableList(actions);
   }
   
 }

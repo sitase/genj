@@ -25,12 +25,12 @@ import genj.plugin.ExtensionPoint;
 /**
  * An extension point that doesn't allow to be enriched but signals plugins of a closed gedcom file
  */
-public class AfterCloseGedcom extends ExtensionPoint {
+public class ExtendGedcomClosed extends ExtensionPoint {
   
   private Gedcom gedcom;
   
   /** constructor */
-  public AfterCloseGedcom(Gedcom gedcom) {
+  public ExtendGedcomClosed(Gedcom gedcom) {
     this.gedcom = gedcom;
   }
 

@@ -21,7 +21,6 @@ package genj.edit;
 
 import genj.gedcom.Gedcom;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.ViewFactory;
 import genj.view.ViewManager;
@@ -33,9 +32,6 @@ import javax.swing.JComponent;
  */
 public class EditViewFactory implements ViewFactory {
     
-  /** a noop is used for separators in returning actions */  
-  private final static Action2 aNOOP = Action2.NOOP;
-  
   /**
    * @see genj.view.ViewFactory#createView(genj.gedcom.Gedcom, genj.util.Registry, java.awt.Frame)
    */

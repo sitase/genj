@@ -81,6 +81,13 @@ public class ButtonHelper {
    */
   private AbstractButton create(final Action action, Class type) {
     
+    // a NOOP results in separator
+    if (action == Action2.NOOP) {
+      if (container instanceof JToolBar)
+        ((JToolBar)container).addSeparator();
+      return null;
+    }
+    
     // no mnemonic in JToolbars please
     if (container instanceof JToolBar)
       action.putValue(Action.MNEMONIC_KEY, null);

@@ -24,8 +24,10 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.UnitOfWork;
 import genj.plugin.ExtensionPoint;
+import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.view.BeforeShowContext;
+import genj.util.swing.ImageIcon;
+import genj.view.ExtendContextMenu;
 import genj.view.ViewContext;
 import genj.view.ViewPlugin;
 
@@ -36,13 +38,28 @@ import java.util.logging.Level;
  */
 public class ReportViewPlugin extends ViewPlugin {
   
+  /*package*/ final static ImageIcon IMG = new ImageIcon(ReportViewFactory.class, "View.gif");
+  
   /**
    * Adding our custom edit actions
    * @see genj.view.ViewPlugin#enrich(genj.plugin.ExtensionPoint)
    */
   public void extend(ExtensionPoint ep) {
-    if (ep instanceof BeforeShowContext)
-      enrich(((BeforeShowContext)ep).getContext());
+    
+    super.extend(ep);
+    
+    if (ep instanceof ExtendContextMenu)
+      enrich(((ExtendContextMenu)ep).getContext());
+  }
+  
+  /** our image */
+  public ImageIcon getImage() {
+    return IMG;
+  }
+  
+  /** our text */
+  public String getTitle() {
+    return Resources.get(this).getString("title");
   }
   
   /**

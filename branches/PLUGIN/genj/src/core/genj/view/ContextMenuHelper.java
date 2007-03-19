@@ -49,7 +49,7 @@ public class ContextMenuHelper {
     Gedcom gedcom = context.getGedcom();
 
     // send it around
-    plugins.extend(new BeforeShowContext(context));
+    plugins.extend(new ExtendContextMenu(context));
     
     // make sure any existing popup is cleared
     MenuSelectionManager.defaultManager().clearSelectedPath();
