@@ -28,12 +28,12 @@ import java.awt.Frame;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.Window;
-import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -67,7 +67,7 @@ public class DefaultWindowManager extends WindowManager {
   /**
    * Frame implementation
    */
-  protected Component openWindowImpl(final String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized, final Action onClosing) {
+  protected Component openWindowImpl(final String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized) {
     
     // Create a frame
     final JFrame frame = new JFrame() {
@@ -92,18 +92,16 @@ public class DefaultWindowManager extends WindowManager {
     // add content
     frame.getContentPane().add(content);
 
-    // DISPOSE_ON_CLOSE?
-    if (onClosing==null) {
-      frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-    } else {
-      // responsibility to dispose passed to onClosing?
-      frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-      frame.addWindowListener(new WindowAdapter() {
-        public void windowClosing(WindowEvent e) {
-          onClosing.actionPerformed(new ActionEvent(this, 0, key));
-        }
-      });
-    }
+    // hook up our own closing code
+    frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+    frame.addWindowListener(new WindowAdapter() {
+      public void windowClosing(WindowEvent e) {
+        WindowClosingEvent event = new WindowClosingEvent(frame);
+        broadcastInbound(event, frame, Collections.EMPTY_SET);
+        if (!event.isCancelled())
+          frame.dispose();
+      }
+    });
 
     // place
     if (bounds==null) {

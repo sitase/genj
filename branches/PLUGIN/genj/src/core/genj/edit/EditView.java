@@ -38,7 +38,6 @@ import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
 
@@ -83,9 +82,6 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   /** bean factory */
   private BeanFactory beanFactory;
 
-  /** the view manager */
-  private ViewManager manager;
-  
   /** the resources we use */
   static final Resources resources = Resources.get(EditView.class);
 
@@ -106,15 +102,14 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   /**
    * Constructor
    */
-  public EditView(String setTitle, Gedcom setGedcom, Registry setRegistry, ViewManager setManager) {
+  public EditView(Gedcom setGedcom, Registry setRegistry) {
     
     super(new BorderLayout());
     
     // remember
     gedcom   = setGedcom;
     registry = setRegistry;
-    manager  = setManager;
-    beanFactory = new BeanFactory(manager, registry);
+    beanFactory = new BeanFactory(registry);
 
     // prepare action
     mode = new Mode();
@@ -404,8 +399,10 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     protected JPopupMenu createPopup() {
       // force editor to commit
       editor.setContext(editor.getContext());
+      // FIXME where do we get the plugin manager from?
+      return super.createPopup();
       // create popup
-      return manager.getContextMenu(editor.getContext(), this);
+      //return manager.getContextMenu(editor.getContext(), this);
     }
      
   } //ContextMenu

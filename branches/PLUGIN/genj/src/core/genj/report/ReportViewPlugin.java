@@ -24,6 +24,7 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.UnitOfWork;
 import genj.plugin.ExtensionPoint;
+import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
@@ -32,6 +33,8 @@ import genj.view.ViewContext;
 import genj.view.ViewPlugin;
 
 import java.util.logging.Level;
+
+import javax.swing.JComponent;
 
 /**
  * A view plugin providing editing view and actions 
@@ -60,6 +63,11 @@ public class ReportViewPlugin extends ViewPlugin {
   /** our text */
   public String getTitle() {
     return Resources.get(this).getString("title");
+  }
+  
+  /** our view */
+  protected JComponent createView(Gedcom gedcom, Registry registry) {
+    throw new UnsupportedOperationException();
   }
   
   /**

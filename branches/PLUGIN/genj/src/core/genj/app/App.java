@@ -190,7 +190,7 @@ public class App {
       ControlCenter center = new ControlCenter(registry, winMgr, args);
 
       // show it
-      winMgr.openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());
+      winMgr.openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar());
 
       // done
       LOG.info("/Startup");

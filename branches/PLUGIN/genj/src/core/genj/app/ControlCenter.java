@@ -55,6 +55,9 @@ import genj.view.ViewContext;
 import genj.view.ViewFactory;
 import genj.view.ViewHandle;
 import genj.view.ViewManager;
+import genj.window.WindowBroadcastEvent;
+import genj.window.WindowBroadcastListener;
+import genj.window.WindowClosingEvent;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -91,7 +94,7 @@ import spin.Spin;
 /**
  * The central component of the GenJ application
  */
-public class ControlCenter extends JPanel {
+public class ControlCenter extends JPanel implements WindowBroadcastListener {
   
   private final static String
     ACC_SAVE = "ctrl S",
@@ -108,7 +111,6 @@ public class ControlCenter extends JPanel {
   private WindowManager windowManager;
   private ViewManager viewManager;
   private Stats stats = new Stats();
-  private ActionExit exit = new ActionExit();
   private PluginManager pluginManager;
   
   /**
@@ -165,13 +167,19 @@ public class ControlCenter extends JPanel {
     
     // Done
   }
-  
-//  /**
-//   * @see javax.swing.JComponent#getPreferredSize()
-//   */
-//  public Dimension getPreferredSize() {
-//    return new Dimension(280,180);
-//  }
+
+  /**
+   * @see WindowBroadcastListener#handleBroadcastEvent(WindowBroadcastEvent)
+   */
+  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
+    // let us handle closing
+    if (event instanceof WindowClosingEvent) {
+      ((WindowClosingEvent)event).cancel();
+      new ActionExit().trigger();
+    }
+    // continue
+    return true;
+  }
 
   /**
    * Adds another Gedcom to the list of Gedcoms
@@ -204,13 +212,6 @@ public class ControlCenter extends JPanel {
   }
   
   /**
-   * Exit action
-   */
-  /*package*/ Action2 getExitAction() {
-    return exit;
-  }
-  
-  /**
    * Returns a menu for frame showing this controlcenter
    */
   /*package*/ JMenuBar getMenuBar() {
@@ -238,7 +239,7 @@ public class ControlCenter extends JPanel {
     em.addAction(ExtendMenubar.FILE_MENU, new ActionClose(selection!=null));
     if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in application menus apparently
       em.addAction(ExtendMenubar.FILE_MENU, Action2.NOOP);
-      em.addAction(ExtendMenubar.FILE_MENU, exit);
+      em.addAction(ExtendMenubar.FILE_MENU, new ActionExit());
     }
     
     // ask plugins for their contributions
@@ -346,7 +347,7 @@ public class ControlCenter extends JPanel {
     protected void execute() {
       if (windowManager.show("help"))
         return;
-      windowManager.openWindow("help",resources.getString("cc.menu.help"),Images.imgHelp,new HelpWidget(),null,null);
+      windowManager.openWindow("help",resources.getString("cc.menu.help"),Images.imgHelp,new HelpWidget(),null);
       // done
     }
   } //ActionHelp

@@ -56,6 +56,7 @@ import genj.gedcom.PropertySubmitter;
 import genj.gedcom.Submitter;
 import genj.io.FileAssociation;
 import genj.plugin.ExtensionPoint;
+import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.ExtendContextMenu;
@@ -67,6 +68,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import javax.swing.JComponent;
+
 /**
  * A view plugin providing editing view and actions 
  */
@@ -74,7 +77,7 @@ public class EditViewPlugin extends ViewPlugin {
   
   /**
    * Adding our custom edit actions
-   * @see genj.view.ViewPlugin#enrich(genj.plugin.ExtensionPoint)
+   * @see genj.view.ViewPlugin#extend(genj.plugin.ExtensionPoint)
    */
   public void extend(ExtensionPoint ep) {
     
@@ -83,7 +86,7 @@ public class EditViewPlugin extends ViewPlugin {
     
     // our context extension
     if (ep instanceof ExtendContextMenu)
-      enrich(((ExtendContextMenu)ep).getContext());
+      extend(((ExtendContextMenu)ep).getContext());
   }
 
   /** our image */
@@ -96,20 +99,25 @@ public class EditViewPlugin extends ViewPlugin {
     return EditView.resources.getString("title");
   }
   
+  /** our view */
+  protected JComponent createView(Gedcom gedcom, Registry registry) {
+    return new EditView(gedcom, registry);
+  }
+  
   /**
    * Enrich a view context with our actions
    */
-  private void enrich(ViewContext context) {
+  private void extend(ViewContext context) {
     
     // list of properties or a single property in there?
     Property[] properties = context.getProperties();
     if (properties.length>1) {
-      enrich(context, properties);
+      extend(context, properties);
     } else if (properties.length==1) {
       // recursively 
       Property property = properties[0];
       while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
-        enrich(context, property);
+        extend(context, property);
         property = property.getParent();
       }
     }    
@@ -117,14 +125,14 @@ public class EditViewPlugin extends ViewPlugin {
     // items for set or single entity
     Entity[] entities = context.getEntities();
     if (entities.length>1) {
-      enrich(context, entities);
+      extend(context, entities);
     } else if (entities.length==1) {
       Entity entity = entities[0];
-      enrich(context, entity);
+      extend(context, entity);
     }
         
     // items for gedcom
-    enrich(context, context.getGedcom());
+    extend(context, context.getGedcom());
 
     // done
   }
@@ -132,7 +140,7 @@ public class EditViewPlugin extends ViewPlugin {
   /**
    * actions for properties
    */
-  private void enrich(ViewContext context, Property[] properties) {
+  private void extend(ViewContext context, Property[] properties) {
     // Toggle "Private"
     if (Enigma.isAvailable())
       context.addAction(properties, new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties)));
@@ -143,7 +151,7 @@ public class EditViewPlugin extends ViewPlugin {
   /**
    * actions for a single property
    */
-  private void enrich(ViewContext context, Property property) {
+  private void extend(ViewContext context, Property property) {
     
     // FileAssociationActions for PropertyFile
     if (property instanceof PropertyFile)  {
@@ -206,21 +214,21 @@ public class EditViewPlugin extends ViewPlugin {
   /**
    * actions for entitites
    */
-  private void enrich(ViewContext context, Entity[] entities) {
+  private void extend(ViewContext context, Entity[] entities) {
     // none
   }
   
   /**
    * actions for a single entity
    */
-  private void enrich(ViewContext context, Entity entity) {
+  private void extend(ViewContext context, Entity entity) {
     
     // indi?
-    if (entity instanceof Indi) enrich(context, (Indi)entity);
+    if (entity instanceof Indi) extend(context, (Indi)entity);
     // fam?
-    if (entity instanceof Fam) enrich(context, (Fam)entity);
+    if (entity instanceof Fam) extend(context, (Fam)entity);
     // submitter?
-    if (entity instanceof Submitter) enrich(context, (Submitter)entity);
+    if (entity instanceof Submitter) extend(context, (Submitter)entity);
     
     // separator
     context.addAction(entity, Action2.NOOP);
@@ -257,7 +265,7 @@ public class EditViewPlugin extends ViewPlugin {
   /**
    * Create actions for Individual
    */
-  private void enrich(ViewContext context, Indi indi) {
+  private void extend(ViewContext context, Indi indi) {
     context.addAction(indi, new CreateChild(indi));
     context.addAction(indi, new CreateParent(indi));
     context.addAction(indi, new CreateSpouse(indi));
@@ -269,7 +277,7 @@ public class EditViewPlugin extends ViewPlugin {
   /**
    * Create actions for Families
    */
-  private void enrich(ViewContext context, Fam fam) {
+  private void extend(ViewContext context, Fam fam) {
     context.addAction(fam, new CreateChild(fam));
     if (fam.getNoOfSpouses()<2)
       context.addAction(fam, new CreateParent(fam));
@@ -280,14 +288,14 @@ public class EditViewPlugin extends ViewPlugin {
   /**
    * Create actions for Submitters
    */
-  private void enrich(ViewContext context, Submitter submitter) {
+  private void extend(ViewContext context, Submitter submitter) {
     context.addAction(submitter, new SetSubmitter(submitter));
   }
   
   /**
    * actions for gedcom
    */
-  private void enrich(ViewContext context, Gedcom gedcom) {
+  private void extend(ViewContext context, Gedcom gedcom) {
     // create the actions
     context.addAction(gedcom, new CreateEntity(gedcom, Gedcom.INDI));
     context.addAction(gedcom, new CreateEntity(gedcom, Gedcom.FAM ));

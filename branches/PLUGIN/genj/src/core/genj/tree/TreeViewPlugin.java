@@ -19,10 +19,14 @@
  */
 package genj.tree;
 
+import javax.swing.JComponent;
+
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
+import genj.gedcom.Gedcom;
 import genj.gedcom.Indi;
 import genj.plugin.ExtensionPoint;
+import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
@@ -47,7 +51,7 @@ public class TreeViewPlugin extends ViewPlugin {
     super.extend(ep);
     
     if (ep instanceof ExtendContextMenu)
-      enrich(((ExtendContextMenu)ep).getContext());
+      extend(((ExtendContextMenu)ep).getContext());
   }
   
   /** our image */
@@ -60,7 +64,12 @@ public class TreeViewPlugin extends ViewPlugin {
     return RESOURCES.getString("title");
   }
   
-  private void enrich(ViewContext context) {
+  /** our view */
+  protected JComponent createView(Gedcom gedcom, Registry registry) {
+    throw new UnsupportedOperationException();
+  }
+  
+  private void extend(ViewContext context) {
 
     // create an action for our tree
     Entity[] entities = context.getEntities();

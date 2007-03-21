@@ -107,7 +107,12 @@ public class PointInTime implements Comparable {
     try {
       year  = Integer.parseInt(yyyymmdd.substring(0, 4));
       month = Integer.parseInt(yyyymmdd.substring(4, 6))-1;
+      if (month<0)
+        month = UNKNOWN;
       day   = Integer.parseInt(yyyymmdd.substring(6, 8))-1;
+      if (day<0)
+        day = UNKNOWN;
+      
     } catch (NumberFormatException e) {
       throw new GedcomException(resources.getString("pit.noyyyymmdd", yyyymmdd));
     }

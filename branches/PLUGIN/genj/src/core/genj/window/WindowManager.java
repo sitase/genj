@@ -121,39 +121,22 @@ public abstract class WindowManager {
     if (instance==null) 
       return;
 
-    // let it do the work
+    // send it out
     instance.broadcastImpl(event);
   }
   
-  private void broadcastImpl(WindowBroadcastEvent event) {
+  protected void broadcastImpl(WindowBroadcastEvent event) {
     
     // are we muted atm?
     if (muteBroadcasts)
       return;
-
     try {
       muteBroadcasts = true;
      
-      // bubble up "outbound"
-      Set visited = new HashSet();
-      Component cursor = event.getSource();
-      while (cursor!=null) {
-        
-        // a listener that cares? chance to stop this from bubbling outbound even more
-        if (cursor instanceof WindowBroadcastListener) {
-          visited.add(cursor);
-          try {
-            if (!((WindowBroadcastListener)cursor).handleBroadcastEvent(event))
-              return;
-          } catch (Throwable t) {
-            LOG.log(Level.WARNING, "broadcast listener threw throwable - cancelling broadcast", t);
-            return;
-          }
-        }
-        
-        // move up 
-        cursor = cursor.getParent();
-      }
+      // send outbound
+      Set visitedOutbound = new HashSet();
+      if (!broadcastOutbound(event, visitedOutbound))
+        return;
       
       // switch to inbound
       event.setInbound();
@@ -171,16 +154,43 @@ public abstract class WindowManager {
       // tell components (but not the originating one)
       String[] keys = recallKeys();
       for (int i = 0; i < keys.length; i++) {
-        broadcastImpl(event, recall(keys[i]), visited);
+        broadcastInbound(event, recall(keys[i]), visitedOutbound);
       }
       
     } finally {
       muteBroadcasts = false;
     }
+    
     // done
   }
   
-  private static void broadcastImpl(WindowBroadcastEvent event, Component component, Set dontRevisit) {
+  protected boolean broadcastOutbound(WindowBroadcastEvent event, Set visited) {
+    
+    // bubble up "outbound"
+    Component cursor = event.getSource();
+    while (cursor!=null) {
+      
+      // a listener that cares? chance to stop this from bubbling outbound even more
+      if (cursor instanceof WindowBroadcastListener) {
+        visited.add(cursor);
+        try {
+          if (!((WindowBroadcastListener)cursor).handleBroadcastEvent(event))
+            return false;
+        } catch (Throwable t) {
+          LOG.log(Level.WARNING, "broadcast listener threw throwable - continuing broadcast", t);
+        }
+      }
+      
+      // move up 
+      cursor = cursor.getParent();
+    }
+
+    // done
+    return true;
+      
+  }
+  
+  protected void broadcastInbound(WindowBroadcastEvent event, Component component, Set dontRevisit) {
     
     // a stop?
     if (dontRevisit.contains(component))
@@ -201,7 +211,7 @@ public abstract class WindowManager {
     if (component instanceof Container) {
       Component[] cs = (((Container)component).getComponents());
       for (int j = 0; j < cs.length; j++) {
-        broadcastImpl(event, cs[j], dontRevisit);
+        broadcastInbound(event, cs[j], dontRevisit);
       }
     }
     
@@ -254,7 +264,7 @@ public abstract class WindowManager {
   /**
    * Setup a new independant window
    */
-  public final String openWindow(String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Action close) {
+  public final String openWindow(String key, String title, ImageIcon image, JComponent content, JMenuBar menu) {
     // create a key?
     if (key==null) 
       key = getTemporaryKey();
@@ -264,7 +274,7 @@ public abstract class WindowManager {
     Rectangle bounds = registry.get(key, (Rectangle)null);
     boolean maximized = registry.get(key+".maximized", false);
     // deal with it in impl
-    Component window = openWindowImpl(key, title, image, content, menu, bounds, maximized, close);
+    Component window = openWindowImpl(key, title, image, content, menu, bounds, maximized);
     // remember it
     window2manager.put(window, this);
     key2window.put(key, window);
@@ -275,7 +285,7 @@ public abstract class WindowManager {
   /**
    * Implementation for handling an independant window
    */
-  protected abstract Component openWindowImpl(String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized, Action onClosing);
+  protected abstract Component openWindowImpl(String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized);
   
   /**
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.lang.String, String[], javax.swing.JComponent)
