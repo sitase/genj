@@ -87,6 +87,7 @@ public class EditViewPlugin extends ViewPlugin {
     // our context extension
     if (ep instanceof ExtendContextMenu)
       extend(((ExtendContextMenu)ep).getContext());
+    
   }
 
   /** our image */

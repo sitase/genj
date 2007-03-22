@@ -186,11 +186,8 @@ public class App {
         winMgr.openDialog("disclaimer", "Disclaimer", WindowManager.INFORMATION_MESSAGE, resources.getString("app.disclaimer"), Action2.okOnly(), null);    
       }
       
-      // setup control center
-      ControlCenter center = new ControlCenter(registry, winMgr, args);
-
-      // show it
-      winMgr.openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar());
+      // show control center
+      winMgr.openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), new ControlCenter(registry, winMgr, args));
 
       // done
       LOG.info("/Startup");

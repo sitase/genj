@@ -42,7 +42,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
-import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 
 /**
@@ -67,7 +66,7 @@ public class DefaultWindowManager extends WindowManager {
   /**
    * Frame implementation
    */
-  protected Component openWindowImpl(final String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized) {
+  protected Component openWindowImpl(final String key, String title, ImageIcon image, JComponent content, Rectangle bounds, boolean maximized) {
     
     // Create a frame
     final JFrame frame = new JFrame() {
@@ -87,7 +86,6 @@ public class DefaultWindowManager extends WindowManager {
     // setup looks
     if (title!=null) frame.setTitle(title);
     if (image!=null) frame.setIconImage(image.getImage());
-    if (menu !=null) frame.setJMenuBar(menu);
 
     // add content
     frame.getContentPane().add(content);

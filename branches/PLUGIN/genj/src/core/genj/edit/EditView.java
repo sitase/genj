@@ -32,11 +32,8 @@ import genj.gedcom.PropertyXRef;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
-import genj.util.swing.PopupWidget;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
-import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
 import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
@@ -57,8 +54,6 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 
 import spin.Spin;
@@ -66,7 +61,7 @@ import spin.Spin;
 /**
  * Component for editing genealogic entity properties
  */
-public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastListener, ContextProvider  {
+public class EditView extends JPanel implements WindowBroadcastListener, ContextProvider  {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.edit");
   
@@ -104,7 +99,7 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
    */
   public EditView(Gedcom setGedcom, Registry setRegistry) {
     
-    super(new BorderLayout());
+    setLayout(new BorderLayout());
     
     // remember
     gedcom   = setGedcom;
@@ -128,9 +123,6 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
 
     // Done
   }
-  
-  
-
   
   /**
    * Set editor to use
@@ -179,6 +171,18 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     if (entity==null) entity = gedcom.getFirstEntity(Gedcom.INDI);
     isSticky = entity==null ? false : registry.get("sticky", false);
     if (entity!=null) setContext(new ViewContext(entity));
+    
+    // add our toolbar buttons
+    List actions = new ArrayList();
+    actions.add(back);
+    actions.add(forward);
+    actions.add(sticky);
+    actions.add(new Undo(gedcom));
+    actions.add(new Redo(gedcom));
+    actions.add(contextMenu);
+    actions.add(Action2.NOOP);
+    actions.add(mode);
+    WindowManager.setToolbar(this, actions);
     
     // listen to gedcom
     callback.enable();
@@ -333,37 +337,6 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   }
   
   /**
-   * @see genj.view.ToolBarSupport#populate(JToolBar)
-   */
-  public void populate(JToolBar bar) {
-
-    // buttons for property manipulation    
-    ButtonHelper bh = new ButtonHelper()
-      .setInsets(0)
-      .setContainer(bar);
-
-    // return in history
-    bh.create(back);
-    bh.create(forward);
-    
-    // toggle sticky
-    bh.create(sticky, Images.imgStickOn, isSticky);
-    
-    // add undo/redo
-    bh.create(new Undo(gedcom).setText(null));
-    bh.create(new Redo(gedcom).setText(null));
-    
-    // add actions
-    bar.add(contextMenu);
-    
-    // add basic/advanced
-    bar.addSeparator();
-    bh.create(mode, Images.imgAdvanced, mode.advanced).setFocusable(false);
-    
-    // done
-  }
-  
-  /**
    * @see javax.swing.JComponent#getPreferredSize()
    */
   public Dimension getPreferredSize() {
@@ -387,21 +360,19 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   /**
    * ContextMenu
    */
-  private class ContextMenu extends PopupWidget {
+  private class ContextMenu extends Action2 {
     
     /** constructor */
     private ContextMenu() {
-      setIcon(Gedcom.getImage());
+      setImage(Gedcom.getImage());
       setToolTipText(resources.getString( "action.context.tip" ));
     }
     
-    /** override - popup creation */
-    protected JPopupMenu createPopup() {
+    /** execute */
+    protected void execute() {
       // force editor to commit
       editor.setContext(editor.getContext());
       // FIXME where do we get the plugin manager from?
-      return super.createPopup();
-      // create popup
       //return manager.getContextMenu(editor.getContext(), this);
     }
      
@@ -419,6 +390,7 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     /** run */
     protected void execute() {
       isSticky = !isSticky;
+      super.setImage(isSticky ? Images.imgStickOn : Images.imgStickOff);
     }
   } //Sticky
   
@@ -435,6 +407,7 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     protected void execute() {
       advanced = !advanced;
       setEditor(advanced ? (Editor)new AdvancedEditor() : new BasicEditor());
+      setImage(advanced ? Images.imgAdvanced : Images.imgView);
     }
   } //Advanced
 

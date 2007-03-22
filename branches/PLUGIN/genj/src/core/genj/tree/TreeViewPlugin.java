@@ -19,8 +19,6 @@
  */
 package genj.tree;
 
-import javax.swing.JComponent;
-
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
@@ -33,6 +31,8 @@ import genj.util.swing.ImageIcon;
 import genj.view.ExtendContextMenu;
 import genj.view.ViewContext;
 import genj.view.ViewPlugin;
+
+import javax.swing.JComponent;
 
 /**
  * A view plugin providing editing view and actions 

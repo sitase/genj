@@ -148,7 +148,7 @@ public abstract class ViewPlugin implements Plugin {
 
       // create the view
       JComponent view = createView(gedcom, registry);
-
+      
 // FIXME context keyboard shortcut      
 //      // add context hook for keyboard shortcuts
 //      InputMap inputs = view.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -157,11 +157,31 @@ public abstract class ViewPlugin implements Plugin {
 //      view.getActionMap().put(contextHook, contextHook);
 
       // open frame
-      manager.getWindowManager().openWindow(key, title, ViewPlugin.this.getImage(), view, null);
+      manager.getWindowManager().openWindow(key, title, ViewPlugin.this.getImage(), view);
+      
+      // extend toolbar
+//      WindowManager.addToolbarAction(view, new Close(key));
           
       // done
     }
     
   } //Open
 
+  /**
+   * Action - Close view
+   */
+  private class Close extends Action2 {
+    private String key;
+    /** constructor */
+    protected Close(String key) {
+      this.key = key;
+      setImage(Images.imgClose);
+      setTip(ViewManager.RESOURCES, "view.close.tip");
+    }
+    /** run */
+    protected void execute() {
+      manager.getWindowManager().close(key);
+    }
+  } //ActionClose
+  
 } //ViewPlugin

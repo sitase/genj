@@ -21,6 +21,7 @@ package genj.window;
 
 import genj.util.Registry;
 import genj.util.swing.Action2;
+import genj.util.swing.ButtonHelper;
 import genj.util.swing.TextAreaWidget;
 import genj.util.swing.TextFieldWidget;
 
@@ -53,7 +54,10 @@ import javax.swing.JLabel;
 import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JRootPane;
 import javax.swing.JScrollPane;
+import javax.swing.JToolBar;
+import javax.swing.RootPaneContainer;
 
 /**
  * Abstract base type for WindowManagers
@@ -109,6 +113,52 @@ public abstract class WindowManager {
    */
   public void removeBroadcastListener(WindowBroadcastListener listener) {
     listeners.remove(listener);
+  }
+  
+  /**
+   * Find a JRootPane
+   */
+  protected static JRootPane getRootPane(Component component) {
+    // look for a rootpane
+    while (component!=null) {
+      if (component instanceof RootPaneContainer) 
+        return ((RootPaneContainer)component).getRootPane();
+      component = component.getParent();
+    }
+    throw new IllegalStateException("can't find rootpane of "+component);
+  }
+  
+  /**
+   * Set the menubar for a component's root pane
+   */
+  public static void setMenubar(Component component, JMenuBar menubar) {
+   getRootPane(component).setJMenuBar(menubar);
+  }
+  
+  /**
+   * Set the toolbar to the provided actions for a component's root pane
+   */
+  public static void setToolbar(Component component, List actions) {
+    // look for a suitable toolbar
+    Container content = getRootPane(component).getContentPane();
+    JToolBar toolbar = null;
+    for (int i=0, j=content.getComponentCount(); i<j; i++) {
+      Component c = content.getComponent(i); 
+      if (c instanceof JToolBar) {
+        toolbar = (JToolBar)c;
+        break;
+      }
+    }
+    if (toolbar==null) {
+      toolbar = new JToolBar();
+      content.add(BorderLayout.NORTH, toolbar);
+    }
+    // set those actions
+    ButtonHelper bh = new ButtonHelper().setContainer(toolbar);//.setInsets(0);
+    for (Iterator it = actions.iterator(); it.hasNext();) {
+      bh.create((Action) it.next());
+    }
+    // done
   }
 
   /**
@@ -264,7 +314,7 @@ public abstract class WindowManager {
   /**
    * Setup a new independant window
    */
-  public final String openWindow(String key, String title, ImageIcon image, JComponent content, JMenuBar menu) {
+  public final String openWindow(String key, String title, ImageIcon image, JComponent content) {
     // create a key?
     if (key==null) 
       key = getTemporaryKey();
@@ -274,7 +324,7 @@ public abstract class WindowManager {
     Rectangle bounds = registry.get(key, (Rectangle)null);
     boolean maximized = registry.get(key+".maximized", false);
     // deal with it in impl
-    Component window = openWindowImpl(key, title, image, content, menu, bounds, maximized);
+    Component window = openWindowImpl(key, title, image, content, bounds, maximized);
     // remember it
     window2manager.put(window, this);
     key2window.put(key, window);
@@ -285,7 +335,7 @@ public abstract class WindowManager {
   /**
    * Implementation for handling an independant window
    */
-  protected abstract Component openWindowImpl(String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized);
+  protected abstract Component openWindowImpl(String key, String title, ImageIcon image, JComponent content, Rectangle bounds, boolean maximized);
   
   /**
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.lang.String, String[], javax.swing.JComponent)

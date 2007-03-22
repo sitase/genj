@@ -76,7 +76,6 @@ import java.util.Set;
 import java.util.logging.Level;
 
 import javax.swing.Action;
-import javax.swing.Box;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -180,6 +179,16 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     // continue
     return true;
   }
+  
+  /**
+   * @see JPanel#addNotify()
+   */
+  public void addNotify() {
+    // let super do its thing
+    super.addNotify();
+    // init our menu bar
+    WindowManager.setMenubar(this, menuBar);
+  }
 
   /**
    * Adds another Gedcom to the list of Gedcoms
@@ -209,13 +218,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     // forget about it
     tGedcoms.removeGedcom(gedcom);
     gedcom.removeLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)stats));
-  }
-  
-  /**
-   * Returns a menu for frame showing this controlcenter
-   */
-  /*package*/ JMenuBar getMenuBar() {
-    return menuBar;
   }
   
   /**
@@ -289,7 +291,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
       Action2 action = (Action2)actions.next();
       bh.create(action);
     }
-    toolBar.add(Box.createGlue());
     
     // Done
   }
@@ -347,7 +348,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     protected void execute() {
       if (windowManager.show("help"))
         return;
-      windowManager.openWindow("help",resources.getString("cc.menu.help"),Images.imgHelp,new HelpWidget(),null);
+      windowManager.openWindow("help",resources.getString("cc.menu.help"),Images.imgHelp,new HelpWidget());
       // done
     }
   } //ActionHelp

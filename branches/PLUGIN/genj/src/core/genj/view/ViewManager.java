@@ -188,8 +188,7 @@ public class ViewManager {
         "settings", 
         RESOURCES.getString("view.edit.title"),
         Images.imgSettings,
-        settings,
-        null
+        settings
       );
     } else {
       settings.setView(handle);
@@ -343,7 +342,7 @@ public class ViewManager {
     
     // open frame
     // FIXME we've been using close here before
-    windowManager.openWindow(handle.getKey(), title, factory.getImage(), container, null);
+    windowManager.openWindow(handle.getKey(), title, factory.getImage(), container);
         
     // done
     return handle;

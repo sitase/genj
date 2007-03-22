@@ -19,7 +19,6 @@
  */
 package genj.util.swing;
 
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Insets;
 
@@ -88,10 +87,6 @@ public class ButtonHelper {
       return null;
     }
     
-    // no mnemonic in JToolbars please
-    if (container instanceof JToolBar)
-      action.putValue(Action.MNEMONIC_KEY, null);
-    
     // create the button and hook it up to action
     final AbstractButton result = createButton(type);
     if (result instanceof JButton) {
@@ -99,6 +94,12 @@ public class ButtonHelper {
         result.setHorizontalTextPosition(SwingConstants.CENTER);
     }
     result.setAction(action);
+    
+    // no mnemonic and text in JToolbars please
+    if (container instanceof JToolBar) {
+      result.setMnemonic(0);   // action.putValue(Action.MNEMONIC_KEY, null);
+      result.setText(null);
+    }
     
     // patch its look
     if (insets!=null)
@@ -116,7 +117,8 @@ public class ButtonHelper {
       if (action instanceof Action2)
         ((Action2)action).setTarget(container);
       container.add(result);
-      if (container instanceof JToolBar) result.setMaximumSize(new Dimension(128,128));
+      // 20070323 hmm, why did I do this - don't want components to stretch really
+      //if (container instanceof JToolBar) result.setMaximumSize(new Dimension(128,128));
     }
 
     // done
