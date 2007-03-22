@@ -91,7 +91,7 @@ public class ReportView extends JPanel implements ToolBarSupport {
   private final static String EOL= System.getProperty("line.separator");
 
   /** statics */
-  private final static ImageIcon
+  /*package*/ final static ImageIcon
     imgStart = new ImageIcon(ReportView.class,"Start.gif"      ),
     imgStop  = new ImageIcon(ReportView.class,"Stop.gif"       ),
     imgSave  = new ImageIcon(ReportView.class,"Save.gif"       ),

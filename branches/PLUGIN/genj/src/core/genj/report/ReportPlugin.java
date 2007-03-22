@@ -19,29 +19,36 @@
  */
 package genj.report;
 
+import genj.app.ExtendMenubar;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.UnitOfWork;
 import genj.plugin.ExtensionPoint;
-import genj.util.Registry;
+import genj.plugin.Plugin;
+import genj.plugin.PluginManager;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.ExtendContextMenu;
 import genj.view.ViewContext;
-import genj.view.ViewPlugin;
 
 import java.util.logging.Level;
 
-import javax.swing.JComponent;
-
 /**
- * A view plugin providing editing view and actions 
+ * A  plugin providing report management 
  */
-public class ReportViewPlugin extends ViewPlugin {
+public class ReportPlugin implements Plugin {
   
   /*package*/ final static ImageIcon IMG = new ImageIcon(ReportViewFactory.class, "View.gif");
+
+  private final static Resources RESOURCES =  Resources.get(ReportPlugin.class);
+
+  /**
+   * Initialization
+   */
+  public void initPlugin(PluginManager manager) {
+  }
   
   /**
    * Adding our custom edit actions
@@ -49,41 +56,37 @@ public class ReportViewPlugin extends ViewPlugin {
    */
   public void extend(ExtensionPoint ep) {
     
-    super.extend(ep);
+    if (ep instanceof ExtendMenubar)
+      extend((ExtendMenubar)ep);
     
     if (ep instanceof ExtendContextMenu)
-      enrich(((ExtendContextMenu)ep).getContext());
+      extend(((ExtendContextMenu)ep).getContext());
   }
   
-  /** our image */
-  public ImageIcon getImage() {
-    return IMG;
-  }
   
-  /** our text */
-  public String getTitle() {
-    return Resources.get(this).getString("title");
-  }
-  
-  /** our view */
-  protected JComponent createView(Gedcom gedcom, Registry registry) {
-    throw new UnsupportedOperationException();
+  /**
+   * Extend a menubar with our management functions
+   */
+  private void extend(ExtendMenubar menubar) {
+    String menu = RESOURCES.getString("report.reports");
+    menubar.addAction(menu, new Catalog());
+    menubar.addAction(menu, new Reload());
   }
   
   /**
-   * Enrich a view context with our actions
+   * Extend a view context with our actions
    */
-  private void enrich(ViewContext context) {
+  private void extend(ViewContext context) {
     
     // list of properties or a single property in there?
     Property[] properties = context.getProperties();
     if (properties.length>1) {
-      enrich(context, properties);
+      extend(context, properties);
     } else if (properties.length==1) {
       // recursively 
       Property property = properties[0];
       while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
-        enrich(context, property);
+        extend(context, property);
         property = property.getParent();
       }
     }    
@@ -91,14 +94,14 @@ public class ReportViewPlugin extends ViewPlugin {
     // items for set or single entity
     Entity[] entities = context.getEntities();
     if (entities.length>1) {
-      enrich(context, entities);
+      extend(context, entities);
     } else if (entities.length==1) {
       Entity entity = entities[0];
-      enrich(context, entity);
+      extend(context, entity);
     }
         
     // items for gedcom
-    enrich(context, context.getGedcom());
+    extend(context, context.getGedcom());
 
     // done
   }
@@ -106,7 +109,7 @@ public class ReportViewPlugin extends ViewPlugin {
   /**
    * collects reports valid for given argument
    */
-  private void enrich(ViewContext context, Object argument) {
+  private void extend(ViewContext context, Object argument) {
     
     // Look through reports
     Report[] reports = ReportLoader.getInstance().getReports();
@@ -115,7 +118,7 @@ public class ReportViewPlugin extends ViewPlugin {
       try {
         String accept = report.accepts(argument); 
         if (accept!=null) 
-          context.addAction(argument, new ActionRun(accept, argument, context.getGedcom(), report));
+          context.addAction(argument, new Run(accept, argument, context.getGedcom(), report));
       } catch (Throwable t) {
         ReportView.LOG.log(Level.WARNING, "Report "+report.getClass().getName()+" failed in accept()", t);
       }
@@ -125,9 +128,34 @@ public class ReportViewPlugin extends ViewPlugin {
   }
 
   /**
+   * Report Management
+   */
+  private class Catalog extends Action2 {
+    private Catalog() {
+      setText(RESOURCES.getString("catalog"));
+      setImage(IMG);
+    }
+    protected void execute() {
+    }
+  }
+
+  /**
+   * Report Management
+   */
+  private class Reload extends Action2 {
+    private Reload() {
+      setText(RESOURCES.getString("report.reload.tip"));
+      setImage(ReportView.imgReload);
+      setEnabled(false);
+    }
+    protected void execute() {
+    }
+  }
+
+  /**
    * Run a report
    */
-  private class ActionRun extends Action2 {
+  private class Run extends Action2 {
     /** context */
     private Object context;
     /** gedcom */
@@ -135,7 +163,7 @@ public class ReportViewPlugin extends ViewPlugin {
     /** report */
     private Report report;
     /** constructor */
-    private ActionRun(String txt, Object context, Gedcom gedcom, Report report) {
+    private Run(String txt, Object context, Gedcom gedcom, Report report) {
       // remember
       this.context = context;
       this.gedcom = gedcom;
