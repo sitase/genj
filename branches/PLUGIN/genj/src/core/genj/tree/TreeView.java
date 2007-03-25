@@ -524,19 +524,19 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     
     // overview
     ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
-    bh.create(new ActionOverview(), null, overview.isVisible());
+    bh.create(new ActionOverview()).setSelected(overview.isVisible());
     
     // gap
     bar.addSeparator();
     
     // vertical/horizontal
-    bh.create(new ActionOrientation(), Images.imgVert, model.isVertical());
+    bh.create(new ActionOrientation()).setSelected(model.isVertical());
     
     // families?
-    bh.create(new ActionFamsAndSpouses(), Images.imgDoFams, model.isFamilies());
+    bh.create(new ActionFamsAndSpouses()).setSelected(model.isFamilies());
       
     // toggless?
-    bh.create(new ActionFoldSymbols(), null, model.isFoldSymbols());
+    bh.create(new ActionFoldSymbols()).setSelected(model.isFoldSymbols());
       
     // gap
     bar.addSeparator();
@@ -913,15 +913,20 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     /**
      * Constructor     */
     private ActionOrientation() {
-      super.setImage(Images.imgHori);
-      super.setTip(resources, "orientation.tip");
+      setImage();
+      setTip(resources, "orientation.tip");
     }
     /**
      * @see genj.util.swing.Action2#execute()
      */
     protected void execute() {
       model.setVertical(!model.isVertical());
+      setImage();
       scrollToCurrent();
+    }
+    
+    private void setImage() {
+      setImage( model.isVertical() ? Images.imgVert : Images.imgHori);
     }
   } //ActionOrientation
   
@@ -933,15 +938,19 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
      * Constructor
      */
     private ActionFamsAndSpouses() {
-      super.setImage(Images.imgDontFams);
-      super.setTip(resources, "families.tip");
+      setImage();
+      setTip(resources, "families.tip");
     }
     /**
      * @see genj.util.swing.Action2#execute()
      */
     protected void execute() {
       model.setFamilies(!model.isFamilies());
+      setImage();
       scrollToCurrent();
+    }
+    private void setImage() {
+      setImage(model.isFamilies() ? Images.imgDoFams : Images.imgDontFams);
     }
   } //ActionFamsAndSpouses
 
@@ -953,8 +962,8 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
      * Constructor
      */
     private ActionFoldSymbols() {
-      super.setImage(Images.imgFoldSymbols);
-      super.setTip(resources, "foldsymbols.tip");
+      setTip(resources, "foldsymbols.tip");
+      setImage(Images.imgFoldSymbols);
     }
     /**
      * @see genj.util.swing.Action2#execute()

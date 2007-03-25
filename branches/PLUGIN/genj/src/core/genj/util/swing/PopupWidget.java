@@ -19,8 +19,6 @@
  */
 package genj.util.swing;
 
-
-import java.awt.Dimension;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
@@ -99,9 +97,6 @@ public class PopupWidget extends JButton {
   public void addNotify() {
     // continue
     super.addNotify();
-    // check container - don't mind resizing in toolbar
-    if (getParent() instanceof JToolBar) 
-      setMaximumSize(new Dimension(128,128));
   }
 
   

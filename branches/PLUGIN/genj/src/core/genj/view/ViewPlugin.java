@@ -43,7 +43,7 @@ public abstract class ViewPlugin implements Plugin {
   
   private static Resources RESOURCES = Resources.get(ViewPlugin.class);
   
-  private PluginManager manager = null;
+  protected PluginManager manager = null;
 
   /**
    * @see genj.plugin.Plugin#initPlugin(genj.plugin.PluginManage)

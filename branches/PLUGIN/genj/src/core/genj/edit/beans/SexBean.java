@@ -23,10 +23,10 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
 import genj.util.Registry;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 
 import javax.swing.AbstractButton;
 import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
 import javax.swing.JRadioButton;
 
 /**
@@ -56,12 +56,12 @@ public class SexBean extends PropertyBean {
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
       
     // create buttons    
-    ButtonHelper bh = new ButtonHelper()
-      .setButtonType(JRadioButton.class)
-      .setContainer(this);
-    bh.createGroup();
-    for (int i=0;i<buttons.length;i++)
-      buttons[i] = bh.create( new Gender(i) );
+    ButtonGroup group = new ButtonGroup();
+    for (int i=0;i<buttons.length;i++) {
+      buttons[i] = new JRadioButton(new Gender(i) );
+      this.add(buttons[i]);
+      group.add(buttons[i]);
+    }
     
     // Done
   }

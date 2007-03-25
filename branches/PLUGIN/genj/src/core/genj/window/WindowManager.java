@@ -21,7 +21,6 @@ package genj.window;
 
 import genj.util.Registry;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 import genj.util.swing.TextAreaWidget;
 import genj.util.swing.TextFieldWidget;
 
@@ -138,26 +137,17 @@ public abstract class WindowManager {
   /**
    * Set the toolbar to the provided actions for a component's root pane
    */
-  public static void setToolbar(Component component, List actions) {
-    // look for a suitable toolbar
+  public static void setToolbar(Component component, JToolBar toolbar) {
+    // remove any previous toolbars
     Container content = getRootPane(component).getContentPane();
-    JToolBar toolbar = null;
-    for (int i=0, j=content.getComponentCount(); i<j; i++) {
-      Component c = content.getComponent(i); 
-      if (c instanceof JToolBar) {
-        toolbar = (JToolBar)c;
-        break;
-      }
+    Component[] cs = content.getComponents();
+    for (int i=0; i<cs.length; i++) {
+      if (cs[i] instanceof JToolBar) 
+        content.remove(cs[i]);
     }
-    if (toolbar==null) {
-      toolbar = new JToolBar();
+    // add new
+    if (toolbar!=null) 
       content.add(BorderLayout.NORTH, toolbar);
-    }
-    // set those actions
-    ButtonHelper bh = new ButtonHelper().setContainer(toolbar);//.setInsets(0);
-    for (Iterator it = actions.iterator(); it.hasNext();) {
-      bh.create((Action) it.next());
-    }
     // done
   }
 

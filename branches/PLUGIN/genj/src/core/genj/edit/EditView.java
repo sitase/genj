@@ -29,9 +29,12 @@ import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomListenerAdapter;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
+import genj.plugin.PluginManager;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.PopupWidget;
+import genj.view.ContextMenuHelper;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
@@ -54,6 +57,9 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JToggleButton;
+import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 
 import spin.Spin;
@@ -84,35 +90,35 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
   private Sticky   sticky = new Sticky();
   private Back     back = new Back();
   private Forward forward = new Forward();
-  private Mode     mode;
-  private ContextMenu contextMenu = new ContextMenu();
+  private Mode     mode = new Mode();
+  private Popup contextMenu = new Popup();
   private Callback callback = new Callback();
   
   /** whether we're sticky */
   private  boolean isSticky = false;
 
+  /** whether we're in basic mode */
+  private  boolean isAdvanced = false;
+
   /** current editor */
   private Editor editor;
+  
+  /** plugin manager */
+  private PluginManager manager;
   
   /**
    * Constructor
    */
-  public EditView(Gedcom setGedcom, Registry setRegistry) {
+  public EditView(PluginManager setManager, Gedcom setGedcom, Registry setRegistry) {
     
     setLayout(new BorderLayout());
     
     // remember
+    manager = setManager;
     gedcom   = setGedcom;
     registry = setRegistry;
     beanFactory = new BeanFactory(registry);
 
-    // prepare action
-    mode = new Mode();
-    
-    // run mode switch if applicable
-    if (registry.get("advanced", false))
-      mode.trigger();
-    
     // add keybindings
     InputMap imap = getInputMap(WHEN_IN_FOCUSED_WINDOW);
     ActionMap amap = getActionMap();
@@ -165,24 +171,34 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
     
     // remember
     instances.add(this);
+
+    // editor to use
+    isAdvanced = registry.get("advanced", false);
+    setEditor(isAdvanced ? (Editor)new AdvancedEditor() : new BasicEditor());
     
-    // Check if we can preset something to edit
+    // context to edit?
     Entity entity = gedcom.getEntity(registry.get("entity", (String)null));
     if (entity==null) entity = gedcom.getFirstEntity(Gedcom.INDI);
     isSticky = entity==null ? false : registry.get("sticky", false);
     if (entity!=null) setContext(new ViewContext(entity));
     
-    // add our toolbar buttons
-    List actions = new ArrayList();
-    actions.add(back);
-    actions.add(forward);
-    actions.add(sticky);
-    actions.add(new Undo(gedcom));
-    actions.add(new Redo(gedcom));
-    actions.add(contextMenu);
-    actions.add(Action2.NOOP);
-    actions.add(mode);
-    WindowManager.setToolbar(this, actions);
+    // prepare toggle for sticky&mode
+    JToggleButton tsticky = new JToggleButton(sticky);
+    tsticky.setSelected(isSticky);
+    JToggleButton tmode = new JToggleButton(mode);
+    tmode.setSelected(isAdvanced);
+
+    // set our toolbar
+    JToolBar toolbar = new JToolBar();
+    toolbar.add(back);
+    toolbar.add(forward);
+    toolbar.add(tsticky);
+    toolbar.add(new Undo(gedcom));
+    toolbar.add(new Redo(gedcom));
+    toolbar.add(contextMenu);
+    toolbar.add(Action2.NOOP);
+    toolbar.add(tmode);
+    WindowManager.setToolbar(this, toolbar);
     
     // listen to gedcom
     callback.enable();
@@ -201,7 +217,7 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
       registry.put("entity", entity.getId());
 
     // remember mode
-    registry.put("advanced", mode.advanced);
+    registry.put("advanced", isAdvanced);
 
     // forget this instance
     instances.remove(this);
@@ -360,20 +376,21 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
   /**
    * ContextMenu
    */
-  private class ContextMenu extends Action2 {
+  private class Popup extends PopupWidget {
     
     /** constructor */
-    private ContextMenu() {
-      setImage(Gedcom.getImage());
+    private Popup() {
+      setIcon(Gedcom.getImage());
       setToolTipText(resources.getString( "action.context.tip" ));
     }
     
-    /** execute */
-    protected void execute() {
+    /** override - popup creation */
+    protected JPopupMenu createPopup() {
       // force editor to commit
-      editor.setContext(editor.getContext());
-      // FIXME where do we get the plugin manager from?
-      //return manager.getContextMenu(editor.getContext(), this);
+      ViewContext context = editor.getContext();
+      editor.setContext(context);
+      // show menu
+      return ContextMenuHelper.createContextMenu(context, EditView.this, manager);
     }
      
   } //ContextMenu
@@ -384,12 +401,15 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
   private class Sticky extends Action2 {
     /** constructor */
     protected Sticky() {
-      super.setImage(Images.imgStickOff);
+      setImage();
       super.setTip(resources, "action.stick.tip");
     }
     /** run */
     protected void execute() {
       isSticky = !isSticky;
+      setImage();
+    }
+    private void setImage() {
       super.setImage(isSticky ? Images.imgStickOn : Images.imgStickOff);
     }
   } //Sticky
@@ -398,16 +418,17 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
    * Action - advanced or basic
    */
   private class Mode extends Action2 {
-    private boolean advanced = false;
     private Mode() {
-      setImage(Images.imgView);
-      setEditor(new BasicEditor());
       setTip(resources, "action.mode");
+      setImage();
     }
     protected void execute() {
-      advanced = !advanced;
-      setEditor(advanced ? (Editor)new AdvancedEditor() : new BasicEditor());
-      setImage(advanced ? Images.imgAdvanced : Images.imgView);
+      isAdvanced = !isAdvanced;
+      setEditor(isAdvanced ? (Editor)new AdvancedEditor() : new BasicEditor());
+      setImage();
+    }
+    private void setImage() {
+      super.setImage(isAdvanced ? Images.imgAdvanced : Images.imgView);
     }
   } //Advanced
 
