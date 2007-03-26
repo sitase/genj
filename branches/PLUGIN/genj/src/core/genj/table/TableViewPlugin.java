@@ -23,26 +23,19 @@ import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
-import genj.view.ViewFactory;
-import genj.view.ViewManager;
+import genj.view.ViewPlugin;
 
 import javax.swing.JComponent;
 
 /**
- * The factory for the TableView
+ * The plugin for rendering Tables
  */
-public class TableViewFactory implements ViewFactory {
+public class TableViewPlugin extends ViewPlugin {
   
-  /** our image */
-  private final static ImageIcon IMG = new ImageIcon(TableViewFactory.class, "images/View.gif");
+  private final static ImageIcon IMG = new ImageIcon(TableViewPlugin.class, "images/View.gif");
 
-  /**
-   * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
-   */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
-    return new TableView(title,gedcom,registry,manager);
-  }
-
+  private final static Resources RESOURCES = Resources.get("genj.table");
+  
   /**
    * @see genj.view.ViewFactory#getImage()
    */
@@ -51,10 +44,17 @@ public class TableViewFactory implements ViewFactory {
   }
   
   /**
-   * @see genj.view.ViewFactory#getName(boolean)
+   * @see ViewPlugin#getTitle()
    */
-  public String getTitle(boolean abbreviate) {
-    return Resources.get(this).getString("title" + (abbreviate?".short":""));
+  protected String getTitle() {
+    return RESOURCES.getString("title");
+  }
+
+  /**
+   * @see genj.view.ViewPlugin#createView()
+   */
+  protected JComponent createView(Gedcom gedcom, Registry registry) {
+    return new TableView(gedcom, registry);
   }
 
 } //TableViewFactory

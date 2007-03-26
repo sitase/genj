@@ -1,4 +1,3 @@
-genj.table.TableViewFactory
 genj.tree.TreeViewFactory
 genj.timeline.TimelineViewFactory
 genj.report.ReportViewFactory

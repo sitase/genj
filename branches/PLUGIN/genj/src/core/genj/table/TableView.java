@@ -30,9 +30,7 @@ import genj.gedcom.TagPath;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
-import genj.view.ToolBarSupport;
-import genj.view.ViewManager;
+import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -44,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
@@ -54,7 +51,7 @@ import javax.swing.table.TableModel;
 /**
  * Component for showing entities of a gedcom file in a tabular way
  */
-public class TableView extends JPanel implements ToolBarSupport  {
+public class TableView extends JPanel {
   
   private final static Logger LOG = Logger.getLogger("genj.table");
 
@@ -64,14 +61,8 @@ public class TableView extends JPanel implements ToolBarSupport  {
   /** the gedcom we're looking at */
   private Gedcom gedcom;
   
-  /** the manager around us */
-  private ViewManager manager;
-  
   /** the registry we keep */
   private Registry registry;
-  
-  /** the title we keep */
-  private String title;
   
   /** the table we're using */
   /*package*/ PropertyTableWidget propertyTable;
@@ -97,13 +88,11 @@ public class TableView extends JPanel implements ToolBarSupport  {
   /**
    * Constructor
    */
-  public TableView(String titl, Gedcom gedcom, Registry registry, ViewManager mgr) {
+  public TableView(Gedcom gedcom, Registry registry) {
     
     // keep some stuff
     this.gedcom = gedcom;
     this.registry = registry;
-    this.title = titl;
-    this.manager = mgr;
     
     // read properties
     loadProperties();
@@ -144,6 +133,18 @@ public class TableView extends JPanel implements ToolBarSupport  {
     Mode set = currentMode;
     currentMode = null;
     setMode(set);
+    // set our toolbar
+    JToolBar toolbar = new JToolBar();
+    for (int i=0, j=1;i<Gedcom.ENTITIES.length;i++) {
+      String tag = Gedcom.ENTITIES[i];
+      // don't offer OBJEct button unless there are some of those already or the option to create them is selected
+      if (!tag.equals("OBJE")||!gedcom.getEntities(tag).isEmpty()||Options.getInstance().isAllowNewOBJEctEntities) {
+        SwitchMode change = new SwitchMode(getMode(tag));
+        toolbar.add(change);
+      }
+    }
+    WindowManager.setToolbar(this, toolbar);
+    // done
   }
 
   /**
@@ -191,27 +192,6 @@ public class TableView extends JPanel implements ToolBarSupport  {
     propertyTable.setModel(new Model(currentMode));
     // update its layout
     propertyTable.setColumnLayout(currentMode.layout);
-  }
-  
-  /**
-   * @see genj.view.ToolBarSupport#populate(JToolBar)
-   */
-  public void populate(JToolBar bar) {
-    // create buttons for mode switch
-    ButtonHelper bh = new ButtonHelper().setInsets(0).setContainer(bar);
-    
-    InputMap inputs = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-    
-    for (int i=0, j=1;i<Gedcom.ENTITIES.length;i++) {
-      String tag = Gedcom.ENTITIES[i];
-      // don't offer OBJEct button unless there are some of those already or the option to create them is selected
-      if (!tag.equals("OBJE")||!gedcom.getEntities(tag).isEmpty()||Options.getInstance().isAllowNewOBJEctEntities) {
-        SwitchMode change = new SwitchMode(getMode(tag));
-        bh.create(change);
-      }
-    }
-    
-    // done
   }
   
   /**
