@@ -21,7 +21,10 @@ package genj.view;
 
 import genj.app.ExtendMenubar;
 import genj.app.ExtendToolbar;
+import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
+import genj.gedcom.Property;
+import genj.gedcom.TagPath;
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
 import genj.plugin.PluginManager;
@@ -30,11 +33,17 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
+import genj.util.swing.MenuHelper;
+import genj.window.WindowManager;
 
+import java.awt.Component;
+import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.swing.JComponent;
+import javax.swing.JPopupMenu;
+import javax.swing.MenuSelectionManager;
 
 /**
  * A plugin that provides [a] view(s) onto gedcom data
@@ -117,6 +126,92 @@ public abstract class ViewPlugin implements Plugin {
     
   }
 
+  /** 
+   * helper for creating a context menu popupmenu
+   */
+  public static JPopupMenu createContextMenu(ViewContext context, Component target) {
+    
+    // make sure context is valid
+    if (context==null)
+      throw new IllegalArgumentException("context can't be null");
+    
+    // decipher content
+    Property[] properties = context.getProperties();
+    Entity[] entities = context.getEntities();
+    Gedcom gedcom = context.getGedcom();
+
+    // send it around
+    PluginManager.get().extend(new ExtendContextMenu(context));
+    
+    // make sure any existing popup is cleared
+    MenuSelectionManager.defaultManager().clearSelectedPath();
+    
+    // hook up context menu to toplevel component - child components are more likely to have been 
+    // removed already by the time any of the associated actions are run
+    while (target.getParent()!=null) target = target.getParent();
+
+    // create a popup
+    MenuHelper mh = new MenuHelper().setTarget(target);
+    JPopupMenu popup = mh.createPopup();
+    
+    // items for local actions?
+    mh.createItems(context.getActions());
+    
+    // popup for string keyed actions?
+    if (!context.getActionGroups().isEmpty()) {
+      for (Iterator keys = context.getActionGroups().iterator(); keys.hasNext();) {
+        Object key = keys.next();
+        if (key instanceof String) {
+          mh.createMenu((String)key);
+          mh.createItems(context.getActions(key));
+          mh.popMenu();
+        }
+      }
+    }
+    
+    // dive into gedcom structure 
+    mh.createSeparator(); // it's lazy
+    
+    // items for set or single property?
+    if (properties.length>1) {
+      mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
+      mh.createItems(context.getActions(properties));
+      mh.popMenu();
+    } else if (properties.length==1) {
+      Property property = properties[0];
+      while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
+        // a sub-menu with appropriate actions
+        mh.createMenu(Property.LABEL+" '"+TagPath.get(property).getName() + '\'' , property.getImage(false));
+        mh.createItems(context.getActions(property));
+        mh.popMenu();
+        // recursively for parents
+        property = property.getParent();
+      }
+    }
+        
+    // items for set or single entity
+    if (entities.length>1) {
+      mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
+      mh.createItems(context.getActions(entities));
+      mh.popMenu();
+    } else if (entities.length==1) {
+      Entity entity = entities[0];
+      String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
+      mh.createMenu(title, entity.getImage(false));
+      mh.createItems(context.getActions(entity));
+      mh.popMenu();
+    }
+        
+    // items for gedcom
+    String title = "Gedcom '"+gedcom.getName()+'\'';
+    mh.createMenu(title, Gedcom.getImage());
+    mh.createItems(context.getActions(gedcom));
+    mh.popMenu();
+
+    // done
+    return popup;
+  }
+  
   /**
    * Action - Open a view
    */
@@ -157,7 +252,7 @@ public abstract class ViewPlugin implements Plugin {
 //      view.getActionMap().put(contextHook, contextHook);
 
       // open frame
-      manager.getWindowManager().openWindow(key, title, ViewPlugin.this.getImage(), view);
+      WindowManager.getInstance(getTarget()).openWindow(key, title, ViewPlugin.this.getImage(), view);
       
       // extend toolbar
 //      WindowManager.addToolbarAction(view, new Close(key));
@@ -180,7 +275,7 @@ public abstract class ViewPlugin implements Plugin {
     }
     /** run */
     protected void execute() {
-      manager.getWindowManager().close(key);
+      WindowManager.getInstance(getTarget()).close(key);
     }
   } //ActionClose
   

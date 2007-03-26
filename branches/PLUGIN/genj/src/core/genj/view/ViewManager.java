@@ -20,7 +20,6 @@
 package genj.view;
 
 import genj.gedcom.Gedcom;
-import genj.plugin.PluginManager;
 import genj.util.MnemonicAndText;
 import genj.util.Origin;
 import genj.util.Registry;
@@ -84,12 +83,11 @@ public class ViewManager {
   
   /** a window manager */
   private WindowManager windowManager = null;
-  private PluginManager pluginManager = null;
   
   /**
    * Constructor
    */
-  public ViewManager(WindowManager windowManager, PluginManager pluginManager) {
+  public ViewManager(WindowManager windowManager) {
 
     // lookup all factories dynamically
     List factories = new ArrayList();
@@ -98,13 +96,13 @@ public class ViewManager {
       factories.add(it.next());
 
     // continue with init
-    init(windowManager, pluginManager, factories);
+    init(windowManager, factories);
   }
   
   /**
    * Constructor
    */
-  public ViewManager(WindowManager windowManager, PluginManager pluginManager, String[] factoryTypes) {
+  public ViewManager(WindowManager windowManager, String[] factoryTypes) {
     
     // instantiate factories
     List factories = new ArrayList();
@@ -117,7 +115,7 @@ public class ViewManager {
     }
     
     // continue with init
-    init(windowManager,pluginManager, factories);
+    init(windowManager,factories);
   }
   
   /**
@@ -140,11 +138,10 @@ public class ViewManager {
   /**
    * Initialization
    */
-  private void init(WindowManager setWindowManager, PluginManager setPluginManager, List setFactories) {
+  private void init(WindowManager setWindowManager, List setFactories) {
     
     // remember
     windowManager = setWindowManager;
-    pluginManager = setPluginManager;
     
     // keep factories
     factories = (ViewFactory[])setFactories.toArray(new ViewFactory[setFactories.size()]);
@@ -407,7 +404,7 @@ public class ViewManager {
    * Get a context menu
    */
   public JPopupMenu getContextMenu(ViewContext context, Component target) {
-      return ContextMenuHelper.createContextMenu(context, target, pluginManager);
+      return ViewPlugin.createContextMenu(context, target);
   }
   
   /**

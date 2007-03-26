@@ -22,6 +22,7 @@ package genj.app;
 import genj.gedcom.Gedcom;
 import genj.plugin.ExtensionPoint;
 import genj.util.swing.Action2;
+import genj.window.WindowManager;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,6 +40,7 @@ public class ExtendMenubar extends ExtensionPoint {
     HELP_MENU = "HELP";
   
   private Gedcom gedcom;
+  private WindowManager windowManager;
   
   private List menus = new ArrayList();
   private Map group2actions = new HashMap();
@@ -46,8 +48,16 @@ public class ExtendMenubar extends ExtensionPoint {
   /** 
    * Constructor 
    */
-  protected ExtendMenubar(Gedcom gedcom) {
+  protected ExtendMenubar(Gedcom gedcom, WindowManager windowManager) {
     this.gedcom = gedcom;
+    this.windowManager = windowManager;
+  }
+  
+  /**
+   * Applicable WindowManager
+   */
+  public WindowManager getWindowManager() {
+    return windowManager; 
   }
   
   /** 

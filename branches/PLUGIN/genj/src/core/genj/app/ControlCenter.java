@@ -110,7 +110,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
   private WindowManager windowManager;
   private ViewManager viewManager;
   private Stats stats = new Stats();
-  private PluginManager pluginManager;
   
   /**
    * Constructor
@@ -120,8 +119,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     // Initialize data
     registry = new Registry(setRegistry, "cc");
     windowManager = winManager;
-    pluginManager = new PluginManager(windowManager);
-    viewManager = new ViewManager(windowManager, pluginManager);
+    viewManager = new ViewManager(windowManager);
     
     // Table of Gedcoms
     tGedcoms = new GedcomTableWidget(viewManager, registry) {
@@ -200,7 +198,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     gedcom.addLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)stats));
     
     // let plugins know
-    pluginManager.extend(new ExtendGedcomOpened(gedcom));
+    PluginManager.get().extend(new ExtendGedcomOpened(gedcom));
 
   }
 
@@ -213,7 +211,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     viewManager.closeViews(gedcom);
     
     // let plugins know
-    pluginManager.extend(new ExtendGedcomClosed(gedcom));
+    PluginManager.get().extend(new ExtendGedcomClosed(gedcom));
 
     // forget about it
     tGedcoms.removeGedcom(gedcom);
@@ -231,7 +229,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     menuBar.repaint();
     
     // collect our actions as an extension point
-    ExtendMenubar em = new ExtendMenubar(selection);
+    ExtendMenubar em = new ExtendMenubar(selection, windowManager);
 
     em.addAction(ExtendMenubar.FILE_MENU, new ActionNew());
     em.addAction(ExtendMenubar.FILE_MENU, new ActionOpen());
@@ -245,7 +243,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     }
     
     // ask plugins for their contributions
-    pluginManager.extend(em);
+    PluginManager.get().extend(em);
     
     // add help menu
     em.addAction(ExtendMenubar.HELP_MENU, new ActionHelp());
@@ -283,7 +281,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     et.addAction(Action2.NOOP);
 
     // ask plugins for their contributions
-    pluginManager.extend(et);
+    PluginManager.get().extend(et);
     
     // create toolbar and setup helper
     ButtonHelper bh = new ButtonHelper().setInsets(4).setContainer(toolBar);

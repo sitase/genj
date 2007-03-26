@@ -102,7 +102,7 @@ public class EditViewPlugin extends ViewPlugin {
   
   /** our view */
   protected JComponent createView(Gedcom gedcom, Registry registry) {
-    return new EditView(manager, gedcom, registry);
+    return new EditView(gedcom, registry);
   }
   
   /**

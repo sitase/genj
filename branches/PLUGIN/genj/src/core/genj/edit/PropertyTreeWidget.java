@@ -620,9 +620,6 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
       fireTreeNodesInserted(this, path, new int[] { pos }, new Property[]{ added });
       // expand all rows
       expandAllRows();
-      // selection (but no CHAN)
-      if (!(added instanceof PropertyChange))
-        setSelection(Collections.singletonList(added));
       // done
     }
 

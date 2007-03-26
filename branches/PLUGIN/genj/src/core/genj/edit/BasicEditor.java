@@ -23,6 +23,8 @@ import genj.edit.beans.BeanFactory;
 import genj.edit.beans.PropertyBean;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
+import genj.gedcom.GedcomLifecycleEvent;
+import genj.gedcom.GedcomLifecycleListener;
 import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomListenerAdapter;
 import genj.gedcom.MetaProperty;
@@ -99,7 +101,7 @@ import spin.Spin;
   private BeanPanel beanPanel;
   private JPanel buttonPanel;
   
-  private GedcomListener callback = new Callback();
+  private Callback callback = new Callback();
 
   /**
    * Callback - init for edit
@@ -132,6 +134,7 @@ import spin.Spin;
     super.addNotify();
     // listen to gedcom events
     gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
+    gedcom.addLifecycleListener((GedcomLifecycleListener)Spin.over(callback));
     // done
   }
 
@@ -145,6 +148,7 @@ import spin.Spin;
     super.removeNotify();
     // stop listening to gedcom events
     gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
+    gedcom.removeLifecycleListener((GedcomLifecycleListener)Spin.over(callback));
   }
 
   /**
@@ -389,16 +393,12 @@ import spin.Spin;
         return;
       
       // commit changes (without listing to the change itself)
-      try {
-        gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
-        gedcom.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) {
-            beanPanel.commit();
-          }
-        });
-      } finally {
-        gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
-      }
+      callback.muteOnce = true;
+      gedcom.doMuteUnitOfWork(new UnitOfWork() {
+        public void perform(Gedcom gedcom) {
+          beanPanel.commit();
+        }
+      });
 
       // lookup current focus now (any temporary props are committed now)
       PropertyBean focussedBean = getFocus();
@@ -882,16 +882,21 @@ import spin.Spin;
   /**
    * our gedcom callback for others changing the gedcom information
    */
-  private class Callback extends GedcomListenerAdapter {
+  private class Callback extends GedcomListenerAdapter implements GedcomLifecycleListener {
     
+    private boolean muteOnce = false;
     private Property setFocus;
-    
-    public void gedcomWriteLockAcquired(Gedcom gedcom) {
-      setFocus = null;
-    }
-    
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
-      setEntity(currentEntity, setFocus);
+
+    public void handleLifecycleEvent(GedcomLifecycleEvent event) {
+      if (event.getId()==GedcomLifecycleEvent.WRITE_LOCK_ACQUIRED) {
+        setFocus = null;
+      }
+      if (event.getId()==GedcomLifecycleEvent.WRITE_LOCK_RELEASED) {
+        if (muteOnce)
+          muteOnce = false;
+        else
+          setEntity(currentEntity, setFocus);
+      }
     }
     
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {

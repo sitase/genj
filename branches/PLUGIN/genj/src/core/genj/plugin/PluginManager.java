@@ -19,8 +19,6 @@
  */
 package genj.plugin;
 
-import genj.window.WindowManager;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -34,23 +32,28 @@ import sun.misc.Service;
  */
 public class PluginManager {
   
+  private static PluginManager instance;
   private Plugin[] plugins;
-  private WindowManager mgr;
   
   /*package*/ static Logger LOG = Logger.getLogger("genj.plugin");
   
   /**
    * Singleton
    */
-  public PluginManager(WindowManager mgr) {
-    this.mgr = mgr;
+  private PluginManager() {
   }
   
   /**
-   * Return a suitable window manager
+   * Singleton access
    */
-  public WindowManager getWindowManager() {
-    return mgr;
+  public static PluginManager get() {
+    if (instance==null) {
+      synchronized (PluginManager.class) {
+        if (instance==null)
+          instance = new PluginManager();
+      }
+    }
+    return instance;
   }
   
   /**
@@ -81,7 +84,6 @@ public class PluginManager {
       while (it.hasNext()) {
         try {
           Plugin plugin = (Plugin)it.next();
-          plugin.initPlugin(this);
           result.add(plugin);
         } catch (Throwable t) {
           LOG.log(Level.WARNING, "Couldn't load plugin", t);

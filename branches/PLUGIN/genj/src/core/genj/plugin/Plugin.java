@@ -26,11 +26,6 @@ package genj.plugin;
 public interface Plugin {
 
   /**
-   * Plugin initialization
-   */
-  public void initPlugin(PluginManager manager);
-  
-  /**
    * Enrich an extension point
    */
   public void extend(ExtensionPoint ep);

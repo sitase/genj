@@ -25,19 +25,20 @@ import genj.edit.beans.BeanFactory;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
+import genj.gedcom.GedcomLifecycleEvent;
+import genj.gedcom.GedcomLifecycleListener;
 import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomListenerAdapter;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
-import genj.plugin.PluginManager;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.PopupWidget;
-import genj.view.ContextMenuHelper;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
+import genj.view.ViewPlugin;
 import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
 
@@ -103,18 +104,14 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
   /** current editor */
   private Editor editor;
   
-  /** plugin manager */
-  private PluginManager manager;
-  
   /**
    * Constructor
    */
-  public EditView(PluginManager setManager, Gedcom setGedcom, Registry setRegistry) {
+  public EditView(Gedcom setGedcom, Registry setRegistry) {
     
     setLayout(new BorderLayout());
     
     // remember
-    manager = setManager;
     gedcom   = setGedcom;
     registry = setRegistry;
     beanFactory = new BeanFactory(registry);
@@ -390,7 +387,7 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
       ViewContext context = editor.getContext();
       editor.setContext(context);
       // show menu
-      return ContextMenuHelper.createContextMenu(context, EditView.this, manager);
+      return ViewPlugin.createContextMenu(context, EditView.this);
     }
      
   } //ContextMenu
@@ -567,16 +564,18 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
   /**
    * Gedcom callback
    */  
-  private class Callback extends GedcomListenerAdapter {
+  private class Callback extends GedcomListenerAdapter implements GedcomLifecycleListener {
     
     void enable() {
-      gedcom.addGedcomListener((GedcomListener)Spin.over(this));
+      gedcom.addGedcomListener((GedcomListener)Spin.over((GedcomListener)this));
+      gedcom.addLifecycleListener((GedcomLifecycleListener)Spin.over((GedcomLifecycleListener)this));
       back.clear();
       forward.clear();
     }
     
     void disable() {
       gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
+      gedcom.removeLifecycleListener((GedcomLifecycleListener)Spin.over(this));
       back.clear();
       forward.clear();
     }
@@ -591,12 +590,13 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
       forward.remove(removed);
     }
 
-    public void gedcomWriteLockReleased(Gedcom gedcom) {
+    public void handleLifecycleEvent(GedcomLifecycleEvent event) {
       // check if we should go back to one
-      if (editor.getContext().getEntities().length==0) {
-        if (back.isEnabled()) back.execute();
-      }
+      if (event.getId()==GedcomLifecycleEvent.WRITE_LOCK_RELEASED
+        && editor.getContext().getNumEntities()==0
+        && back.isEnabled()) 
+        back.execute();
     }
-  } //Back
+  } //Callback
   
 } //EditView

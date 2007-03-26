@@ -248,7 +248,7 @@ public class Applet extends java.applet.Applet {
         log(RESOURCES.getString("applet.ready"));
         
         // prepare view manager
-        ViewManager vmanager = new ViewManager(winMgr, null, FACTORIES); //FIXME
+        ViewManager vmanager = new ViewManager(winMgr, FACTORIES);
 
         // change what we show
         removeAll();
