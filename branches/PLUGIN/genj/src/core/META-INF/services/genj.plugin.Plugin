@@ -1,4 +1,5 @@
-genj.table.TableViewPlugin
 genj.edit.EditViewPlugin
+genj.table.TableViewPlugin
 genj.tree.TreeViewPlugin
+genj.timeline.TimelineViewPlugin
 genj.report.ReportPlugin

@@ -23,23 +23,15 @@ import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
-import genj.view.ViewFactory;
-import genj.view.ViewManager;
+import genj.view.ViewPlugin;
 
 import javax.swing.JComponent;
 
 /**
  * The factory for the TableView
  */
-public class TimelineViewFactory implements ViewFactory {
+public class TimelineViewPlugin extends ViewPlugin {
 
-  /**
-   * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
-   */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
-    return new TimelineView(title,gedcom,registry,manager);
-  }
-  
   /**
    * @see genj.view.ViewFactory#getImage()
    */
@@ -47,11 +39,12 @@ public class TimelineViewFactory implements ViewFactory {
     return new ImageIcon(this, "View.gif");
   }
 
-  /**
-   * @see genj.view.ViewFactory#getName(boolean)
-   */
-  public String getTitle(boolean abbreviate) {
-    return Resources.get(this).getString("title" + (abbreviate?".short":""));
+  protected JComponent createView(Gedcom gedcom, Registry registry) {
+    return new TimelineView(gedcom, registry);
+  }
+
+  protected String getTitle() {
+    return Resources.get(this).getString("title");
   }
 
 } //TimelineViewFactory
