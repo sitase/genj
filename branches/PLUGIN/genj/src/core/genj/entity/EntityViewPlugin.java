@@ -22,35 +22,25 @@ package genj.entity;
 import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.swing.ImageIcon;
-import genj.view.ViewFactory;
-import genj.view.ViewManager;
+import genj.view.ViewPlugin;
 
 import javax.swing.JComponent;
 
 /**
  * The factory for the EntityView
  */
-public class EntityViewFactory implements ViewFactory {
+public class EntityViewPlugin extends ViewPlugin {
 
-  /**
-   * @see genj.view.ViewFactory#createView(String, Gedcom, Registry)
-   */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
-    return new EntityView(title, gedcom, registry, manager);
+  protected JComponent createView(Gedcom gedcom, Registry registry) {
+    return new EntityView(gedcom, registry);
   }
 
-  /**
-   * @see genj.view.ViewFactory#getImage()
-   */
   public ImageIcon getImage() {
     return new ImageIcon(this, "images/View.gif");
   }
 
-  /**
-   * @see genj.view.ViewFactory#getName(boolean)
-   */
-  public String getTitle(boolean abbreviate) {
-    return EntityView.resources.getString("title" + (abbreviate?".short":""));
+  protected String getTitle() {
+    return EntityView.resources.getString("title");
   }
 
 } //EntityViewFactory

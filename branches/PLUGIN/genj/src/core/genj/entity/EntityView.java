@@ -30,9 +30,7 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
-import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastListener;
 
 import java.awt.Color;
@@ -45,7 +43,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.JPanel;
-import javax.swing.JToolBar;
 
 import spin.Spin;
 
@@ -53,7 +50,7 @@ import spin.Spin;
  * A rendering component showing the currently selected entity
  * via html
  */
-public class EntityView extends JPanel implements WindowBroadcastListener, ToolBarSupport, ContextProvider {
+public class EntityView extends JPanel implements WindowBroadcastListener, ContextProvider {
 
   /** language resources we use */  
   /*package*/ final static Resources resources = Resources.get(EntityView.class);
@@ -88,15 +85,12 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
     }
   };
   
-  /** the view manager */
-  /*package*/ ViewManager viewManager;
-  
   /**
    * Constructor
    */
-  public EntityView(String title, Gedcom ged, Registry reg, ViewManager manager) {
+  public EntityView(Gedcom ged, Registry reg) {
+    
     // save some stuff
-    viewManager = manager;
     registry = reg;
     gedcom = ged;
 
@@ -182,12 +176,6 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
     renderer.render(g, entity, new Rectangle(0,0,bounds.width,bounds.height));
   }
 
-  /**
-   * @see genj.view.ToolBarSupport#populate(JToolBar)
-   */
-  public void populate(JToolBar bar) {
-  }
-  
   /** 
    * Get blueprint used for given type
    */

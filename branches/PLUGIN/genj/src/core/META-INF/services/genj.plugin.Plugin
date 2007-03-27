@@ -2,4 +2,5 @@ genj.edit.EditViewPlugin
 genj.table.TableViewPlugin
 genj.tree.TreeViewPlugin
 genj.timeline.TimelineViewPlugin
+genj.entity.EntityViewPlugin
 genj.report.ReportPlugin
