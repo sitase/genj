@@ -248,9 +248,9 @@ import spin.Spin;
     
     // first?
     if (listeners.size()==1) {
-      Callback spinned =  (Callback)Spin.over(callback);
-      gedcom.addGedcomListener(spinned);
-      gedcom.addLifecycleListener(spinned);
+      Object spinned =  Spin.over(callback);
+      gedcom.addGedcomListener((GedcomListener)spinned);
+      gedcom.addLifecycleListener((GedcomLifecycleListener)spinned);
     }
   }
   
@@ -262,9 +262,9 @@ import spin.Spin;
     
     // last?
     if (listeners.isEmpty()) {
-      Callback spinned =  (Callback)Spin.over(callback);
-      gedcom.removeGedcomListener(spinned);
-      gedcom.removeLifecycleListener(spinned);
+      Object spinned =  Spin.over(callback);
+      gedcom.removeGedcomListener((GedcomListener)spinned);
+      gedcom.removeLifecycleListener((GedcomLifecycleListener)spinned);
     }
  }
   
@@ -615,7 +615,7 @@ import spin.Spin;
   /**
    * Our gedcom Callbacks 
    */
-  private class Callback extends GedcomListenerAdapter implements GedcomListener, GedcomLifecycleListener {
+  private class Callback extends GedcomListenerAdapter implements GedcomLifecycleListener {
     
     private Set repaint = new HashSet();
     private boolean update = false;

@@ -1,4 +1,3 @@
-genj.tree.TreeViewFactory
 genj.report.ReportViewFactory
 genj.nav.NavigatorViewFactory
 genj.search.SearchViewFactory

@@ -34,7 +34,6 @@ import genj.renderer.Options;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
 import genj.util.swing.SliderWidget;
@@ -43,9 +42,7 @@ import genj.util.swing.ViewPortAdapter;
 import genj.util.swing.ViewPortOverview;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
-import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastEvent;
 import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
@@ -72,6 +69,7 @@ import java.util.Set;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JToggleButton;
 import javax.swing.JToolBar;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -79,7 +77,7 @@ import javax.swing.event.ChangeListener;
 /**
  * TreeView
  */
-public class TreeView extends JPanel implements ContextProvider, WindowBroadcastListener, ToolBarSupport, Filter {
+public class TreeView extends JPanel implements ContextProvider, WindowBroadcastListener, Filter {
   
   /** an icon for bookmarking */
   private final static ImageIcon BOOKMARK_ICON = new ImageIcon(TreeView.class, "images/Bookmark.gif");      
@@ -94,9 +92,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /** our model */
   private Model model;
   
-  /** the manager */
-  private ViewManager manager;
-
   /** our content */
   private Content content;
   
@@ -114,9 +109,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
 
   /** our current zoom */  
   private SliderWidget sliderZoom;  
-  
-  /** the title we have */
-  private String title;
   
   /** the registry we're working with */
   private Registry registry;
@@ -145,12 +137,10 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * Constructor
    */
-  public TreeView(String titl, Gedcom gedcom, Registry regIstry, ViewManager manAger) {
+  public TreeView(Gedcom gedcom, Registry registry) {
     
     // remember
-    registry = regIstry;
-    title = titl;
-    manager = manAger;
+    this.registry = registry;
     DPI = Options.getInstance().getDPI();
     DPMM = new Point2D.Float(
       DPI.x / 2.54F / 10,
@@ -238,6 +228,16 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     });
     
     // done
+  }
+  
+  /**
+   * @see javax.swing.JComponent#addNotify()
+   */
+  public void addNotify() {
+    // cont
+    super.addNotify();
+    // add our toolbar
+    WindowManager.setToolbar(this, createToolbar());
   }
   
   /**
@@ -512,9 +512,11 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   
   
   /**
-   * @see genj.view.ToolBarSupport#populate(JToolBar)
+   * create our toolbar
    */
-  public void populate(JToolBar bar) {
+  private JToolBar createToolbar() {
+    
+    JToolBar bar = new JToolBar();
 
     // zooming!    
     sliderZoom = new SliderWidget(1, 100, (int)(zoom*100));
@@ -523,20 +525,27 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     bar.add(sliderZoom);
     
     // overview
-    ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
-    bh.create(new ActionOverview()).setSelected(overview.isVisible());
+    JToggleButton toggle = new JToggleButton(new ActionOverview());
+    toggle.setSelected(overview.isVisible());
+    bar.add(toggle);
     
     // gap
     bar.addSeparator();
     
     // vertical/horizontal
-    bh.create(new ActionOrientation()).setSelected(model.isVertical());
+    JToggleButton tvh = new JToggleButton(new ActionOrientation());
+    tvh.setSelected(model.isVertical());
+    bar.add(tvh);
     
     // families?
-    bh.create(new ActionFamsAndSpouses()).setSelected(model.isFamilies());
+    JToggleButton tf = new JToggleButton(new ActionFamsAndSpouses());
+    tf.setSelected(model.isFamilies());
+    bar.add(tf);
       
     // toggless?
-    bh.create(new ActionFoldSymbols()).setSelected(model.isFoldSymbols());
+    JToggleButton tfs = new JToggleButton(new ActionFoldSymbols());
+    tfs.setSelected(model.isFoldSymbols());
+    bar.add(tfs);
       
     // gap
     bar.addSeparator();
@@ -554,6 +563,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     bar.add(pb);
     
     // done
+    return bar;
   }
 
   /**
@@ -640,7 +650,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
    * A string representation of this view as a filter
    */
   public String getFilterName() {
-    return model.getEntities().size()+" nodes in "+title;
+    return model.getEntities().size()+" nodes in Tree";
   }
 
   /**
@@ -754,7 +764,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
         result.addAction(new ActionChooseRoot());
       } else {
         result = new ViewContext(currentEntity);
-        result.addAction(new ActionBookmark(currentEntity, true));
+        result.addAction(new ActionBookmark(currentEntity));
       }
       return result;
     }
@@ -1007,15 +1017,10 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     /** 
      * Constructor 
      */
-    private ActionBookmark(Entity e, boolean local) {
+    private ActionBookmark(Entity e) {
       entity = e;
-      if (local) {
-        setText(resources, "bookmark.add");
-        setImage(BOOKMARK_ICON);
-      } else {
-        setText(resources.getString("bookmark.in",title));
-        setImage(Images.imgView);
-      }
+      setText(resources, "bookmark.add");
+      setImage(BOOKMARK_ICON);
     } 
     /**
      * @see genj.util.swing.Action2#execute()
@@ -1035,7 +1040,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       
       // Ask for name of bookmark
       name = WindowManager.getInstance(getTarget()).openDialog(
-        null, title, WindowManager.QUESTION_MESSAGE, resources.getString("bookmark.name"), name, TreeView.this
+        null, "Bookmark", WindowManager.QUESTION_MESSAGE, resources.getString("bookmark.name"), name, TreeView.this
       );
       
       if (name==null) return;

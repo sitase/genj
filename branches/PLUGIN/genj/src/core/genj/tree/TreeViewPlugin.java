@@ -66,7 +66,7 @@ public class TreeViewPlugin extends ViewPlugin {
   
   /** our view */
   protected JComponent createView(Gedcom gedcom, Registry registry) {
-    throw new UnsupportedOperationException();
+    return new TreeView(gedcom, registry);
   }
   
   private void extend(ViewContext context) {
