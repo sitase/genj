@@ -112,7 +112,7 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
   /**
    * Constructor
    */
-  public NavigatorView(String title, Gedcom gedcom, Registry registry) {
+  public NavigatorView(Gedcom gedcom, Registry registry) {
     
     // remember
     this.gedcom = gedcom;
@@ -205,7 +205,8 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
    */  
   public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
     ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, gedcom);
-    setCurrentEntity(cse.getContext().getEntity());
+    if (cse!=null)
+      setCurrentEntity(cse.getContext().getEntity());
     return true;
   }
   

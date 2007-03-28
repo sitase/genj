@@ -17,43 +17,33 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.report;
+package genj.nav;
 
 import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
-import genj.view.ViewFactory;
-import genj.view.ViewManager;
+import genj.view.ViewPlugin;
 
 import javax.swing.JComponent;
 
 /**
  * The factory for the TableView
  */
-public class ReportViewFactory implements ViewFactory  {
+public class NavigatorViewPlugin extends ViewPlugin {
 
-  /*package*/ final static ImageIcon IMG = new ImageIcon(ReportViewFactory.class, "View.gif");
-  
-  /**
-   * Factory method - create instance of view
-   */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
-    return new ReportView(title,gedcom,registry,manager);
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getImage()
-   */
+  private final static ImageIcon img = new ImageIcon(NavigatorViewPlugin.class,"View.gif");
+
   public ImageIcon getImage() {
-    return IMG;
+    return img;
   }
   
-  /**
-   * @see genj.view.ViewFactory#getTitle(boolean)
-   */
-  public String getTitle(boolean abbreviate) {
-    return Resources.get(this).getString("title" + (abbreviate?".short":""));
+  protected JComponent createView(Gedcom gedcom, Registry registry) {
+    return new NavigatorView(gedcom,registry);
   }
-  
-} //ReportViewFactory
+
+  protected String getTitle() {
+    return Resources.get(this).getString("title");
+  }
+
+} 

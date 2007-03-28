@@ -29,7 +29,6 @@ import genj.util.swing.FontChooser;
 import genj.util.swing.ListWidget;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.Settings;
-import genj.view.ViewManager;
 
 import java.awt.Color;
 import java.awt.Container;
@@ -96,7 +95,7 @@ public class TreeViewSettings extends JTabbedPane implements Settings {
   /**
    * @see genj.view.Settings#init(genj.view.ViewManager)
    */
-  public void init(ViewManager manager) {
+  public void init() {
     
     // panel for checkbox options    
     JPanel options = new JPanel(new NestedBlockLayout(

@@ -30,7 +30,6 @@ import genj.util.Resources;
 import genj.util.Trackable;
 import genj.util.swing.Action2;
 import genj.util.swing.ProgressWidget;
-import genj.view.ViewManager;
 import genj.window.DefaultWindowManager;
 import genj.window.WindowManager;
 
@@ -247,12 +246,9 @@ public class Applet extends java.applet.Applet {
         
         log(RESOURCES.getString("applet.ready"));
         
-        // prepare view manager
-        ViewManager vmanager = new ViewManager(winMgr, FACTORIES);
-
         // change what we show
         removeAll();
-        add(BorderLayout.CENTER, new ControlCenter(vmanager, gedcom));
+        add(BorderLayout.CENTER, new ControlCenter(gedcom));
         invalidate();
         validate();
         repaint();

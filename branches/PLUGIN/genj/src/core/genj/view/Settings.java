@@ -28,7 +28,7 @@ public interface Settings {
   /**
    * initializes the setting (once)
    */
-  public void init(ViewManager manager);
+  public void init();
 
   /**
    * sets the view to look at (many)   */

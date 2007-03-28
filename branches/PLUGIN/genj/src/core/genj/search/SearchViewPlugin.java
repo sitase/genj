@@ -17,43 +17,33 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.nav;
+package genj.search;
 
 import genj.gedcom.Gedcom;
 import genj.util.Registry;
-import genj.util.Resources;
 import genj.util.swing.ImageIcon;
-import genj.view.ViewFactory;
-import genj.view.ViewManager;
+import genj.view.ViewPlugin;
 
 import javax.swing.JComponent;
 
 /**
- * The factory for the TableView
+ * Factory for the SearchView
  */
-public class NavigatorViewFactory implements ViewFactory {
-
-  private final static ImageIcon img = new ImageIcon(NavigatorViewFactory.class,"View.gif");
-
-  /**
-   * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
-   */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
-    return new NavigatorView(title,gedcom,registry);
-  }
+public class SearchViewPlugin extends ViewPlugin {
   
-  /**
-   * @see genj.view.ViewFactory#getImage()
-   */
+  /** image */
+  /*package*/ static final ImageIcon IMG = new ImageIcon(SearchViewPlugin.class, "View.gif"); 
+  
   public ImageIcon getImage() {
-    return img;
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getName(boolean)
-   */
-  public String getTitle(boolean abbreviate) {
-    return Resources.get(this).getString("title" + (abbreviate?".short":""));
+    return IMG;
   }
 
-} //NavigatorViewFactory
+  public String getTitle() {
+    return SearchView.resources.getString("title");
+  }
+
+  protected JComponent createView(Gedcom gedcom, Registry registry) {
+    return new SearchView(gedcom, registry);
+  }
+
+} //SearchViewFactory

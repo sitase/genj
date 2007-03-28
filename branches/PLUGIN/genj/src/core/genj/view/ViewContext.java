@@ -41,7 +41,6 @@ import javax.swing.ImageIcon;
  */  
 public class ViewContext extends Context implements Comparable {
   
-  private ViewManager manager;
   private Map sub2actions = new HashMap();
   private ImageIcon  img = null;
   private String txt = null;
@@ -126,20 +125,6 @@ public class ViewContext extends Context implements Comparable {
    */
   public void addAction(Object group, Action2 action) {
     getActions(group).add(action);
-  }
-  
-  /**
-   * Connect to manager
-   */
-  /*package*/ void setManager(ViewManager set) {
-    manager = set;
-  }
-  
-  /**
-   * Accessor
-   */
-  public ViewManager getManager() {
-    return manager;
   }
   
   /** 

@@ -19,6 +19,7 @@
  */
 package genj.view;
 
+import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.window.WindowManager;
@@ -27,6 +28,7 @@ import java.awt.BorderLayout;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -36,6 +38,8 @@ import javax.swing.border.TitledBorder;
  * A settings component 
  */
 /*package*/ class SettingsWidget extends JPanel {
+  
+  private final static Resources RESOURCES = Resources.get(SettingsWidget.class);
   
   /** cached settings */
   private static Map cache = new WeakHashMap();
@@ -48,16 +52,10 @@ import javax.swing.border.TitledBorder;
   /** settings */
   private Settings settings;
   
-  /** ViewManager */
-  private ViewManager viewManager;
-  
   /**
    * Constructor
    */
-  protected SettingsWidget(ViewManager manager) {
-    
-    // remember
-    viewManager = manager;
+  protected SettingsWidget() {
     
     // Panel for ViewSettingsWidget
     pSettings = new JPanel(new BorderLayout());
@@ -82,17 +80,17 @@ import javax.swing.border.TitledBorder;
   /**
    * Sets the ViewSettingsWidget to display
    */
-  protected void setView(ViewHandle handle) {
+  protected void setView(JComponent view) {
     
     // clear content
     pSettings.removeAll();
     
     // try to get settings
-    settings = getSettings(handle.getView());
+    settings = getSettings(view);
     if (settings!=null) {
-      settings.setView(handle.getView());
+      settings.setView(view);
       JComponent editor = settings.getEditor();
-      editor.setBorder(new TitledBorder(handle.getTitle()));
+      editor.setBorder(new TitledBorder("Settings")); //TODO this should be view specific
       pSettings.add(editor, BorderLayout.CENTER);
       settings.reset();
     }
@@ -113,7 +111,7 @@ import javax.swing.border.TitledBorder;
    */
   private class ActionClose extends Action2 {
     private ActionClose() {
-      setText(ViewManager.RESOURCES, "view.close");
+      setText(RESOURCES, "view.close");
     }
     protected void execute() {
       WindowManager.getInstance(getTarget()).close("settings");
@@ -125,7 +123,7 @@ import javax.swing.border.TitledBorder;
    */
   private class ActionApply extends Action2 {
     protected ActionApply() { 
-      setText(ViewManager.RESOURCES, "view.apply"); 
+      setText(RESOURCES, "view.apply"); 
       setEnabled(false);
     }
     protected void execute() {
@@ -138,7 +136,7 @@ import javax.swing.border.TitledBorder;
    */
   private class ActionReset extends Action2 {
     protected ActionReset() { 
-      setText(ViewManager.RESOURCES, "view.reset"); 
+      setText(RESOURCES, "view.reset"); 
       setEnabled(false);
     }
     protected void execute() {
@@ -171,11 +169,11 @@ import javax.swing.border.TitledBorder;
     String type = viewType.getName()+"Settings";
     try {
       result = (Settings)Class.forName(type).newInstance();
-      result.init(viewManager);
+      result.init();
       cache.put(viewType, result);
     } catch (Throwable t) {
       result = null;
-      ViewManager.LOG.log(Level.WARNING, "couldn't instantiate settings for "+view, t);
+      Logger.getLogger("genj.view").log(Level.WARNING, "couldn't instantiate settings for "+view, t);
     }
     
     // done

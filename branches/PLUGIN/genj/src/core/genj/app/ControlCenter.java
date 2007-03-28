@@ -39,7 +39,6 @@ import genj.option.OptionsWidget;
 import genj.plugin.PluginManager;
 import genj.util.DirectAccessTokenizer;
 import genj.util.EnvironmentChecker;
-import genj.util.MnemonicAndText;
 import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
@@ -52,9 +51,6 @@ import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.ProgressWidget;
 import genj.view.ViewContext;
-import genj.view.ViewFactory;
-import genj.view.ViewHandle;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastEvent;
 import genj.window.WindowBroadcastListener;
 import genj.window.WindowClosingEvent;
@@ -108,7 +104,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
   private Registry registry;
   private Resources resources = Resources.get(this);
   private WindowManager windowManager;
-  private ViewManager viewManager;
   private Stats stats = new Stats();
   
   /**
@@ -119,10 +114,9 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     // Initialize data
     registry = new Registry(setRegistry, "cc");
     windowManager = winManager;
-    viewManager = new ViewManager(windowManager);
     
     // Table of Gedcoms
-    tGedcoms = new GedcomTableWidget(viewManager, registry) {
+    tGedcoms = new GedcomTableWidget(registry) {
       public ViewContext getContext() {
         ViewContext result = super.getContext();
         if (result!=null) {
@@ -206,9 +200,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
    * Removes a Gedcom from the list of Gedcoms
    */
   /*package*/ void removeGedcom(Gedcom gedcom) {
-    
-    // close views
-    viewManager.closeViews(gedcom);
     
     // let plugins know
     PluginManager.get().extend(new ExtendGedcomClosed(gedcom));
@@ -328,7 +319,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     protected void execute() {
       if (windowManager.show("about"))
         return;
-      windowManager.openDialog("about",resources.getString("cc.menu.about"),WindowManager.INFORMATION_MESSAGE,new AboutWidget(viewManager),Action2.okOnly(),ControlCenter.this);
+      windowManager.openDialog("about",resources.getString("cc.menu.about"),WindowManager.INFORMATION_MESSAGE,new AboutWidget(),Action2.okOnly(),ControlCenter.this);
       // done      
     }
   } //ActionAbout
@@ -415,12 +406,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
           restore.append(",");
           if (gedcom.hasPassword())
             restore.append(gedcom.getPassword());
-          restore.append(",");
-          ViewHandle[] views = viewManager.getViews(gedcom);
-          for (int i=0, j=0;i<views.length;i++) {
-            if (j++>0) restore.append(",");
-            restore.append(views[i].persist());
-          }
           save.add(restore);
         }
         // next gedcom
@@ -653,20 +638,8 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
       }
         
       // got a successfull gedcom
-      if (gedcomBeingLoaded != null) {
-        
+      if (gedcomBeingLoaded != null) 
         addGedcom(gedcomBeingLoaded);
-        
-        // open views again
-        if (Options.getInstance().isRestoreViews) {
-          for (int i=0;i<views2restore.size();i++) {
-            ViewHandle handle = ViewHandle.restore(viewManager, gedcomBeingLoaded, (String)views2restore.get(i));
-            if (handle!=null)
-              new ActionSave(gedcomBeingLoaded).setTarget(handle.getView()).install(handle.getView(), JComponent.WHEN_IN_FOCUSED_WINDOW);
-          }
-        }          
-        
-      }
       
       // show warnings&stats
       if (reader!=null) {
@@ -920,7 +893,8 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
       if (ask || origin==null || origin.getFile()==null) {
 
         // .. choose file
-        SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved, (Filter[])viewManager.getViews(Filter.class, gedcomBeingSaved));
+        // FIXME PLUGIN make a plugin extension point for save filters 
+        SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved, new Filter[0]);
         file = chooseFile(resources.getString("cc.save.title"), resources.getString("cc.save.action"), options);
         if (file==null)
           return false;
@@ -1074,15 +1048,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
             removeGedcom(alreadyOpen);
           
           // .. open new
-          ActionOpen open = new ActionOpen(newOrigin) {
-            protected void postExecute(boolean preExecuteResult) {
-              super.postExecute(preExecuteResult);
-              // copy registry from old
-              if (gedcomBeingLoaded!=null) {
-                ViewManager.getRegistry(gedcomBeingLoaded).set(ViewManager.getRegistry(gedcomBeingSaved));
-              }
-            }
-          };
+          ActionOpen open = new ActionOpen(newOrigin);
           open.password = password;
           open.trigger();
           
@@ -1149,36 +1115,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
       // Done
     }
   } //ActionClose
-
-  /**
-   * Action - View
-   */
-  private class ActionView extends Action2 {
-    /** which ViewFactory */
-    private ViewFactory factory;
-    /** constructor */
-    protected ActionView(int i, ViewFactory vw) {
-      factory = vw;
-      if (i>0) 
-        setText(Integer.toString(i) +" "+ new MnemonicAndText(factory.getTitle(false)).getText());
-      else
-        setText(factory.getTitle(true));
-      setTip(resources.getString("cc.tip.open_view", factory.getTitle(false)));
-      setImage(factory.getImage());
-      setEnabled(false);
-    }
-    /** run */
-    protected void execute() {
-      // grab current Gedcom
-      final Gedcom gedcom = tGedcoms.getSelectedGedcom();
-      if (gedcom == null)
-        return;
-      // create new View
-      ViewHandle handle = viewManager.openView(gedcom, factory);
-      // install some accelerators
-      new ActionSave(gedcom).setTarget(handle.getView()).install(handle.getView(), JComponent.WHEN_IN_FOCUSED_WINDOW);
-    }
-  } //ActionView
 
   /**
    * Action - Options

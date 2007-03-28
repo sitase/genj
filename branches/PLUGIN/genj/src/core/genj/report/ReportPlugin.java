@@ -26,7 +26,6 @@ import genj.gedcom.Property;
 import genj.gedcom.UnitOfWork;
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
-import genj.plugin.PluginManager;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
@@ -40,16 +39,10 @@ import java.util.logging.Level;
  */
 public class ReportPlugin implements Plugin {
   
-  /*package*/ final static ImageIcon IMG = new ImageIcon(ReportViewFactory.class, "View.gif");
+  /*package*/ final static ImageIcon IMG = new ImageIcon(ReportPlugin.class, "View.gif");
 
   private final static Resources RESOURCES =  Resources.get(ReportPlugin.class);
 
-  /**
-   * Initialization
-   */
-  public void initPlugin(PluginManager manager) {
-  }
-  
   /**
    * Adding our custom edit actions
    * @see genj.view.ViewPlugin#enrich(genj.plugin.ExtensionPoint)

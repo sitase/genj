@@ -28,7 +28,6 @@ import genj.util.swing.SortableTableModel;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastEvent;
 import genj.window.WindowBroadcastListener;
 
@@ -66,7 +65,7 @@ import spin.Spin;
   /**
    * Constructor
    */
-  public GedcomTableWidget(ViewManager mgr, Registry reGistry) {
+  public GedcomTableWidget(Registry reGistry) {
 
     // Prepare a model
     model = new Model();

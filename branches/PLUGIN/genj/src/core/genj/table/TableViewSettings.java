@@ -31,7 +31,6 @@ import genj.util.swing.ButtonHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.ListSelectionWidget;
 import genj.view.Settings;
-import genj.view.ViewManager;
 
 import java.util.List;
 
@@ -56,7 +55,7 @@ public class TableViewSettings extends JPanel implements Settings {
   /**
    * @see genj.view.Settings#init(genj.view.ViewManager)
    */
-  public void init(ViewManager manager) {
+  public void init() {
 
     // Create!
     GridBagHelper gh = new GridBagHelper(this);

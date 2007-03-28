@@ -29,7 +29,6 @@ import genj.util.swing.ImageIcon;
 import genj.util.swing.ListSelectionWidget;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.Settings;
-import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -96,7 +95,7 @@ public class TimelineViewSettings extends JTabbedPane implements Settings {
   /**
    * @see genj.view.Settings#init(genj.view.ViewManager)
    */
-  public void init(ViewManager manager) {
+  public void init() {
     
     // create a panel for check and cm options
     JPanel panelOptions = new JPanel(new NestedBlockLayout(

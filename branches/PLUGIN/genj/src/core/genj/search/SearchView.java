@@ -30,16 +30,13 @@ import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.HeadlessLabel;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
-import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -57,7 +54,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import javax.swing.AbstractButton;
 import javax.swing.AbstractListModel;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -77,7 +73,7 @@ import spin.Spin;
 /**
  * View for searching
  */
-public class SearchView extends JPanel implements ToolBarSupport {
+public class SearchView extends JPanel {
   
   /** formatting */
   private final static String
@@ -111,9 +107,6 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /** registry */
   private Registry registry;
   
-  /** manager */
-  private ViewManager manager;
-  
   /** shown results */
   private Results results = new Results();
   private ResultWidget listResults = new ResultWidget();
@@ -129,23 +122,22 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /** history */
   private LinkedList oldPaths, oldValues;
   
-  /** buttons */
-  private AbstractButton bSearch, bStop;
-  
   /** images */
   private final static ImageIcon
     IMG_START = new ImageIcon(SearchView.class, "Start.gif"),
     IMG_STOP  = new ImageIcon(SearchView.class, "Stop.gif" );
+  
+  private ActionSearch search = new ActionSearch();
+  private ActionStop   stop   = new ActionStop  (search);
 
   /**
    * Constructor
    */
-  public SearchView(Gedcom geDcom, Registry reGistry, ViewManager maNager) {
+  public SearchView(Gedcom geDcom, Registry reGistry) {
     
     // remember
     gedcom = geDcom;
     registry = reGistry;
-    manager = maNager;
     
     // lookup old search values & settings
     oldPaths = new LinkedList(Arrays.asList(registry.get("old.paths" , DEFAULT_PATHS)));
@@ -156,8 +148,8 @@ public class SearchView extends JPanel implements ToolBarSupport {
     ActionListener aclick = new ActionListener() {
       /** button */
       public void actionPerformed(ActionEvent e) {
-        bStop.doClick();
-        bSearch.doClick();
+        if (stop.isEnabled()) stop.trigger();
+        search.trigger();
       }
     };
     
@@ -217,6 +209,11 @@ public class SearchView extends JPanel implements ToolBarSupport {
     gedcom.addGedcomListener((GedcomListener)Spin.over((GedcomListener)results));
     // continue
     super.addNotify();
+    // setup toolbar
+    JToolBar bar = new JToolBar();
+    bar.add(search);
+    bar.add(stop);
+    WindowManager.setToolbar(this, bar);
     // set focus
     choiceValue.requestFocusInWindow();
   }
@@ -235,17 +232,6 @@ public class SearchView extends JPanel implements ToolBarSupport {
     super.removeNotify();
   }
 
-  
-  /**
-   * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
-   */
-  public void populate(JToolBar bar) {
-    ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
-    ActionSearch search = new ActionSearch();
-    ActionStop   stop   = new ActionStop  (search);
-    bSearch = bh.create(search);
-    bStop   = bh.create(stop);
-  }
   
   /**
    * Remembers a value
@@ -432,8 +418,8 @@ public class SearchView extends JPanel implements ToolBarSupport {
       // reset results
       results.clear();
       // update buttons
-      bSearch.setEnabled(false);
-      bStop.setEnabled(true);
+      search.setEnabled(false);
+      stop.setEnabled(true);
       // prepare matcher & path
       String value = choiceValue.getText();
       String path = choicePath.getText();
@@ -483,8 +469,8 @@ public class SearchView extends JPanel implements ToolBarSupport {
       hits.clear();
       hitCount = 0;
       // toggle buttons
-      bSearch.setEnabled(true);
-      bStop.setEnabled(false);
+      search.setEnabled(true);
+      stop.setEnabled(false);
       // done
     }
     

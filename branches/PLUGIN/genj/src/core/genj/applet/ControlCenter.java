@@ -21,12 +21,8 @@ package genj.applet;
 
 import genj.gedcom.Gedcom;
 import genj.util.GridBagHelper;
-import genj.util.MnemonicAndText;
 import genj.util.WordBuffer;
-import genj.util.swing.Action2;
 import genj.util.swing.LinkWidget;
-import genj.view.ViewFactory;
-import genj.view.ViewManager;
 
 import java.awt.Color;
 import java.awt.GridLayout;
@@ -40,19 +36,15 @@ import javax.swing.SwingConstants;
  */
 public class ControlCenter extends JPanel {
 
-  /** view manager */
-  private ViewManager viewManager;
-  
   /** gedcom */
   private Gedcom gedcom;
 
   /**
    * Constructor
    */
-  public ControlCenter(ViewManager vmanager, Gedcom ged) {
+  public ControlCenter(Gedcom ged) {
     
     // remember
-    viewManager = vmanager;
     gedcom = ged;
     
     // layout components
@@ -90,44 +82,17 @@ public class ControlCenter extends JPanel {
    */
   private JPanel getLinkPanel() {
 
-    // grab factories
-    ViewFactory[] vfactories = viewManager.getFactories();
-
-    // prepare the panel
-    JPanel p = new JPanel(new GridLayout(vfactories.length, 1));
+    // FIXME PLUGIN need plugin support for applet
+    int foo = 4;
+    JPanel p = new JPanel(new GridLayout(foo, 1));
     p.setOpaque(false);
     
-    for (int v=0; v<vfactories.length; v++) {
-      p.add(new LinkWidget(new ActionView(vfactories[v])));
+    for (int v=0; v<foo; v++) {
+      p.add(new LinkWidget(""+v, null));
     }
     
     // done
     return p;
   }
   
-
-  /**
-   * Action to open view
-   */
-  private class ActionView extends Action2 {
-    /** factory */
-    private ViewFactory factory;
-    /**
-     * Constructor
-     */
-    private ActionView(ViewFactory vfactory) {
-      factory = vfactory;
-      setText(new MnemonicAndText(vfactory.getTitle(false)).getText());
-      setImage(vfactory.getImage());
-    }
-    /**
-     * @see genj.util.swing.Action2#execute()
-     */
-    protected void execute() {
-      viewManager.openView(gedcom, factory);
-    }
-  } //ActionView
-  
-  
-
 } //ControlCenter

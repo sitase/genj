@@ -22,7 +22,6 @@ package genj.entity;
 import genj.renderer.BlueprintList;
 import genj.renderer.BlueprintManager;
 import genj.view.Settings;
-import genj.view.ViewManager;
 
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -49,7 +48,7 @@ public class EntityViewSettings extends JTabbedPane implements Settings {
   /**
    * @see genj.view.Settings#init(genj.view.ViewManager)
    */
-  public void init(ViewManager manager) {
+  public void init() {
     
     // main options
     Box main = new Box(BoxLayout.Y_AXIS);

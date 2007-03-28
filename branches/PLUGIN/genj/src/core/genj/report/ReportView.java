@@ -31,9 +31,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.ImageIcon;
 import genj.view.ContextSelectionEvent;
-import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -82,7 +80,7 @@ import javax.swing.text.Element;
 /**
  * Component for running reports on genealogic data
  */
-public class ReportView extends JPanel implements ToolBarSupport {
+public class ReportView extends JPanel {
 
   /*package*/ static Logger LOG = Logger.getLogger("genj.report");
 
@@ -120,21 +118,17 @@ public class ReportView extends JPanel implements ToolBarSupport {
   /** resources */
   /*package*/ static final Resources RESOURCES = Resources.get(ReportView.class);
 
-  /** manager */
-  private ViewManager manager ;
-
   /** title of this view */
   private String title;
 
   /**
    * Constructor
    */
-  public ReportView(String theTitle, Gedcom theGedcom, Registry theRegistry, ViewManager theManager) {
+  public ReportView(String theTitle, Gedcom theGedcom, Registry theRegistry) {
 
     // data
     gedcom   = theGedcom;
     registry = theRegistry;
-    manager  = theManager;
     title    = theTitle;
 
     // Layout for this component
@@ -263,13 +257,6 @@ public class ReportView extends JPanel implements ToolBarSupport {
   }
 
   /**
-   * Returns the view manager
-   */
-  /*package*/ ViewManager getViewManager() {
-    return manager;
-  }
-
-  /**
    * Runs a specific report
    */
   /*package*/ void run(Report report, Object context) {
@@ -277,7 +264,8 @@ public class ReportView extends JPanel implements ToolBarSupport {
     if (!actionStart.isEnabled()) 
       return;
     // to front
-    manager.showView(this);
+    // FIXME PLUGIN report view?
+    //manager.showView(this);
     // start it
     listOfReports.setSelection(report);
     // TODO this is a hack - I want to pass the context over but also use the same ActionStart instance
@@ -303,7 +291,7 @@ public class ReportView extends JPanel implements ToolBarSupport {
   }
 
   /**
-   * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
+   * FIXME PLUGIN report toolbar
    */
   public void populate(JToolBar bar) {
 
