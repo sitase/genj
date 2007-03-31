@@ -51,8 +51,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.swing.FocusManager;
+import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JPopupMenu;
+import javax.swing.KeyStroke;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 
@@ -61,6 +63,7 @@ import javax.swing.SwingUtilities;
  */
 public abstract class ViewPlugin implements Plugin {
   
+  private final static ContextHook CONTEXT_HOOK = new ContextHook();
   private static Resources RESOURCES = Resources.get(ViewPlugin.class);
   private static Logger LOG = Logger.getLogger("genj.view");
   
@@ -256,12 +259,11 @@ public abstract class ViewPlugin implements Plugin {
       // create the view
       JComponent view = createView(gedcom, registry);
       
-// FIXME context keyboard shortcut      
-//      // add context hook for keyboard shortcuts
-//      InputMap inputs = view.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-//      inputs.put(KeyStroke.getKeyStroke("shift F10"), contextHook);
-//      inputs.put(KeyStroke.getKeyStroke("CONTEXT_MENU"), contextHook); // this only works in Tiger 1.5 on Windows
-//      view.getActionMap().put(contextHook, contextHook);
+      // add context hook for keyboard shortcuts
+      InputMap inputs = view.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+      inputs.put(KeyStroke.getKeyStroke("shift F10"), CONTEXT_HOOK);
+      inputs.put(KeyStroke.getKeyStroke("CONTEXT_MENU"), CONTEXT_HOOK); // this only works in Tiger 1.5 on Windows
+      view.getActionMap().put(CONTEXT_HOOK, CONTEXT_HOOK);
 
       // open frame
       WindowManager.getInstance(getTarget()).openWindow(key, title, ViewPlugin.this.getImage(), view);
@@ -294,7 +296,7 @@ public abstract class ViewPlugin implements Plugin {
   /**
    * Our hook into keyboard and mouse operated context changes / menues
    */
-  private class ContextHook extends Action2 implements AWTEventListener {
+  private static class ContextHook extends Action2 implements AWTEventListener {
     
     /** constructor */
     private ContextHook() {
