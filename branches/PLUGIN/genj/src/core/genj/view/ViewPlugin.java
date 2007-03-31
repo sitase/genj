@@ -21,10 +21,7 @@ package genj.view;
 
 import genj.app.ExtendMenubar;
 import genj.app.ExtendToolbar;
-import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.Property;
-import genj.gedcom.TagPath;
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
 import genj.plugin.PluginManager;
@@ -33,7 +30,6 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
-import genj.util.swing.MenuHelper;
 import genj.window.WindowManager;
 
 import java.awt.AWTEvent;
@@ -44,7 +40,6 @@ import java.awt.event.AWTEventListener;
 import java.awt.event.MouseEvent;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
-import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -150,11 +145,6 @@ public abstract class ViewPlugin implements Plugin {
     if (context==null)
       throw new IllegalArgumentException("context can't be null");
     
-    // decipher content
-    Property[] properties = context.getProperties();
-    Entity[] entities = context.getEntities();
-    Gedcom gedcom = context.getGedcom();
-
     // send it around
     PluginManager.get().extend(new ExtendContextMenu(context));
     
@@ -165,66 +155,8 @@ public abstract class ViewPlugin implements Plugin {
     // removed already by the time any of the associated actions are run
     while (target.getParent()!=null) target = target.getParent();
 
-    // create a popup
-    MenuHelper mh = new MenuHelper().setTarget(target);
-    JPopupMenu popup = mh.createPopup();
-    
-    // items for local actions?
-    mh.createItems(context.getActions());
-    
-    // popup for string keyed actions?
-    if (!context.getActionGroups().isEmpty()) {
-      for (Iterator keys = context.getActionGroups().iterator(); keys.hasNext();) {
-        Object key = keys.next();
-        if (key instanceof String) {
-          mh.createMenu((String)key);
-          mh.createItems(context.getActions(key));
-          mh.popMenu();
-        }
-      }
-    }
-    
-    // dive into gedcom structure 
-    mh.createSeparator(); // it's lazy
-    
-    // items for set or single property?
-    if (properties.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
-      mh.createItems(context.getActions(properties));
-      mh.popMenu();
-    } else if (properties.length==1) {
-      Property property = properties[0];
-      while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
-        // a sub-menu with appropriate actions
-        mh.createMenu(Property.LABEL+" '"+TagPath.get(property).getName() + '\'' , property.getImage(false));
-        mh.createItems(context.getActions(property));
-        mh.popMenu();
-        // recursively for parents
-        property = property.getParent();
-      }
-    }
-        
-    // items for set or single entity
-    if (entities.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
-      mh.createItems(context.getActions(entities));
-      mh.popMenu();
-    } else if (entities.length==1) {
-      Entity entity = entities[0];
-      String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
-      mh.createMenu(title, entity.getImage(false));
-      mh.createItems(context.getActions(entity));
-      mh.popMenu();
-    }
-        
-    // items for gedcom
-    String title = "Gedcom '"+gedcom.getName()+'\'';
-    mh.createMenu(title, Gedcom.getImage());
-    mh.createItems(context.getActions(gedcom));
-    mh.popMenu();
-
-    // done
-    return popup;
+    // create the popup
+    return context.getPopupMenu(target);
   }
   
   /**

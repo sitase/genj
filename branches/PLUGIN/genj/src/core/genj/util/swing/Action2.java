@@ -54,9 +54,6 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
     
   private final static Logger LOG = Logger.getLogger("genj.actions");
   
-  /** a noop ActionDelegate */
-  public static final Action2 NOOP = new ActionNOOP();
-  
   /** async modes */
   public static final int 
     ASYNC_NOT_APPLICABLE = 0,

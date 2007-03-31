@@ -20,6 +20,7 @@
 package genj.tree;
 
 import genj.common.SelectEntityWidget;
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
@@ -416,7 +417,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       return true;
     
     // need to get entity and no property
-    ViewContext context = cse.getContext();
+    Context context = cse.getContext();
     Entity entity = context.getEntity();
     Property prop = context.getProperty();
     if (entity==null )

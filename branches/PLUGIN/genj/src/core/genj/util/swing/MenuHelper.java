@@ -22,16 +22,11 @@ package genj.util.swing;
 import genj.util.MnemonicAndText;
 
 import java.awt.Component;
-import java.awt.Font;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 
 import javax.swing.Icon;
-import javax.swing.ImageIcon;
-import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
@@ -41,6 +36,8 @@ import javax.swing.JPopupMenu;
  * Class which provides some static helpers for menu-handling
  */
 public class MenuHelper  {
+  
+  public final static Action2 ACTION_SEPARATOR = new Action2();
   
   private Stack menus            = new Stack();  // JMenu or JPopupMenu or JMenuBar
   private Component target       = null;
@@ -117,55 +114,17 @@ public class MenuHelper  {
     return result;
   }
 
-  /**
-   * Creates a PopupMenu
-   */
-  public JPopupMenu createPopup(Component component) {
-    
-    // create one
-    final JPopupMenu result = createPopup();
-    
-    // start listening for it
-    component.addMouseListener(new MouseAdapter() {
-      public void mousePressed(MouseEvent e) {
-        // 20020829 on some OSes isPopupTrigger() will
-        // be true on mousePressed
-        mouseReleased(e);
-      }
-      public void mouseReleased(MouseEvent e) {
-        if (e.isPopupTrigger()) {
-          result.show(e.getComponent(),e.getX(), e.getY());
-        }
-      }
-    });
-    
-    // done
-    return result;
-  }
-  
-  /**
-   * Creates a simple text items
-   */
-  public JLabel createItem(String txt, ImageIcon img, boolean emphasized) {
-    JLabel item = new JLabel(txt, img, JLabel.CENTER);
-    if (emphasized) {
-      item.setFont(item.getFont().deriveFont(Font.BOLD));
-    }
-    createItem(item);
-    return item;
-  }
-  
-  private void createItem(Component item) {
-
-    Object menu = peekMenu();
-    if (menu instanceof JMenu)
-      ((JMenu)menu).add(item);
-    if (menu instanceof JPopupMenu)
-      ((JPopupMenu)menu).add(item);
-    if (menu instanceof JMenuBar)
-      ((JMenuBar)menu).add(item);
-    
-  }
+//  private void createItem(Component item) {
+//
+//    Object menu = peekMenu();
+//    if (menu instanceof JMenu)
+//      ((JMenu)menu).add(item);
+//    if (menu instanceof JPopupMenu)
+//      ((JPopupMenu)menu).add(item);
+//    if (menu instanceof JMenuBar)
+//      ((JMenuBar)menu).add(item);
+//    
+//  }
 
   /**
    * Creates items from list of ActionDelegates
@@ -173,45 +132,21 @@ public class MenuHelper  {
    * will be separated visually by createSeparator
    */
   public void createItems(List actions) {
-    // nothing to do?
-    if (actions==null||actions.isEmpty())
-      return;
-    createSeparator();
     // Loop through list
-    Iterator it = actions.iterator();
-    while (it.hasNext()) {
-      Object o = it.next();
-      // a nested list ?
-      if (o instanceof List) {
-        createSeparator();
-        createItems((List)o);
-        continue;
-      }
-      // a component?
-      if (o instanceof Component) {
-        createItem((Component)o);
-        continue;
-      }
-      // an action?
-      if (o instanceof Action2) {
-        createItem((Action2)o);
-        continue;
-      }
-      // n/a
-      throw new IllegalArgumentException("type "+o.getClass()+" n/a");
-    }
+    for (Iterator it  = actions.iterator(); it.hasNext(); ) 
+      createItem((Action2)it.next());
     // done
   }
 
   /**
    * Creates an item
    */
-  public JMenuItem createItem(Action2 action) {
+  public void createItem(Action2 action) {
     
-    // a NOOP results in separator
-    if (action == Action2.NOOP) {
+    // a separator?
+    if (action==ACTION_SEPARATOR) {
       createSeparator();
-      return null;
+      return;
     }
     
     // create a menu item
@@ -235,8 +170,7 @@ public class MenuHelper  {
     if (target!=null) action.setTarget(target);
     
     // done
-    return result;
-  }
+ }
 
   /**
    * Creates an separator

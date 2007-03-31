@@ -46,13 +46,6 @@ public class ButtonHelper {
    */
   public AbstractButton create(Action action) {
     
-    // a NOOP results in separator
-    if (action == Action2.NOOP) {
-      if (container instanceof JToolBar)
-        ((JToolBar)container).addSeparator();
-      return null;
-    }
-    
     // create the button and hook it up to action
     final AbstractButton result = new JButton();
     if (result instanceof JButton) {

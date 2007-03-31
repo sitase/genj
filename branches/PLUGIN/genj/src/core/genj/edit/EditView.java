@@ -302,7 +302,7 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
     if (cse==null)
       return true;
     
-    ViewContext context = cse.getContext();
+    Context context = cse.getContext();
     
     // ignore if no entity info in it
     if (context.getEntity()==null)
@@ -336,7 +336,7 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
     return true;
   }
   
-  public void setContext(ViewContext context) {
+  public void setContext(Context context) {
     
     // check current editor's context
     ViewContext current = editor.getContext();

@@ -19,6 +19,7 @@
  */
 package genj.view;
 
+import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
 import genj.window.WindowBroadcastEvent;
 
@@ -29,13 +30,13 @@ import java.awt.Component;
  */
 public class ContextSelectionEvent extends WindowBroadcastEvent {
   
-  private ViewContext context;
+  private Context context;
   private boolean isActionPerformed = false;
   
   /**
    * Constructor
    */
-  public ContextSelectionEvent(ViewContext context, Component source) {
+  public ContextSelectionEvent(Context context, Component source) {
     super(source);
     this.context = context;
   }
@@ -43,7 +44,7 @@ public class ContextSelectionEvent extends WindowBroadcastEvent {
   /**
    * Constructor
    */
-  public ContextSelectionEvent(ViewContext context, Component source, boolean isActionPerformed) {
+  public ContextSelectionEvent(Context context, Component source, boolean isActionPerformed) {
     this(context, source);
     this.isActionPerformed = isActionPerformed;
   }
@@ -51,7 +52,7 @@ public class ContextSelectionEvent extends WindowBroadcastEvent {
   /**
    * Read-Only Accessor
    */
-  public ViewContext getContext() {
+  public Context getContext() {
     return context;
   }
 

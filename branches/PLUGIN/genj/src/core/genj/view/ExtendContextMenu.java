@@ -19,11 +19,8 @@
  */
 package genj.view;
 
-import java.util.Iterator;
-
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
-import genj.util.swing.Action2;
 
 /**
  * An extension point for providing context menu content
@@ -45,10 +42,7 @@ public class ExtendContextMenu extends ExtensionPoint {
   
   /** create a separator in view context before each plugin */
   protected void before(Plugin plugin) {
-    context.addAction(Action2.NOOP);
-    for (Iterator groups = context.getActionGroups().iterator(); groups.hasNext();) {
-      context.addAction(groups.next(), Action2.NOOP);
-    }
+    context.addSeparator(true);
   }
   
 }

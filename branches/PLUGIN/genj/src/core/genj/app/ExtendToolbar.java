@@ -24,23 +24,29 @@ import genj.plugin.ExtensionPoint;
 import genj.util.swing.Action2;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+
+import javax.swing.JComponent;
+import javax.swing.JToolBar;
 
 /**
  * An extension point that allows to add toolbar items
  */
 public class ExtendToolbar extends ExtensionPoint {
   
+  private final static Action2 SEPARATOR = new Action2();
+  
   private Gedcom gedcom;
+  private JComponent source;
   
   private List actions = new ArrayList();
   
   /** 
    * Constructor 
    */
-  protected ExtendToolbar(Gedcom gedcom) {
+  protected ExtendToolbar(Gedcom gedcom, JComponent source) {
     this.gedcom = gedcom;
+    this.source = source;
   }
   
   /** 
@@ -55,15 +61,35 @@ public class ExtendToolbar extends ExtensionPoint {
    * add a toolbar action 
    */
   public void addAction(Action2 action) {
-    if (action!=Action2.NOOP&&action.getImage()==null)
+    if (action.getImage()==null)
       throw new IllegalArgumentException("Extend Toolbar actions need to provide image");
     action.setText(null);
     actions.add(action);
   }
   
-  /** resolve actions */
-  public List getActions() {
-    return Collections.unmodifiableList(actions);
+  /**
+   * add a separator
+   */
+  public void addSeparator() {
+    actions.add(SEPARATOR);
+  }
+  
+  /** resolve toolbar */
+  /*package*/ JToolBar getToolbar() {
+    
+    // create toolbar and setup helper
+    JToolBar toolbar = new JToolBar();
+    for (int i = 0; i < actions.size(); i++) {
+      Action2 action = (Action2)actions.get(i);
+      action.setTarget(source);
+      if (action==SEPARATOR)
+        toolbar.addSeparator();
+      else
+        toolbar.add(action);
+    }
+    
+    // donre
+    return toolbar;
   }
   
 }

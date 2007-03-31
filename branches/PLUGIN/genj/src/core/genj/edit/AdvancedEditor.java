@@ -21,6 +21,7 @@ package genj.edit;
 
 import genj.common.SelectEntityWidget;
 import genj.edit.beans.PropertyBean;
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
@@ -205,7 +206,7 @@ import javax.swing.tree.TreePath;
    * Accessor - current context 
    * @param context context to switch to
    */
-  public void setContext(ViewContext context) {
+  public void setContext(Context context) {
     
     // ignore?
     if (ignoreSelection||context.getEntities().length==0)

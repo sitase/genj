@@ -44,11 +44,9 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.FileChooser;
 import genj.util.swing.HeapStatusWidget;
-import genj.util.swing.MenuHelper;
 import genj.util.swing.ProgressWidget;
 import genj.view.ViewContext;
 import genj.window.WindowBroadcastEvent;
@@ -75,7 +73,6 @@ import javax.swing.Action;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
-import javax.swing.JMenuBar;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
@@ -98,8 +95,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     ACC_OPEN = "ctrl O";
 
   /** members */
-  private JMenuBar menuBar = new JMenuBar();
-  private JToolBar toolBar = new JToolBar();
   private GedcomTableWidget tGedcoms;
   private Registry registry;
   private Resources resources = Resources.get(this);
@@ -127,9 +122,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
       };
     };
     
-    // toolbar
-    toolBar.setFloatable(false);
-    
     // status bar
     HeapStatusWidget mem = new HeapStatusWidget();
     mem.setToolTipText(resources.getString("cc.heap"));
@@ -140,20 +132,17 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     // listen to selections
     tGedcoms.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
       public void valueChanged(ListSelectionEvent e) {
-        updateActions(tGedcoms.getSelectedGedcom());
+        new UpdateActions().trigger();
       }
     });
 
-    // update status
-    updateActions(null);
-    
     // Layout
     setLayout(new BorderLayout());
-    add(toolBar, BorderLayout.NORTH);
     add(new JScrollPane(tGedcoms), BorderLayout.CENTER);
     add(status, BorderLayout.SOUTH);
     
     // Load known gedcoms
+    SwingUtilities.invokeLater(new UpdateActions());
     SwingUtilities.invokeLater(new ActionAutoOpen(args));
     
     // Done
@@ -172,16 +161,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     return true;
   }
   
-  /**
-   * @see JPanel#addNotify()
-   */
-  public void addNotify() {
-    // let super do its thing
-    super.addNotify();
-    // init our menu bar
-    WindowManager.setMenubar(this, menuBar);
-  }
-
   /**
    * Adds another Gedcom to the list of Gedcoms
    */
@@ -210,81 +189,6 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
   }
   
   /**
-   * Updated  MenuBar
-   */
-  private void updateActions(Gedcom selection) {
-    
-    // cleanup menu
-    menuBar.removeAll();
-    menuBar.revalidate();
-    menuBar.repaint();
-    
-    // collect our actions as an extension point
-    ExtendMenubar em = new ExtendMenubar(selection, windowManager);
-
-    em.addAction(ExtendMenubar.FILE_MENU, new ActionNew());
-    em.addAction(ExtendMenubar.FILE_MENU, new ActionOpen());
-    em.addAction(ExtendMenubar.FILE_MENU, Action2.NOOP);
-    em.addAction(ExtendMenubar.FILE_MENU, new ActionSave(false, selection!=null));
-    em.addAction(ExtendMenubar.FILE_MENU, new ActionSave(true, selection!=null));
-    em.addAction(ExtendMenubar.FILE_MENU, new ActionClose(selection!=null));
-    if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in application menus apparently
-      em.addAction(ExtendMenubar.FILE_MENU, Action2.NOOP);
-      em.addAction(ExtendMenubar.FILE_MENU, new ActionExit());
-    }
-    
-    // ask plugins for their contributions
-    PluginManager.get().extend(em);
-    
-    // add help menu
-    em.addAction(ExtendMenubar.HELP_MENU, new ActionHelp());
-    em.addAction(ExtendMenubar.HELP_MENU, new ActionAbout());
-    
-    // create menu now
-    MenuHelper mh = new MenuHelper();
-    mh.setTarget(this);
-    mh.pushMenu(menuBar);
-    
-    for (Iterator groups = em.getMenus().iterator(); groups.hasNext();) {
-      String group = (String) groups.next();
-      // TOOD we should parse groups for sub-groups (e.g. Plugin|Foo|Action)
-      if (group==ExtendMenubar.FILE_MENU)
-        mh.createMenu(resources.getString("cc.menu.file"));
-      else if (group==ExtendMenubar.HELP_MENU)
-        mh.createMenu(resources.getString("cc.menu.help"));
-      else
-        mh.createMenu(group);
-      for (Iterator actions = em.getActions(group).iterator(); actions.hasNext();) 
-        mh.createItem((Action2)actions.next());
-      mh.popMenu();
-    }
-
-    // cleanup toolbar
-    toolBar.removeAll();
-    toolBar.revalidate();
-    toolBar.repaint();
-      
-    // collect our actions as toolbar actions
-    ExtendToolbar et = new ExtendToolbar(selection);
-    et.addAction(new ActionNew());
-    et.addAction(new ActionOpen());
-    et.addAction(new ActionSave(false, selection!=null));
-    et.addAction(Action2.NOOP);
-
-    // ask plugins for their contributions
-    PluginManager.get().extend(et);
-    
-    // create toolbar and setup helper
-    ButtonHelper bh = new ButtonHelper().setInsets(4).setContainer(toolBar);
-    for (Iterator actions=et.getActions().iterator(); actions.hasNext(); ) {
-      Action2 action = (Action2)actions.next();
-      bh.create(action);
-    }
-    
-    // Done
-  }
-  
-  /**
    * Let the user choose a file
    */
   private File chooseFile(String title, String action, JComponent accessory) {
@@ -306,6 +210,62 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
     return file;
   }
 
+  /**
+   * Updated actions
+   */
+  private class UpdateActions extends Action2 {
+    protected void execute() {
+      
+      Gedcom selection = tGedcoms.getSelectedGedcom();
+    
+      // collect our menubar as an extension point
+      ExtendMenubar em = new ExtendMenubar(selection, ControlCenter.this);
+  
+      em.addAction(ExtendMenubar.FILE_MENU, new ActionNew());
+      em.addAction(ExtendMenubar.FILE_MENU, new ActionOpen());
+      em.addSeparator(ExtendMenubar.FILE_MENU);
+      em.addAction(ExtendMenubar.FILE_MENU, new ActionSave(false, selection!=null));
+      em.addAction(ExtendMenubar.FILE_MENU, new ActionSave(true, selection!=null));
+      em.addAction(ExtendMenubar.FILE_MENU, new ActionClose(selection!=null));
+      if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in application menus apparently
+        em.addSeparator(ExtendMenubar.FILE_MENU);
+        em.addAction(ExtendMenubar.FILE_MENU, new ActionExit());
+      }
+      em.addSeparator(ExtendMenubar.FILE_MENU);
+      
+      // ask plugins for their contributions
+      PluginManager.get().extend(em);
+      
+      // add tools
+      em.addAction(ExtendMenubar.TOOLS_MENU, new ActionOptions());
+      
+      // add help menu
+      em.addAction(ExtendMenubar.HELP_MENU, new ActionHelp());
+      em.addAction(ExtendMenubar.HELP_MENU, new ActionAbout());
+      
+      // set menubar as is
+      WindowManager.setMenubar(ControlCenter.this, em.getMenuBar());
+      
+      // collect our toolbar as an extension point
+      ExtendToolbar et = new ExtendToolbar(selection, ControlCenter.this);
+      et.addAction(new ActionNew());
+      et.addAction(new ActionOpen());
+      et.addAction(new ActionSave(false, selection!=null));
+      et.addSeparator();
+  
+      // ask plugins for their contributions
+      PluginManager.get().extend(et);
+      
+      // set toolbar as is
+      JToolBar tb = et.getToolbar();
+      tb.setFloatable(false);
+      WindowManager.setToolbar(ControlCenter.this, tb);
+      
+      // Done
+    }
+ 
+  } //UpdateActions
+  
   /**
    * Action - about
    */

@@ -57,7 +57,6 @@ import genj.gedcom.Submitter;
 import genj.io.FileAssociation;
 import genj.plugin.ExtensionPoint;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.ExtendContextMenu;
 import genj.view.ViewContext;
@@ -232,7 +231,7 @@ public class EditViewPlugin extends ViewPlugin {
     if (entity instanceof Submitter) extend(context, (Submitter)entity);
     
     // separator
-    context.addAction(entity, Action2.NOOP);
+    context.addSeparator(entity);
 
     // Check what xrefs can be added
     MetaProperty[] subs = entity.getNestedMetaProperties(0);
@@ -250,13 +249,13 @@ public class EditViewPlugin extends ViewPlugin {
     }
 
     // add delete
-    context.addAction(entity, Action2.NOOP);
+    context.addSeparator(entity);
     context.addAction(entity, new DelEntity(entity));
     
     // add an "edit in EditView"
     EditView[] edits = EditView.getInstances(entity.getGedcom());
     if (edits.length==0) {
-      context.addAction(entity, Action2.NOOP);
+      context.addSeparator(entity);
       context.addAction(entity, new OpenForEdit(new ViewContext(entity)));
     }
     
@@ -307,7 +306,7 @@ public class EditViewPlugin extends ViewPlugin {
     context.addAction(gedcom, new CreateEntity(gedcom, Gedcom.SOUR));
     context.addAction(gedcom, new CreateEntity(gedcom, Gedcom.SUBM));
 
-    context.addAction(gedcom, Action2.NOOP);
+    context.addSeparator(gedcom);
     context.addAction(gedcom, new Undo(gedcom));
     context.addAction(gedcom, new Redo(gedcom));
 
