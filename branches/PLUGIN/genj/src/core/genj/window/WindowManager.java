@@ -28,6 +28,7 @@ import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
+import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
@@ -44,6 +45,7 @@ import java.util.WeakHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.swing.AbstractButton;
 import javax.swing.Action;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
@@ -146,8 +148,18 @@ public abstract class WindowManager {
         content.remove(cs[i]);
     }
     // add new
-    if (toolbar!=null) 
+    if (toolbar!=null) {
+      
+      // patch buttons first
+      for (int i = 0, j = toolbar.getComponentCount(); i < j; i++) {
+        Component comp = toolbar.getComponent(i);
+        if (comp instanceof AbstractButton)
+          ((AbstractButton)comp).setMargin(new Insets(2,2,2,2));
+        
+      }
+      
       content.add(BorderLayout.NORTH, toolbar);
+    }
     // done
   }
 

@@ -35,6 +35,7 @@ import genj.util.swing.PopupWidget;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.Insets;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -122,6 +123,7 @@ public class SelectEntityWidget extends JPanel {
 
     // prepare sorting widget
     sortWidget = new PopupWidget();
+    sortWidget.setMargin(new Insets(2,2,2,2));
     ArrayList sorts = new ArrayList();
     for (int i=0;i<SORTS.length;i++) {
       String path = SORTS[i];

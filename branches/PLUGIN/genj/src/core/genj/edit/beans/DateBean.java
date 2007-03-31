@@ -29,6 +29,7 @@ import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.PopupWidget;
 import genj.util.swing.TextFieldWidget;
 
+import java.awt.Insets;
 import java.util.ArrayList;
 
 import javax.swing.JLabel;
@@ -62,6 +63,7 @@ public class DateBean extends PropertyBean {
 
     // .. the chooser (making sure the preferred size is pre-computed to fit-it-all)
     choose = new PopupWidget(null, null, actions);
+    choose.setMargin(new Insets(2,2,2,2));
     add(choose);
     
     // .. first date

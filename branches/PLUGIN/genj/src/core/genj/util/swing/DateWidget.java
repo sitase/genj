@@ -28,6 +28,7 @@ import genj.util.WordBuffer;
 import genj.window.WindowManager;
 
 import java.awt.Dimension;
+import java.awt.Insets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -85,6 +86,8 @@ public class DateWidget extends JPanel {
     
     // initialize Sub-components
     widgetCalendar = new PopupWidget(); 
+    widgetCalendar.setMargin(new Insets(2,2,2,2));
+    widgetCalendar.setBorder(null);
     widgetCalendar.setActions(switches);
     
     widgetYear  = new TextFieldWidget("",5+1);

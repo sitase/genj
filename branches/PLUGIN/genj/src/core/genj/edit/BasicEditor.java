@@ -48,6 +48,7 @@ import java.awt.Component;
 import java.awt.ContainerOrderFocusTraversalPolicy;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Insets;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -347,6 +348,7 @@ import spin.Spin;
       setToolTipText(prop.getPropertyName());
       
       // fix looks
+      setMargin(new Insets(2,2,2,2));
       setFocusable(false);
       setBorder(null);
       

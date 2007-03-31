@@ -307,6 +307,7 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
     
     // create result
     PopupWidget result = new PopupWidget();
+    result.setMargin(new Insets(2,2,2,2));
     result.setIcon(i);
     result.setFocusPainted(false);
     result.setFireOnClick(true);

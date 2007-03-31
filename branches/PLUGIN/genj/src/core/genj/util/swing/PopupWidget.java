@@ -20,7 +20,6 @@
 package genj.util.swing;
 
 import java.awt.GridLayout;
-import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,8 +85,6 @@ public class PopupWidget extends JButton {
     if (actions!=null) setActions(actions);
     // make non-focusable
     setFocusable(false);
-    // small guy
-    setMargin(new Insets(2,2,2,2));
     // done
   }
   

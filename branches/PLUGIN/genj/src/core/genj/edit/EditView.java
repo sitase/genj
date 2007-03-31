@@ -175,7 +175,7 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
     
     // context to edit?
     Entity entity = gedcom.getEntity(registry.get("entity", (String)null));
-    if (entity==null) entity = gedcom.getFirstEntity(Gedcom.INDI);
+    if (entity==null) entity = gedcom.getFirstEntity(Gedcom.INDI);   
     isSticky = entity==null ? false : registry.get("sticky", false);
     if (entity!=null) setContext(new ViewContext(entity));
     
@@ -193,7 +193,7 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
     toolbar.add(new Undo(gedcom));
     toolbar.add(new Redo(gedcom));
     toolbar.add(contextMenu);
-    toolbar.add(Action2.NOOP);
+    toolbar.addSeparator();
     toolbar.add(tmode);
     WindowManager.setToolbar(this, toolbar);
     
