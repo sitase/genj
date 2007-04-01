@@ -29,7 +29,7 @@ public abstract class PropertyVisitor {
    * callback for reaching a leaf
    * @return whether to backtrack and continue the recursion or not
    */
-  protected boolean leaf(Property leaf) {
+  protected boolean leaf(Property root, TagPath path, Property leaf) {
     return true;
   }
 
@@ -37,7 +37,7 @@ public abstract class PropertyVisitor {
    * callback for recursing from parent into child with given tag
    * @return whether to continue recursion
    */
-  protected boolean recursion(Property parent, String child) {
+  protected boolean recursion(Property root, TagPath path, int pos, Property parent, String child) {
     return true;
   }
 

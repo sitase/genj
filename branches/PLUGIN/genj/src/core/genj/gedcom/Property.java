@@ -704,7 +704,7 @@ public abstract class Property implements Comparable {
     final Property[] result = new Property[1];
 
     PropertyVisitor visitor = new PropertyVisitor() {
-      protected boolean leaf(Property prop) {
+      protected boolean leaf(Property root, TagPath path, Property prop) {
         result[0] = prop;
         return false;
       }
@@ -723,7 +723,7 @@ public abstract class Property implements Comparable {
    final  List result = new ArrayList(10);
 
     PropertyVisitor visitor = new PropertyVisitor() {
-      protected boolean leaf(Property prop) {
+      protected boolean leaf(Property root, TagPath path, Property prop) {
         result.add(prop);
         return true;
       }
@@ -883,12 +883,12 @@ public abstract class Property implements Comparable {
   /**
    * Set a value at given path
    */
-  public Property setValue(final TagPath path, final String value) {
+  public Property setValue(TagPath path, final String value) {
 
     final Property[] result = new Property[1];
     
     PropertyVisitor visitor = new PropertyVisitor() {
-      protected boolean leaf(Property prop) {
+      protected boolean leaf(Property root, TagPath path, Property prop) {
         // don't apply setValue to xref - use substitute instead
         if (prop instanceof PropertyXRef && ((PropertyXRef)prop).getTarget()!=null) 
           prop = prop.getParent().addProperty(prop.getTag(), "");
@@ -898,9 +898,17 @@ public abstract class Property implements Comparable {
         // done - don't continue;
         return false;
       }
-      protected boolean recursion(Property parent,String child) {
-        if (parent.getProperty(child, false)==null)
-          parent.addProperty(child, "");
+      protected boolean recursion(Property root,TagPath path, int pos, Property parent, String child) {
+        // got a child to recurse into?
+        if (parent.getProperty(child, false)!=null) 
+          return true;
+        // stop at new leaf / end of path
+        if (path.length()-1==pos) {
+          parent.addProperty(child, value);
+          return false;
+        }
+        // recurse and continue
+        parent.addProperty(child, "");
         return true;
       }
     };

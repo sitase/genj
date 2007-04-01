@@ -338,12 +338,12 @@ public class TagPath {
     String tag = get(0);
     char c = tag.charAt(0);
     if (c=='.'||c=='*')
-      iterate(0, root, visitor);
+      iterate(root, 0, root, visitor);
     else if (tag.equals(root.getTag()))
-      iterate(1, root, visitor);
+      iterate(root, 1, root, visitor);
   }
   
-  private boolean iterate(int pos, Property prop, PropertyVisitor visitor) {
+  private boolean iterate(Property root, int pos, Property prop, PropertyVisitor visitor) {
     
     String tag;
     
@@ -352,7 +352,7 @@ public class TagPath {
       
       // walked the path?
       if (pos==length()) 
-        return visitor.leaf(prop);
+        return visitor.leaf(root, this, prop);
       
       // check next tag
       tag = get(pos);
@@ -380,7 +380,7 @@ public class TagPath {
     }
     
     // let visitor know that we're recursing now
-    if (!visitor.recursion(prop, tag))
+    if (!visitor.recursion(root, this, pos, prop, tag))
       return false;
     
     // recurse into children
@@ -389,7 +389,7 @@ public class TagPath {
       Property child = prop.getProperty(i);
       if (tag.equals(child.getTag())) {
         if (qualifier<0||qualifier==c++) {
-          if (!iterate(pos+1, child, visitor))
+          if (!iterate(root, pos+1, child, visitor))
             return false;
         }
       }

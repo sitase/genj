@@ -62,7 +62,7 @@ public class PropertyTagPathTest extends TestCase {
 
     final Set wifes = new HashSet();
     new TagPath("INDI:FAMS:*:..:WIFE:*:..").iterate(husband, new PropertyVisitor() { 
-      protected boolean leaf(Property leaf) {
+      protected boolean leaf(Property root, TagPath path, Property leaf) {
         wifes.add(leaf);
         return true; // continue
       }

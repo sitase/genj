@@ -673,7 +673,7 @@ import spin.Spin;
       
       final Property[] _prop = new Property[1];
       path.iterate(root, new PropertyVisitor() {
-        protected boolean leaf(Property leaf) {
+        protected boolean leaf(Property root, TagPath path, Property leaf) {
           // continue in case of xref - can't use those
           if (leaf instanceof PropertyXRef)
             return true;
