@@ -884,40 +884,46 @@ public abstract class Property implements Comparable {
    * Set a value at given path
    */
   public Property setValue(TagPath path, final String value) {
-
-    final Property[] result = new Property[1];
+    Setter setter = new Setter(value);
+    path.iterate(this, setter);
+    return setter.result;
+  }
+  
+  private class Setter extends PropertyVisitor {
     
-    PropertyVisitor visitor = new PropertyVisitor() {
-      protected boolean leaf(Property root, TagPath path, Property prop) {
-        // don't apply setValue to xref - use substitute instead
-        if (prop instanceof PropertyXRef && ((PropertyXRef)prop).getTarget()!=null) 
-          prop = prop.getParent().addProperty(prop.getTag(), "");
-        // set it and remember
-        prop.setValue(value);
-        result[0] = prop;
-        // done - don't continue;
+    Property result = null;
+    String value;
+
+    Setter(String value) {
+      this.value = value;
+    }
+    
+    protected boolean leaf(Property root, TagPath path, Property prop) {
+      // don't apply setValue to xref - use substitute instead
+      if (prop instanceof PropertyXRef && ((PropertyXRef)prop).getTarget()!=null) 
+        prop = prop.getParent().addProperty(prop.getTag(), "");
+      // set it and remember
+      prop.setValue(value);
+      result = prop;
+      // done - don't continue;
+      return false;
+    }
+    
+    protected boolean recursion(Property root,TagPath path, int pos, Property parent, String child) {
+      // got a child to recurse into?
+      if (parent.getProperty(child, false)!=null) 
+        return true;
+      // stop at new leaf / end of path
+      if (path.length()-1==pos) {
+        result = parent.addProperty(child, value);
         return false;
       }
-      protected boolean recursion(Property root,TagPath path, int pos, Property parent, String child) {
-        // got a child to recurse into?
-        if (parent.getProperty(child, false)!=null) 
-          return true;
-        // stop at new leaf / end of path
-        if (path.length()-1==pos) {
-          parent.addProperty(child, value);
-          return false;
-        }
-        // recurse and continue
-        parent.addProperty(child, "");
-        return true;
-      }
-    };
-    
-    path.iterate(this, visitor);
+      // recurse and continue
+      parent.addProperty(child, "");
+      return true;
+    }
 
-    // done
-    return result[0];
-  }
+  } //Setter
   
   /**
    * Sets this property's value as string.
