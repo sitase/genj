@@ -17,9 +17,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.29 $ $Author: nmeier $ $Date: 2007-02-07 20:31:16 $
+ * $Revision: 1.29.2.1 $ $Author: nmeier $ $Date: 2007-10-16 14:04:31 $
  */
 package genj.util;
+
+import genj.gedcom.Gedcom;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -197,6 +199,15 @@ public class Registry {
     if (result!=null)
       return result;
     return new Registry(name, origin);
+  }
+  
+  /**
+   * Returns a registry for given gedcom file (lazy one instantiation)
+   */
+  public static Registry lookup(Gedcom gedcom) {
+    Origin origin = gedcom.getOrigin();
+    String name = origin.getFileName();
+    return Registry.lookup(name, origin);
   }
   
   /**

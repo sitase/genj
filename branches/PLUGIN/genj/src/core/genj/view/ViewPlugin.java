@@ -25,7 +25,6 @@ import genj.gedcom.Gedcom;
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
 import genj.plugin.PluginManager;
-import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
@@ -34,9 +33,11 @@ import genj.window.WindowManager;
 
 import java.awt.AWTEvent;
 import java.awt.Component;
+import java.awt.EventQueue;
 import java.awt.Point;
 import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
+import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -59,8 +60,8 @@ import javax.swing.SwingUtilities;
 public abstract class ViewPlugin implements Plugin {
   
   private final static ContextHook CONTEXT_HOOK = new ContextHook();
-  private static Resources RESOURCES = Resources.get(ViewPlugin.class);
-  private static Logger LOG = Logger.getLogger("genj.view");
+  private final static Resources RESOURCES = Resources.get(ViewPlugin.class);
+  private final static Logger LOG = Logger.getLogger("genj.view");
   
   protected PluginManager manager = null;
 
@@ -116,15 +117,6 @@ public abstract class ViewPlugin implements Plugin {
   }
   
   /**
-   * Helper that returns registry for gedcom
-   */
-  private Registry getRegistry(Gedcom gedcom) {
-    Origin origin = gedcom.getOrigin();
-    String name = origin.getFileName();
-    return Registry.lookup(name, origin);
-  }
-  
-  /**
    * Get the package name of this view plugin
    */
   private String getPackage() {
@@ -176,14 +168,26 @@ public abstract class ViewPlugin implements Plugin {
       setEnabled(gedcom!=null);
     }
     
+    private boolean isShiftModifier() {
+      try {
+        AWTEvent event = EventQueue.getCurrentEvent();
+        return event instanceof InputEvent&&((InputEvent)event).isShiftDown();
+      } catch (Throwable t) {
+        return false;
+      }
+    }
+    
     /** execute */
     protected void execute() {
+      
+      if (isShiftModifier())
+        System.out.println("SHIFT");
       
       int index = 1;
       String key = getPackage()+"."+index;
     
       // get a registry 
-      Registry registry = new Registry( getRegistry(gedcom), key) ;
+      Registry registry = new Registry( Registry.lookup(gedcom), key) ;
 
       // title 
       String title = gedcom.getName()+" - "+getTitle()+" ("+registry.getViewSuffix()+")";
