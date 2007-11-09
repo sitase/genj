@@ -84,8 +84,9 @@ public class PluginManager {
       while (it.hasNext()) {
         try {
           Plugin plugin = (Plugin)it.next();
-          LOG.log(Level.FINE, "Loaded plugin", plugin.getClass().getName());
-          result.add(plugin);
+          plugin.initPlugin(this);
+          LOG.log(Level.FINE, "Loaded plugin "+plugin.getClass().getName()); 
+					result.add(plugin);
         } catch (Throwable t) {
           LOG.log(Level.WARNING, "Couldn't load plugin", t);
         }
