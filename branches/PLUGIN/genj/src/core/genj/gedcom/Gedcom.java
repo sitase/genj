@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.124.2.1 $ $Author: nmeier $ $Date: 2007-03-12 19:58:07 $
+ * $Revision: 1.124.2.2 $ $Author: nmeier $ $Date: 2007-11-12 13:54:37 $
  */
 package genj.gedcom;
 
@@ -170,7 +170,7 @@ public class Gedcom implements Comparable {
   private Map tags2refsets = new HashMap();
 
   /** encoding */
-  private String encoding = ENCODINGS[Options.getInstance().defaultEncoding];
+  private String encoding = ENCODINGS[Math.min(ENCODINGS.length-1, Options.getInstance().defaultEncoding)];
   
   /** language */
   private String language = null;
