@@ -559,6 +559,7 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
       
       // prepare result
       List props = new ArrayList();
+      List ents = new ArrayList();
       
       // one row one col?
       int[] rows = getSelectedRows();
@@ -567,6 +568,8 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
 
         // loop over rows
         for (int r=0;r<rows.length;r++) {
+          
+          ents.add(propertyModel.getProperty(model.modelIndex(rows[r])));
           
           // loop over cols
           boolean rowRepresented = false;
@@ -579,10 +582,6 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
             }
             // next selected col
           }
-          
-          // add representation for each row that wasn't represented by a property
-          if (!rowRepresented)
-            props.add(propertyModel.getProperty(model.modelIndex(rows[r])));
           
           // next selected row
         }
