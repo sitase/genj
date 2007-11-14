@@ -1081,6 +1081,31 @@ public abstract class Property implements Comparable {
   public String getPropertyName() {
     return Gedcom.getName(getTag());
   }
+
+  /**
+   * Returns a image representation of a list of properties - in best case (all properties are the same) the appropriate property's image - otherwise a general representative
+   */
+  public static ImageIcon getImage(Property[] properties) {
+    if (properties==null||properties.length==0)
+      throw new IllegalArgumentException();
+    ImageIcon result = properties[0].getImage(false);
+    Class clazz = properties[0].getClass();
+    for (int i = 1; i < properties.length; i++) {
+      
+      Property p = properties[i];
+      if (clazz.isAssignableFrom(p.getClass()))
+        continue;
+      if (p.getClass().isAssignableFrom(clazz)) {
+        clazz = p.getClass();
+        result = p.getImage(false);
+        continue;
+      }
+      
+      // break off
+      return result.getDisabled(75);
+    }
+    return result;
+  }
   
   /**
    * Returns a list of property names for given list of properties
