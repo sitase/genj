@@ -90,22 +90,23 @@ public class ReportValidate extends Report {
     return false;
   }
 
-  /**
-   * Start for argument properties
-   */
-  public void start(Property[] props) {
-
-    List tests = createTests();
-
-    List issues = new ArrayList();
-    for (int i=0;i<props.length;i++) {
-      TagPath path = props[i].getPath();
-      test(props[i], path, Grammar.getMeta(path), tests, issues);
-    }
-
-    // show results
-    results(props[0].getGedcom(), issues);
-  }
+// Seems too much detail on individual properties
+//  /**
+//   * Start for argument properties
+//   */
+//  public void start(Property[] props) {
+//
+//    List tests = createTests();
+//
+//    List issues = new ArrayList();
+//    for (int i=0;i<props.length;i++) {
+//      TagPath path = props[i].getPath();
+//      test(props[i], path, Grammar.getMeta(path), tests, issues);
+//    }
+//
+//    // show results
+//    results(props[0].getGedcom(), issues);
+//  }
 
   /**
    * Start for argument entity
