@@ -20,7 +20,6 @@
 package genj.view;
 
 import genj.plugin.ExtensionPoint;
-import genj.plugin.Plugin;
 
 /**
  * An extension point for providing context menu content
@@ -38,11 +37,6 @@ public class ExtendContextMenu extends ExtensionPoint {
   /** accessor - context */
   public ViewContext getContext() {
     return context;
-  }
-  
-  /** create a separator in view context before each plugin */
-  protected void before(Plugin plugin) {
-    context.addSeparator(true);
   }
   
 }
