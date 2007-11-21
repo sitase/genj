@@ -105,17 +105,27 @@ public class ReportPlugin implements Plugin {
   private void extend(ViewContext context, Object argument) {
     
     // Look through reports
+    boolean found = false;
+    
     Report[] reports = ReportLoader.getInstance().getReports();
     for (int r=0;r<reports.length;r++) {
       Report report = reports[r];
       try {
         String accept = report.accepts(argument); 
-        if (accept!=null) 
+        if (accept!=null) {
+          if (!found) {
+            context.addSeparator(argument);
+            found = true;
+          }
           context.addAction(argument, new Run(accept, argument, context.getGedcom(), report));
+        }
       } catch (Throwable t) {
         ReportView.LOG.log(Level.WARNING, "Report "+report.getClass().getName()+" failed in accept()", t);
       }
     }
+    
+    if (found)
+      context.addSeparator(argument);
     
     // done
   }

@@ -117,6 +117,7 @@ public class ControlCenter extends JPanel implements WindowBroadcastListener {
         if (result!=null) {
           result.addAction(new ActionSave(false, true));
           result.addAction(new ActionClose(true));
+          result.addSeparator();
         }
         return result;
       };

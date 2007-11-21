@@ -529,9 +529,9 @@ import javax.swing.tree.TreePath;
       tags = new String[]{meta.getTag()};
     }
     /** constructor */
-    protected Add(Property parent) {
+    protected Add(Property parent, String text) {
       this.parent = parent;
-      setText(resources.getString("action.add")+" ...");
+      setText(text);
       setImage(Images.imgNew);
     }
     /** run */
@@ -784,26 +784,39 @@ import javax.swing.tree.TreePath;
         result.addAction(new Cut(selection));
         result.addAction(new Copy(selection));
       }
-      if (selection.size()==1) {
+      
+      if (selection.size()==1) 
         result.addAction(new Paste((Property)selection.get(0)));
-        
+      
+// NM 20071114 let's take this out and see if anyone actually cares about this 'propagate' - seems to be a bad excuse for
+// mass updating e.g. in TableView
+//      if (!selection.isEmpty()&&!selection.contains(tree.getRoot()))
+//        result.addAction(new Propagate(selection));
+      
+      if (selection.size()==1) {
         // add
         Property prop = (Property)selection.get(0);
         if (!prop.isTransient()) {
-          result.addAction(new Add(prop));
           String sub = resources.getString("action.add");
           MetaProperty[] metas = prop.getNestedMetaProperties(MetaProperty.FILTER_NOT_HIDDEN);
+          boolean haveQuickAdd = false;
           Arrays.sort(metas);
           for (int i=0;i<metas.length;i++) {
-            if (metas[i].isInstantiated())
+            if (metas[i].isInstantiated()) {
               result.addAction(sub, new Add(prop, metas[i]));
+              haveQuickAdd = true;
+            }
           }
+          if (haveQuickAdd)
+            result.addAction(sub, new Add(prop, "..."));
+          else
+            result.addAction(new Add(prop, resources.getString("action.add")+" ..."));
         }
       }
       
-      if (!selection.isEmpty()&&!selection.contains(tree.getRoot()))
-          result.addAction(new Propagate(selection));
-
+      // separate ourselves
+      result.addSeparator();
+      
       // done
       return result;
     }

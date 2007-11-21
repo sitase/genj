@@ -28,6 +28,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
 
 import java.awt.Component;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -44,9 +45,12 @@ import javax.swing.JPopupMenu;
  */  
 public class ViewContext extends Context implements Comparable {
   
+  private List keys = new ArrayList();
   private Map key2actions = new HashMap();
+  
   private ImageIcon  img = null;
   private String txt = null;
+  private Object originalContext = null;
   
   /**
    * Constructor
@@ -60,6 +64,7 @@ public class ViewContext extends Context implements Comparable {
    */
   public ViewContext(Gedcom ged) {
     super(ged);
+    originalContext = ged;
   }
   
   /**
@@ -67,6 +72,8 @@ public class ViewContext extends Context implements Comparable {
    */
   public ViewContext(Entity entity) {
     super(entity);
+    
+    originalContext = entity;
   }
   
   /**
@@ -74,6 +81,8 @@ public class ViewContext extends Context implements Comparable {
    */
   public ViewContext(Property prop) {
     super(prop);
+    
+    originalContext = prop;
   }
   
   /**
@@ -81,23 +90,50 @@ public class ViewContext extends Context implements Comparable {
    */
   public ViewContext(Gedcom ged, Property[] props) {
     super(ged, props);
+
+    originalContext = props.length==1 ? props[0] : keyify(props);
+  }
+  
+  private Object keyify(Object key) {
+    // we patch an array up to a list so the hash's equals method leads to the required result since
+    //  !new String[]{ "foo", "bar" }.equals(new String[]{ "foo", "bar" })
+    // but
+    //  new ArrayList(new String[]{ "foo", "bar" }).equals(new ArrayList(new String[]{ "foo", "bar" }))
+    if (key!=null && key.getClass().isArray()) {
+      if (Array.getLength(key)==1)
+        key = Array.get(key, 0);
+      else
+        key = new ArrayList(Arrays.asList((Object[])key));
+    }
+    return key;
   }
   
   /** 
    * returns actions for given sub-context
    */
-  private List getActions(Object group) {
-    // we patch an array up to a list so the hash's equals method leads to the required result since
-    //  !new String[]{ "foo", "bar" }.equals(new String[]{ "foo", "bar" })
-    // but
-    //  new ArrayList(new String[]{ "foo", "bar" }).equals(new ArrayList(new String[]{ "foo", "bar" }))
-    if (group.getClass().isArray())
-      group = new ArrayList(Arrays.asList((Object[])group));
-    List actions = (List)key2actions.get(group);
+  private List getActions(Object key) {
+    
+    key = keyify(key);
+    if (key==null || originalContext.equals(key))
+      return keys;
+    
+    List actions = (List)key2actions.get(key);
     if (actions==null) {
+      
+      // create a new bucket
       actions = new ArrayList();
-      key2actions.put(group, actions);
+      key2actions.put(key, actions);
+      
+      // keep gedcom as last item if the key is not a string
+      int pos = keys.size();
+      if (!(key instanceof String))
+        for (pos= 0; pos < keys.size(); pos++) {
+          if (keys.get(pos) instanceof Gedcom) 
+            break;
+        }
+        keys.add(pos, key);
     }
+    
     return actions;
   }
   
@@ -105,41 +141,29 @@ public class ViewContext extends Context implements Comparable {
    * Add a top-level action
    */
   public void addAction(Action2 action) {
-    getActions(this).add(action);
+    addAction(null, action);
+  }
+  
+  /**
+   * Add an action to a subcontext of this context 
+   * @param key a group key - either String, Property, Property[], Entity, Entity[], Gedcom
+   */
+  public void addAction(Object key, Action2 action) {
+    getActions(key).add(action);
   }
   
   /**
    * Add a top-level separator
    */
   public void addSeparator() {
-    addSeparator(this);
+    addSeparator(null);
   }
  
   /**
-   * Adds a separator to top-level and each group
+   * Add an action to a subcontext
    */
-  public void addSeparator(boolean global) {
-
-    addSeparator(this);
-    
-    if (global) for (Iterator groups = key2actions.keySet().iterator(); groups.hasNext();) 
-      addSeparator(groups.next());
-    
-  }
-  
-  /**
-   * Add an action to an action group in this context 
-   * In context menus supported groups are String, Property, Property[], Entity, Entity[], Gedcom 
-   */
-  public void addAction(Object group, Action2 action) {
-    getActions(group).add(action);
-  }
-  
-  /**
-   * Add an action group separator
-   */
-  public void addSeparator(Object group) {
-    List actions  = getActions(group);
+  public void addSeparator(Object key) {
+    List actions  = getActions(key);
     if (actions.size()>0&&actions.get(actions.size()-1)!=MenuHelper.ACTION_SEPARATOR)
       actions.add(MenuHelper.ACTION_SEPARATOR);
    }
@@ -207,6 +231,19 @@ public class ViewContext extends Context implements Comparable {
       return 1;
     return this.txt.compareTo(that.txt);
   }
+
+  private Object[] toList(Object list, Class type) {
+    try {
+      Object[] result = (Object[])Array.newInstance(type, ((List)list).size());
+      for (int i=0, j= ((List)list).size(); i<j ; i++ ) 
+        result[i] = ((List)list).get(i);
+      return result;
+    } catch (ArrayStoreException e) {
+      return null;
+    } catch (ClassCastException e) {
+      return null;
+    }
+  }
   
   /** 
    * Create a context menu for this context
@@ -216,67 +253,76 @@ public class ViewContext extends Context implements Comparable {
     MenuHelper mh = new MenuHelper().setTarget(target);
     JPopupMenu popup = mh.createPopup();
     
-    // decipher content
-    Property[] properties = getProperties();
-    Entity[] entities = getEntities();
-    Gedcom gedcom = getGedcom();
-
-    // items for local actions?
-    mh.createItems(getActions(this));
-    
-    // popup for string keyed actions?
-    if (!key2actions.isEmpty()) {
-      for (Iterator keys = key2actions.keySet().iterator(); keys.hasNext();) {
-        Object key = keys.next();
-        if (key instanceof String) {
-          mh.createMenu((String)key);
-          mh.createItems(getActions(key));
-          mh.popMenu();
-        }
+    // loop over all sub-contexts
+    for (Iterator it = keys.iterator(); it.hasNext(); ) {
+      Object key = it.next();
+      
+      // action?
+      if (key instanceof Action2) {
+        mh.createItem((Action2)key);
+        continue;
       }
-    }
-    
-    // dive into gedcom structure 
-    mh.createSeparator(); // it's lazy
-    
-    // items for set or single property?
-    if (properties.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
-      mh.createItems(getActions(properties));
-      mh.popMenu();
-    } else if (properties.length==1) {
-      Property property = properties[0];
-      while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
+      
+      // items for set of entities?
+      Entity[] entities = (Entity[])toList(key, Entity.class);
+      if (entities!=null) {
+        mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")", Property.getImage(entities));
+        mh.createItems(getActions(key));
+        mh.popMenu();
+        continue;
+      }
+      
+      // items for single entity?
+      if (key instanceof Entity) {
+        Entity entity = (Entity)key;
+        String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
+        mh.createMenu(title, entity.getImage(false));
+        mh.createItems(getActions(entity));
+        mh.popMenu();
+        continue;
+      }
+      
+      // items for set of properties?
+      Property[] properties = (Property[])toList(key, Property.class);
+      if (properties!=null) {
+        mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")", Property.getImage(properties));
+        mh.createItems(getActions(key));
+        mh.popMenu();
+        continue;
+      }
+      
+      // items for a single property?
+      if (key instanceof Property) {
+        Property property = (Property)key;
         // a sub-menu with appropriate actions
         mh.createMenu(Property.LABEL+" '"+TagPath.get(property).getName() + '\'' , property.getImage(false));
         mh.createItems(getActions(property));
         mh.popMenu();
-        // recursively for parents
-        property = property.getParent();
+        continue;
       }
-    }
-        
-    // items for set or single entity
-    if (entities.length>1) {
-      mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
-      mh.createItems(getActions(entities));
-      mh.popMenu();
-    } else if (entities.length==1) {
-      Entity entity = entities[0];
-      String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
-      mh.createMenu(title, entity.getImage(false));
-      mh.createItems(getActions(entity));
-      mh.popMenu();
-    }
-        
-    // items for gedcom
-    String title = "Gedcom '"+gedcom.getName()+'\'';
-    mh.createMenu(title, Gedcom.getImage());
-    mh.createItems(getActions(gedcom));
-    mh.popMenu();
+      
+      // items for gedcom?
+      if (key instanceof Gedcom) {
+        Gedcom gedcom = (Gedcom)key;
+        String title = "Gedcom '"+gedcom.getName()+'\'';
+        mh.createMenu(title, Gedcom.getImage());
+        mh.createItems(getActions(gedcom));
+        mh.popMenu();
+        continue;
+      }
 
+      // fallthrough: named subcontext
+      mh.createMenu((String)key.toString());
+      mh.createItems(getActions(key));
+      mh.popMenu();
+
+      // next
+    }
+    
     // done
     return popup;
   }
-
+    
 } //ViewContext
+
+

@@ -230,9 +230,6 @@ public class EditViewPlugin extends ViewPlugin {
     // submitter?
     if (entity instanceof Submitter) extend(context, (Submitter)entity);
     
-    // separator
-    context.addSeparator(entity);
-
     // Check what xrefs can be added
     MetaProperty[] subs = entity.getNestedMetaProperties(0);
     for (int s=0;s<subs.length;s++) {
@@ -249,13 +246,11 @@ public class EditViewPlugin extends ViewPlugin {
     }
 
     // add delete
-    context.addSeparator(entity);
     context.addAction(entity, new DelEntity(entity));
     
     // add an "edit in EditView"
     EditView[] edits = EditView.getInstances(entity.getGedcom());
     if (edits.length==0) {
-      context.addSeparator(entity);
       context.addAction(entity, new OpenForEdit(new ViewContext(entity)));
     }
     

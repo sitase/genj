@@ -20,9 +20,7 @@
 package genj.tree;
 
 import genj.gedcom.Entity;
-import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
-import genj.gedcom.Indi;
 import genj.plugin.ExtensionPoint;
 import genj.util.Registry;
 import genj.util.Resources;
@@ -72,11 +70,12 @@ public class TreeViewPlugin extends ViewPlugin {
   private void extend(ViewContext context) {
 
     // create an action for our tree
-    Entity[] entities = context.getEntities();
-    if (entities.length==1&&(entities[0] instanceof Indi||entities[0] instanceof Fam)) {
-      Entity entity = entities[0];
-      context.addAction(entity, new ActionRoot(entity));
-    }
+// FIXME    
+//    Entity[] entities = context.getEntities();
+//    if (entities.length==1&&(entities[0] instanceof Indi||entities[0] instanceof Fam)) {
+//      Entity entity = entities[0];
+//      context.addAction(entity, new ActionRoot(entity));
+//    }
   }
   
   /**
