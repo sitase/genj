@@ -563,8 +563,14 @@ import javax.swing.tree.TreePath;
         public void perform(Gedcom gedcom) {
           for (int i=0;i<tags.length;i++) {
             Property prop = parent.addProperty(tags[i], "");
-            newProps.add(prop);
-            if (addDefaults) prop.addDefaultProperties();
+            
+            // NM 20071213 Daniel is experimenting with removing properties as they're added by users
+            // not sure yet if we should allow for edit interception - for now I'm simply checking if the
+            // new property really ends up being added to the entity
+            if (prop.getEntity()!=null) {
+              newProps.add(prop);
+              if (addDefaults) prop.addDefaultProperties();
+            }
           } 
         };
       });
@@ -710,7 +716,7 @@ import javax.swing.tree.TreePath;
       // tell to others
       if (selection.length>0) try {
         ignoreSelection = true;
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(gedcom, selection), AdvancedEditor.this));
+        new ContextSelectionEvent(new ViewContext(gedcom, selection), AdvancedEditor.this).broadcast();
       } finally {
         ignoreSelection = false;
       }
