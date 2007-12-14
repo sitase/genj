@@ -716,7 +716,7 @@ import javax.swing.tree.TreePath;
       // tell to others
       if (selection.length>0) try {
         ignoreSelection = true;
-        new ContextSelectionEvent(new ViewContext(gedcom, selection), AdvancedEditor.this).broadcast();
+        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(gedcom, selection), AdvancedEditor.this));
       } finally {
         ignoreSelection = false;
       }
