@@ -531,6 +531,14 @@ import spin.Spin;
   public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
     gedcomPropertyDeleted(gedcom, property, -1, property);
   }
+  
+  public void gedcomPropertyLinked(Gedcom gedcom, Property from, Property to) {
+    // ignored
+  }
+  
+  public void gedcomPropertyUnlinked(Gedcom gedcom, Property from, Property to) {
+    // ignored
+  }
 
   public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
     if (deleted instanceof PropertyDate) {

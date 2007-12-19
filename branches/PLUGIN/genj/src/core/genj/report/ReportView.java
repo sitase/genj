@@ -675,7 +675,7 @@ public class ReportView extends JPanel {
       if (id!=null) {
         Entity entity = gedcom.getEntity(id);
         if (entity!=null)
-          WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(entity), ReportView.this, e.getClickCount()>1));
+          new ContextSelectionEvent(new ViewContext(entity), ReportView.this, e.getClickCount()>1).broadcast();
       }
     }
 

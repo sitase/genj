@@ -27,7 +27,6 @@ import genj.gedcom.Property;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
 
 import java.awt.Component;
 import java.util.ArrayList;
@@ -191,6 +190,13 @@ public class ContextListWidget extends JList implements ContextProvider {
       fireContentsChanged(this, 0, list.size());
     }
 
+    public void gedcomPropertyLinked(Gedcom gedcom, Property from, Property to) {
+      gedcomPropertyChanged(gedcom, from);
+    }
+    public void gedcomPropertyUnlinked(Gedcom gedcom, Property from, Property to) {
+      gedcomPropertyChanged(gedcom, to);
+    }
+    
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
       for (ListIterator it=list.listIterator(); it.hasNext(); ) {
         Context context = (Context)it.next();
@@ -213,7 +219,7 @@ public class ContextListWidget extends JList implements ContextProvider {
         return;
       ViewContext context = getContext();
       if (context!=null)
-        WindowManager.broadcast(new ContextSelectionEvent(context, ContextListWidget.this));
+        new ContextSelectionEvent(context, ContextListWidget.this).broadcast();
     }
     
     /** our patched rendering */

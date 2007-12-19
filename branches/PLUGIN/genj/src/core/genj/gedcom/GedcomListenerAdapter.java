@@ -39,4 +39,10 @@ public class GedcomListenerAdapter implements GedcomListener {
   public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
   }
   
+  public void gedcomPropertyLinked(Gedcom gedcom, Property from, Property to) {
+  }
+  
+  public void gedcomPropertyUnlinked(Gedcom gedcom, Property from, Property to) {
+  }
+  
 } //GedcomListenerAdapter

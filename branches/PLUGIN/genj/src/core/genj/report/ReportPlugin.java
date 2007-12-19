@@ -26,6 +26,7 @@ import genj.gedcom.Property;
 import genj.gedcom.UnitOfWork;
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
+import genj.plugin.PluginManager;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
@@ -43,6 +44,9 @@ public class ReportPlugin implements Plugin {
 
   private final static Resources RESOURCES =  Resources.get(ReportPlugin.class);
 
+  public void initPlugin(PluginManager mgr) {
+  }
+  
   /**
    * Adding our custom edit actions
    * @see genj.view.ViewPlugin#enrich(genj.plugin.ExtensionPoint)

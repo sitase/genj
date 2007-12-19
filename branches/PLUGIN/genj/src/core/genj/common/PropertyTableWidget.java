@@ -38,7 +38,6 @@ import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
 import genj.window.WindowBroadcastEvent;
 import genj.window.WindowBroadcastListener;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -532,7 +531,7 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
         return;
       
       // tell about it
-      WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(propertyModel.getGedcom(), Property.toArray(props)), this));
+      new ContextSelectionEvent(new ViewContext(propertyModel.getGedcom(), Property.toArray(props)), this).broadcast();
 
       // done
     }

@@ -464,7 +464,7 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
       ViewContext context = new ViewContext((Context)stack.pop());
       
       // let others know (we'll ignore the outgoing never receiving the incoming)
-      WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
+      new ContextSelectionEvent(context, EditView.this).broadcast();
       editor.setContext(context);
       
       // reflect state
@@ -511,7 +511,7 @@ public class EditView extends JPanel implements WindowBroadcastListener, Context
       ViewContext context = new ViewContext((Context)stack.pop());
       
       // let others know (we'll ignore the outgoing never receiving the incoming)
-      WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
+      new ContextSelectionEvent(context, EditView.this).broadcast();
       editor.setContext(context);
       
       // reflect state

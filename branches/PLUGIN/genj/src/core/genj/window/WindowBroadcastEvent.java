@@ -33,6 +33,8 @@ public abstract class WindowBroadcastEvent {
    * constructor
    */
   protected WindowBroadcastEvent(Component source) {
+    if (source==null)
+      throw new IllegalArgumentException("Source can't be null");
     this.source = source;
   }
   
@@ -55,6 +57,13 @@ public abstract class WindowBroadcastEvent {
    */
   public boolean isInbound() {
     return !isOutbound;
+  }
+  
+  /**
+   * Broadcasts this event
+   */
+  public void broadcast() {
+    WindowManager.getInstance(source).broadcast(this);
   }
   
   /**

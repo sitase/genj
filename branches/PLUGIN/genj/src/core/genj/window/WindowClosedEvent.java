@@ -24,7 +24,7 @@ import java.awt.Component;
 /**
  * A window close event that is *only* broadcasted to all components contained in the window or dialog being closed
  */
-public class WindowClosingEvent extends WindowBroadcastEvent {
+public class WindowClosedEvent extends WindowBroadcastEvent {
   
   private boolean isCancelled = false;
   private String key;
@@ -32,23 +32,9 @@ public class WindowClosingEvent extends WindowBroadcastEvent {
   /**
    * constructor
    */
-  protected WindowClosingEvent(String key, Component windowOrDialog) {
-    super(windowOrDialog);
+  protected WindowClosedEvent(String key, Component content) {
+    super(content);
     this.key = key;
-  }
-  
-  /**
-   * cancel close
-   */
-  public void cancel() {
-    isCancelled = true;
-  }
-  
-  /**
-   * cancelled
-   */
-  public boolean isCancelled() {
-    return isCancelled;
   }
   
   public String getKey() {

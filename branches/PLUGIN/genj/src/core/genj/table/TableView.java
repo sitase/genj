@@ -379,6 +379,18 @@ public class TableView extends JPanel {
     }
 
     /** gedcom callback */
+    public void gedcomPropertyLinked(Gedcom gedcom, Property from, Property to) {
+      gedcomPropertyChanged(gedcom, from);
+      gedcomPropertyChanged(gedcom, to);
+    }
+
+    /** gedcom callback */
+    public void gedcomPropertyUnlinked(Gedcom gedcom, Property from, Property to) {
+      gedcomPropertyChanged(gedcom, from);
+      gedcomPropertyChanged(gedcom, to);
+    }
+
+    /** gedcom callback */
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
       invalidate(gedcom, property.getEntity(), new TagPath(property.getPath(), deleted.getTag()));
     }

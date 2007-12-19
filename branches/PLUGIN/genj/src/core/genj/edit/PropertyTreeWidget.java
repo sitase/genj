@@ -622,6 +622,16 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
       expandAllRows();
       // done
     }
+    
+    public void gedcomPropertyLinked(Gedcom gedcom, Property from, Property to) {
+      gedcomPropertyChanged(gedcom, to);
+      gedcomPropertyChanged(gedcom, from);
+    }
+    
+    public void gedcomPropertyUnlinked(Gedcom gedcom, Property from, Property to) {
+      gedcomPropertyChanged(gedcom, to);
+      gedcomPropertyChanged(gedcom, from);
+    }
 
     public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
       // us?

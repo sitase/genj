@@ -35,7 +35,6 @@ import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
 import genj.window.WindowBroadcastEvent;
 import genj.window.WindowBroadcastListener;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -422,7 +421,7 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
       // follow immediately
       setCurrentEntity(target);
       // propagate to others
-      WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(target), NavigatorView.this));
+      new ContextSelectionEvent(new ViewContext(target), NavigatorView.this).broadcast();
     }
   } //Jump
 

@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.124.2.2 $ $Author: nmeier $ $Date: 2007-11-12 13:54:37 $
+ * $Revision: 1.124.2.3 $ $Author: nmeier $ $Date: 2007-12-19 14:51:35 $
  */
 package genj.gedcom;
 
@@ -342,8 +342,7 @@ public class Gedcom implements Comparable {
     GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
     for (int l=0;l<gls.length;l++) {
       try {
-        gls[l].gedcomPropertyChanged(this, property1);
-        gls[l].gedcomPropertyChanged(this, property2);
+        gls[l].gedcomPropertyLinked(this, property1, property2);
       } catch (Throwable t) {
         LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
       }
@@ -375,8 +374,7 @@ public class Gedcom implements Comparable {
     GedcomListener[] gls = (GedcomListener[])listeners.toArray(new GedcomListener[listeners.size()]);
     for (int l=0;l<gls.length;l++) {
       try {
-        gls[l].gedcomPropertyChanged(this, property1);
-        gls[l].gedcomPropertyChanged(this, property2);
+        gls[l].gedcomPropertyUnlinked(this, property1, property2);
       } catch (Throwable t) {
         LOG.log(Level.FINE, "exception in gedcom listener "+gls[l], t);
       }
@@ -988,6 +986,9 @@ public class Gedcom implements Comparable {
     
     // let listeners know
     fireLifecycleEvent(new GedcomLifecycleEvent(this, GedcomLifecycleEvent.AFTER_UNIT_OF_WORK));
+    
+    // let monitor do it's thing
+    updater.sweep();
     
     // release lock
     synchronized (writeSemaphore) {

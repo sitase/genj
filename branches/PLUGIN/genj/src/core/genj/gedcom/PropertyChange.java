@@ -22,6 +22,7 @@ package genj.gedcom;
 import genj.gedcom.time.PointInTime;
 
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.StringTokenizer;
@@ -309,23 +310,21 @@ public class PropertyChange extends Property implements MultiLineProperty {
   /**
    * A gedcom listener that will update CHANs
    */
-  /*package*/ static class Monitor extends GedcomListenerAdapter {
+  /*package*/ static class Monitor implements GedcomListener {
     
-    private Set updated = new HashSet();
+    private Set touched = new HashSet();
 
-    /** update entity for given property */ 
-    private void update(Property where) {
+    public void sweep() {
       
-      Entity entity = where.getEntity();
-      if (updated.contains(entity))
-        return;
-      
-      // ignore if something happened below PropertyChange
-      while (where!=null) {
-        if (where instanceof PropertyChange)
-          return;
-        where = where.getParent();
+      ArrayList todo = new ArrayList(touched);
+      for (int i=0, j=todo.size(); i<j; i++) {
+        update((Entity)todo.get(i));
       }
+      
+    }
+    
+    /** update entity for given property */ 
+    private void update(Entity entity) {
       
       // update it
       Gedcom.LOG.finer("updating CHAN for "+entity.getId());
@@ -342,31 +341,57 @@ public class PropertyChange extends Property implements MultiLineProperty {
       else
         prop.setValue(System.currentTimeMillis());
       
+    }
+    
+    private void mark(Property where) {
+     
+      Entity entity = where.getEntity();
+      if (touched.contains(entity))
+        return;
+      
+      // ignore if something happened below PropertyChange
+      while (where!=null) {
+        if (where instanceof PropertyChange)
+          return;
+        where = where.getParent();
+      }
+      
       // remember
-      updated.add(entity);
+      touched.add(entity);
+      
     }
     
     public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-      update(entity);
+      mark(entity);
     }
 
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      updated.remove(entity);
+      touched.remove(entity);
     }
 
     public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      update(added);
+      mark(added);
     }
 
     public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      update(property);
+      mark(property);
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
       if (!(deleted instanceof PropertyChange))
-        update(property);
+        mark(property);
     } 
     
-  } //Tracker
+    public void gedcomPropertyLinked(Gedcom gedcom, Property from, Property to) {
+      mark(from);
+      mark(to);
+    }
+    
+    public void gedcomPropertyUnlinked(Gedcom gedcom, Property from, Property to) {
+      mark(from);
+      mark(to);
+    }
+    
+  } //Monitor
   
 } //PropertyChange

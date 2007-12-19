@@ -636,6 +636,16 @@ public class SearchView extends JPanel {
           fireContentsChanged(this, i, i);
       }
     }
+    
+    public void gedcomPropertyLinked(Gedcom gedcom, Property from, Property to) {
+      gedcomPropertyChanged(gedcom, from);
+      gedcomPropertyChanged(gedcom, to);
+    }
+    
+    public void gedcomPropertyUnlinked(Gedcom gedcom, Property from, Property to) {
+      gedcomPropertyChanged(gedcom, from);
+      gedcomPropertyChanged(gedcom, to);
+    }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
       for (int i=0;i<hits.size();) {
@@ -721,7 +731,7 @@ public class SearchView extends JPanel {
     public void valueChanged(ListSelectionEvent e) {
       int row = listResults.getSelectedIndex();
       if (row>=0)
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(results.getHit(row).getProperty()), this));
+        new ContextSelectionEvent(new ViewContext(results.getHit(row).getProperty()), this).broadcast();
     }
 
     

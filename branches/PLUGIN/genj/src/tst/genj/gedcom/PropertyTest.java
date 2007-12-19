@@ -216,6 +216,18 @@ public class PropertyTest extends TestCase {
       changes++;
       propertiesChanged.add(property);
     }
+    
+    public void gedcomPropertyLinked(Gedcom gedcom, Property from, Property to) {
+      changes ++;
+      propertiesChanged.add(from);
+      propertiesChanged.add(to);
+    }
+
+    public void gedcomPropertyUnlinked(Gedcom gedcom, Property from, Property to) {
+      changes ++;
+      propertiesChanged.add(from);
+      propertiesChanged.add(to);
+    }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
       changes++;

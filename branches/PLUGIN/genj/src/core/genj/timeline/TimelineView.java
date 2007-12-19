@@ -602,7 +602,7 @@ public class TimelineView extends JPanel implements WindowBroadcastListener {
         selectedEvents.add(hit);
         
         // tell about it
-        WindowManager.broadcast(new ContextSelectionEvent(getContext(), this));
+       new ContextSelectionEvent(getContext(), this).broadcast();
       }
       
       // show

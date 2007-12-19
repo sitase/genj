@@ -19,16 +19,22 @@
  */
 package genj.view;
 
+import genj.app.ExtendGedcomClosed;
+import genj.app.ExtendGedcomOpened;
 import genj.app.ExtendMenubar;
 import genj.app.ExtendToolbar;
 import genj.gedcom.Gedcom;
 import genj.plugin.ExtensionPoint;
 import genj.plugin.Plugin;
 import genj.plugin.PluginManager;
+import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
+import genj.window.WindowBroadcastEvent;
+import genj.window.WindowBroadcastListener;
+import genj.window.WindowClosedEvent;
 import genj.window.WindowManager;
 
 import java.awt.AWTEvent;
@@ -41,15 +47,19 @@ import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.Box;
 import javax.swing.FocusManager;
 import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.JPopupMenu;
+import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
@@ -57,19 +67,35 @@ import javax.swing.SwingUtilities;
 /**
  * A plugin that provides [a] view(s) onto gedcom data
  */
-public abstract class ViewPlugin implements Plugin {
+public abstract class ViewPlugin implements Plugin, WindowBroadcastListener {
   
   private final static ContextHook CONTEXT_HOOK = new ContextHook();
-  private final static Resources RESOURCES = Resources.get(ViewPlugin.class);
-  private final static Logger LOG = Logger.getLogger("genj.view");
+  private static Resources RESOURCES = Resources.get(ViewPlugin.class);
+  private static Logger LOG = Logger.getLogger("genj.view");
   
   protected PluginManager manager = null;
+  private Map gedcom2key2view = new HashMap();
 
   /**
    * @see genj.plugin.Plugin#initPlugin(genj.plugin.PluginManage)
    */
   public void initPlugin(PluginManager manager) {
     this.manager = manager;
+    WindowManager.addBroadcastListener(this);
+  }
+
+  /**
+   * Intercept window events
+   */
+  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
+    
+    // forget contained view
+    if (event instanceof WindowClosedEvent) {
+      WindowClosedEvent closed = (WindowClosedEvent)event;
+      // FIXME
+    }
+    
+    return true;
   }
   
   /** 
@@ -100,6 +126,18 @@ public abstract class ViewPlugin implements Plugin {
     if (ep instanceof ExtendToolbar) 
       extend((ExtendToolbar)ep);
     
+    // gedcom closed?
+    if (ep instanceof ExtendGedcomClosed) {
+      // keep a list of open views we're going to open next time
+    }
+    
+    // gedcom opened?
+    if (ep instanceof ExtendGedcomOpened) {
+      // reopen views
+      //new Open( ((ExtendGedcomOpened)ep).getGedcom() ).trigger();
+    }
+      
+    
     // done
   }
 
@@ -114,6 +152,15 @@ public abstract class ViewPlugin implements Plugin {
     Gedcom gedcom = menu.getGedcom();
     if (gedcom!=null)
       menu.addAction(RESOURCES.getString("views"), new Open(gedcom));
+  }
+  
+  /**
+   * Helper that returns registry for gedcom
+   */
+  private Registry getRegistry(Gedcom gedcom) {
+    Origin origin = gedcom.getOrigin();
+    String name = origin.getFileName();
+    return Registry.lookup(name, origin);
   }
   
   /**
@@ -180,14 +227,14 @@ public abstract class ViewPlugin implements Plugin {
     /** execute */
     protected void execute() {
       
-      if (isShiftModifier())
-        System.out.println("SHIFT");
+      String key = getPackage()+".1";
       
-      int index = 1;
-      String key = getPackage()+"."+index;
-    
+      // already open?
+      if (WindowManager.getInstance(getTarget()).show(key))
+        return;
+      
       // get a registry 
-      Registry registry = new Registry( Registry.lookup(gedcom), key) ;
+      Registry registry = new Registry( getRegistry(gedcom), key) ;
 
       // title 
       String title = gedcom.getName()+" - "+getTitle()+" ("+registry.getViewSuffix()+")";
@@ -205,7 +252,14 @@ public abstract class ViewPlugin implements Plugin {
       WindowManager.getInstance(getTarget()).openWindow(key, title, ViewPlugin.this.getImage(), view);
       
       // extend toolbar
-//      WindowManager.addToolbarAction(view, new Close(key));
+      JToolBar bar = WindowManager.getInstance(getTarget()).getToolbar(view);
+      if (bar!=null) {
+        bar.add(Box.createGlue());
+        bar.add(new Close(key));
+      }
+      
+      // remember
+      // FIXME keys.add(key);
           
       // done
     }
@@ -325,10 +379,9 @@ public abstract class ViewPlugin implements Plugin {
       }
       
       // a double-click on provider?
-      if (me.getButton()==MouseEvent.BUTTON1&&me.getID()==MouseEvent.MOUSE_CLICKED&&me.getClickCount()>1) {
-        WindowManager.broadcast(new ContextSelectionEvent(context, component, true));
-      }
-        
+      if (me.getButton()==MouseEvent.BUTTON1&&me.getID()==MouseEvent.MOUSE_CLICKED&&me.getClickCount()>1) 
+        new ContextSelectionEvent(context, component, true).broadcast();
+      
       // done
     }
     
