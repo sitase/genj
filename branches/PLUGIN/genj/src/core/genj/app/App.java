@@ -128,9 +128,9 @@ public class App {
       }
       
       // check VM version
-      if (!EnvironmentChecker.isJava14(App.class)) {
+      if (!EnvironmentChecker.isJava15(App.class)) {
         if (EnvironmentChecker.getProperty(App.class, "genj.forcevm", null, "Check force of VM")==null) {
-          LOG.severe("Need Java 1.4 to run GenJ");
+          LOG.severe("Need Java 1.5 to run GenJ");
           System.exit(1);
           return;
         }
