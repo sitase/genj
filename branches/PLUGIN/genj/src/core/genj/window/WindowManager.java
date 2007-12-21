@@ -79,6 +79,9 @@ public abstract class WindowManager {
   /** registry */
   protected Registry registry;
   
+  /** the vm instance */
+  private static WindowManager instance = null;
+  
   /** a log */
   /*package*/ final static Logger LOG = Logger.getLogger("genj.window");
   
@@ -86,6 +89,9 @@ public abstract class WindowManager {
    * Constructor
    */
   protected WindowManager(Registry registry) {
+    if (instance!=null)
+      throw new IllegalArgumentException("Only one window manager per VM allowed");
+    instance = this;
     this.registry = registry;
   }
   
@@ -287,12 +293,8 @@ public abstract class WindowManager {
       key = getTemporaryKey();
     // close if already open
     close(key);
-    // own it before bringing it up
-    setInstance(content);
     // deal with it in impl
     openWindowImpl(key, title, image, content);
-    // own it
-    setInstance(content);
     // done
     return key;
   }
@@ -410,8 +412,6 @@ public abstract class WindowManager {
     close(key);
     // do it
     openNonModalDialogImpl(key, title, messageType, content, actions, owner);
-    // own it
-    setInstance(content);
     // done
     return key;
   }
@@ -434,31 +434,11 @@ public abstract class WindowManager {
   public abstract void closeAll();
   
   /**
-   * Remember a window manager as responsible for a content
-   */
-  protected void setInstance(JComponent content) {
-    // find topmost JComponent
-    Container cursor = content;
-    while (cursor.getParent()!=null) {
-      cursor = cursor.getParent();
-      if (cursor instanceof JComponent) {
-        content = (JComponent)cursor;
-        content.putClientProperty(WindowManager.class, null);
-      }
-    }
-    // remember
-    content.putClientProperty(WindowManager.class, this);
-  }
-  
-  /**
    * Returns an appropriate WindowManager instance for given component
    * @return manager or null if no appropriate manager could be found
    */
   public static WindowManager getInstance(Component component) {
-    WindowManager result =  getInstanceImpl(component);
-    if (result==null)
-      LOG.warning("Failed to find window manager for "+component);
-    return result;
+    return instance;
   }
 
   private static WindowManager getInstanceImpl(Component cursor) {
