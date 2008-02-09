@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import sun.misc.Service;
+import javax.imageio.spi.ServiceRegistry;
 
 /**
  * Manager of all GenJ plugins
@@ -79,8 +79,9 @@ public class PluginManager {
    */
   public synchronized Plugin[] getPlugins() {
     if (plugins==null) {
+      
       List result = new ArrayList();
-      Iterator it = Service.providers(Plugin.class);
+      Iterator it = ServiceRegistry.lookupProviders(Plugin.class);
       while (it.hasNext()) {
         try {
           Plugin plugin = (Plugin)it.next();
