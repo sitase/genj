@@ -36,7 +36,7 @@ public class SwapSpouses extends AbstractChange {
    * Constructor
    */
   public SwapSpouses(Fam family, ViewManager mgr) {
-    super(family.getGedcom(), family.getImage(false), resources.getString("swap.spouses"), mgr);
+    super(family.getGedcom(), family.getImage(false), resources.getString("swap.spouses"));
     fam = family;
   }
   

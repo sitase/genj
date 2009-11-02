@@ -33,7 +33,6 @@ import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastListener;
 
 import java.awt.Color;
@@ -99,15 +98,11 @@ public class EntityView extends JPanel implements WindowBroadcastListener, ToolB
     }
   };
   
-  /** the view manager */
-  /*package*/ ViewManager viewManager;
-  
   /**
    * Constructor
    */
-  public EntityView(String title, Gedcom ged, Registry reg, ViewManager manager) {
+  public EntityView(String title, Gedcom ged, Registry reg) {
     // save some stuff
-    viewManager = manager;
     registry = reg;
     gedcom = ged;
 

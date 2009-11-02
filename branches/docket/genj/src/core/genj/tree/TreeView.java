@@ -46,7 +46,6 @@ import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastEvent;
 import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
@@ -95,9 +94,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /** our model */
   private Model model;
   
-  /** the manager */
-  private ViewManager manager;
-
   /** our content */
   private Content content;
   
@@ -146,12 +142,11 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * Constructor
    */
-  public TreeView(String titl, Gedcom gedcom, Registry regIstry, ViewManager manAger) {
+  public TreeView(String titl, Gedcom gedcom, Registry regIstry) {
     
     // remember
     registry = regIstry;
     title = titl;
-    manager = manAger;
     DPI = Options.getInstance().getDPI();
     DPMM = new Point2D.Float(
       DPI.x / 2.54F / 10,
@@ -560,7 +555,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
    */
-  public List createActions(Property[] properties, ViewManager manager) {
+  public List createActions(Property[] properties) {
     // not supported
     return null;
   }
@@ -568,7 +563,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * @see genj.view.ContextSupport#createActions(genj.gedcom.Entity)
    */
-  public List createActions(Entity entity, ViewManager manager) {
+  public List createActions(Entity entity) {
     // fam or indi?
     if (!(entity instanceof Indi||entity instanceof Fam)) 
       return null;
@@ -583,14 +578,14 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * @see genj.view.ContextSupport#createActions(genj.gedcom.Gedcom)
    */
-  public List createActions(Gedcom gedcom, ViewManager manager) {
+  public List createActions(Gedcom gedcom) {
     return null;
   }
 
   /**
    * @see genj.view.ContextSupport#createActions(genj.gedcom.Property)
    */
-  public List createActions(Property property, ViewManager manager) {
+  public List createActions(Property property) {
     return null;
   }
 

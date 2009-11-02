@@ -33,7 +33,6 @@ import genj.io.FileAssociation;
 import genj.util.EnvironmentChecker;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 import java.io.File;
@@ -59,20 +58,14 @@ public class AboutWidget extends JPanel{
   
   private final static int DEFAULT_ROWS = 16, DEFAULT_COLS = 40;
   
-  /** the view manager */
-  private ViewManager viewManager;
-  
   /** the resources we're using */
   private Resources resources = Resources.get(AboutWidget.class);
   
   /**
    * Constructor
    */
-  public AboutWidget(ViewManager setManager) {
+  public AboutWidget() {
 
-    // remember    
-    viewManager = setManager;
-    
     // create a north panel
     JLabel pNorth = new JLabel(resources.getString("cc.about.dialog.northpanel.label"), null, JLabel.CENTER);
     

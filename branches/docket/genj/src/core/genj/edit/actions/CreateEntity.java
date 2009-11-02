@@ -25,7 +25,6 @@ import genj.gedcom.GedcomException;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
@@ -49,8 +48,8 @@ public class CreateEntity extends AbstractChange {
   /**
    * Constructor
    */
-  public CreateEntity(Gedcom ged, String tag, ViewManager manager) {
-    super(ged, Gedcom.getEntityImage(tag).getOverLayed(imgNew), resources.getString("new", Gedcom.getName(tag, false) ), manager);
+  public CreateEntity(Gedcom ged, String tag) {
+    super(ged, Gedcom.getEntityImage(tag).getOverLayed(imgNew), resources.getString("new", Gedcom.getName(tag, false) ));
     etag = tag;
   }
   

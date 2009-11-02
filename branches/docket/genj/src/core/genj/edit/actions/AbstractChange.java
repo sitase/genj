@@ -28,7 +28,6 @@ import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
-import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import javax.swing.Action;
@@ -48,9 +47,6 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
   /** the gedcom we're working on */
   protected Gedcom gedcom;
   
-  /** the manager in the background */
-  protected ViewManager manager;
-  
   /** image *new* */
   protected final static ImageIcon imgNew = Images.imgNewEntity;
   
@@ -59,9 +55,8 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
   /**
    * Constructor
    */
-  public AbstractChange(Gedcom ged, ImageIcon img, String text, ViewManager mgr) {
+  public AbstractChange(Gedcom ged, ImageIcon img, String text) {
     gedcom = ged;
-    manager = mgr;
     super.setImage(img);
     super.setText(text);
   }

@@ -35,5 +35,6 @@
 	<classpathentry kind="lib" path="contrib/fop/batik-util.jar"/>
 	<classpathentry kind="lib" path="contrib/fop/batik-xml.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="lib/swingx-0.7.jar"/>
 	<classpathentry kind="output" path="build/eclipse/lostnfound"/>
 </classpath>

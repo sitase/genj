@@ -45,7 +45,7 @@ public class TogglePrivate extends AbstractChange {
    * Constructor
    */
   public TogglePrivate(Gedcom gedcom, Collection properties, ViewManager mgr) {
-    super(gedcom, MetaProperty.IMG_PRIVATE, "", mgr);
+    super(gedcom, MetaProperty.IMG_PRIVATE, "");
     this.gedcom = gedcom;
     this.properties = properties;
     

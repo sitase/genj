@@ -29,7 +29,6 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertyChild;
 import genj.gedcom.PropertySex;
 import genj.gedcom.PropertyXRef;
-import genj.view.ViewManager;
 
 /**
  * Create a child of a family or person
@@ -41,8 +40,8 @@ public class CreateParent extends CreateRelationship {
   private Fam family;
   
   /** constructor */
-  public CreateParent(Fam family, ViewManager mgr) {
-    super(resources.getString("create.parent"), family.getGedcom(), Gedcom.INDI, mgr);
+  public CreateParent(Fam family) {
+    super(resources.getString("create.parent"), family.getGedcom(), Gedcom.INDI);
     if (family.getNoOfSpouses()>=2)
       throw new IllegalArgumentException("can't create additional parent in family with husband and wife");
     this.family = family;
@@ -50,8 +49,8 @@ public class CreateParent extends CreateRelationship {
   }
   
   /** constructor */
-  public CreateParent(Indi child, ViewManager mgr) {
-    super(resources.getString("create.parent"), child.getGedcom(), Gedcom.INDI, mgr);
+  public CreateParent(Indi child) {
+    super(resources.getString("create.parent"), child.getGedcom(), Gedcom.INDI);
     this.child = child;
     
     // check if the child already is part of a family without spouse

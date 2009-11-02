@@ -31,7 +31,6 @@ import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.view.ToolBarSupport;
-import genj.view.ViewManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -63,9 +62,6 @@ public class TableView extends JPanel implements ToolBarSupport  {
   /** the gedcom we're looking at */
   /*package*/ Gedcom gedcom;
   
-  /** the manager around us */
-  private ViewManager manager;
-  
   /** the registry we keep */
   private Registry registry;
   
@@ -96,13 +92,12 @@ public class TableView extends JPanel implements ToolBarSupport  {
   /**
    * Constructor
    */
-  public TableView(String titl, Gedcom gedcom, Registry registry, ViewManager mgr) {
+  public TableView(String titl, Gedcom gedcom, Registry registry) {
     
     // keep some stuff
     this.gedcom = gedcom;
     this.registry = registry;
     this.title = titl;
-    this.manager = mgr;
     
     // read properties
     loadProperties();

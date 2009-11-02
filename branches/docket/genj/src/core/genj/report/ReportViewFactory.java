@@ -47,7 +47,7 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
   /**
    * Factory method - create instance of view
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
+  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
     return new ReportView(title,gedcom,registry,manager);
   }
   
@@ -61,35 +61,35 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
   /**
    * @see genj.view.ViewFactory#getTitle(boolean)
    */
-  public String getTitle(boolean abbreviate) {
+  public String getTitle() {
     return Resources.get(this).getString("title" + (abbreviate?".short":""));
   }
   
   /**
    * Plugin actions for entities
    */
-  public List createActions(Property[] properties, ViewManager manager) {
+  public List createActions(Property[] properties) {
     return getActions(properties, properties[0].getGedcom(), manager);
   }
 
   /**
    * Plugin actions for entity
    */
-  public List createActions(Entity entity, ViewManager manager) {
+  public List createActions(Entity entity) {
     return getActions(entity, entity.getGedcom(), manager);
   }
 
   /**
    * Plugin actions for gedcom
    */
-  public List createActions(Gedcom gedcom, ViewManager manager) {
+  public List createActions(Gedcom gedcom) {
     return getActions(gedcom, gedcom, manager);
   }
 
   /**
    * Plugin actions for property
    */
-  public List createActions(Property property, ViewManager manager) {
+  public List createActions(Property property) {
     return getActions(property, property.getGedcom(), manager);
   }
 

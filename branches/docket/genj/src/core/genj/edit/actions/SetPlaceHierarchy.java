@@ -43,7 +43,7 @@ public class SetPlaceHierarchy extends AbstractChange {
      * Constructor
      */
     public SetPlaceHierarchy(PropertyPlace place, ViewManager mgr) {
-      super(place.getGedcom(), place.getImage(false), resources.getString("place.hierarchy"), mgr);
+      super(place.getGedcom(), place.getImage(false), resources.getString("place.hierarchy"));
 
       this.place = place;
     }

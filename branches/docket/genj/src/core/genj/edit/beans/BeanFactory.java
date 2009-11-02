@@ -22,7 +22,6 @@ package genj.edit.beans;
 import genj.gedcom.Property;
 import genj.util.EnvironmentChecker;
 import genj.util.Registry;
-import genj.view.ViewManager;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -67,7 +66,7 @@ public class BeanFactory {
   /**
    * Constructor
    */
-  public BeanFactory(ViewManager viewManager, Registry registry) {
+  public BeanFactory(Registry registry) {
     this.registry = registry;
 
     if ("false".equals(EnvironmentChecker.getProperty(this, "genj.bean.recycle", "true", "checking whether to recycle beans"))) {

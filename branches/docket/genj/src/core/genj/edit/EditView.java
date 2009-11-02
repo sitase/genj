@@ -33,13 +33,11 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
-import genj.util.swing.PopupWidget;
 import genj.view.CommitRequestedEvent;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
 
@@ -59,7 +57,6 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
 import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 
@@ -84,9 +81,6 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   /** bean factory */
   private BeanFactory beanFactory;
 
-  /** the view manager */
-  private ViewManager manager;
-  
   /** the resources we use */
   static final Resources resources = Resources.get(EditView.class);
 
@@ -95,7 +89,6 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   private Back     back = new Back();
   private Forward forward = new Forward();
   private Mode     mode;
-  private ContextMenu contextMenu = new ContextMenu();
   private Callback callback = new Callback();
   private Undo undo;
   private Redo redo;
@@ -109,15 +102,14 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   /**
    * Constructor
    */
-  public EditView(String setTitle, Gedcom setGedcom, Registry setRegistry, ViewManager setManager) {
+  public EditView(String setTitle, Gedcom setGedcom, Registry setRegistry) {
     
     super(new BorderLayout());
     
     // remember
     gedcom   = setGedcom;
     registry = setRegistry;
-    manager  = setManager;
-    beanFactory = new BeanFactory(manager, registry);
+    beanFactory = new BeanFactory(registry);
 
     // prepare action
     mode = new Mode();
@@ -370,8 +362,8 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     editor.setContext(context);
 
     // update title
-    context = editor.getContext();
-    manager.setTitle(this, context!=null&&context.getEntity()!=null?context.getEntity().toString():"");
+//    context = editor.getContext();
+//    manager.setTitle(this, context!=null&&context.getEntity()!=null?context.getEntity().toString():"");
     
   }
   
@@ -397,7 +389,7 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     bh.create(redo);
     
     // add actions
-    bar.add(contextMenu);
+    //bar.add(contextMenu);
     
     // add basic/advanced
     bar.addSeparator();
@@ -427,26 +419,26 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     return editor.getContext().getEntity();
   }
   
-  /**
-   * ContextMenu
-   */
-  private class ContextMenu extends PopupWidget {
-    
-    /** constructor */
-    private ContextMenu() {
-      setIcon(Gedcom.getImage());
-      setToolTipText(resources.getString( "action.context.tip" ));
-    }
-    
-    /** override - popup creation */
-    protected JPopupMenu createPopup() {
-      // force editor to commit
-      editor.setContext(editor.getContext());
-      // create popup
-      return manager.getContextMenu(editor.getContext(), this);
-    }
-     
-  } //ContextMenu
+//  /**
+//   * ContextMenu
+//   */
+//  private class ContextMenu extends PopupWidget {
+//    
+//    /** constructor */
+//    private ContextMenu() {
+//      setIcon(Gedcom.getImage());
+//      setToolTipText(resources.getString( "action.context.tip" ));
+//    }
+//    
+//    /** override - popup creation */
+//    protected JPopupMenu createPopup() {
+//      // force editor to commit
+//      editor.setContext(editor.getContext());
+//      // create popup
+//      return manager.getContextMenu(editor.getContext(), this);
+//    }
+//     
+//  } //ContextMenu
   
   /**
    * Action - toggle

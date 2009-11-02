@@ -98,8 +98,8 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * @see genj.view.ViewFactory#createView(genj.gedcom.Gedcom, genj.util.Registry, java.awt.Frame)
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
-    return new EditView(title, gedcom, registry, manager);
+  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
+    return new EditView(title, gedcom, registry);
   }
 
   /**
@@ -112,7 +112,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * @see genj.view.ViewFactory#getName(boolean)
    */
-  public String getTitle(boolean abbreviate) {
+  public String getTitle() {
     return EditView.resources.getString("title" + (abbreviate?".short":""));
   }
 
@@ -144,7 +144,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
    */
-  public List createActions(Property[] properties, ViewManager manager) {
+  public List createActions(Property[] properties) {
     List result = new ArrayList();
     // not accepting any entities here
     for (int i = 0; i < properties.length; i++) 
@@ -153,7 +153,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     if (Enigma.isAvailable())
       result.add(new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties), manager));
     // Delete
-    result.add(new DelProperty(properties, manager));
+    result.add(new DelProperty(properties));
     // done
     return result;
   }
@@ -161,7 +161,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * @see genj.view.ContextSupport#createActions(Property)
    */
-  public List createActions(Property property, ViewManager manager) {
+  public List createActions(Property property) {
     
     // create the actions
     List result = new ArrayList();
@@ -187,7 +187,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
           type==PropertyMedia.class 
         ) {
         // .. make sure @@ forces a non-substitute!
-        result.add(new CreateXReference(property,subs[s].getTag(), manager));
+        result.add(new CreateXReference(property,subs[s].getTag()));
         // continue
         continue;
       }
@@ -198,7 +198,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     if ( property instanceof PropertyEvent
         && ( (property.getEntity() instanceof Indi)
             || property.getGedcom().getGrammar().getMeta(new TagPath("INDI:ASSO")).allows("TYPE"))  )
-      result.add(new CreateAssociation(property, manager));
+      result.add(new CreateAssociation(property));
     
     // Toggle "Private"
     if (Enigma.isAvailable())
@@ -206,7 +206,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     
     // Delete
     if (!property.isTransient()) 
-      result.add(new DelProperty(property, manager));
+      result.add(new DelProperty(property));
 
     // done
     return result;
@@ -215,7 +215,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * @see genj.view.ViewFactory#createActions(Entity)
    */
-  public List createActions(Entity entity, ViewManager manager) {
+  public List createActions(Entity entity) {
     // create the actions
     List result = new ArrayList();
     
@@ -240,13 +240,13 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
           type==PropertySubmitter.class||
           type==PropertyMedia.class
           ) {
-        result.add(new CreateXReference(entity,subs[s].getTag(), manager));
+        result.add(new CreateXReference(entity,subs[s].getTag()));
       }
     }
 
     // add delete
     result.add(Action2.NOOP);
-    result.add(new DelEntity(entity, manager));
+    result.add(new DelEntity(entity));
     
     // add an "edit in EditView"
     EditView[] edits = EditView.getInstances(entity.getGedcom());
@@ -261,16 +261,16 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * @see genj.view.ContextMenuSupport#createActions(Gedcom)
    */
-  public List createActions(Gedcom gedcom, ViewManager manager) {
+  public List createActions(Gedcom gedcom) {
     // create the actions
     List result = new ArrayList();
-    result.add(new CreateEntity(gedcom, Gedcom.INDI, manager));
-    result.add(new CreateEntity(gedcom, Gedcom.FAM , manager));
-    result.add(new CreateEntity(gedcom, Gedcom.NOTE, manager));
-    result.add(new CreateEntity(gedcom, Gedcom.OBJE, manager));
-    result.add(new CreateEntity(gedcom, Gedcom.REPO, manager));
-    result.add(new CreateEntity(gedcom, Gedcom.SOUR, manager));
-    result.add(new CreateEntity(gedcom, Gedcom.SUBM, manager));
+    result.add(new CreateEntity(gedcom, Gedcom.INDI));
+    result.add(new CreateEntity(gedcom, Gedcom.FAM));
+    result.add(new CreateEntity(gedcom, Gedcom.NOTE));
+    result.add(new CreateEntity(gedcom, Gedcom.OBJE));
+    result.add(new CreateEntity(gedcom, Gedcom.REPO));
+    result.add(new CreateEntity(gedcom, Gedcom.SOUR));
+    result.add(new CreateEntity(gedcom, Gedcom.SUBM));
 
     for (Gedcom other : GedcomDirectory.getInstance().getGedcoms()) {
       if (other!=gedcom && other.getEntities(Gedcom.INDI).size()>0)
@@ -294,7 +294,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     private Indi existing;
 
     public CopyIndividual(Gedcom dest, Gedcom source, ViewManager mgr) {
-      super(dest, Gedcom.getEntityImage(Gedcom.INDI), "Copy individual from "+source, mgr);
+      super(dest, Gedcom.getEntityImage(Gedcom.INDI), "Copy individual from "+source);
       this.source = source;
     }
     
@@ -362,23 +362,23 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
    * Create actions for Individual
    */
   private void createActions(List result, Indi indi, ViewManager manager) {
-    result.add(new CreateChild(indi, manager, true));
-    result.add(new CreateChild(indi, manager, false));
-    result.add(new CreateParent(indi, manager));
-    result.add(new CreateSpouse(indi, manager));
-    result.add(new CreateSibling(indi, manager, true));
-    result.add(new CreateSibling(indi, manager, false));
-    result.add(new CreateAlias(indi, manager));
+    result.add(new CreateChild(indi, true));
+    result.add(new CreateChild(indi, false));
+    result.add(new CreateParent(indi));
+    result.add(new CreateSpouse(indi));
+    result.add(new CreateSibling(indi, true));
+    result.add(new CreateSibling(indi, false));
+    result.add(new CreateAlias(indi));
   }
   
   /**
    * Create actions for Families
    */
   private void createActions(List result, Fam fam, ViewManager manager) {
-    result.add(new CreateChild(fam, manager, true));
-    result.add(new CreateChild(fam, manager, false));
+    result.add(new CreateChild(fam, true));
+    result.add(new CreateChild(fam, false));
     if (fam.getNoOfSpouses()<2)
-      result.add(new CreateParent(fam, manager));
+      result.add(new CreateParent(fam));
     if (fam.getNoOfSpouses()!=0)
       result.add(new SwapSpouses(fam, manager));
   }

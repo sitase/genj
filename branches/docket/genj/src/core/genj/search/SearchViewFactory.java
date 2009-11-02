@@ -38,7 +38,7 @@ public class SearchViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(java.lang.String, genj.gedcom.Gedcom, genj.util.Registry, genj.view.ViewManager)
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
+  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
     return new SearchView(gedcom, registry, manager);
   }
 
@@ -52,7 +52,7 @@ public class SearchViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#getTitle(boolean)
    */
-  public String getTitle(boolean abbreviate) {
+  public String getTitle() {
     return SearchView.resources.getString("title" + (abbreviate?".short":""));
   }
 

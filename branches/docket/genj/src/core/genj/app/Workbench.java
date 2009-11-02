@@ -45,6 +45,7 @@ import genj.util.MnemonicAndText;
 import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
+import genj.util.ServiceLookup;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
@@ -58,10 +59,10 @@ import genj.view.CommitRequestedEvent;
 import genj.view.ViewContext;
 import genj.view.ViewFactory;
 import genj.view.ViewHandle;
-import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -75,6 +76,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.Action;
 import javax.swing.Box;
@@ -91,11 +94,14 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import spin.Spin;
+import swingx.docking.DefaultDockable;
+import swingx.docking.DockingPane;
+import swingx.docking.border.Eclipse3Border;
 
 /**
  * The central component of the GenJ application
  */
-public class ControlCenter extends JPanel {
+public class Workbench extends JPanel {
   
   private final static String
     ACC_SAVE = "ctrl S",
@@ -109,27 +115,26 @@ public class ControlCenter extends JPanel {
   private Registry registry;
   private Resources resources = Resources.get(this);
   private WindowManager windowManager;
-  private ViewManager viewManager;
   private List gedcomActions = new ArrayList();
   private List toolbarActions = new ArrayList();
   private Stats stats = new Stats();
   private ActionExit exit = new ActionExit();
+  private DockingPane dockingPane = new DockingPane();
 
   private Runnable runOnExit;
     
   /**
    * Constructor
    */
-  public ControlCenter(Registry setRegistry, WindowManager winManager, Runnable onExit) {
+  public Workbench(Registry setRegistry, WindowManager winManager, Runnable onExit) {
 
     // Initialize data
     registry = new Registry(setRegistry, "cc");
     windowManager = winManager;
-    viewManager = new ViewManager(windowManager);
     runOnExit = onExit;
     
     // Table of Gedcoms
-    tGedcoms = new GedcomTableWidget(viewManager, registry) {
+    tGedcoms = new GedcomTableWidget(registry) {
       public ViewContext getContext() {
         ViewContext result = super.getContext();
         if (result!=null) {
@@ -151,7 +156,7 @@ public class ControlCenter extends JPanel {
     // Layout
     setLayout(new BorderLayout());
     add(createToolBar(), BorderLayout.NORTH);
-    add(new JScrollPane(tGedcoms), BorderLayout.CENTER);
+    add(dockingPane, BorderLayout.CENTER);
     add(createStatusBar(), BorderLayout.SOUTH);
 
     // Init menu bar at this point (so it's ready when the first file is loaded)
@@ -231,9 +236,8 @@ public class ControlCenter extends JPanel {
     
     result.addSeparator();
 
-    ViewFactory[] factories = viewManager.getFactories();
-    for (int i = 0; i < factories.length; i++) {
-      ActionView action = new ActionView(-1, factories[i]);
+    for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
+      ActionView action = new ActionView(factory);
       action.setText(null);
       bh.create(action);
       toolbarActions.add(action);
@@ -286,9 +290,8 @@ public class ControlCenter extends JPanel {
 
     mh.popMenu().createMenu(resources.getString("cc.menu.view"));
 
-    ViewFactory[] factories = viewManager.getFactories();
-    for (int i = 0; i < factories.length; i++) {
-      ActionView action = new ActionView(i+1, factories[i]);
+    for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
+      ActionView action = new ActionView(factory);
       gedcomActions.add(action);
       mh.createItem(action);
     }
@@ -332,8 +335,8 @@ public class ControlCenter extends JPanel {
    */
   private File chooseFile(String title, String action, JComponent accessory) {
     FileChooser chooser = new FileChooser(
-      ControlCenter.this, title, action, "ged",
-      EnvironmentChecker.getProperty(ControlCenter.this, new String[] { "genj.gedcom.dir", "user.home" } , ".", "choose gedcom file")
+      Workbench.this, title, action, "ged",
+      EnvironmentChecker.getProperty(Workbench.this, new String[] { "genj.gedcom.dir", "user.home" } , ".", "choose gedcom file")
     );
     chooser.setCurrentDirectory(new File(registry.get("last.dir", "user.home")));
     if (accessory!=null) chooser.setAccessory(accessory);
@@ -362,7 +365,7 @@ public class ControlCenter extends JPanel {
     protected void execute() {
       if (windowManager.show("about"))
         return;
-      windowManager.openDialog("about",resources.getString("cc.menu.about"),WindowManager.INFORMATION_MESSAGE,new AboutWidget(viewManager),Action2.okOnly(),ControlCenter.this);
+      windowManager.openDialog("about",resources.getString("cc.menu.about"),WindowManager.INFORMATION_MESSAGE,new AboutWidget(),Action2.okOnly(),Workbench.this);
       // done      
     }
   } //ActionAbout
@@ -394,13 +397,13 @@ public class ControlCenter extends JPanel {
       setAccelerator(ACC_EXIT);
       setText(resources, "cc.menu.exit");
       setImage(Images.imgExit);
-      setTarget(ControlCenter.this);
+      setTarget(Workbench.this);
     }
     /** run */
     protected void execute() {
       // force a commit
       for (Gedcom gedcom : GedcomDirectory.getInstance().getGedcoms()) {
-        WindowManager.broadcast(new CommitRequestedEvent(gedcom, ControlCenter.this));
+        WindowManager.broadcast(new CommitRequestedEvent(gedcom, Workbench.this));
       }
       // Remember open gedcoms
       Collection save = new ArrayList();
@@ -413,7 +416,7 @@ public class ControlCenter extends JPanel {
           int rc = windowManager.openDialog(
               "confirm-exit", null, WindowManager.WARNING_MESSAGE, 
               resources.getString("cc.savechanges?", gedcom.getName()), 
-              Action2.yesNoCancel(), ControlCenter.this
+              Action2.yesNoCancel(), Workbench.this
             );
           // cancel - we're done
           if (rc==2) return;
@@ -452,12 +455,13 @@ public class ControlCenter extends JPanel {
           if (gedcom.hasPassword())
             restore.append(gedcom.getPassword());
           restore.append(",");
-          ViewHandle[] views = viewManager.getViews(gedcom);
-          for (int i=0, j=0;i<views.length;i++) {
-            if (j++>0) restore.append(",");
-            restore.append(views[i].persist());
-          }
-          save.add(restore);
+          // FIXME remember opened stuff
+//          ViewHandle[] views = viewManager.getViews(gedcom);
+//          for (int i=0, j=0;i<views.length;i++) {
+//            if (j++>0) restore.append(",");
+//            restore.append(views[i].persist());
+//          }
+//          save.add(restore);
         }
         // next gedcom
       }
@@ -502,7 +506,7 @@ public class ControlCenter extends JPanel {
             WindowManager.WARNING_MESSAGE,
             resources.getString("cc.open.file_exists", file.getName()),
             Action2.yesNo(),
-            ControlCenter.this
+            Workbench.this
           );
           if (rc!=0)
             return;
@@ -613,7 +617,7 @@ public class ControlCenter extends JPanel {
           WindowManager.QUESTION_MESSAGE,
           resources.getString("cc.open.choice"),
           actions,
-          ControlCenter.this
+          Workbench.this
         );
         switch (rc) {
           case 0 :
@@ -659,7 +663,7 @@ public class ControlCenter extends JPanel {
             WindowManager.QUESTION_MESSAGE, 
             resources.getString("cc.provide_password"),
             "", 
-            ControlCenter.this
+            Workbench.this
           );
           
           if (password==null)
@@ -679,7 +683,7 @@ public class ControlCenter extends JPanel {
           WindowManager.ERROR_MESSAGE, 
           resources.getString("cc.open.read_error", "" + exception.getLine()) + ":\n" + exception.getMessage(),
           Action2.okOnly(), 
-          ControlCenter.this
+          Workbench.this
         );
         
         return;
@@ -691,14 +695,14 @@ public class ControlCenter extends JPanel {
         
         GedcomDirectory.getInstance().registerGedcom(gedcomBeingLoaded);
       
-        // open views again
-        if (Options.getInstance().isRestoreViews) {
-          for (int i=0;i<views2restore.size();i++) {
-            ViewHandle handle = ViewHandle.restore(viewManager, gedcomBeingLoaded, (String)views2restore.get(i));
-            if (handle!=null)
-              new ActionSave(gedcomBeingLoaded).setTarget(handle.getView()).install(handle.getView(), JComponent.WHEN_IN_FOCUSED_WINDOW);
-          }
-        }          
+        // FIXME open views again
+//        if (Options.getInstance().isRestoreViews) {
+//          for (int i=0;i<views2restore.size();i++) {
+//            ViewHandle handle = ViewHandle.restore(viewManager, gedcomBeingLoaded, (String)views2restore.get(i));
+//            if (handle!=null)
+//              new ActionSave(gedcomBeingLoaded).setTarget(handle.getView()).install(handle.getView(), JComponent.WHEN_IN_FOCUSED_WINDOW);
+//          }
+//        }          
         
       }
       
@@ -716,7 +720,7 @@ public class ControlCenter extends JPanel {
             WindowManager.WARNING_MESSAGE,
             new JScrollPane(new ContextListWidget(gedcomBeingLoaded, warnings)),
             Action2.okOnly(),
-            ControlCenter.this
+            Workbench.this
           );
         }
       }
@@ -753,7 +757,7 @@ public class ControlCenter extends JPanel {
       ChoiceWidget choice = new ChoiceWidget(choices, "");
       JLabel label = new JLabel(resources.getString("cc.open.enter_url"));
       
-      int rc = windowManager.openDialog(null, resources.getString("cc.open.title"), WindowManager.QUESTION_MESSAGE, new JComponent[]{label,choice}, Action2.okCancel(), ControlCenter.this);
+      int rc = windowManager.openDialog(null, resources.getString("cc.open.title"), WindowManager.QUESTION_MESSAGE, new JComponent[]{label,choice}, Action2.okCancel(), Workbench.this);
     
       // check the selection
       String item = choice.getText();
@@ -764,7 +768,7 @@ public class ControlCenter extends JPanel {
       try {
         origin = Origin.create(item);
       } catch (MalformedURLException ex) {
-        windowManager.openDialog(null, item, WindowManager.ERROR_MESSAGE, resources.getString("cc.open.invalid_url"), Action2.okCancel(), ControlCenter.this);
+        windowManager.openDialog(null, item, WindowManager.ERROR_MESSAGE, resources.getString("cc.open.invalid_url"), Action2.okCancel(), Workbench.this);
         return null;
       }
 
@@ -787,7 +791,7 @@ public class ControlCenter extends JPanel {
 
       // Check if already open
       if (GedcomDirectory.getInstance().getGedcom(origin.getName())!=null) {
-        windowManager.openDialog(null,origin.getName(),WindowManager.ERROR_MESSAGE,resources.getString("cc.open.already_open", origin.getName()),Action2.okOnly(),ControlCenter.this);
+        windowManager.openDialog(null,origin.getName(),WindowManager.ERROR_MESSAGE,resources.getString("cc.open.already_open", origin.getName()),Action2.okOnly(),Workbench.this);
         return false;
       }
 
@@ -806,7 +810,7 @@ public class ControlCenter extends JPanel {
             + "\n["
             + ex.getMessage()
             + "]";
-        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, txt, Action2.okOnly(), ControlCenter.this);
+        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, txt, Action2.okOnly(), Workbench.this);
         return false;
       }
 
@@ -817,7 +821,7 @@ public class ControlCenter extends JPanel {
         WindowManager.INFORMATION_MESSAGE,
         new ProgressWidget(reader, getThread()),
         Action2.cancelOnly(),
-        ControlCenter.this
+        Workbench.this
       );
 
       // .. continue into (async) execute
@@ -917,7 +921,7 @@ public class ControlCenter extends JPanel {
      */
     protected ActionSave(boolean ask, boolean enabled) {
       // setup default target
-      setTarget(ControlCenter.this);
+      setTarget(Workbench.this);
       // setup accelerator - IF this is a no-ask save it instead of SaveAs
       if (!ask) setAccelerator(ACC_SAVE);
       // remember
@@ -954,7 +958,9 @@ public class ControlCenter extends JPanel {
       if (ask || origin==null || origin.getFile()==null) {
 
         // .. choose file
-        SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved, (Filter[])viewManager.getViews(Filter.class, gedcomBeingSaved));
+        SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved, new Filter[]{});
+        // FIXME let views participate in save filter
+        // SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved, (Filter[])viewManager.getViews(Filter.class, gedcomBeingSaved));
         file = chooseFile(resources.getString("cc.save.title"), resources.getString("cc.save.action"), options);
         if (file==null)
           return false;
@@ -984,7 +990,7 @@ public class ControlCenter extends JPanel {
       // Need confirmation if File exists?
       if (file.exists()&&ask) {
 
-        int rc = windowManager.openDialog(null,resources.getString("cc.save.title"),WindowManager.WARNING_MESSAGE,resources.getString("cc.open.file_exists", file.getName()),Action2.yesNo(),ControlCenter.this);
+        int rc = windowManager.openDialog(null,resources.getString("cc.save.title"),WindowManager.WARNING_MESSAGE,resources.getString("cc.open.file_exists", file.getName()),Action2.yesNo(),Workbench.this);
         if (rc!=0) {
           newOrigin = null;
           //20030221 no need to go for newOrigin in postExecute()
@@ -994,7 +1000,7 @@ public class ControlCenter extends JPanel {
       }
       
       // ask everyone to commit their data
-      WindowManager.broadcast(new CommitRequestedEvent(gedcomBeingSaved, ControlCenter.this));
+      WindowManager.broadcast(new CommitRequestedEvent(gedcomBeingSaved, Workbench.this));
       
       // .. open io 
       try {
@@ -1018,7 +1024,7 @@ public class ControlCenter extends JPanel {
             WindowManager.ERROR_MESSAGE,
             resources.getString("cc.save.write_encoding_error", ex.getMessage()), 
             Action2.okOnly(),
-            ControlCenter.this);
+            Workbench.this);
         return false;
         
       } catch (IOException ex) {
@@ -1027,7 +1033,7 @@ public class ControlCenter extends JPanel {
                       WindowManager.ERROR_MESSAGE,
                       resources.getString("cc.save.open_error", file.getAbsolutePath()),
                       Action2.okOnly(),
-                      ControlCenter.this);
+                      Workbench.this);
         return false;
       }
 
@@ -1100,14 +1106,14 @@ public class ControlCenter extends JPanel {
                       gedcomBeingSaved.getName(),
                       WindowManager.ERROR_MESSAGE,
                       resources.getString("cc.save.write_encoding_error", ioex.getMessage() ), 
-                      Action2.okOnly(),ControlCenter.this);
+                      Action2.okOnly(),Workbench.this);
           }
           else {
               windowManager.openDialog(null,
                       gedcomBeingSaved.getName(),
                       WindowManager.ERROR_MESSAGE,
                       resources.getString("cc.save.write_error", "" + ioex.getLine()) + ":\n" + ioex.getMessage(),
-                      Action2.okOnly(),ControlCenter.this);
+                      Action2.okOnly(),Workbench.this);
               
           }
       } else {
@@ -1123,10 +1129,10 @@ public class ControlCenter extends JPanel {
           ActionOpen open = new ActionOpen(newOrigin) {
             protected void postExecute(boolean preExecuteResult) {
               super.postExecute(preExecuteResult);
-              // copy registry from old
-              if (gedcomBeingLoaded!=null) {
-                ViewManager.getRegistry(gedcomBeingLoaded).set(ViewManager.getRegistry(gedcomBeingSaved));
-              }
+              // FIXME copy registry from old
+//              if (gedcomBeingLoaded!=null) {
+//                ViewManager.getRegistry(gedcomBeingLoaded).set(ViewManager.getRegistry(gedcomBeingSaved));
+//              }
             }
           };
           open.password = password;
@@ -1167,7 +1173,7 @@ public class ControlCenter extends JPanel {
         
         int rc = windowManager.openDialog(null,null,WindowManager.WARNING_MESSAGE,
             resources.getString("cc.savechanges?", gedcom.getName()),
-            Action2.yesNoCancel(),ControlCenter.this);
+            Action2.yesNoCancel(),Workbench.this);
         // cancel everything?
         if (rc==2)
           return;
@@ -1203,26 +1209,42 @@ public class ControlCenter extends JPanel {
     /** which ViewFactory */
     private ViewFactory factory;
     /** constructor */
-    protected ActionView(int i, ViewFactory vw) {
+    protected ActionView(ViewFactory vw) {
       factory = vw;
-      if (i>0) 
-        setText(Integer.toString(i) +" "+ new MnemonicAndText(factory.getTitle(false)).getText());
-      else
-        setText(factory.getTitle(true));
-      setTip(resources.getString("cc.tip.open_view", factory.getTitle(false)));
+      setText(factory.getTitle());
+      setTip(resources.getString("cc.tip.open_view", factory.getTitle()));
       setImage(factory.getImage());
       setEnabled(false);
     }
     /** run */
     protected void execute() {
+      
+      // already open?
+      if (dockingPane.getDockable(factory)!=null)
+        return;
+      
       // grab current Gedcom
       final Gedcom gedcom = tGedcoms.getSelectedGedcom();
       if (gedcom == null)
         return;
+      
+      // title 
+      String title = factory.getTitle();
+      
       // create new View
-      ViewHandle handle = viewManager.openView(gedcom, factory);
-      // install some accelerators
-      new ActionSave(gedcom).setTarget(handle.getView()).install(handle.getView(), JComponent.WHEN_IN_FOCUSED_WINDOW);
+      JComponent view = factory.createView(title, gedcom, registry);
+      
+      // get a registry 
+      new Registry(Registry.lookup(gedcom.getOrigin().getFileName(), gedcom.getOrigin()), factory.getClass().getName()+".1");
+
+      // create the view
+      DefaultDockable dockable = new DefaultDockable();
+      dockable.setContent(view);
+      dockable.setTitle(title);
+      dockingPane.putDockable(factory, dockable);
+      
+      // FIXME install some accelerators
+      //new ActionSave(gedcom).setTarget(handle.getView()).install(handle.getView(), JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
   } //ActionView
 
@@ -1243,7 +1265,7 @@ public class ControlCenter extends JPanel {
       OptionsWidget widget = new OptionsWidget(getText());
       widget.setOptions(OptionProvider.getAllOptions());
       // open dialog
-      windowManager.openDialog("options", getText(), WindowManager.INFORMATION_MESSAGE, widget, Action2.okOnly(), ControlCenter.this);
+      windowManager.openDialog("options", getText(), WindowManager.INFORMATION_MESSAGE, widget, Action2.okOnly(), Workbench.this);
       // done
     }
   } //ActionOptions

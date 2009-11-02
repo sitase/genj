@@ -26,7 +26,6 @@ import genj.util.WordBuffer;
 import genj.util.swing.Action2;
 import genj.util.swing.LinkWidget;
 import genj.view.ViewFactory;
-import genj.view.ViewManager;
 
 import java.awt.Color;
 import java.awt.GridLayout;
@@ -40,19 +39,15 @@ import javax.swing.SwingConstants;
  */
 public class ControlCenter extends JPanel {
 
-  /** view manager */
-  private ViewManager viewManager;
-  
   /** gedcom */
   private Gedcom gedcom;
 
   /**
    * Constructor
    */
-  public ControlCenter(ViewManager vmanager, Gedcom ged) {
+  public ControlCenter(Gedcom ged) {
     
     // remember
-    viewManager = vmanager;
     gedcom = ged;
     
     // layout components
@@ -117,7 +112,7 @@ public class ControlCenter extends JPanel {
      */
     private ActionView(ViewFactory vfactory) {
       factory = vfactory;
-      setText(new MnemonicAndText(vfactory.getTitle(false)).getText());
+      setText(new MnemonicAndText(vfactory.getTitle()).getText());
       setImage(vfactory.getImage());
     }
     /**

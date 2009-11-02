@@ -1,7 +1,7 @@
 /**
  * GenJ - GenealogyJ
  *
- * Copyright (C) 1997 - 2002 Nils Meier <nils@meiers.net>
+ * Copyright (C) 1997 - 2009 Nils Meier <nils@meiers.net>
  *
  * This piece of code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -17,32 +17,29 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.view;
+package genj.util;
 
-import genj.gedcom.Gedcom;
-import genj.util.Registry;
-import genj.util.swing.ImageIcon;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import javax.swing.JComponent;
+import javax.imageio.spi.ServiceRegistry;
 
-/**
- * The interface to a view's factory
- */
-public interface ViewFactory {
-
-  /**
-   * Callback for creating a view 
-   */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry);
+public class ServiceLookup {
   
-  /**
-   * Returns an image for this view
-   */
-  public ImageIcon getImage();
+  private static Logger LOG = Logger.getLogger("genj.util");
+
+  public static <X> List<X> lookup(Class<X> service) {
+    List<X> result = new ArrayList<X>();
+    Iterator<X> it = ServiceRegistry.lookupProviders(service);
+    while (it.hasNext()) try {
+      result.add(it.next());
+    } catch (Throwable t) {
+      LOG.log(Level.WARNING, "Error retrieving service for "+service, t);
+    }
+    return result;
+  }
   
-  /**
-   * Returns a localized title for this view
-   */
-  public String getTitle();
-  
-} //ViewFactory
+}

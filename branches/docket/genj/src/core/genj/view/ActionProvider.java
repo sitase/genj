@@ -33,21 +33,21 @@ public interface ActionProvider {
   /**
    * Callback for actions on a list of entities
    */
-  public List createActions(Property[] properties, ViewManager manager);
+  public List createActions(Property[] properties);
   
   /**
    * Callback for actions on a property
    */
-  public List createActions(Property property, ViewManager manager);
+  public List createActions(Property property);
 
   /**
    * Callback for actions on an entity
    */
-  public List createActions(Entity entity, ViewManager manager);
+  public List createActions(Entity entity);
 
   /**
    * Callback for actions on a gedcom
    */
-  public List createActions(Gedcom gedcom, ViewManager manager);
+  public List createActions(Gedcom gedcom);
 
-} //ContextMenuSupport
+} 

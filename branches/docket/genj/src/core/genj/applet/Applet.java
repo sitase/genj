@@ -270,7 +270,7 @@ public class Applet extends java.applet.Applet {
 
         // change what we show
         removeAll();
-        add(BorderLayout.CENTER, new ControlCenter(vmanager, gedcom));
+        add(BorderLayout.CENTER, new ControlCenter(gedcom));
         invalidate();
         validate();
         repaint();

@@ -98,7 +98,7 @@ public class App {
    */
   private static class Startup implements Runnable {
     
-    ControlCenter center;
+    Workbench center;
 
     /**
      * Constructor
@@ -193,7 +193,7 @@ public class App {
         }
         
         // setup control center
-        center = new ControlCenter(registry, winMgr, new Shutdown(registry));
+        center = new Workbench(registry, winMgr, new Shutdown(registry));
   
         // show it
         winMgr.openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());

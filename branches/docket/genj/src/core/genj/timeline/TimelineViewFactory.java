@@ -36,7 +36,7 @@ public class TimelineViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry, ViewManager manager) {
+  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
     return new TimelineView(title,gedcom,registry,manager);
   }
   
@@ -50,7 +50,7 @@ public class TimelineViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#getName(boolean)
    */
-  public String getTitle(boolean abbreviate) {
+  public String getTitle() {
     return Resources.get(this).getString("title" + (abbreviate?".short":""));
   }
 

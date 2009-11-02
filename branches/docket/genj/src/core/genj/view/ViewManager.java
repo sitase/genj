@@ -65,7 +65,7 @@ import javax.swing.SwingUtilities;
 /**
  * A bridge to open/manage Views
  */
-public class ViewManager {
+ class ViewManager {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.view");
 
@@ -74,9 +74,6 @@ public class ViewManager {
   
   /** global accelerators */
   /*package*/ Map keyStrokes2factories = new HashMap();
-  
-  /** our context hook */
-  private ContextHook contextHook = new ContextHook();
   
   /** factory instances of views */
   private ViewFactory[] factories = null;
@@ -163,7 +160,7 @@ public class ViewManager {
     for (int f=0;f<factories.length;f++) {    
       ViewFactory factory = factories[f];
       // check shortcut
-      String keystroke = "ctrl "+new MnemonicAndText(factory.getTitle(false)).getMnemonic();
+      String keystroke = "ctrl "+new MnemonicAndText(factory.getTitle()).getMnemonic();
       if (!keyStrokes2factories.containsKey(keystroke)) {
         keyStrokes2factories.put(keystroke, factory);
       }
@@ -322,10 +319,10 @@ public class ViewManager {
     Registry registry = new Registry( getRegistry(gedcom), getPackage(factory)+"."+sequence) ;
 
     // title 
-    String title = gedcom.getName()+" - "+factory.getTitle(false)+" ("+registry.getViewSuffix()+")";
+    String title = gedcom.getName()+" - "+factory.getTitle()+" ("+registry.getViewSuffix()+")";
 
     // create the view
-    JComponent view = factory.createView(title, gedcom, registry, this);
+    JComponent view = factory.createView(title, gedcom, registry);
     
     // create a handle for it
     final ViewHandle handle = new ViewHandle(this, gedcom, title, registry, factory, view, sequence);
@@ -334,10 +331,11 @@ public class ViewManager {
     ViewContainer container = new ViewContainer(handle);
 
     // add context hook for keyboard shortcuts
-    InputMap inputs = view.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-    inputs.put(KeyStroke.getKeyStroke("shift F10"), contextHook);
-    inputs.put(KeyStroke.getKeyStroke("CONTEXT_MENU"), contextHook); // this only works in Tiger 1.5 on Windows
-    view.getActionMap().put(contextHook, contextHook);
+// FIXME transition context hook keybindings    
+//    InputMap inputs = view.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+//    inputs.put(KeyStroke.getKeyStroke("shift F10"), contextHook);
+//    inputs.put(KeyStroke.getKeyStroke("CONTEXT_MENU"), contextHook); // this only works in Tiger 1.5 on Windows
+//    view.getActionMap().put(contextHook, contextHook);
 
     // remember
     handles.set(handle.getSequence()-1, handle);
@@ -466,7 +464,7 @@ public class ViewManager {
       mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
       for (int i = 0; i < as.length; i++) try {
         mh.createSeparator();
-        mh.createItems(as[i].createActions(properties, this));
+        mh.createItems(as[i].createActions(properties));
       } catch (Throwable t) {
         LOG.log(Level.WARNING, "Action Provider threw "+t.getClass()+" on createActions(Property[])", t);
       }
@@ -478,7 +476,7 @@ public class ViewManager {
         // a sub-menu with appropriate actions
         mh.createMenu(Property.LABEL+" '"+TagPath.get(property).getName() + '\'' , property.getImage(false));
         for (int i = 0; i < as.length; i++) try {
-          mh.createItems(as[i].createActions(property, this));
+          mh.createItems(as[i].createActions(property));
         } catch (Throwable t) {
           LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Property)", t);
         }
@@ -493,7 +491,7 @@ public class ViewManager {
       mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
       for (int i = 0; i < as.length; i++) try {
         mh.createSeparator();
-        mh.createItems(as[i].createActions(entities, this));
+        mh.createItems(as[i].createActions(entities));
       } catch (Throwable t) {
         LOG.log(Level.WARNING, "Action Provider threw "+t.getClass()+" on createActions(Entity[])", t);
       }
@@ -504,7 +502,7 @@ public class ViewManager {
       String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
       mh.createMenu(title, entity.getImage(false));
       for (int i = 0; i < as.length; i++) try {
-        mh.createItems(as[i].createActions(entity, this));
+        mh.createItems(as[i].createActions(entity));
       } catch (Throwable t) {
         LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Entity)", t);
       }
@@ -515,7 +513,7 @@ public class ViewManager {
     String title = "Gedcom '"+gedcom.getName()+'\'';
     mh.createMenu(title, Gedcom.getImage());
     for (int i = 0; i < as.length; i++) try {
-      mh.createItems(as[i].createActions(gedcom, this));
+      mh.createItems(as[i].createActions(gedcom));
     } catch (Throwable t) {
       LOG.log(Level.WARNING, "Action Provider "+as[i].getClass().getName()+" threw "+t.getClass()+" on createActions(Gedcom", t);
     }
@@ -525,122 +523,124 @@ public class ViewManager {
     return popup;
   }
   
-  /**
-   * Our hook into keyboard and mouse operated context changes / menues
-   */
-  private class ContextHook extends Action2 implements AWTEventListener {
-    
-    /** constructor */
-    private ContextHook() {
-      try {
-        AccessController.doPrivileged(new PrivilegedAction() {
-          public Object run() {
-            Toolkit.getDefaultToolkit().addAWTEventListener(ContextHook.this, AWTEvent.MOUSE_EVENT_MASK);
-            return null;
-          }
-        });
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Cannot install ContextHook ("+t.getMessage()+")");
-      }
-    }
-    
-    /**
-     * Resolve context for given component
-     */
-    private ViewContext getContext(Component component) {
-      ViewContext context;
-      // find context provider in component hierarchy
-      while (component!=null) {
-        // component can provide context?
-        if (component instanceof ContextProvider) {
-          ContextProvider provider = (ContextProvider)component;
-          context = provider.getContext();
-          if (context!=null)
-            return context;
-        }
-        // try parent
-        component = component.getParent();
-      }
-      // not found
-      return null;
-    }
-    
-    /**
-     * A Key press initiation of the context menu
-     */
-    protected void execute() {
-      // only for jcomponents with focus
-      Component focus = FocusManager.getCurrentManager().getFocusOwner();
-      if (!(focus instanceof JComponent))
-        return;
-      // look for ContextProvider and show menu if appropriate
-      ViewContext context = getContext(focus);
-      if (context!=null) {
-        JPopupMenu popup = getContextMenu(context, focus);
-        if (popup!=null)
-          popup.show(focus, 0, 0);
-      }
-      // done
-    }
-    
-    /**
-     * A mouse click initiation of the context menu
-     */
-    public void eventDispatched(AWTEvent event) {
-      
-      // a mouse popup/click event?
-      if (!(event instanceof MouseEvent)) 
-        return;
-      final MouseEvent me = (MouseEvent) event;
-      if (!(me.isPopupTrigger()||me.getID()==MouseEvent.MOUSE_CLICKED))
-        return;
-
-      // NM 20080130 do the component/context calculation in another event to allow everyone to catch up
-      // Peter reported that the context menu is the wrong one as PropertyTreeWidget
-      // changes the selection on mouse clicks (following right-clicks).
-      // It might be that eventDispatched() is called before the mouse click is propagated to the
-      // component thus calculates the menu before the selection changes.
-      // So I'm trying now to show the popup this in a later event to make sure everyone caught up to the event
-      
-      SwingUtilities.invokeLater(new Runnable() {
-        public void run() {
-          // find deepest component (since components without attached listeners
-          // won't be the source for this event)
-          Component component  = SwingUtilities.getDeepestComponentAt(me.getComponent(), me.getX(), me.getY());
-          if (!(component instanceof JComponent))
-            return;
-          Point point = SwingUtilities.convertPoint(me.getComponent(), me.getX(), me.getY(), component );
-          
-          // try to identify context
-          ViewContext context = getContext(component);
-          if (context==null) 
-            return;
-    
-          // a double-click on provider?
-          if (me.getButton()==MouseEvent.BUTTON1&&me.getID()==MouseEvent.MOUSE_CLICKED&&me.getClickCount()==2) {
-            WindowManager.broadcast(new ContextSelectionEvent(context, component, true));
-            return;
-          }
+  // FIXME transition context hook
   
-          // a popup?
-          if(me.isPopupTrigger())  {
-            
-            // cancel any menu
-            MenuSelectionManager.defaultManager().clearSelectedPath();
-            
-            // show context menu
-            JPopupMenu popup = getContextMenu(context, (JComponent)component);
-            if (popup!=null)
-              popup.show((JComponent)component, point.x, point.y);
-            
-          }
-        }
-      });
-        
-      // done
-    }
-    
-  } //ContextMenuHook
+//  /**
+//   * Our hook into keyboard and mouse operated context changes / menues
+//   */
+//  private class ContextHook extends Action2 implements AWTEventListener {
+//    
+//    /** constructor */
+//    private ContextHook() {
+//      try {
+//        AccessController.doPrivileged(new PrivilegedAction() {
+//          public Object run() {
+//            Toolkit.getDefaultToolkit().addAWTEventListener(ContextHook.this, AWTEvent.MOUSE_EVENT_MASK);
+//            return null;
+//          }
+//        });
+//      } catch (Throwable t) {
+//        LOG.log(Level.WARNING, "Cannot install ContextHook ("+t.getMessage()+")");
+//      }
+//    }
+//    
+//    /**
+//     * Resolve context for given component
+//     */
+//    private ViewContext getContext(Component component) {
+//      ViewContext context;
+//      // find context provider in component hierarchy
+//      while (component!=null) {
+//        // component can provide context?
+//        if (component instanceof ContextProvider) {
+//          ContextProvider provider = (ContextProvider)component;
+//          context = provider.getContext();
+//          if (context!=null)
+//            return context;
+//        }
+//        // try parent
+//        component = component.getParent();
+//      }
+//      // not found
+//      return null;
+//    }
+//    
+//    /**
+//     * A Key press initiation of the context menu
+//     */
+//    protected void execute() {
+//      // only for jcomponents with focus
+//      Component focus = FocusManager.getCurrentManager().getFocusOwner();
+//      if (!(focus instanceof JComponent))
+//        return;
+//      // look for ContextProvider and show menu if appropriate
+//      ViewContext context = getContext(focus);
+//      if (context!=null) {
+//        JPopupMenu popup = getContextMenu(context, focus);
+//        if (popup!=null)
+//          popup.show(focus, 0, 0);
+//      }
+//      // done
+//    }
+//    
+//    /**
+//     * A mouse click initiation of the context menu
+//     */
+//    public void eventDispatched(AWTEvent event) {
+//      
+//      // a mouse popup/click event?
+//      if (!(event instanceof MouseEvent)) 
+//        return;
+//      final MouseEvent me = (MouseEvent) event;
+//      if (!(me.isPopupTrigger()||me.getID()==MouseEvent.MOUSE_CLICKED))
+//        return;
+//
+//      // NM 20080130 do the component/context calculation in another event to allow everyone to catch up
+//      // Peter reported that the context menu is the wrong one as PropertyTreeWidget
+//      // changes the selection on mouse clicks (following right-clicks).
+//      // It might be that eventDispatched() is called before the mouse click is propagated to the
+//      // component thus calculates the menu before the selection changes.
+//      // So I'm trying now to show the popup this in a later event to make sure everyone caught up to the event
+//      
+//      SwingUtilities.invokeLater(new Runnable() {
+//        public void run() {
+//          // find deepest component (since components without attached listeners
+//          // won't be the source for this event)
+//          Component component  = SwingUtilities.getDeepestComponentAt(me.getComponent(), me.getX(), me.getY());
+//          if (!(component instanceof JComponent))
+//            return;
+//          Point point = SwingUtilities.convertPoint(me.getComponent(), me.getX(), me.getY(), component );
+//          
+//          // try to identify context
+//          ViewContext context = getContext(component);
+//          if (context==null) 
+//            return;
+//    
+//          // a double-click on provider?
+//          if (me.getButton()==MouseEvent.BUTTON1&&me.getID()==MouseEvent.MOUSE_CLICKED&&me.getClickCount()==2) {
+//            WindowManager.broadcast(new ContextSelectionEvent(context, component, true));
+//            return;
+//          }
+//  
+//          // a popup?
+//          if(me.isPopupTrigger())  {
+//            
+//            // cancel any menu
+//            MenuSelectionManager.defaultManager().clearSelectedPath();
+//            
+//            // show context menu
+//            JPopupMenu popup = getContextMenu(context, (JComponent)component);
+//            if (popup!=null)
+//              popup.show((JComponent)component, point.x, point.y);
+//            
+//          }
+//        }
+//      });
+//        
+//      // done
+//    }
+//    
+//  } //ContextMenuHook
   
 
 } //ViewManager
