@@ -24,7 +24,6 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.PropertyPlace;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextFieldWidget;
-import genj.view.ViewManager;
 
 import javax.swing.JPanel;
 
@@ -42,7 +41,7 @@ public class SetPlaceHierarchy extends AbstractChange {
     /**
      * Constructor
      */
-    public SetPlaceHierarchy(PropertyPlace place, ViewManager mgr) {
+    public SetPlaceHierarchy(PropertyPlace place) {
       super(place.getGedcom(), place.getImage(false), resources.getString("place.hierarchy"));
 
       this.place = place;

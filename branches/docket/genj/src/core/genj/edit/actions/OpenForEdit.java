@@ -20,12 +20,9 @@
 package genj.edit.actions;
 
 import genj.edit.EditView;
-import genj.edit.EditViewFactory;
 import genj.edit.Images;
 import genj.util.swing.Action2;
 import genj.view.ViewContext;
-import genj.view.ViewHandle;
-import genj.view.ViewManager;
 
 /**
  * ActionEdit - edit an entity
@@ -33,13 +30,10 @@ import genj.view.ViewManager;
 public class OpenForEdit extends Action2 {
   /** the context to edit */
   private ViewContext context;
-  /** the view manager */
-  private ViewManager manager;
   /**
    * Constructor
    */
-  public OpenForEdit(ViewContext ctxt, ViewManager mgr) {
-    manager = mgr;
+  public OpenForEdit(ViewContext ctxt) {
     context = ctxt;
     setImage(Images.imgView);
     setText(AbstractChange.resources.getString("edit"));
@@ -51,15 +45,16 @@ public class OpenForEdit extends Action2 {
 
     // open an EditView that isn't sticky - we have to
     // sequentially open each edit until we find a non-sticky one
-    ViewHandle handle;
-    while (true) {
-	    handle = manager.openView(EditViewFactory.class, context.getGedcom());
-	    if (!((EditView)handle.getView()).isSticky()) 
-	      break;
-    }
+// FIXME editview action trying to open edit view
+//    ViewHandle handle;
+//    while (true) {
+//	    handle = manager.openView(EditViewFactory.class, context.getGedcom());
+//	    if (!((EditView)handle.getView()).isSticky()) 
+//	      break;
+//    }
     
     // make sure the context change follows through
-    ((EditView)handle.getView()).setContext(context);
+//    ((EditView)handle.getView()).setContext(context);
   }
   
 } //OpenForEdit

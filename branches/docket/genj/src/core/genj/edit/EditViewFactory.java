@@ -68,24 +68,18 @@ import genj.view.ActionProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
 import genj.view.ViewFactory;
-import genj.view.ViewManager;
-import genj.window.WindowBroadcastEvent;
 import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 
 /**
  * The factory for the TableView
@@ -113,7 +107,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
    * @see genj.view.ViewFactory#getName(boolean)
    */
   public String getTitle() {
-    return EditView.resources.getString("title" + (abbreviate?".short":""));
+    return EditView.resources.getString("title");
   }
 
 // FIXME need to provide for auto-open edit on selection
@@ -151,7 +145,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
       if (properties[i] instanceof Entity) return result;
     // Toggle "Private"
     if (Enigma.isAvailable())
-      result.add(new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties), manager));
+      result.add(new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties)));
     // Delete
     result.add(new DelProperty(properties));
     // done
@@ -172,7 +166,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
       
     // Place format for PropertyFile
     if (property instanceof PropertyPlace)  
-      result.add(new SetPlaceHierarchy((PropertyPlace)property, manager)); 
+      result.add(new SetPlaceHierarchy((PropertyPlace)property)); 
       
     // Check what xrefs can be added
     MetaProperty[] subs = property.getNestedMetaProperties(0);
@@ -202,7 +196,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     
     // Toggle "Private"
     if (Enigma.isAvailable())
-      result.add(new TogglePrivate(property.getGedcom(), Collections.singletonList(property), manager));
+      result.add(new TogglePrivate(property.getGedcom(), Collections.singletonList(property)));
     
     // Delete
     if (!property.isTransient()) 
@@ -220,11 +214,11 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     List result = new ArrayList();
     
     // indi?
-    if (entity instanceof Indi) createActions(result, (Indi)entity, manager);
+    if (entity instanceof Indi) createActions(result, (Indi)entity);
     // fam?
-    if (entity instanceof Fam) createActions(result, (Fam)entity, manager);
+    if (entity instanceof Fam) createActions(result, (Fam)entity);
     // submitter?
-    if (entity instanceof Submitter) createActions(result, (Submitter)entity, manager);
+    if (entity instanceof Submitter) createActions(result, (Submitter)entity);
     
     // separator
     result.add(Action2.NOOP);
@@ -252,7 +246,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     EditView[] edits = EditView.getInstances(entity.getGedcom());
     if (edits.length==0) {
       result.add(Action2.NOOP);
-      result.add(new OpenForEdit(new ViewContext(entity), manager));
+      result.add(new OpenForEdit(new ViewContext(entity)));
     }
     // done
     return result;
@@ -274,7 +268,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
 
     for (Gedcom other : GedcomDirectory.getInstance().getGedcoms()) {
       if (other!=gedcom && other.getEntities(Gedcom.INDI).size()>0)
-        result.add(new CopyIndividual(gedcom, other, manager));
+        result.add(new CopyIndividual(gedcom, other));
     }
 
     result.add(Action2.NOOP);
@@ -293,7 +287,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     private Gedcom source;
     private Indi existing;
 
-    public CopyIndividual(Gedcom dest, Gedcom source, ViewManager mgr) {
+    public CopyIndividual(Gedcom dest, Gedcom source) {
       super(dest, Gedcom.getEntityImage(Gedcom.INDI), "Copy individual from "+source);
       this.source = source;
     }
@@ -361,7 +355,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * Create actions for Individual
    */
-  private void createActions(List result, Indi indi, ViewManager manager) {
+  private void createActions(List result, Indi indi) {
     result.add(new CreateChild(indi, true));
     result.add(new CreateChild(indi, false));
     result.add(new CreateParent(indi));
@@ -374,20 +368,20 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * Create actions for Families
    */
-  private void createActions(List result, Fam fam, ViewManager manager) {
+  private void createActions(List result, Fam fam) {
     result.add(new CreateChild(fam, true));
     result.add(new CreateChild(fam, false));
     if (fam.getNoOfSpouses()<2)
       result.add(new CreateParent(fam));
     if (fam.getNoOfSpouses()!=0)
-      result.add(new SwapSpouses(fam, manager));
+      result.add(new SwapSpouses(fam));
   }
   
   /**
    * Create actions for Submitters
    */
-  private void createActions(List result, Submitter submitter, ViewManager manager) {
-    result.add(new SetSubmitter(submitter, manager));
+  private void createActions(List result, Submitter submitter) {
+    result.add(new SetSubmitter(submitter));
   }
   
   /**  

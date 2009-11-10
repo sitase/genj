@@ -28,7 +28,6 @@ import genj.util.WordBuffer;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
@@ -148,9 +147,10 @@ public abstract class CreateRelationship extends AbstractChange {
       }
     });
     
-    // preselect something (for anything but indi and fam)?
-    if (!(targetType.equals(Gedcom.INDI)||targetType.equals(Gedcom.FAM)))
-      select.setSelection(gedcom.getEntity(ViewManager.getRegistry(gedcom).get("select."+targetType, (String)null)));
+// FIXME docket
+//    // preselect something (for anything but indi and fam)?
+//    if (!(targetType.equals(Gedcom.INDI)||targetType.equals(Gedcom.FAM)))
+//      select.setSelection(gedcom.getEntity(ViewManager.getRegistry(gedcom).get("select."+targetType, (String)null)));
     
     // done
     return result;
@@ -181,7 +181,8 @@ public abstract class CreateRelationship extends AbstractChange {
     Property focus = change(change, change!=existing);
     
     // remember selection
-    ViewManager.getRegistry(gedcom).put("select."+targetType, change.getId());
+// FIXME docket    
+//    ViewManager.getRegistry(gedcom).put("select."+targetType, change.getId());
     
     // select
     WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(focus), getTarget(), false));

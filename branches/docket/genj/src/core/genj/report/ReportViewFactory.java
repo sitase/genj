@@ -29,7 +29,6 @@ import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.ActionProvider;
 import genj.view.ViewFactory;
-import genj.view.ViewManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,7 +47,7 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
    * Factory method - create instance of view
    */
   public JComponent createView(String title, Gedcom gedcom, Registry registry) {
-    return new ReportView(title,gedcom,registry,manager);
+    return new ReportView(title,gedcom,registry);
   }
   
   /**
@@ -62,41 +61,41 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
    * @see genj.view.ViewFactory#getTitle(boolean)
    */
   public String getTitle() {
-    return Resources.get(this).getString("title" + (abbreviate?".short":""));
+    return Resources.get(this).getString("title");
   }
   
   /**
    * Plugin actions for entities
    */
   public List createActions(Property[] properties) {
-    return getActions(properties, properties[0].getGedcom(), manager);
+    return getActions(properties, properties[0].getGedcom());
   }
 
   /**
    * Plugin actions for entity
    */
   public List createActions(Entity entity) {
-    return getActions(entity, entity.getGedcom(), manager);
+    return getActions(entity, entity.getGedcom());
   }
 
   /**
    * Plugin actions for gedcom
    */
   public List createActions(Gedcom gedcom) {
-    return getActions(gedcom, gedcom, manager);
+    return getActions(gedcom, gedcom);
   }
 
   /**
    * Plugin actions for property
    */
   public List createActions(Property property) {
-    return getActions(property, property.getGedcom(), manager);
+    return getActions(property, property.getGedcom());
   }
 
   /**
    * collects actions for reports valid for given context
    */
-  private List getActions(Object context, Gedcom gedcom, ViewManager manager) {
+  private List getActions(Object context, Gedcom gedcom) {
     List result = new ArrayList(10);
     // Look through reports
     Report[] reports = ReportLoader.getInstance().getReports();
@@ -105,7 +104,7 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
       try {
         String accept = report.accepts(context); 
         if (accept!=null)
-          result.add(new ActionRun(accept, context, gedcom, report, manager));
+          result.add(new ActionRun(accept, context, gedcom, report));
       } catch (Throwable t) {
         ReportView.LOG.log(Level.WARNING, "Report "+report.getClass().getName()+" failed in accept()", t);
       }
@@ -140,15 +139,12 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
     private Gedcom gedcom;
     /** report */
     private Report report;
-    /** view mgr */
-    private ViewManager manager;
     /** constructor */
-    private ActionRun(String txt, Object context, Gedcom gedcom, Report report, ViewManager manager) {
+    private ActionRun(String txt, Object context, Gedcom gedcom, Report report) {
       // remember
       this.context = context;
       this.gedcom = gedcom;
       this.report = report;
-      this.manager = manager;
       // show
       setImage(report.getImage());
       setText(txt);
@@ -159,15 +155,16 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
     protected boolean preExecute() {
       // a report with standard out?
       if (report.usesStandardOut()) {
-        // get handle of a ReportView 
-        Object[] views = manager.getViews(ReportView.class, gedcom);
-        ReportView view;
-        if (views.length==0)
-          view = (ReportView)manager.openView(ReportViewFactory.class, gedcom).getView();
-        else 
-          view = (ReportView)views[0];
-        // run it in view
-        view.run(report, context);
+// FIXME docket need to open report view on stdout report    	  
+//        // get handle of a ReportView 
+//        Object[] views = manager.getViews(ReportView.class, gedcom);
+//        ReportView view;
+//        if (views.length==0)
+//          view = (ReportView)manager.openView(ReportViewFactory.class, gedcom).getView();
+//        else 
+//          view = (ReportView)views[0];
+//        // run it in view
+//        view.run(report, context);
         // we're done ourselves - don't go into execute()
         return false;
       }

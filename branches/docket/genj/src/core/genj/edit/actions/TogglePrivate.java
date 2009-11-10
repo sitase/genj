@@ -24,7 +24,6 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.util.swing.Action2;
-import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.util.Collection;
@@ -44,7 +43,7 @@ public class TogglePrivate extends AbstractChange {
   /**
    * Constructor
    */
-  public TogglePrivate(Gedcom gedcom, Collection properties, ViewManager mgr) {
+  public TogglePrivate(Gedcom gedcom, Collection properties) {
     super(gedcom, MetaProperty.IMG_PRIVATE, "");
     this.gedcom = gedcom;
     this.properties = properties;

@@ -22,7 +22,6 @@ package genj.edit.actions;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
-import genj.view.ViewManager;
 
 /**
  * Swap HUSB/WIFE for family
@@ -35,7 +34,7 @@ public class SwapSpouses extends AbstractChange {
   /**
    * Constructor
    */
-  public SwapSpouses(Fam family, ViewManager mgr) {
+  public SwapSpouses(Fam family) {
     super(family.getGedcom(), family.getImage(false), resources.getString("swap.spouses"));
     fam = family;
   }
