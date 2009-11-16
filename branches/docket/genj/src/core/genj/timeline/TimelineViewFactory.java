@@ -24,7 +24,6 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
 import genj.view.ViewFactory;
-import genj.view.ViewManager;
 
 import javax.swing.JComponent;
 
@@ -37,7 +36,7 @@ public class TimelineViewFactory implements ViewFactory {
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
    */
   public JComponent createView(String title, Gedcom gedcom, Registry registry) {
-    return new TimelineView(title,gedcom,registry,manager);
+    return new TimelineView(title,gedcom,registry);
   }
   
   /**
@@ -51,7 +50,7 @@ public class TimelineViewFactory implements ViewFactory {
    * @see genj.view.ViewFactory#getName(boolean)
    */
   public String getTitle() {
-    return Resources.get(this).getString("title" + (abbreviate?".short":""));
+    return Resources.get(this).getString("title");
   }
 
 } //TimelineViewFactory

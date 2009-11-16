@@ -57,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.FocusManager;
 import javax.swing.JComponent;
@@ -546,29 +547,50 @@ import spin.Spin;
       }
       // done
     }
-    
+
     /**
      * Select a property's bean
      */
     void select(Property prop) {
-      if (prop==null||beans.isEmpty())
+      
+      // find bean
+      JComponent bean = find(prop);
+      if (bean==null) 
         return;
+
+      // bring forward in a tabbed pane
+      Component parent = bean;
+      while (true) {
+        if (parent.getParent() instanceof JTabbedPane) {
+          ((JTabbedPane)parent.getParent()).setSelectedComponent(parent);
+        }
+        parent = parent.getParent();
+        if (parent==null||parent==this)
+          break;
+      }        
+
+      // request now
+      if (!bean.requestFocusInWindow())
+        Logger.getLogger("genj.edit").fine("requestFocusInWindow()==false");
+      
+      // done
+    }
+    
+    private JComponent find(Property prop) {
+      if (prop==null||beans.isEmpty())
+        return null;
       // look for appropriate bean showing prop
       for (Iterator it=beans.iterator(); it.hasNext(); ) {
         PropertyBean bean = (PropertyBean)it.next();
-        if (bean.getProperty()==prop) {
-          bean.requestFocusInWindow();
-          return;
-        }
+        if (bean.getProperty()==prop) 
+          return bean;
       }
       
       // check if one of the beans' properties is contained in prop
       for (Iterator it=beans.iterator(); it.hasNext(); ) {
         PropertyBean bean = (PropertyBean)it.next();
-        if (bean.isDisplayable() && bean.getProperty()!=null && bean.getProperty().isContained(prop)) {
-          bean.requestFocusInWindow();
-          return;
-        }
+        if (bean.isDisplayable() && bean.getProperty()!=null && bean.getProperty().isContained(prop)) 
+          return bean;
       }
       
       // check tabs specifically (there might be no properties yet)
@@ -576,16 +598,13 @@ import spin.Spin;
         Component[] cs  = tabsPane.getComponents();
         for (int i = 0; i < cs.length; i++) {
           JComponent c = (JComponent)cs[i];
-          if (c.getClientProperty(Property.class)==prop) {
-            c.requestFocusInWindow();
-            return;
-          }
+          if (c.getClientProperty(Property.class)==prop) 
+            return c;
         }
       }
       
       // otherwise use first bean
-      PropertyBean first = (PropertyBean)beans.get(0);
-      first.requestFocusInWindow();
+      return (PropertyBean)beans.get(0);
       
       // done
     }

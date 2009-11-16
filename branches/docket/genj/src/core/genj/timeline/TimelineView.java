@@ -34,7 +34,6 @@ import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowBroadcastEvent;
 import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
@@ -143,18 +142,14 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
   /** registry we keep */
   private Registry regstry;
   
-  /** the view manager */
-  private ViewManager manager;
-  
   private ModelListener callback = new ModelListener();
     
   /**
    * Constructor
    */
-  public TimelineView(String title, Gedcom gedcom, Registry registry, ViewManager mgr) {
+  public TimelineView(String title, Gedcom gedcom, Registry registry) {
     
     // remember
-    manager = mgr;
     DPI = Options.getInstance().getDPI();
     DPC = new Point2D.Float(
       DPI.x / 2.54F,

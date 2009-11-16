@@ -39,7 +39,6 @@ import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
-import genj.view.ViewManager;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -111,9 +110,6 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /** registry */
   private Registry registry;
   
-  /** manager */
-  private ViewManager manager;
-  
   /** shown results */
   private Results results = new Results();
   private ResultWidget listResults = new ResultWidget();
@@ -140,12 +136,11 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /**
    * Constructor
    */
-  public SearchView(Gedcom geDcom, Registry reGistry, ViewManager maNager) {
+  public SearchView(Gedcom geDcom, Registry reGistry) {
     
     // remember
     gedcom = geDcom;
     registry = reGistry;
-    manager = maNager;
     
     // lookup old search values & settings
     oldPaths = new LinkedList(Arrays.asList(registry.get("old.paths" , DEFAULT_PATHS)));

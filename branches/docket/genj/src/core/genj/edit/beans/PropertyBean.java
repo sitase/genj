@@ -156,31 +156,10 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
     return true;
   }
   
-  /**
-   * helper that makes this bean visible if possible
-   */
-  private void makeVisible() {
-    // let's test if we're in a tabbed pane first
-    Component c = getParent();
-    while (c!=null) {
-      // is it a tabbed pane?
-      if (c.getParent() instanceof JTabbedPane) {
-        ((JTabbedPane)c.getParent()).setSelectedComponent(c);
-        return;
-      }
-      // continue lookin
-      c = c.getParent();
-    }
-    // not contained in tabbed pane
-  }
-  
   /** 
    * overridden requestFocusInWindow()
    */
   public boolean requestFocusInWindow() {
-    // make sure we're visible
-    makeVisible();
-    
     // delegate to default focus
     if (defaultFocus!=null)
       return defaultFocus.requestFocusInWindow();
@@ -191,8 +170,6 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
    * overridden requestFocus()
    */
   public void requestFocus() {
-    //  make sure we're visible
-    makeVisible();
     // delegate to default focus
     if (defaultFocus!=null)
       defaultFocus.requestFocus();
