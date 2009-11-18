@@ -44,6 +44,7 @@ import genj.util.swing.ViewPortOverview;
 import genj.view.ActionProvider;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
+import genj.view.ToolBar;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
 import genj.window.WindowBroadcastEvent;
@@ -72,7 +73,6 @@ import java.util.Set;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JToolBar;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
@@ -510,32 +510,32 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * @see genj.view.ToolBarSupport#populate(JToolBar)
    */
-  public void populate(JToolBar bar) {
+  public void populate(ToolBar toolbar) {
 
     // zooming!    
     sliderZoom = new SliderWidget(1, 100, (int)(zoom*100));
     sliderZoom.addChangeListener(new ZoomGlue());
     sliderZoom.setAlignmentX(0F);
-    bar.add(sliderZoom);
+    toolbar.add(sliderZoom);
     
     // overview
-    ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
-    bh.create(new ActionOverview(), null, overview.isVisible());
+    ButtonHelper bh = new ButtonHelper();
+    toolbar.add(bh.create(new ActionOverview(), null, overview.isVisible()));
     
     // gap
-    bar.addSeparator();
+    toolbar.addSeparator();
     
     // vertical/horizontal
-    bh.create(new ActionOrientation(), Images.imgVert, model.isVertical());
+    toolbar.add(bh.create(new ActionOrientation(), Images.imgVert, model.isVertical()));
     
     // families?
-    bh.create(new ActionFamsAndSpouses(), Images.imgDoFams, model.isFamilies());
+    toolbar.add(bh.create(new ActionFamsAndSpouses(), Images.imgDoFams, model.isFamilies()));
       
     // toggless?
-    bh.create(new ActionFoldSymbols(), null, model.isFoldSymbols());
+    toolbar.add(bh.create(new ActionFoldSymbols(), null, model.isFoldSymbols()));
       
     // gap
-    bar.addSeparator();
+    toolbar.addSeparator();
         
     // bookmarks
     PopupWidget pb = new PopupWidget("",BOOKMARK_ICON) {
@@ -547,7 +547,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       }
     };
     pb.setToolTipText(resources.getString("bookmark.tip"));
-    bar.add(pb);
+    toolbar.add(pb);
     
     // done
   }

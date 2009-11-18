@@ -19,14 +19,17 @@
  */
 package genj.view;
 
+import javax.swing.Action;
+import javax.swing.JComponent;
+
 /**
- * Support for populating a toolbar
+ * Toolbar abstraction
  */
-public interface ToolBarSupport {
-  
-  /**
-   * populate a toolbar
-   */
-  public void populate(ToolBar toolbar);
-  
+public interface ToolBar {
+
+	public void add(Action action);
+	
+	public void add(JComponent component);
+	
+	public void addSeparator();
 }

@@ -19,21 +19,14 @@
  */
 package genj.app;
 
-import java.util.logging.Level;
-
 import genj.gedcom.Gedcom;
-import genj.print.PrintRegistry;
-import genj.print.PrintTask;
-import genj.print.Printer;
-import genj.util.EnvironmentChecker;
 import genj.util.Registry;
-import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
+import genj.view.ToolBar;
 import genj.view.ToolBarSupport;
 import genj.view.ViewFactory;
-import javax.swing.Box;
+
+import javax.swing.Action;
 import javax.swing.JComponent;
-import javax.swing.JToolBar;
 
 import swingx.docking.DefaultDockable;
 import swingx.docking.Docked;
@@ -64,13 +57,25 @@ public class ViewDockable extends DefaultDockable {
   }
   
   @Override
-  public void docked(Docked docked) {
+  public void docked(final Docked docked) {
     super.docked(docked);
 
     // only if ToolBarSupport and no bar installed
     JComponent view = getContent();
     if (!(view instanceof ToolBarSupport)) 
       return;
+    
+    ((ToolBarSupport)view).populate(new ToolBar() {
+    	public void add(Action action) {
+    		docked.addTool(action);
+    	}
+    	public void add(JComponent component) {
+    		docked.addTool(component);
+    	}
+    	public void addSeparator() {
+    		docked.addToolSeparator();
+    	}
+    });
 
     // Fill Toolbar
 //    ((ToolBarSupport)view).populate(bar);

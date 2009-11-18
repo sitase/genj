@@ -29,7 +29,7 @@ import genj.gedcom.TagPath;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
+import genj.view.ToolBar;
 import genj.view.ToolBarSupport;
 
 import java.awt.BorderLayout;
@@ -42,10 +42,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import javax.swing.InputMap;
+import javax.swing.Action;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
-import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 import javax.swing.table.TableModel;
 
@@ -190,19 +189,13 @@ public class TableView extends JPanel implements ToolBarSupport  {
   /**
    * @see genj.view.ToolBarSupport#populate(JToolBar)
    */
-  public void populate(JToolBar bar) {
-    // create buttons for mode switch
-    ButtonHelper bh = new ButtonHelper().setInsets(0).setContainer(bar);
-    
-    InputMap inputs = getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-    
+  public void populate(ToolBar toolbar) {
+	  
     for (int i=0, j=1;i<Gedcom.ENTITIES.length;i++) {
       String tag = Gedcom.ENTITIES[i];
-      SwitchMode change = new SwitchMode(getMode(tag));
-      bh.create(change);
+      toolbar.add(new SwitchMode(getMode(tag)));
     }
-    
-    // done
+
   }
   
   /**

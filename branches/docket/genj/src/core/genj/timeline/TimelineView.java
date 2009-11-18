@@ -32,6 +32,7 @@ import genj.util.swing.UnitGraphics;
 import genj.util.swing.ViewPortAdapter;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
+import genj.view.ToolBar;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
 import genj.window.WindowBroadcastEvent;
@@ -61,7 +62,6 @@ import java.util.Set;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JToolBar;
 import javax.swing.ToolTipManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -343,8 +343,8 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
   /**
    * @see genj.view.ToolBarSupport#populate(JToolBar)
    */
-  public void populate(JToolBar bar) {
-    
+  public void populate(ToolBar toolbar) {
+
     // create a slider for cmPerYear
     int value = (int)(
       Math.log( (cmPerYear-MIN_CM_PER_YEAR) / (MAX_CM_PER_YEAR-MIN_CM_PER_YEAR) * Math.exp(10) ) * 10
@@ -353,9 +353,8 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
     sliderCmPerYear = new SliderWidget(1, 100, Math.min(100, Math.max(1,value)));
     sliderCmPerYear.setToolTipText(resources.getString("view.peryear.tip"));
     sliderCmPerYear.addChangeListener(new ChangeCmPerYear());
-    bar.add(sliderCmPerYear);
+    toolbar.add(sliderCmPerYear);
     
-    // done
   }
 
   /**

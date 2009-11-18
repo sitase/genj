@@ -104,7 +104,7 @@ import javax.swing.SwingConstants;
     bar = new JToolBar();
     
     // Fill Toolbar
-    ((ToolBarSupport)view).populate(bar);
+    ((ToolBarSupport)view).populate(null);
     if (EnvironmentChecker.getProperty(this, "genj.view.toolbarproblem", null, "checking for switch to not use glue in toolbar")==null)
       bar.add(Box.createGlue());
 

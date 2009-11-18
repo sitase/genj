@@ -28,9 +28,9 @@ import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 import genj.util.swing.ImageIcon;
 import genj.view.ContextSelectionEvent;
+import genj.view.ToolBar;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
 import genj.window.WindowManager;
@@ -68,7 +68,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
-import javax.swing.JToolBar;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.HyperlinkEvent;
@@ -295,16 +294,13 @@ public class ReportView extends JPanel implements ToolBarSupport {
   /**
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
    */
-  public void populate(JToolBar bar) {
+  public void populate(ToolBar toolbar) {
 
-    // Buttons at bottom
-    ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
-
-    bh.create(actionStart);
-    bh.create(actionStop);
-    bh.create(new ActionSave());
-    bh.create(new ActionReload());
-    bh.create(new ActionGroup());
+    toolbar.add(actionStart);
+    toolbar.add(actionStop);
+    toolbar.add(new ActionSave());
+    toolbar.add(new ActionReload());
+    toolbar.add(new ActionGroup());
 
     // done
   }

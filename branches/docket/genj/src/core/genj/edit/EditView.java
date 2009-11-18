@@ -36,6 +36,7 @@ import genj.util.swing.ButtonHelper;
 import genj.view.CommitRequestedEvent;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
+import genj.view.ToolBar;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
 import genj.window.WindowBroadcastListener;
@@ -57,7 +58,6 @@ import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JToolBar;
 import javax.swing.KeyStroke;
 
 import spin.Spin;
@@ -370,30 +370,26 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   /**
    * @see genj.view.ToolBarSupport#populate(JToolBar)
    */
-  public void populate(JToolBar bar) {
-
-    // buttons for property manipulation    
-    ButtonHelper bh = new ButtonHelper()
-      .setInsets(0)
-      .setContainer(bar);
+  public void populate(ToolBar toolbar) {
 
     // return in history
-    bh.create(back);
-    bh.create(forward);
+    toolbar.add(back);
+    toolbar.add(forward);
     
     // toggle sticky
-    bh.create(sticky, Images.imgStickOn, isSticky);
+    ButtonHelper bh = new ButtonHelper();
+    toolbar.add(bh.create(sticky, Images.imgStickOn, isSticky));
     
     // add undo/redo
-    bh.create(undo);
-    bh.create(redo);
+    toolbar.add(undo);
+    toolbar.add(redo);
     
     // add actions
     //bar.add(contextMenu);
     
     // add basic/advanced
-    bar.addSeparator();
-    bh.create(mode, Images.imgAdvanced, mode.advanced).setFocusable(false);
+    toolbar.addSeparator();
+    toolbar.add(bh.create(mode, Images.imgAdvanced, mode.advanced));
     
     // done
   }

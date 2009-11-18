@@ -30,13 +30,13 @@ import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.HeadlessLabel;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
 import genj.view.ContextProvider;
 import genj.view.ContextSelectionEvent;
+import genj.view.ToolBar;
 import genj.view.ToolBarSupport;
 import genj.view.ViewContext;
 import genj.window.WindowManager;
@@ -56,7 +56,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import javax.swing.AbstractButton;
 import javax.swing.AbstractListModel;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -65,7 +64,6 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
-import javax.swing.JToolBar;
 import javax.swing.ListCellRenderer;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
@@ -122,11 +120,10 @@ public class SearchView extends JPanel implements ToolBarSupport {
   private JCheckBox checkRegExp;
   private JLabel labelCount;
   
+  private Action2 actionSearch = new ActionSearch(), actionStop = new ActionStop();
+  
   /** history */
   private LinkedList oldPaths, oldValues;
-  
-  /** buttons */
-  private AbstractButton bSearch, bStop;
   
   /** images */
   private final static ImageIcon
@@ -151,8 +148,8 @@ public class SearchView extends JPanel implements ToolBarSupport {
     ActionListener aclick = new ActionListener() {
       /** button */
       public void actionPerformed(ActionEvent e) {
-        bStop.doClick();
-        bSearch.doClick();
+        try { actionStop.trigger(); } catch (Throwable t) {}
+        actionSearch.trigger();
       }
     };
     
@@ -234,12 +231,9 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /**
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
    */
-  public void populate(JToolBar bar) {
-    ButtonHelper bh = new ButtonHelper().setContainer(bar).setInsets(0);
-    ActionSearch search = new ActionSearch();
-    ActionStop   stop   = new ActionStop  (search);
-    bSearch = bh.create(search);
-    bStop   = bh.create(stop);
+  public void populate(ToolBar toolbar) {
+    toolbar.add(actionSearch);
+    toolbar.add(actionStop);
   }
   
   /**
@@ -415,6 +409,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
     private List hits = new ArrayList(MAX_HITS);
     /** the current matcher*/
     private Matcher matcher;
+    
     /** constructor */
     private ActionSearch() {
       setImage(IMG_START);
@@ -427,8 +422,8 @@ public class SearchView extends JPanel implements ToolBarSupport {
       // reset results
       results.clear();
       // update buttons
-      bSearch.setEnabled(false);
-      bStop.setEnabled(true);
+      actionSearch.setEnabled(false);
+      actionStop.setEnabled(true);
       // prepare matcher & path
       String value = choiceValue.getText();
       String path = choicePath.getText();
@@ -478,8 +473,8 @@ public class SearchView extends JPanel implements ToolBarSupport {
       hits.clear();
       hitCount = 0;
       // toggle buttons
-      bSearch.setEnabled(true);
-      bStop.setEnabled(false);
+      actionSearch.setEnabled(true);
+      actionStop.setEnabled(false);
       // done
     }
     
@@ -555,17 +550,14 @@ public class SearchView extends JPanel implements ToolBarSupport {
    * Action - stop search
    */
   private class ActionStop extends Action2 {
-    /** start */
-    private ActionSearch start;
     /** constructor */
-    private ActionStop(ActionSearch start) {
+    private ActionStop() {
       setImage(IMG_STOP);
       setEnabled(false);
-      this.start = start;
     }
     /** run */
     protected void execute() {
-      start.cancel(false);
+      actionSearch.cancel(false);
     }
   } //ActionStop
 
