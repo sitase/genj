@@ -1,7 +1,7 @@
 /**
  * GenJ - GenealogyJ
  *
- * Copyright (C) 1997 - 2002 Nils Meier <nils@meiers.net>
+ * Copyright (C) 1997 - 2009 Nils Meier <nils@meiers.net>
  *
  * This piece of code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -58,7 +58,6 @@ import genj.util.swing.ProgressWidget;
 import genj.view.CommitRequestedEvent;
 import genj.view.ViewContext;
 import genj.view.ViewFactory;
-import genj.view.ViewHandle;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -95,6 +94,7 @@ import javax.swing.event.ListSelectionListener;
 
 import spin.Spin;
 import swingx.docking.DefaultDockable;
+import swingx.docking.Docked;
 import swingx.docking.DockingPane;
 import swingx.docking.border.Eclipse3Border;
 
@@ -237,7 +237,7 @@ public class Workbench extends JPanel {
     result.addSeparator();
 
     for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
-      ActionView action = new ActionView(factory);
+      ActionOpenView action = new ActionOpenView(factory);
       action.setText(null);
       bh.create(action);
       toolbarActions.add(action);
@@ -291,7 +291,7 @@ public class Workbench extends JPanel {
     mh.popMenu().createMenu(resources.getString("cc.menu.view"));
 
     for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
-      ActionView action = new ActionView(factory);
+      ActionOpenView action = new ActionOpenView(factory);
       gedcomActions.add(action);
       mh.createItem(action);
     }
@@ -1205,11 +1205,11 @@ public class Workbench extends JPanel {
   /**
    * Action - View
    */
-  private class ActionView extends Action2 {
+  private class ActionOpenView extends Action2 {
     /** which ViewFactory */
     private ViewFactory factory;
     /** constructor */
-    protected ActionView(ViewFactory vw) {
+    protected ActionOpenView(ViewFactory vw) {
       factory = vw;
       setText(factory.getTitle());
       setTip(resources.getString("cc.tip.open_view", factory.getTitle()));
@@ -1228,25 +1228,32 @@ public class Workbench extends JPanel {
       if (gedcom == null)
         return;
       
-      // title 
-      String title = factory.getTitle();
+      ViewDockable dockable = new ViewDockable(factory, gedcom);
       
-      // create new View
-      JComponent view = factory.createView(title, gedcom, registry);
-      
-      // get a registry 
-      new Registry(Registry.lookup(gedcom.getOrigin().getFileName(), gedcom.getOrigin()), factory.getClass().getName()+".1");
-
-      // create the view
-      DefaultDockable dockable = new DefaultDockable();
-      dockable.setContent(view);
-      dockable.setTitle(title);
       dockingPane.putDockable(factory, dockable);
-      
+
+      dockable.getDocked().addTool(new ActionCloseView(factory));
+
       // FIXME install some accelerators
       //new ActionSave(gedcom).setTarget(handle.getView()).install(handle.getView(), JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
-  } //ActionView
+  } //ActionOpenView
+  
+  /**
+   * Action - close view
+   */
+  private class ActionCloseView extends Action2 {
+    private ViewFactory factory;
+    /** constructor */
+    protected ActionCloseView(ViewFactory factory) {
+      setImage(Images.imgClose);
+      this.factory = factory;
+    }
+    /** run */
+    protected void execute() {
+      dockingPane.removeDockable(factory);
+    }
+  } //ActionCloseView
 
   /**
    * Action - Options
