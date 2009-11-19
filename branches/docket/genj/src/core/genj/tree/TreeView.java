@@ -516,6 +516,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
     sliderZoom = new SliderWidget(1, 100, (int)(zoom*100));
     sliderZoom.addChangeListener(new ZoomGlue());
     sliderZoom.setAlignmentX(0F);
+    sliderZoom.setOpaque(false);
     toolbar.add(sliderZoom);
     
     // overview
@@ -547,6 +548,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       }
     };
     pb.setToolTipText(resources.getString("bookmark.tip"));
+    pb.setOpaque(false);
     toolbar.add(pb);
     
     // done

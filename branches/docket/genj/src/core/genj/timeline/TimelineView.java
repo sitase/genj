@@ -353,6 +353,8 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
     sliderCmPerYear = new SliderWidget(1, 100, Math.min(100, Math.max(1,value)));
     sliderCmPerYear.setToolTipText(resources.getString("view.peryear.tip"));
     sliderCmPerYear.addChangeListener(new ChangeCmPerYear());
+    sliderCmPerYear.setOpaque(false);
+
     toolbar.add(sliderCmPerYear);
     
   }
