@@ -58,6 +58,8 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.MouseWheelEvent;
+import java.awt.event.MouseWheelListener;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
@@ -495,6 +497,15 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   }
   
   
+	private void setZoom(double d) {
+		zoom = Math.max(0.1D, Math.min(1.0, d));
+		content.invalidate();
+		TreeView.this.validate();
+		scrollToCurrent();
+		repaint();
+	}
+  
+  
   /**
    * @see genj.view.ToolBarSupport#populate(JToolBar)
    */
@@ -760,7 +771,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   /**
    * The content we use for drawing
    */
-  private class Content extends JComponent implements ModelListener, MouseListener, ContextProvider  {
+  private class Content extends JComponent implements ModelListener, MouseWheelListener, MouseListener, ContextProvider  {
 
     /**
      * Constructor
@@ -768,6 +779,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     private Content() {
       // listen to mouse events
       addMouseListener(this);
+      addMouseWheelListener(this);
     }
     
     public void addNotify() {
@@ -781,6 +793,10 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
       model.removeListener(this);
       // cont
       super.removeNotify();
+    }
+    
+    public void mouseWheelMoved(MouseWheelEvent e) {
+    	setZoom(zoom - e.getWheelRotation()*0.1);
     }
     
     /**
@@ -919,14 +935,11 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
      * @see javax.swing.event.ChangeListener#stateChanged(ChangeEvent)
      */
     public void stateChanged(ChangeEvent e) {
-      zoom = sliderZoom.getValue()*0.01D;
-      content.invalidate();
-      TreeView.this.validate();
-      scrollToCurrent();
-      repaint();
+    	setZoom(sliderZoom.getValue()*0.01D);
     }
+
   } //ZoomGlue
-    
+  
   /**
    * Action for opening overview
    */
