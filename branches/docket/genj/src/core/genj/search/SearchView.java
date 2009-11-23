@@ -19,6 +19,7 @@
  */
 package genj.search;
 
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
@@ -35,9 +36,8 @@ import genj.util.swing.HeadlessLabel;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
 import genj.view.ToolBar;
-import genj.view.ToolBarSupport;
+import genj.view.View;
 import genj.view.ViewContext;
 import genj.window.WindowManager;
 
@@ -51,7 +51,6 @@ import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -74,7 +73,7 @@ import spin.Spin;
 /**
  * View for searching
  */
-public class SearchView extends JPanel implements ToolBarSupport {
+public class SearchView extends View {
   
   /** formatting */
   private final static String
@@ -123,7 +122,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
   private Action2 actionSearch = new ActionSearch(), actionStop = new ActionStop();
   
   /** history */
-  private LinkedList oldPaths, oldValues;
+  private LinkedList<String> oldPaths, oldValues;
   
   /** images */
   private final static ImageIcon
@@ -140,8 +139,8 @@ public class SearchView extends JPanel implements ToolBarSupport {
     registry = reGistry;
     
     // lookup old search values & settings
-    oldPaths = new LinkedList(Arrays.asList(registry.get("old.paths" , DEFAULT_PATHS)));
-    oldValues= new LinkedList(Arrays.asList(registry.get("old.values", DEFAULT_VALUES)));
+    oldPaths = new LinkedList<String>(Arrays.asList(registry.get("old.paths" , DEFAULT_PATHS)));
+    oldValues= new LinkedList<String>(Arrays.asList(registry.get("old.values", DEFAULT_VALUES)));
     boolean useRegEx = registry.get("regexp", false);
 
     // prepare an action listener connecting to click
@@ -239,7 +238,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /**
    * Remembers a value
    */
-  private void remember(ChoiceWidget choice, LinkedList old, String value) {
+  private void remember(ChoiceWidget choice, LinkedList<String> old, String value) {
     // not if empty
     if (value.trim().length()==0) return;
     // keep (up to max)
@@ -269,10 +268,10 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /**
    * Create preset Path Actions
    */
-  private List createPathActions() {
+  private List<Action2> createPathActions() {
     
     // loop through DEFAULT_PATHS
-    List result = new ArrayList();
+    List<Action2> result = new ArrayList<Action2>();
     for (int i=0;i<DEFAULT_PATHS.length;i++) {
       result.add(new ActionPath(DEFAULT_PATHS[i]));
     }
@@ -284,9 +283,9 @@ public class SearchView extends JPanel implements ToolBarSupport {
   /**
    * Create RegExp Pattern Actions
    */
-  private List createPatternActions() {
+  private List<Action2> createPatternActions() {
     // loop until ...
-    List result = new ArrayList();
+    List<Action2> result = new ArrayList<Action2>();
     for (int i=0;;i++) {
       // check text and pattern
       String 
@@ -404,9 +403,9 @@ public class SearchView extends JPanel implements ToolBarSupport {
     /** count of hits found */
     private int hitCount = 0;
     /** entities found */
-    private Set entities = new HashSet();
+    private Set<Entity> entities = new HashSet<Entity>();
     /** hits */
-    private List hits = new ArrayList(MAX_HITS);
+    private List<Hit> hits = new ArrayList<Hit>(MAX_HITS);
     /** the current matcher*/
     private Matcher matcher;
     
@@ -481,9 +480,8 @@ public class SearchView extends JPanel implements ToolBarSupport {
     /** search in gedcom (not on EDT) */
     private void search(Gedcom gedcom) {
       for (int t=0; t<Gedcom.ENTITIES.length; t++) {
-        for (Iterator es=gedcom.getEntities(Gedcom.ENTITIES[t]).iterator();es.hasNext();) {
-          search((Entity)es.next());
-        }
+        for (Entity e : gedcom.getEntities(Gedcom.ENTITIES[t])) 
+          search(e);
       }
     }
     
@@ -567,7 +565,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
   private class Results extends AbstractListModel implements GedcomListener {
     
     /** the results */
-    private List hits = new ArrayList(255);
+    private List<Hit> hits = new ArrayList<Hit>(255);
     
     /**
      * clear the results (sync to EDT)
@@ -586,7 +584,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
     /**
      * add a result (sync to EDT)
      */
-    private void add(List list) {
+    private void add(List<Hit> list) {
       // nothing to do?
       if (list.isEmpty()) 
         return;
@@ -721,7 +719,7 @@ public class SearchView extends JPanel implements ToolBarSupport {
     public void valueChanged(ListSelectionEvent e) {
       int row = listResults.getSelectedIndex();
       if (row>=0)
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(results.getHit(row).getProperty()), this));
+        fireSelection(new Context(results.getHit(row).getProperty()), false);
     }
 
     

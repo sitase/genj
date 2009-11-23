@@ -19,6 +19,7 @@
  */
 package genj.report;
 
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.UnitOfWork;
@@ -29,10 +30,8 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
-import genj.view.ContextSelectionEvent;
 import genj.view.ToolBar;
-import genj.view.ToolBarSupport;
-import genj.view.ViewContext;
+import genj.view.View;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -80,7 +79,7 @@ import javax.swing.text.Element;
 /**
  * Component for running reports on genealogic data
  */
-public class ReportView extends JPanel implements ToolBarSupport {
+public class ReportView extends View {
 
   /*package*/ static Logger LOG = Logger.getLogger("genj.report");
 
@@ -290,7 +289,7 @@ public class ReportView extends JPanel implements ToolBarSupport {
     // Done
     return true;
   }
-
+  
   /**
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
    */
@@ -686,7 +685,7 @@ public class ReportView extends JPanel implements ToolBarSupport {
       if (id!=null) {
         Entity entity = gedcom.getEntity(id);
         if (entity!=null)
-          WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(entity), ReportView.this, e.getClickCount()>1));
+          fireSelection(new Context(entity), e.getClickCount()>1);
       }
     }
 

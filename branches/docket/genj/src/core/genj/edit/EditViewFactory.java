@@ -40,6 +40,7 @@ import genj.edit.actions.SetSubmitter;
 import genj.edit.actions.SwapSpouses;
 import genj.edit.actions.TogglePrivate;
 import genj.edit.actions.Undo;
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
@@ -65,10 +66,9 @@ import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
-import genj.view.ContextSelectionEvent;
+import genj.view.View;
 import genj.view.ViewContext;
 import genj.view.ViewFactory;
-import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -78,7 +78,6 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-import javax.swing.JComponent;
 import javax.swing.JPanel;
 
 /**
@@ -92,7 +91,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
   /**
    * @see genj.view.ViewFactory#createView(genj.gedcom.Gedcom, genj.util.Registry, java.awt.Frame)
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
+  public View createView(String title, Gedcom gedcom, Registry registry) {
     return new EditView(title, gedcom, registry);
   }
 
@@ -347,7 +346,7 @@ public class EditViewFactory implements ViewFactory, ActionProvider {
     public void perform(Gedcom gedcom) throws GedcomException {
       Entity e = gedcom.createEntity(Gedcom.INDI, dupe() ? null : existing.getId());
       e.copyProperties(existing.getProperties(), true);
-      WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(e), getTarget()));
+      fireSelection(new Context(e), false);
     }
   
   }

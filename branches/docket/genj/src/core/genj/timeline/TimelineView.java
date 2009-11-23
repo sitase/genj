@@ -20,6 +20,7 @@
 package genj.timeline;
 
 import genj.almanac.Almanac;
+import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.time.PointInTime;
@@ -31,13 +32,9 @@ import genj.util.swing.SliderWidget;
 import genj.util.swing.UnitGraphics;
 import genj.util.swing.ViewPortAdapter;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
 import genj.view.ToolBar;
-import genj.view.ToolBarSupport;
+import genj.view.View;
 import genj.view.ViewContext;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -60,7 +57,6 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.swing.JComponent;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.ToolTipManager;
 import javax.swing.event.ChangeEvent;
@@ -71,7 +67,7 @@ import javax.swing.event.ChangeListener;
 /**
  * Component for showing entities' events in a timeline view
  */
-public class TimelineView extends JPanel implements WindowBroadcastListener, ToolBarSupport {
+public class TimelineView extends View {
 
   /** the units we use */
   private final Point DPI;
@@ -362,21 +358,15 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
   /**
    * callback - context event
    */
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
+  public void select(Context context, boolean isActionPerformed) {
     
-    // ignore outbound or !ContextSelectionEvent
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, model.gedcom);
-    if (event.isOutbound() || cse==null) 
-      return true;
-      
     // assemble selection
-    selectedEvents = model.getEvents(cse.getContext());
+    selectedEvents = model.getEvents(context);
     
     // do a repaint, too
     content.repaint();
       
     // done
-    return false;
   }
 
   /**
@@ -607,7 +597,7 @@ public class TimelineView extends JPanel implements WindowBroadcastListener, Too
         selectedEvents.add(hit);
         
         // tell about it
-        WindowManager.broadcast(new ContextSelectionEvent(getContext(), this));
+        fireSelection(getContext(), false);
       }
       
       // show

@@ -84,7 +84,7 @@ public class PropertyMedia extends PropertyXRef implements IconValueAvailable {
    * Returns an ImgIcon if existing in one of the sub-properties
    */
   public ImageIcon getValueAsIcon() {
-    List ps = super.getProperties(IconValueAvailable.class);
+    List<? extends Property> ps = super.getProperties(IconValueAvailable.class);
     return ps.isEmpty() ? null : ((IconValueAvailable)ps.get(0)).getValueAsIcon();
   }
   

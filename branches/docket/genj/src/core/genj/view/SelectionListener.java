@@ -19,14 +19,10 @@
  */
 package genj.view;
 
-/**
- * Support for populating a toolbar
- */
-public interface ToolBarSupport {
-  
-  /**
-   * populate a toolbar
-   */
-  public void populate(ToolBar toolbar);
+import genj.gedcom.Context;
+
+public interface SelectionListener {
+
+  public void select(Context context, boolean isActionPerformed);
   
 }

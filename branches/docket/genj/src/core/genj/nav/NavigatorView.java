@@ -19,6 +19,7 @@
  */
 package genj.nav;
 
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
@@ -31,11 +32,7 @@ import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
-import genj.window.WindowManager;
+import genj.view.View;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -60,7 +57,7 @@ import spin.Spin;
 /**
  * A navigator with buttons to easily navigate through Gedcom data
  */
-public class NavigatorView extends JPanel implements WindowBroadcastListener {
+public class NavigatorView extends View {
   
   private static Resources resources = Resources.get(NavigatorView.class);
 
@@ -200,14 +197,8 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
     return new Dimension(140,200);
   }
 
-  /**
-   * Context listener callback
-   */  
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, gedcom);
-    if (cse!=null)
-      setCurrentEntity(cse.getContext().getEntity());
-    return true;
+  public void select(Context context, boolean isActionPerformed) {
+    setCurrentEntity(context.getEntity());
   }
   
   /**
@@ -421,7 +412,8 @@ public class NavigatorView extends JPanel implements WindowBroadcastListener {
       // follow immediately
       setCurrentEntity(target);
       // propagate to others
-      WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(target), NavigatorView.this, true));
+      // FIXME docket propagate selection
+      //WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(target), NavigatorView.this, true));
     }
   } //Jump
 

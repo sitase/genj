@@ -35,7 +35,6 @@ import java.util.List;
  */  
 public class ViewContext extends Context {
   
-  private ViewManager manager;
   private List actions = new ArrayList();
   
   /**
@@ -87,20 +86,6 @@ public class ViewContext extends Context {
    */
   public List getActions() {
     return Collections.unmodifiableList(actions);
-  }
-  
-  /**
-   * Connect to manager
-   */
-  /*package*/ void setManager(ViewManager set) {
-    manager = set;
-  }
-  
-  /**
-   * Accessor
-   */
-  public ViewManager getManager() {
-    return manager;
   }
   
 } //Context

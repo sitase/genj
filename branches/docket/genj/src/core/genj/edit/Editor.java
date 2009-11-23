@@ -19,6 +19,7 @@
  */
 package genj.edit;
 
+import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.view.ViewContext;
@@ -43,7 +44,7 @@ import javax.swing.JPanel;
   /** 
    * Accessor - current 
    */
-  public abstract void setContext(ViewContext context);
+  public abstract void setContext(Context context);
   
   /**
    * commit changes

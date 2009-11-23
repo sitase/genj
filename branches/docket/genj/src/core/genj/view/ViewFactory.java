@@ -23,7 +23,6 @@ import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.swing.ImageIcon;
 
-import javax.swing.JComponent;
 
 /**
  * The interface to a view's factory
@@ -33,7 +32,7 @@ public interface ViewFactory {
   /**
    * Callback for creating a view 
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry);
+  public View createView(String title, Gedcom gedcom, Registry registry);
   
   /**
    * Returns an image for this view

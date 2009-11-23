@@ -28,13 +28,13 @@ import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.ActionProvider;
+import genj.view.View;
 import genj.view.ViewFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
-import javax.swing.JComponent;
 
 /**
  * The factory for the TableView
@@ -46,7 +46,7 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
   /**
    * Factory method - create instance of view
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
+  public View createView(String title, Gedcom gedcom, Registry registry) {
     return new ReportView(title,gedcom,registry);
   }
   

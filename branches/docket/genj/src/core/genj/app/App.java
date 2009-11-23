@@ -49,8 +49,6 @@ import java.util.logging.StreamHandler;
 
 import javax.swing.SwingUtilities;
 
-import sun.rmi.log.LogHandler;
-
 /**
  * Main Class for GenJ Application
  */
@@ -84,12 +82,12 @@ public class App {
       }
     }
 
-  // load
+    // load
     SwingUtilities.invokeLater(new Runnable() {
       public void run() {
-        startup.center.load(args);
+        startup.center.load(args.length>0 ? args[0] : null);
       }
-    } );
+    });
     
   }
   

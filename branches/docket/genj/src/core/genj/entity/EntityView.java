@@ -19,6 +19,7 @@
  */
 package genj.entity;
 
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
@@ -30,9 +31,8 @@ import genj.renderer.EntityRenderer;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
+import genj.view.View;
 import genj.view.ViewContext;
-import genj.window.WindowBroadcastListener;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -43,15 +43,13 @@ import java.awt.RenderingHints;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.swing.JPanel;
-
 import spin.Spin;
 
 /**
  * A rendering component showing the currently selected entity
  * via html
  */
-public class EntityView extends JPanel implements WindowBroadcastListener, ContextProvider {
+public class EntityView extends View implements ContextProvider {
 
   /** language resources we use */  
   /*package*/ final static Resources resources = Resources.get(EntityView.class);
@@ -114,7 +112,8 @@ public class EntityView extends JPanel implements WindowBroadcastListener, Conte
     
     // Check if we can preset something to show
     Entity entity;
-    ViewContext context = ContextSelectionEvent.getLastBroadcastedSelection();
+// FIXME docket what to select when view comes up    
+    ViewContext context = null;//ContextSelectionEvent.getLastBroadcastedSelection();
     if (context!=null&&context.getGedcom()==gedcom&&gedcom.contains(context.getEntity()))
       entity = context.getEntity();
     else
@@ -221,14 +220,10 @@ public class EntityView extends JPanel implements WindowBroadcastListener, Conte
   /**
    * view callback
    */
-  public boolean handleBroadcastEvent(genj.window.WindowBroadcastEvent event) {
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, gedcom);
-    if (cse!=null) {
-      Entity e = cse.getContext().getEntity();
-      if (e!=null)
-        setEntity(e);
-    }
-    return true;
+  public void select(Context context, boolean isActionPerformed) {
+    Entity e = context.getEntity();
+    if (e!=null)
+      setEntity(e);
   }
   
   /**

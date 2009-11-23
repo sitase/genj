@@ -20,6 +20,7 @@
 package genj.tree;
 
 import genj.common.SelectEntityWidget;
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
@@ -43,12 +44,9 @@ import genj.util.swing.ViewPortAdapter;
 import genj.util.swing.ViewPortOverview;
 import genj.view.ActionProvider;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
 import genj.view.ToolBar;
-import genj.view.ToolBarSupport;
+import genj.view.View;
 import genj.view.ViewContext;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
 
 import java.awt.Color;
@@ -71,7 +69,6 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.swing.JComponent;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -79,7 +76,7 @@ import javax.swing.event.ChangeListener;
 /**
  * TreeView
  */
-public class TreeView extends JPanel implements ContextProvider, WindowBroadcastListener, ToolBarSupport, ActionProvider, Filter {
+public class TreeView extends View implements ContextProvider, ActionProvider, Filter {
   
   /** an icon for bookmarking */
   private final static ImageIcon BOOKMARK_ICON = new ImageIcon(TreeView.class, "images/Bookmark");      
@@ -405,30 +402,22 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
   /**
    * view callback
    */
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
-    
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, model.getGedcom());
-    if (cse==null)
-      return true;
+  public void select(Context context, boolean isActionPerformed) {
     
     // need to get entity and no property
-    ViewContext context = cse.getContext();
     Entity entity = context.getEntity();
     Property prop = context.getProperty();
     if (entity==null )
-      return true;
+      return;
     
     // context property an entity?
     if (prop instanceof Entity)
       prop = null;
     
     // change root on action performed
-    if (cse.isActionPerformed()&&prop==null) {
-      // .. only if coming from ourselves (outbound) or inbound from a !TreeView 
-      if (cse.isOutbound() || !(cse.getSource() instanceof Content))  {
-        setRoot(entity);
-        return true;
-      }
+    if (isActionPerformed&&prop==null) {
+      setRoot(entity);
+      return;
     }
     
     // context a link?
@@ -442,7 +431,6 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
       setCurrent(entity);
     
     // done
-    return true;
   }
   
   /**
@@ -890,7 +878,7 @@ public class TreeView extends JPanel implements ContextProvider, WindowBroadcast
         repaint();
         overview.repaint();
         // propagate it
-        WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(currentEntity), this));
+        fireSelection(new Context(currentEntity), false);
         return;
       }
       // runnable?

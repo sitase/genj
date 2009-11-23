@@ -33,13 +33,10 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
-import genj.view.CommitRequestedEvent;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
 import genj.view.ToolBar;
-import genj.view.ToolBarSupport;
+import genj.view.View;
 import genj.view.ViewContext;
-import genj.window.WindowBroadcastListener;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -57,7 +54,6 @@ import javax.swing.InputMap;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 
 import spin.Spin;
@@ -65,7 +61,7 @@ import spin.Spin;
 /**
  * Component for editing genealogic entity properties
  */
-public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastListener, ContextProvider  {
+public class EditView extends View implements ContextProvider  {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.edit");
   
@@ -181,10 +177,11 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
     if (registry.get("sticky", false) && entity!=null) {
       isSticky = true;
     } else {
-      // fallback
-      ViewContext context = ContextSelectionEvent.getLastBroadcastedSelection();
-      if (context!=null&&context.getGedcom()==gedcom&&gedcom.contains(context.getEntity()))
-        entity = context.getEntity();
+// FIXME docket find last selection
+//      // fallback
+//      ViewContext context = ContextSelectionEvent.getLastBroadcastedSelection();
+//      if (context!=null&&context.getGedcom()==gedcom&&gedcom.contains(context.getEntity()))
+//        entity = context.getEntity();
       // fallback more (only if needed)
       if (entity==null)
         entity = gedcom.getFirstEntity(Gedcom.INDI);
@@ -292,40 +289,24 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
   public ViewContext getContext() {
     return editor.getContext();
   }
-
-  /**
-   * Context listener callback
-   */
-  public boolean handleBroadcastEvent(genj.window.WindowBroadcastEvent event) {
-    
-    // check for commit request
-    if (event instanceof CommitRequestedEvent && ((CommitRequestedEvent)event).getGedcom()==gedcom) {
-      editor.commit();
-      return true;
-    }
-    
-    
-    // check for context selection
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, gedcom);
-    if (cse==null) 
-      return true;
-    
-    ViewContext context = cse.getContext();
+  
+  @Override
+  public boolean commit() {
+    editor.commit();
+    return true;
+  }
+  
+  public void select(Context context, boolean isActionPerformed) {
     
     // ignore if no entity info in it
     if (context.getEntity()==null)
-      return true;
+      return;
     
-    // an inbound message ?
-    if (cse.isInbound()) {
-      // set context unless sticky
-      if (!isSticky) setContext(context); 
-      // don't continue inbound
-      return false;
-    }
-      
-    // an outbound message coming from a contained component - we listen for double clicks ourselves
-    if (cse.isActionPerformed()) {
+    // set context unless sticky
+    if (isSticky) 
+      return;
+    
+    if (isActionPerformed) {
       
       if (context.getProperty() instanceof PropertyXRef) {
         
@@ -335,16 +316,17 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
           context = new ViewContext(xref);
       }
       
-      // follow
-      setContext(context);
       
     }
-      
-    // let it bubble up outbound
-    return true;
+    
+    // follow
+    setContext(context);
+    
+    
   }
+
   
-  public void setContext(ViewContext context) {
+  public void setContext(Context context) {
     
     // keep track of current editor's context
     ViewContext current = editor.getContext();
@@ -352,13 +334,6 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
       back.push(current);
 
     // tell to editors
-    setContextImpl(context);
-    
-    // done
-  }
-  
-  private void setContextImpl(ViewContext context) {
-    
     editor.setContext(context);
 
     // update title
@@ -502,8 +477,9 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
       ViewContext context = new ViewContext((Context)stack.pop());
       
       // let others know (we'll ignore the outgoing never receiving the incoming)
-      WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
-      setContextImpl(context);
+      // FIXME docket propagate selection
+      //WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
+      editor.setContext(context);
       
       // reflect state
       setEnabled(stack.size()>0);
@@ -549,8 +525,9 @@ public class EditView extends JPanel implements ToolBarSupport, WindowBroadcastL
       ViewContext context = new ViewContext((Context)stack.pop());
       
       // let others know (we'll ignore the outgoing never receiving the incoming)
-      WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
-      setContextImpl(context);
+      // FIXME docket propagate selection
+      //WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
+      editor.setContext(context);
       
       // reflect state
       setEnabled(stack.size()>0);

@@ -567,7 +567,7 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
   /**
    * An action group
    */
-  public static class Group extends ArrayList {
+  public static class Group extends ArrayList<Action> {
     
     /** a name */
     private String name;

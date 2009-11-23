@@ -22,9 +22,9 @@ package genj.search;
 import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.swing.ImageIcon;
+import genj.view.View;
 import genj.view.ViewFactory;
 
-import javax.swing.JComponent;
 
 /**
  * Factory for the SearchView
@@ -37,7 +37,7 @@ public class SearchViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(java.lang.String, genj.gedcom.Gedcom, genj.util.Registry, genj.view.ViewManager)
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
+  public View createView(String title, Gedcom gedcom, Registry registry) {
     return new SearchView(gedcom, registry);
   }
 

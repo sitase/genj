@@ -35,7 +35,7 @@ import java.util.regex.Pattern;
 /**
  * Abstract base type for all GEDCOM properties
  */
-public abstract class Property implements Comparable {
+public abstract class Property implements Comparable<Property> {
 
   /** static strings */
   protected final static String 
@@ -577,8 +577,8 @@ public abstract class Property implements Comparable {
   /**
    * Returns this property's properties which are of given type
    */
-  public List getProperties(Class type) {
-    List props = new ArrayList(10);
+  public List<? extends Property> getProperties(Class<?> type) {
+    List<Property> props = new ArrayList<Property>(10);
     getPropertiesRecursively(props, type);
     return props;
   }
@@ -900,12 +900,9 @@ public abstract class Property implements Comparable {
    *          0 this = property <BR>
    *          1 this &gt; property
    */
-  public int compareTo(Object that) {
-    // safety check
-    if (!(that instanceof Property)) 
-      throw new ClassCastException("compareTo("+that+")");
+  public int compareTo(Property that) {
     // no gedcom available?
-    return compare(this.getDisplayValue(), ((Property)that).getDisplayValue() );
+    return compare(this.getDisplayValue(), that.getDisplayValue() );
   }
   
   /**

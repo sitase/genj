@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.135 $ $Author: nmeier $ $Date: 2009-02-04 21:41:51 $
+ * $Revision: 1.135.2.1 $ $Author: nmeier $ $Date: 2009-11-23 01:53:44 $
  */
 package genj.gedcom;
 
@@ -858,7 +858,7 @@ public class Gedcom implements Comparable {
   /**
    * Returns entities of given type
    */
-  public Collection getEntities(String tag) {
+  public Collection<? extends Entity> getEntities(String tag) {
     return Collections.unmodifiableCollection(getEntityMap(tag).values());
   }
 

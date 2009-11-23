@@ -21,6 +21,7 @@ package genj.table;
 
 import genj.common.AbstractPropertyTableModel;
 import genj.common.PropertyTableWidget;
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
@@ -30,7 +31,7 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.view.ToolBar;
-import genj.view.ToolBarSupport;
+import genj.view.View;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -42,16 +43,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import javax.swing.Action;
 import javax.swing.JComponent;
-import javax.swing.JPanel;
 import javax.swing.KeyStroke;
 import javax.swing.table.TableModel;
 
 /**
  * Component for showing entities of a gedcom file in a tabular way
  */
-public class TableView extends JPanel implements ToolBarSupport  {
+public class TableView extends View {
   
   private final static Logger LOG = Logger.getLogger("genj.table");
 
@@ -184,6 +183,11 @@ public class TableView extends JPanel implements ToolBarSupport  {
     propertyTable.setModel(new Model(currentMode));
     // update its layout
     propertyTable.setColumnLayout(currentMode.layout);
+  }
+  
+  @Override
+  public void select(Context context, boolean isActionPerformed) {
+    propertyTable.select(context, isActionPerformed);
   }
   
   /**

@@ -22,7 +22,7 @@ package genj.app;
 import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.view.ToolBar;
-import genj.view.ToolBarSupport;
+import genj.view.View;
 import genj.view.ViewFactory;
 
 import javax.swing.Action;
@@ -61,11 +61,8 @@ public class ViewDockable extends DefaultDockable {
     super.docked(docked);
 
     // only if ToolBarSupport and no bar installed
-    JComponent view = getContent();
-    if (!(view instanceof ToolBarSupport)) 
-      return;
-    
-    ((ToolBarSupport)view).populate(new ToolBar() {
+    View view = (View)getContent();    
+    view.populate(new ToolBar() {
     	public void add(Action action) {
     		docked.addTool(action);
     	}

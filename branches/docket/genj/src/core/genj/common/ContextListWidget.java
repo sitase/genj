@@ -25,9 +25,7 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
 import genj.gedcom.Property;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
 
 import java.awt.Component;
 import java.util.ArrayList;
@@ -218,8 +216,9 @@ public class ContextListWidget extends JList implements ContextProvider {
       if (e.getValueIsAdjusting())
         return;
       ViewContext context = getContext();
-      if (context!=null)
-        WindowManager.broadcast(new ContextSelectionEvent(context, ContextListWidget.this));
+     // FIXME docket propagate selection      
+//      if (context!=null)
+//        WindowManager.broadcast(new ContextSelectionEvent(context, ContextListWidget.this));
     }
     
     /** our patched rendering */

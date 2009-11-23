@@ -23,9 +23,9 @@ import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
+import genj.view.View;
 import genj.view.ViewFactory;
 
-import javax.swing.JComponent;
 
 /**
  * The factory for the TableView
@@ -35,7 +35,7 @@ public class TimelineViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
+  public View createView(String title, Gedcom gedcom, Registry registry) {
     return new TimelineView(title,gedcom,registry);
   }
   

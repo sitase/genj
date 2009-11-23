@@ -22,15 +22,14 @@ package genj.app;
 import genj.common.ContextListWidget;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
+import genj.gedcom.GedcomDirectory;
 import genj.gedcom.GedcomException;
-import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomMetaListener;
 import genj.gedcom.Indi;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
 import genj.gedcom.Submitter;
 import genj.gedcom.UnitOfWork;
-import genj.gedcom.GedcomDirectory;
 import genj.io.Filter;
 import genj.io.GedcomEncodingException;
 import genj.io.GedcomEncryptionException;
@@ -41,7 +40,6 @@ import genj.option.OptionProvider;
 import genj.option.OptionsWidget;
 import genj.util.DirectAccessTokenizer;
 import genj.util.EnvironmentChecker;
-import genj.util.MnemonicAndText;
 import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
@@ -55,28 +53,21 @@ import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.ProgressWidget;
-import genj.view.CommitRequestedEvent;
-import genj.view.ViewContext;
 import genj.view.ViewFactory;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
-import java.awt.Dimension;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.swing.Action;
 import javax.swing.Box;
@@ -89,14 +80,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 
-import spin.Spin;
-import swingx.docking.DefaultDockable;
-import swingx.docking.Docked;
 import swingx.docking.DockingPane;
-import swingx.docking.border.Eclipse3Border;
 
 /**
  * The central component of the GenJ application
@@ -111,16 +96,15 @@ public class Workbench extends JPanel {
 
   /** members */
   private JMenuBar menuBar; 
-  private GedcomTableWidget tGedcoms;
   private Registry registry;
   private Resources resources = Resources.get(this);
   private WindowManager windowManager;
-  private List gedcomActions = new ArrayList();
+  private List<Action> gedcomActions = new ArrayList<Action>();
   private List toolbarActions = new ArrayList();
-  private Stats stats = new Stats();
+  private StatusBar stats = new StatusBar();
   private ActionExit exit = new ActionExit();
   private DockingPane dockingPane = new DockingPane();
-
+  private Gedcom gedcom = null;
   private Runnable runOnExit;
     
   /**
@@ -133,31 +117,11 @@ public class Workbench extends JPanel {
     windowManager = winManager;
     runOnExit = onExit;
     
-    // Table of Gedcoms
-    tGedcoms = new GedcomTableWidget(registry) {
-      public ViewContext getContext() {
-        ViewContext result = super.getContext();
-        if (result!=null) {
-          result.addAction(new ActionSave(false, true));
-          result.addAction(new ActionClose(true));
-        }
-        return result;
-      };
-    };
-    
-    // ... Listening
-    tGedcoms.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
-      public void valueChanged(ListSelectionEvent e) {
-        for (int i=0;i<gedcomActions.size();i++)
-          ((Action2)gedcomActions.get(i)).setEnabled(tGedcoms.getSelectedGedcom() != null);
-      }
-    });
-    
     // Layout
     setLayout(new BorderLayout());
     add(createToolBar(), BorderLayout.NORTH);
     add(dockingPane, BorderLayout.CENTER);
-    add(createStatusBar(), BorderLayout.SOUTH);
+    add(new StatusBar(), BorderLayout.SOUTH);
 
     // Init menu bar at this point (so it's ready when the first file is loaded)
     menuBar = createMenuBar();
@@ -168,9 +132,9 @@ public class Workbench extends JPanel {
   /**
    * loads gedcom files
    */
-  public void load(String[] files) {
+  public void load(String file) {
     // Load known gedcoms
-    SwingUtilities.invokeLater(new ActionAutoOpen(files));
+    SwingUtilities.invokeLater(new ActionAutoOpen(file));
   }
   
   /**
@@ -185,21 +149,6 @@ public class Workbench extends JPanel {
    */
   /*package*/ JMenuBar getMenuBar() {
     return menuBar;
-  }
-  
-  /**
-   * Returns a status bar for the bottom
-   */
-  private JPanel createStatusBar() {
-    
-    HeapStatusWidget mem = new HeapStatusWidget();
-    mem.setToolTipText(resources.getString("cc.heap"));
-    
-    JPanel result = new JPanel(new NestedBlockLayout("<row><info wx=\"1\" gx=\"1\"/><mem/></row>"));
-    result.add(stats);
-    result.add(mem);
-    
-    return result;
   }
   
   /**
@@ -272,16 +221,13 @@ public class Workbench extends JPanel {
     
     Action2
       save = new ActionSave(false, false),
-      saveAs = new ActionSave(true, false),
-      close = new ActionClose(false);
+      saveAs = new ActionSave(true, false);
     
     gedcomActions.add(save);
     gedcomActions.add(saveAs);
-    gedcomActions.add(close);
     
     mh.createItem(save);
     mh.createItem(saveAs);
-    mh.createItem(close);
     
     if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in application menus apparently
       mh.createSeparator();
@@ -401,10 +347,11 @@ public class Workbench extends JPanel {
     }
     /** run */
     protected void execute() {
-      // force a commit
-      for (Gedcom gedcom : GedcomDirectory.getInstance().getGedcoms()) {
-        WindowManager.broadcast(new CommitRequestedEvent(gedcom, Workbench.this));
-      }
+      // FIXME docket commit on all views
+//      // force a commit
+//      for (Gedcom gedcom : GedcomDirectory.getInstance().getGedcoms()) {
+//        WindowManager.broadcast(new CommitRequestedEvent(gedcom, Workbench.this));
+//      }
       // Remember open gedcoms
       Collection save = new ArrayList();
       for (Iterator gedcoms=GedcomDirectory.getInstance().getGedcoms().iterator(); gedcoms.hasNext(); ) {
@@ -513,19 +460,19 @@ public class Workbench extends JPanel {
         }
         // form the origin
         try {
-          Gedcom gedcom  = new Gedcom(Origin.create(new URL("file", "", file.getAbsolutePath())));
+          Gedcom newGedcom  = new Gedcom(Origin.create(new URL("file", "", file.getAbsolutePath())));
           // create default entities
           try {
-            Indi adam = (Indi)gedcom.createEntity(Gedcom.INDI);
+            Indi adam = (Indi)newGedcom.createEntity(Gedcom.INDI);
             adam.addDefaultProperties();
             adam.setName("Adam","");
             adam.setSex(PropertySex.MALE);
-            Submitter submitter = (Submitter)gedcom.createEntity(Gedcom.SUBM);
+            Submitter submitter = (Submitter)newGedcom.createEntity(Gedcom.SUBM);
             submitter.setName(EnvironmentChecker.getProperty(this, "user.name", "?", "user name used as submitter in new gedcom"));
           } catch (GedcomException e) {
           }
           // remember
-          GedcomDirectory.getInstance().registerGedcom(gedcom);
+          GedcomDirectory.getInstance().registerGedcom(newGedcom);
         } catch (MalformedURLException e) {
         }
 
@@ -693,8 +640,16 @@ public class Workbench extends JPanel {
       // got a successfull gedcom
       if (gedcomBeingLoaded != null) {
         
+        // remember
+        gedcom = gedcomBeingLoaded;
+        
         GedcomDirectory.getInstance().registerGedcom(gedcomBeingLoaded);
-      
+
+        // enable actions
+        for (int i=0;i<gedcomActions.size();i++)
+          ((Action2)gedcomActions.get(i)).setEnabled(true);
+        
+
         // FIXME open views again
 //        if (Options.getInstance().isRestoreViews) {
 //          for (int i=0;i<views2restore.size();i++) {
@@ -834,53 +789,29 @@ public class Workbench extends JPanel {
    * Action - LoadLastOpen
    */
   private class ActionAutoOpen extends Action2 {
-    /** files to load */
-    private Collection files;
+    /** file to load */
+    private String file;
     /** constructor */
-    private ActionAutoOpen(String[] args) {
+    private ActionAutoOpen(String file) {
       
-      // if we got files then we don't open old ones
-      if (args.length>0) {
-        files = Arrays.asList(args);
-        return;
-      }
-      
-      // by default we offer the user to load example.ged
-      HashSet deflt = new HashSet();
-      if (args.length==0) try {
-        deflt.add(new File("gedcom/example.ged").toURI().toURL());
-      } catch (Throwable t) {
-        // ignored
-      }
+      this.file = file;
 
-      // check registry for the previously opened now
-      files = (Set)registry.get("open", deflt);
+      // check registry for the previously opened or default now
+      file = registry.get("open", "gedcom/example.ged" );
       
     }
     
     /** run */
     public void execute() {
-
-      // Loop over files to open
-      for (Iterator it = files.iterator(); it.hasNext(); ) {
-        String restore = it.next().toString();
-        try {
-          
-          // check if it's a local file
-          File local  = new File(restore);
-          if (local.exists())
-            restore = local.toURI().toURL().toString();
-          
-          ActionOpen open = new ActionOpen(restore);
-          open.trigger();
-        } catch (Throwable t) {
-          App.LOG.log(Level.WARNING, "cannot restore "+restore, t);
-        }
-        
-        // next
+      try {
+        // check if it's a local file
+        File local  = new File(file);
+        if (local.exists())
+          file = local.toURI().toURL().toString();
+        ActionOpen open = new ActionOpen(file);
+        open.trigger();
+      } catch (Throwable t) {
       }
-
-      // done
     }
   } //LastOpenLoader
 
@@ -945,9 +876,9 @@ public class Workbench extends JPanel {
 
       // Choose currently selected Gedcom if necessary
       if (gedcomBeingSaved==null) {
-	      gedcomBeingSaved = tGedcoms.getSelectedGedcom();
-	      if (gedcomBeingSaved == null)
-	        return false;
+        if (gedcom==null)
+          return false;
+        gedcomBeingSaved = gedcom;
       }
       
       // Do we need a file-dialog or not?
@@ -1000,7 +931,8 @@ public class Workbench extends JPanel {
       }
       
       // ask everyone to commit their data
-      WindowManager.broadcast(new CommitRequestedEvent(gedcomBeingSaved, Workbench.this));
+// FIXME docket commit views
+//      WindowManager.broadcast(new CommitRequestedEvent(gedcomBeingSaved, Workbench.this));
       
       // .. open io 
       try {
@@ -1151,58 +1083,6 @@ public class Workbench extends JPanel {
   } //ActionSave
 
   /**
-   * Action - Close
-   */
-  private class ActionClose extends Action2 {
-    /** constructor */
-    protected ActionClose(boolean enabled) {
-      setText(resources.getString("cc.menu.close"));
-      setImage(Images.imgClose);
-      setEnabled(enabled);
-    }
-    /** run */
-    protected void execute() {
-  
-      // Current Gedcom
-      final Gedcom gedcom = tGedcoms.getSelectedGedcom();
-      if (gedcom == null)
-        return;
-  
-      // changes we should care about?      
-      if (gedcom.hasChanged()) {
-        
-        int rc = windowManager.openDialog(null,null,WindowManager.WARNING_MESSAGE,
-            resources.getString("cc.savechanges?", gedcom.getName()),
-            Action2.yesNoCancel(),Workbench.this);
-        // cancel everything?
-        if (rc==2)
-          return;
-        // save now?
-        if (rc==0) {
-          // Remove it so the user won't change it while being saved
-          GedcomDirectory.getInstance().unregisterGedcom(gedcom);
-          // and save
-          new ActionSave(gedcom) {
-            protected void postExecute(boolean preExecuteResult) {
-              // super first
-              super.postExecute(preExecuteResult);
-              // add back if still changed
-              if (gedcomBeingSaved.hasChanged())
-                GedcomDirectory.getInstance().registerGedcom(gedcomBeingSaved);
-            }
-          }.trigger();
-          return;
-        }
-      }
-  
-      // Remove it
-      GedcomDirectory.getInstance().unregisterGedcom(gedcom);
-  
-      // Done
-    }
-  } //ActionClose
-
-  /**
    * Action - View
    */
   private class ActionOpenView extends Action2 {
@@ -1224,7 +1104,6 @@ public class Workbench extends JPanel {
         return;
       
       // grab current Gedcom
-      final Gedcom gedcom = tGedcoms.getSelectedGedcom();
       if (gedcom == null)
         return;
       
@@ -1280,13 +1159,27 @@ public class Workbench extends JPanel {
   /**
    * a little status tracker
    */
-  private class Stats extends JLabel implements GedcomMetaListener, GedcomDirectory.Listener {
+  private class StatusBar extends JPanel implements GedcomMetaListener, GedcomDirectory.Listener {
     
     private int commits;
     private int read,written;
     
-    private Stats() {
-      setHorizontalAlignment(SwingConstants.LEFT);
+    private JLabel[] ents = new JLabel[Gedcom.ENTITIES.length];
+    private JLabel changes;
+    
+    private StatusBar() {
+
+      super(new NestedBlockLayout("<row><i/><f/><m/><n/><s/><b/><r/><cs wx=\"1\" gx=\"1\"/><mem/></row>"));
+
+      for (int i=0;i<Gedcom.ENTITIES.length;i++) {
+        ents[i] = new JLabel("0", Gedcom.getEntityImage(Gedcom.ENTITIES[i]), SwingConstants.LEFT);
+        add(ents[i]);
+      }
+      changes = new JLabel();
+      
+      add(changes);
+      add(new HeapStatusWidget());
+      
       GedcomDirectory.getInstance().addListener(this);
     }
 
@@ -1306,6 +1199,11 @@ public class Workbench extends JPanel {
     }
     
     private void update() {
+
+// FIXME docket workbench is for one gedcom & stats
+//      for (int i=0;i<Gedcom.ENTITIES.length;i++)
+//        ents[i].setText(gedcom.getEntities(Gedcom.ENTITIES[i]).size());
+
       WordBuffer buf = new WordBuffer(", ");
       if (commits>0)
         buf.append(resources.getString("stat.commits", new Integer(commits)));
@@ -1313,7 +1211,7 @@ public class Workbench extends JPanel {
         buf.append(resources.getString("stat.lines.read", new Integer(read)));
       if (written>0)
         buf.append(resources.getString("stat.lines.written", new Integer(written)));
-      setText(buf.toString());
+      changes.setText(buf.toString());
     }
 
     public void gedcomHeaderChanged(Gedcom gedcom) {

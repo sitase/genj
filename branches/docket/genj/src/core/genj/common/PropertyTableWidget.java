@@ -35,11 +35,8 @@ import genj.util.swing.HeadlessLabel;
 import genj.util.swing.LinkWidget;
 import genj.util.swing.SortableTableModel;
 import genj.view.ContextProvider;
-import genj.view.ContextSelectionEvent;
+import genj.view.SelectionListener;
 import genj.view.ViewContext;
-import genj.window.WindowBroadcastEvent;
-import genj.window.WindowBroadcastListener;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -85,7 +82,7 @@ import javax.swing.table.TableModel;
 /**
  * A widget that shows entities in rows and columns
  */
-public class PropertyTableWidget extends JPanel implements WindowBroadcastListener {
+public class PropertyTableWidget extends JPanel implements SelectionListener {
   
   private final static Logger LOG = Logger.getLogger("genj.common");
   
@@ -163,23 +160,13 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
   /**
    * Select a cell
    */
-  public boolean handleBroadcastEvent(WindowBroadcastEvent event) {
+  public void select(Context context, boolean isActionPerformed) {
     
-    // let flow through if it's a message from ourselves
-    if (event.isOutbound())
-      return true;
-
-    // a meaningful event for us?
-    ContextSelectionEvent cse = ContextSelectionEvent.narrow(event, table.propertyModel.getGedcom());
-    if (cse==null)
-      return true;
-
     // set selection
     try {
       table.ignoreSelection = true;
       
       // loop over selected properties
-      Context context = cse.getContext();
       Property[] props = context.getProperties();
       
       // use all of selected entities properties if there are no property selections
@@ -224,8 +211,6 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
       table.ignoreSelection = false;
     }
     
-    // don't think anyone cares but we'll let it through
-    return true;
   }
   
   /**
@@ -532,8 +517,9 @@ public class PropertyTableWidget extends JPanel implements WindowBroadcastListen
       }
       
       // tell about it
-      if (context!=null)
-        WindowManager.broadcast(new ContextSelectionEvent(context, this));
+// FIXME docket propagate selection      
+//      if (context!=null)
+//        WindowManager.broadcast(new ContextSelectionEvent(context, this));
 
       
       // done

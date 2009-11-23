@@ -19,13 +19,11 @@
  */
 package genj.edit.actions;
 
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.util.swing.NestedBlockLayout;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
-import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -107,7 +105,7 @@ public class CreateEntity extends AbstractChange {
     Entity entity = gedcom.createEntity(etag, id);
     entity.addDefaultProperties();
     // set focus
-    WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(entity), getTarget(), true));
+    fireSelection(new Context(entity), true);
     // done
   }
   

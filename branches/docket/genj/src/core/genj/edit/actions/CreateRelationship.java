@@ -20,15 +20,14 @@
 package genj.edit.actions;
 
 import genj.common.SelectEntityWidget;
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
 import genj.util.WordBuffer;
 import genj.util.swing.NestedBlockLayout;
-import genj.view.ContextSelectionEvent;
-import genj.view.ViewContext;
-import genj.window.WindowManager;
+import genj.view.View;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -185,7 +184,7 @@ public abstract class CreateRelationship extends AbstractChange {
 //    ViewManager.getRegistry(gedcom).put("select."+targetType, change.getId());
     
     // select
-    WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(focus), getTarget(), false));
+    fireSelection(new Context(focus), false);
     
     // done
   }

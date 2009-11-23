@@ -23,9 +23,9 @@ import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
+import genj.view.View;
 import genj.view.ViewFactory;
 
-import javax.swing.JComponent;
 
 /**
  * A factory for our TreeView component et al
@@ -35,7 +35,7 @@ public class TreeViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry)
    */
-  public JComponent createView(String title, Gedcom gedcom, Registry registry) {
+  public View createView(String title, Gedcom gedcom, Registry registry) {
     return new TreeView(title, gedcom, registry);
   }
 

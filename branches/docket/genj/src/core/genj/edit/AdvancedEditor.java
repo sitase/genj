@@ -21,6 +21,7 @@ package genj.edit;
 
 import genj.common.SelectEntityWidget;
 import genj.edit.beans.PropertyBean;
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
@@ -37,7 +38,6 @@ import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
-import genj.view.ContextSelectionEvent;
 import genj.view.ViewContext;
 import genj.window.WindowManager;
 
@@ -205,7 +205,7 @@ import javax.swing.tree.TreePath;
    * Accessor - current context 
    * @param context context to switch to
    */
-  public void setContext(ViewContext context) {
+  public void setContext(Context context) {
     
     // ignore?
     if (ignoreSelection||context.getEntities().length==0)
@@ -715,7 +715,9 @@ import javax.swing.tree.TreePath;
         ignoreSelection = true;
         ViewContext context = new ViewContext(gedcom);
         context.addProperties(selection);
-        WindowManager.broadcast(new ContextSelectionEvent(context, AdvancedEditor.this));
+        
+        // FIXME docket propagate selection
+        //WindowManager.broadcast(new ContextSelectionEvent(context, AdvancedEditor.this));
       } finally {
         ignoreSelection = false;
       }

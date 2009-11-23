@@ -32,16 +32,11 @@ import java.awt.Rectangle;
 import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.WeakHashMap;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.Action;
@@ -80,13 +75,7 @@ public abstract class WindowManager {
 
   /** a mapping between key to top level windows */
   private Map key2window = new HashMap();
-  
-  /** broadcast listeners */
-  private List listeners = new ArrayList();
-  
-  /** whether we're muting broadcasts atm */
-  private boolean muteBroadcasts = false;
-  
+    
   /** a log */
   /*package*/ final static Logger LOG = Logger.getLogger("genj.window");
   
@@ -97,120 +86,6 @@ public abstract class WindowManager {
     registry = regiStry;
   }
   
-  /**
-   * Add listener
-   */
-  public void addBroadcastListener(WindowBroadcastListener listener) {
-    listeners.add(listener);
-  }
-  
-  /**
-   * Remove listener
-   */
-  public void removeBroadcastListener(WindowBroadcastListener listener) {
-    listeners.remove(listener);
-  }
-
-  /**
-   * Broadcast an event to all components that implement BroadcastListener 
-   */
-  public static void broadcast(WindowBroadcastEvent event) {
-    
-    // Find applicable window manager - ignore if none available
-    WindowManager instance = WindowManager.getInstanceImpl(event.getSource());
-    if (instance==null) 
-      return;
-
-    // let it do the work
-    instance.broadcastImpl(event);
-  }
-  
-  private void broadcastImpl(WindowBroadcastEvent event) {
-    
-    // are we muted atm?
-    if (muteBroadcasts)
-      return;
-    
-    // mark it
-    event.setBroadcasted();
-
-    try {
-      muteBroadcasts = true;
-     
-      // bubble up "outbound"
-      Set visited = new HashSet();
-      Component cursor = event.getSource();
-      while (cursor!=null) {
-        
-        // a listener that cares? chance to stop this from bubbling outbound even more
-        if (cursor instanceof WindowBroadcastListener) {
-          visited.add(cursor);
-          try {
-            if (!((WindowBroadcastListener)cursor).handleBroadcastEvent(event))
-              return;
-          } catch (Throwable t) {
-            LOG.log(Level.WARNING, "broadcast listener threw throwable - cancelling broadcast", t);
-            return;
-          }
-        }
-        
-        // move up 
-        cursor = cursor.getParent();
-      }
-      
-      // switch to inbound
-      event.setInbound();
-      
-      // tell listeners of manager
-      for (Iterator ls = listeners.iterator(); ls.hasNext();) {
-        WindowBroadcastListener l = (WindowBroadcastListener) ls.next();
-        try {
-          l.handleBroadcastEvent(event);
-        } catch (Throwable t) {
-          LOG.log(Level.WARNING, "broadcast listener threw throwable - continuing broadcast", t);
-        }
-      }
-      
-      // tell components (but not the originating one)
-      String[] keys = recallKeys();
-      for (int i = 0; i < keys.length; i++) {
-        broadcastImpl(event, recall(keys[i]), visited);
-      }
-      
-    } finally {
-      muteBroadcasts = false;
-    }
-    // done
-  }
-  
-  private static void broadcastImpl(WindowBroadcastEvent event, Component component, Set dontRevisit) {
-    
-    // a stop?
-    if (dontRevisit.contains(component))
-      return;
-    
-    // .. to component
-    if (component instanceof WindowBroadcastListener) {
-      try {
-        if (!((WindowBroadcastListener)component).handleBroadcastEvent(event))
-          return;
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "broadcast listener threw throwable - not recursing broadcast", t);
-        return;
-      }
-    }
-    
-    // and to children
-    if (component instanceof Container) {
-      Component[] cs = (((Container)component).getComponents());
-      for (int j = 0; j < cs.length; j++) {
-        broadcastImpl(event, cs[j], dontRevisit);
-      }
-    }
-    
-    // done
-  }
-    
   /**
    * Close dialog/frame 
    * @param key the dialog/frame's key

@@ -20,6 +20,7 @@
 package genj.edit.actions;
 
 import genj.edit.Images;
+import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.UnitOfWork;
@@ -28,6 +29,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
+import genj.view.View;
 import genj.window.WindowManager;
 
 import javax.swing.Action;
@@ -144,6 +146,11 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
    * perform the actual change
    */
   public abstract void perform(Gedcom gedcom) throws GedcomException;
+
+  protected void fireSelection(Context context, boolean isActionPerformed) {
+    if (getTarget()!=null)
+      View.fireSelection(getTarget(), context, isActionPerformed);
+  }
   
 } //Change
 
