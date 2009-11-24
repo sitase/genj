@@ -38,6 +38,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
+import genj.view.View;
 import genj.view.ViewContext;
 import genj.window.WindowManager;
 
@@ -715,9 +716,8 @@ import javax.swing.tree.TreePath;
         ignoreSelection = true;
         ViewContext context = new ViewContext(gedcom);
         context.addProperties(selection);
-        
-        // FIXME docket propagate selection
-        //WindowManager.broadcast(new ContextSelectionEvent(context, AdvancedEditor.this));
+
+        View.fireSelection(AdvancedEditor.this, context, false);
       } finally {
         ignoreSelection = false;
       }

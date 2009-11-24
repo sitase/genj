@@ -412,8 +412,7 @@ public class NavigatorView extends View {
       // follow immediately
       setCurrentEntity(target);
       // propagate to others
-      // FIXME docket propagate selection
-      //WindowManager.broadcast(new ContextSelectionEvent(new ViewContext(target), NavigatorView.this, true));
+      View.fireSelection(NavigatorView.this, new Context(target), true);
     }
   } //Jump
 

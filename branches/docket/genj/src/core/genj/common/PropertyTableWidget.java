@@ -36,6 +36,7 @@ import genj.util.swing.LinkWidget;
 import genj.util.swing.SortableTableModel;
 import genj.view.ContextProvider;
 import genj.view.SelectionListener;
+import genj.view.View;
 import genj.view.ViewContext;
 
 import java.awt.BorderLayout;
@@ -82,7 +83,7 @@ import javax.swing.table.TableModel;
 /**
  * A widget that shows entities in rows and columns
  */
-public class PropertyTableWidget extends JPanel implements SelectionListener {
+public class PropertyTableWidget extends JPanel  {
   
   private final static Logger LOG = Logger.getLogger("genj.common");
   
@@ -160,7 +161,7 @@ public class PropertyTableWidget extends JPanel implements SelectionListener {
   /**
    * Select a cell
    */
-  public void select(Context context, boolean isActionPerformed) {
+  public void select(Context context) {
     
     // set selection
     try {
@@ -517,9 +518,8 @@ public class PropertyTableWidget extends JPanel implements SelectionListener {
       }
       
       // tell about it
-// FIXME docket propagate selection      
-//      if (context!=null)
-//        WindowManager.broadcast(new ContextSelectionEvent(context, this));
+      if (context!=null)
+        View.fireSelection(PropertyTableWidget.this, context, false);
 
       
       // done

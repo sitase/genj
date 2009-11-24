@@ -26,7 +26,6 @@ import java.awt.LayoutManager;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import javax.swing.JComponent;
 import javax.swing.JPanel;
 
 public abstract class View extends JPanel implements SelectionListener {
@@ -60,6 +59,13 @@ public abstract class View extends JPanel implements SelectionListener {
   public void addSelectionListener(SelectionListener listener) {
     listeners.add(listener);
   }
+  
+  /**
+   * remove listener
+   */
+  public void removeSelectionListener(SelectionListener listener) {
+    listeners.remove(listener);
+  }
 
   /**
    * fire selection event
@@ -67,6 +73,8 @@ public abstract class View extends JPanel implements SelectionListener {
    * @param isActionPerformed
    */
   public void fireSelection(Context context, boolean isActionPerformed) {
+    if (context==null)
+      throw new IllegalArgumentException("context cannot be null");
     for (SelectionListener listener : listeners) {
       listener.select(context, isActionPerformed);
     }

@@ -187,7 +187,7 @@ public class TableView extends View {
   
   @Override
   public void select(Context context, boolean isActionPerformed) {
-    propertyTable.select(context, isActionPerformed);
+    propertyTable.select(context);
   }
   
   /**

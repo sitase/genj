@@ -23,6 +23,7 @@ import genj.util.Registry;
 import genj.util.Resources;
 
 import java.awt.Component;
+import java.awt.Dimension;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -116,8 +117,9 @@ import javax.swing.tree.TreeSelectionModel;
         this.reports = reports;
         this.viewType = viewType;
         this.registry = registry;
-
+        
         tree = new JTree();
+        tree.setVisibleRowCount(3);
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.setCellRenderer(callback);
         tree.addTreeSelectionListener(callback);
