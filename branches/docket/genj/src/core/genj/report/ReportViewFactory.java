@@ -174,17 +174,15 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
     /** callback */
     protected void execute() {
       
-      final Report instance = report.getInstance(getTarget(), null);
-      
       try{
         
-        if (instance.isReadOnly())
-          instance.start(context);
+        if (report.isReadOnly())
+          report.start(context);
         else
           gedcom.doUnitOfWork(new UnitOfWork() {
             public void perform(Gedcom gedcom) {
               try {
-                instance.start(context);
+                report.start(context);
               } catch (Throwable t) {
                 throw new RuntimeException(t);
               }
@@ -194,9 +192,9 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
       } catch (Throwable t) {
         Throwable cause = t.getCause();
         if (cause instanceof InterruptedException)
-          instance.println("***cancelled");
+          report.println("***cancelled");
         else
-          ReportView.LOG.log(Level.WARNING, "encountered throwable in "+instance.getClass().getName()+".start()", cause!=null?cause:t);
+          ReportView.LOG.log(Level.WARNING, "encountered throwable in "+report.getClass().getName()+".start()", cause!=null?cause:t);
       }
     }
     

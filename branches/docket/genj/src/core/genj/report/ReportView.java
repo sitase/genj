@@ -23,26 +23,20 @@ import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.UnitOfWork;
-import genj.io.FileAssociation;
-import genj.option.OptionsWidget;
-import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.EditorHyperlinkSupport;
 import genj.util.swing.ImageIcon;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Cursor;
-import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.Insets;
 import java.awt.Point;
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.BufferedReader;
 import java.io.File;
@@ -54,28 +48,18 @@ import java.io.StringReader;
 import java.io.Writer;
 import java.net.URL;
 import java.nio.charset.Charset;
-import java.util.Collections;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.swing.JComponent;
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
-import javax.swing.JTextPane;
-import javax.swing.ScrollPaneConstants;
-import javax.swing.border.EmptyBorder;
-import javax.swing.event.HyperlinkEvent;
-import javax.swing.event.HyperlinkListener;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.Element;
 
+// FIXME docket add report picker w/reload and grouping on run - add run last 
 /**
  * Component for running reports on genealogic data
  */
@@ -91,25 +75,16 @@ public class ReportView extends View {
   private final static ImageIcon
     imgStart = new ImageIcon(ReportView.class,"Start"      ),
     imgStop  = new ImageIcon(ReportView.class,"Stop"       ),
-    imgSave  = new ImageIcon(ReportView.class,"Save"       ),
-    imgReload= new ImageIcon(ReportView.class,"Reload"     ),
-    imgGroup = new ImageIcon(ReportView.class,"Group"      );
+    imgSave  = new ImageIcon(ReportView.class,"Save"       );
 
 
   /** gedcom this view is for */
   private Gedcom      gedcom;
 
   /** components to show report info */
-  private JLabel      lFile,lAuthor,lVersion;
-  private JTextPane   tpInfo;
-  private JEditorPane taOutput;
-  private ReportList  listOfReports;
-  private JTabbedPane tabbedPane;
+  private Output      output;
   private ActionStart actionStart = new ActionStart();
-  private ActionStop actionStop = new ActionStop(actionStart);
-  private OptionsWidget owOptions;
-
-  private HTMLEditorKit editorKit;
+  private ActionStop  actionStop = new ActionStop(actionStart);
 
   /** registry for settings */
   private Registry registry;
@@ -130,18 +105,12 @@ public class ReportView extends View {
     registry = theRegistry;
     title    = theTitle;
 
+    // Output
+    output = new Output();
+
     // Layout for this component
     setLayout(new BorderLayout());
-
-    // Noteboook in Center
-    tabbedPane = new JTabbedPane();
-    add(tabbedPane,"Center");
-
-    // three tabs
-    Callback callback = new Callback();
-    tabbedPane.add(RESOURCES.getString("report.reports"),createReportList(callback));
-    tabbedPane.add(RESOURCES.getString("report.options"), createReportOptions());
-    tabbedPane.add(RESOURCES.getString("report.output"),createReportOutput(callback));
+    add(new JScrollPane(output), BorderLayout.CENTER);
 
     // done
   }
@@ -157,105 +126,6 @@ public class ReportView extends View {
   }
 
   /**
-   * Create tab content for report list/info
-   */
-  private JPanel createReportList(Callback callback) {
-
-    // Panel for Report
-    JPanel reportPanel = new JPanel();
-    reportPanel.setBorder(new EmptyBorder(3,3,3,3));
-    GridBagHelper gh = new GridBagHelper(reportPanel);
-
-    // ... List of reports
-    listOfReports = new ReportList(ReportLoader.getInstance().getReports(),
-            registry.get("group", ReportList.VIEW_TREE), registry);
-    listOfReports.setSelectionListener(callback);
-
-    JScrollPane spList = new JScrollPane(listOfReports) {
-      /** min = preferred */
-      public Dimension getMinimumSize() {
-        return super.getPreferredSize();
-      }
-    };
-    spList.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-    gh.add(spList,1,0,1,5,GridBagHelper.GROWFILL_VERTICAL);
-
-    // ... Report's filename
-    gh.setParameter(GridBagHelper.FILL_HORIZONTAL);
-    gh.setInsets(new Insets(0, 0, 0, 5));
-
-    lFile = new JLabel("");
-    lFile.setForeground(Color.black);
-
-    gh.add(new JLabel(RESOURCES.getString("report.file")),2,0);
-    gh.add(lFile,3,0,1,1,GridBagHelper.GROWFILL_HORIZONTAL);
-
-    // ... Report's author
-
-    lAuthor = new JLabel("");
-    lAuthor.setForeground(Color.black);
-
-    gh.add(new JLabel(RESOURCES.getString("report.author")),2,1);
-    gh.add(lAuthor,3,1,1,1,GridBagHelper.GROWFILL_HORIZONTAL);
-
-    // ... Report's version
-    lVersion = new JLabel();
-    lVersion.setForeground(Color.black);
-
-    gh.add(new JLabel(RESOURCES.getString("report.version")),2,2);
-    gh.add(lVersion,3,2);
-
-    editorKit = new HTMLEditorKit(this.getClass());
-    // ... Report's infos
-    tpInfo = new JTextPane();
-    tpInfo.setEditable(false);
-    tpInfo.setEditorKit(editorKit);
-    tpInfo.setFont(new JTextField().getFont()); //don't use standard clunky text area font
-    tpInfo.addHyperlinkListener(new FollowHyperlink(tpInfo));
-    JScrollPane spInfo = new JScrollPane(tpInfo);
-    gh.add(new JLabel(RESOURCES.getString("report.info")),2,3);
-    gh.add(spInfo,2,4,2,1,GridBagHelper.FILL_BOTH);
-
-    // done
-    return reportPanel;
-
-  }
-
-  /**
-   * Create the tab content for report output
-   * Output tab is a JEditorPane that displays either plain text or html text:
-   */
-  private JComponent createReportOutput(Callback callback) {
-
-    // Panel for Report Output
-    taOutput = new JEditorPane();
-    taOutput.setContentType("text/plain");
-    taOutput.setFont(new Font("Monospaced", Font.PLAIN, 12));
-    taOutput.setEditable(false);
-    taOutput.addHyperlinkListener(new FollowHyperlink(taOutput));
-    taOutput.addMouseMotionListener(callback);
-    taOutput.addMouseListener(callback);
-
-    // Done
-    return new JScrollPane(taOutput);
-  }
-
-  /**
-   * Create the tab content for report options
-   */
-  private JComponent createReportOptions() {
-    owOptions = new OptionsWidget(getName());
-    return owOptions;
-  }
-
-  /**
-   * @see javax.swing.JComponent#getPreferredSize()
-   */
-  public Dimension getPreferredSize() {
-    return new Dimension(480,320);
-  }
-
-  /**
    * Runs a specific report
    */
   /*package*/ void run(Report report, Object context) {
@@ -267,7 +137,7 @@ public class ReportView extends View {
 // FIXME docket report wants its view to come forward    
 //    manager.showView(this);
     // start it
-    listOfReports.setSelection(report);
+    
     // TODO this is a hack - I want to pass the context over but also use the same ActionStart instance
     actionStart.setContext(context);
     actionStart.trigger();
@@ -282,10 +152,6 @@ public class ReportView extends View {
     actionStart.setEnabled(!on);
     actionStop .setEnabled(on);
 
-    taOutput.setCursor(Cursor.getPredefinedCursor(
-      on?Cursor.WAIT_CURSOR:Cursor.DEFAULT_CURSOR
-    ));
-
     // Done
     return true;
   }
@@ -298,34 +164,9 @@ public class ReportView extends View {
     toolbar.add(actionStart);
     toolbar.add(actionStop);
     toolbar.add(new ActionSave());
-    toolbar.add(new ActionReload());
-    toolbar.add(new ActionGroup());
 
     // done
   }
-
-  /**
-   * Action: RELOAD
-   */
-  private class ActionReload extends Action2 {
-    protected ActionReload() {
-      setImage(imgReload);
-      setTip(RESOURCES, "report.reload.tip");
-      setEnabled(!ReportLoader.getInstance().isReportsInClasspath());
-    }
-    protected void execute() {
-      // show first page and unselect report
-      tabbedPane.getModel().setSelectedIndex(0);
-      listOfReports.setSelection(null);
-      // .. do it (forced!);
-      ReportLoader.clear();
-      // .. get them
-      Report reports[] = ReportLoader.getInstance().getReports();
-      // .. update
-      listOfReports.setReports(reports);
-      // .. done
-    }
-  } //ActionReload
 
   /**
    * Action: STOP
@@ -352,7 +193,7 @@ public class ReportView extends View {
     private Object context;
 
     /** the running report */
-    private Report instance;
+    private Report report;
 
     /** an output writer */
     private PrintWriter out;
@@ -374,41 +215,43 @@ public class ReportView extends View {
      * pre execute
      */
     protected boolean preExecute() {
-
-      // commit options
-      owOptions.stopEditing();
-
-      // .. change buttons
+      
+      ReportSelector selector = new ReportSelector();
+      
+      WindowManager.getInstance().openDialog("report", 
+          RESOURCES.getString("report.reports"),
+          WindowManager.QUESTION_MESSAGE, 
+          selector, 
+          Action2.okCancel(), 
+          ReportView.this);
+      
+      // go
       setRunning(true);
 
-      // Calc Report
-      Report report = listOfReports.getSelection();
+      report = selector.getReport();
       if (report==null)
         return false;
 
       out = new PrintWriter(new OutputWriter());
-
-      // create our own private instance
-      instance = report.getInstance(ReportView.this, out);
 
       // either use preset context, gedcom file or ask for entity
       Object useContext = context;
       context = null;
       
       if (useContext==null) {
-        if (instance.getStartMethod(gedcom)!=null)
+        if (report.getStartMethod(gedcom)!=null)
           useContext = gedcom;
         else  for (int i=0;i<Gedcom.ENTITIES.length;i++) {
           String tag = Gedcom.ENTITIES[i];
           Entity sample = gedcom.getFirstEntity(tag);
-          if (instance.accepts(sample)!=null) {
+          if (report.accepts(sample)!=null) {
             
             // give the report a chance to name our dialog
-            String txt = instance.accepts(sample.getClass());
+            String txt = report.accepts(sample.getClass());
             if (txt==null) Gedcom.getName(tag);
             
             // ask user for context now
-            useContext = instance.getEntityFromUser(txt, gedcom, tag);
+            useContext = report.getEntityFromUser(txt, gedcom, tag);
             if (useContext==null) 
               return false;
             break;
@@ -424,8 +267,7 @@ public class ReportView extends View {
       context = useContext;
 
       // clear the current output
-      taOutput.setContentType("text/plain");
-      taOutput.setText("");
+      output.clear();
 
       // done
       return true;
@@ -434,16 +276,20 @@ public class ReportView extends View {
      * execute
      */
     protected void execute() {
+      
+      // set report context
+      report.setOwner(ReportView.this);
+      report.setOut(out);
 
       try{
         
-        if (instance.isReadOnly())
-          instance.start(context);
+        if (report.isReadOnly())
+          report.start(context);
         else
           gedcom.doUnitOfWork(new UnitOfWork() {
             public void perform(Gedcom gedcom) {
               try {
-                instance.start(context);
+                report.start(context);
               } catch (Throwable t) {
                 throw new RuntimeException(t);
               }
@@ -453,9 +299,9 @@ public class ReportView extends View {
       } catch (Throwable t) {
         Throwable cause = t.getCause();
         if (cause instanceof InterruptedException)
-          instance.println("***cancelled");
+          report.println("***cancelled");
         else
-          instance.println(cause!=null?cause:t);
+          report.println(cause!=null?cause:t);
       }
     }
 
@@ -482,7 +328,7 @@ public class ReportView extends View {
       // check last line for url
       URL url = null;
       try {
-        AbstractDocument doc = (AbstractDocument)taOutput.getDocument();
+        AbstractDocument doc = (AbstractDocument)output.getDocument();
         Element p = doc.getParagraphElement(doc.getLength()-1);
         String line = doc.getText(p.getStartOffset(), p.getEndOffset()-p.getStartOffset());
         url = new URL(line);
@@ -491,7 +337,7 @@ public class ReportView extends View {
 
       if (url!=null) {
         try {
-          taOutput.setPage(url);
+          output.setPage(url);
         } catch (IOException e) {
           LOG.log(Level.WARNING, "couldn't show html in report output", e);
         }
@@ -542,8 +388,7 @@ public class ReportView extends View {
 
       // .. save data
       try {
-        Document doc = taOutput.getDocument();
-        BufferedReader in = new BufferedReader(new StringReader(doc.getText(0, doc.getLength())));
+        BufferedReader in = new BufferedReader(new StringReader(output.getText()));
         while (true) {
           String line = in.readLine();
           if (line==null) break;
@@ -562,111 +407,23 @@ public class ReportView extends View {
   } //ActionSave
 
   /**
-   * Toggles gouping of reports into categories.
-   * Action: GROUP
+   * output
    */
-  private class ActionGroup extends Action2 {
-    /**
-     * Creates the action object.
-     */
-    protected ActionGroup() {
-      setImage(imgGroup);
-      setTip(RESOURCES, "report.group.tip");
-    }
-
-    /**
-     * Toggles grouping of reports.
-     */
-    protected void execute() {
-        int viewType = listOfReports.getViewType();
-        if (viewType == ReportList.VIEW_LIST)
-            listOfReports.setViewType(ReportList.VIEW_TREE);
-        else
-            listOfReports.setViewType(ReportList.VIEW_LIST);
-        registry.put("group", listOfReports.getViewType());
-    }
-  } //ActionGroup
-
-  /**
-   * A Hyperlink Follow Action
-   */
-  private class FollowHyperlink implements HyperlinkListener {
-
-    private JEditorPane editor;
-
-    /** constructor */
-    private FollowHyperlink(JEditorPane editor) {
-      this.editor = editor;
-    }
-
-    /** callback - link clicked */
-    public void hyperlinkUpdate(HyperlinkEvent e) {
-      // need activate
-      if (e.getEventType()!=HyperlinkEvent.EventType.ACTIVATED)
-        return;
-      // internal?
-      try {
-        if (e.getDescription().startsWith("#")) 
-            editor.scrollToReference(e.getDescription().substring(1));
-        else {
-          // assemble a relative URL
-          Report report = listOfReports.getSelection();
-          URL url = report!=null ? new URL(report.getFile().toURI().toURL(), e.getDescription()) : new URL(e.getDescription());
-          FileAssociation.open(url, editor);
-        }          
-          
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "Can't handle URL for "+e.getDescription());
-      }
-      // done
-    }
-
-  } //FollowHyperlink
-
-  /**
-   * A private callback for various messages coming in
-   */
-  private class Callback extends MouseAdapter implements MouseMotionListener,
-      ReportSelectionListener {
+  private class Output extends JEditorPane implements MouseListener, MouseMotionListener {
 
     /** the currently found entity id */
     private String id = null;
 
-    /**
-     * Monitor changes to selection of reports
-     */
-    public void valueChanged(Report report) {
-      // update info
-      if (report == null) {
-        lFile    .setText("");
-        lAuthor  .setText("");
-        lVersion .setText("");
-        tpInfo   .setText("");
-        owOptions.setOptions(Collections.EMPTY_LIST);
-      } else {
-        editorKit.setFrom(report.getClass());
-        lFile    .setText(report.getFile().getName());
-        lAuthor  .setText(report.getAuthor());
-        lVersion .setText(getReportVersion(report));
-        tpInfo   .setText(report.getInfo().replaceAll("\n", "<br>"));
-        tpInfo   .setCaretPosition(0);
-        owOptions.setOptions(report.getOptions());
-      }
+    /** constructor */
+    private Output() {
+      setContentType("text/plain");
+      setFont(new Font("Monospaced", Font.PLAIN, 12));
+      setEditable(false);
+      addHyperlinkListener(new EditorHyperlinkSupport(this));
+      addMouseMotionListener(this);
+      addMouseListener(this);
     }
-
-    /**
-     * Returns the report version with last update date
-     * @param report the report
-     * @return version information
-     */
-    private String getReportVersion(Report report) {
-      String version = report.getVersion();
-      String update = report.getLastUpdate();
-      if (update != null)
-        version += " - " + RESOURCES.getString("report.updated") + ": " + update;
-      return version;
-    }
-
+    
     /**
      * Check if user moves mouse above something recognizeable in output
      */
@@ -696,12 +453,12 @@ public class ReportView extends View {
 
       try {
         // do we get a position in the model?
-        int pos = taOutput.viewToModel(loc);
+        int pos = viewToModel(loc);
         if (pos<0)
           return null;
 
         // scan doc
-        Document doc = taOutput.getDocument();
+        Document doc = getDocument();
 
         // find ' ' to the left
         for (int i=0;;i++) {
@@ -739,9 +496,9 @@ public class ReportView extends View {
           return null;
 
         // mark it
-        taOutput.requestFocusInWindow();
-        taOutput.setCaretPosition(pos);
-        taOutput.moveCaretPosition(pos+len);
+        requestFocusInWindow();
+        setCaretPosition(pos);
+        moveCaretPosition(pos+len);
 
         // return in betwee
         return id;
@@ -761,8 +518,33 @@ public class ReportView extends View {
     public void mouseDragged(MouseEvent e) {
       // ignored
     }
+    
+    void clear() {
+      setContentType("text/plain");
+      setText("");
+    }
+    
+    void add(String txt) {
+      Document doc = getDocument();
+      try {
+        doc.insertString(doc.getLength(), txt, null);
+      } catch (Throwable t) {
+      }
+    }
+    
+    public void mouseEntered(MouseEvent e) {
+    }
 
-  } //Callback
+    public void mouseExited(MouseEvent e) {
+    }
+
+    public void mousePressed(MouseEvent e) {
+    }
+
+    public void mouseReleased(MouseEvent e) {
+    }
+
+  } //Output
 
   /**
    * A printwriter that directs output to the text area
@@ -792,20 +574,14 @@ public class ReportView extends View {
       if (buffer.length()==0)
         return;
 
-      // make sure we see output pane
-      tabbedPane.getModel().setSelectedIndex(2);
-
       // mark
       lastFlush = System.currentTimeMillis();
 
       // grab text, reset buffer and dump it
       String txt = buffer.toString();
       buffer.setLength(0);
-      Document doc = taOutput.getDocument();
-      try {
-        doc.insertString(doc.getLength(), txt, null);
-      } catch (Throwable t) {
-      }
+      
+      output.add(txt);
 
       // done
     }

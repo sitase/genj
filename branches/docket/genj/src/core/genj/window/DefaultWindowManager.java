@@ -19,6 +19,7 @@
  */
 package genj.window;
 
+import genj.gedcom.Gedcom;
 import genj.util.Registry;
 
 import java.awt.Component;
@@ -33,8 +34,6 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.logging.Level;
 
 import javax.swing.Action;
@@ -59,9 +58,9 @@ public class DefaultWindowManager extends WindowManager {
   /** 
    * Constructor
    */
-  public DefaultWindowManager(Registry registry, ImageIcon defaultDialogImage) {
-    super(registry);
-    if (defaultDialogImage!=null) defaultFrame.setIconImage(defaultDialogImage.getImage());
+  public DefaultWindowManager() {
+    super(new Registry("genj.window"));
+    defaultFrame.setIconImage(Gedcom.getImage().getImage());
   }
   
   /**
@@ -204,23 +203,6 @@ public class DefaultWindowManager extends WindowManager {
     return optionPane.getValue();
   }
 
-  @Override
-  public void setTitle(String key, String title) {
-    
-    Object framedlg = recall(key);
-    
-    if (framedlg instanceof JFrame) {
-      ((JFrame)framedlg).setTitle(title); 
-      return;
-    }
-
-    if (framedlg instanceof JDialog) {
-      ((JDialog)framedlg).setTitle(title);
-      return;
-    }
-    
-  }
-  
   /**
    * @see genj.window.WindowManager#show(java.lang.String)
    */
@@ -261,30 +243,6 @@ public class DefaultWindowManager extends WindowManager {
     }
 
     // done
-  }
-  
-  /**
-   * @see genj.window.WindowManager#getRootComponents()
-   */
-  public List getRootComponents() {
-
-    List result = new ArrayList();
-    
-    // loop through keys    
-    String[] keys = recallKeys();
-    for (int k=0; k<keys.length; k++) {
-      
-      Object framedlg = recall(keys[k]);
-
-      if (framedlg instanceof JFrame)      
-        result.add(((JFrame)framedlg).getRootPane());
-
-      if (framedlg instanceof JDialog)      
-        result.add(((JDialog)framedlg).getRootPane());
-    }
-    
-    // done
-    return result;
   }
   
   /**

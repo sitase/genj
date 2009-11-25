@@ -33,10 +33,8 @@ import java.awt.Toolkit;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
-import java.util.WeakHashMap;
 import java.util.logging.Logger;
 
 import javax.swing.Action;
@@ -54,11 +52,10 @@ import javax.swing.JScrollPane;
  * Abstract base type for WindowManagers
  */
 public abstract class WindowManager {
+  
+  // FIXME docket get rid of window manager
+  private final static WindowManager INSTANCE = new DefaultWindowManager();
 
-  private final static Object WINDOW_MANAGER_KEY = WindowManager.class;
-  
-  private static WeakHashMap window2manager = new WeakHashMap();
-  
   /** message types*/
   public static final int  
     ERROR_MESSAGE = JOptionPane.ERROR_MESSAGE,
@@ -93,11 +90,6 @@ public abstract class WindowManager {
   public abstract void close(String key);
   
   /**
-   * Return root components of all heavyweight dialogs/frames
-   */
-  public abstract List getRootComponents();
-  
-  /**
    * Return the content of a dialog/frame 
    * @param key the dialog/frame's key 
    */
@@ -111,27 +103,14 @@ public abstract class WindowManager {
   public abstract boolean show(String key);
   
   /**
-   * Sets the title of a top-level window
-   */
-  public abstract void setTitle(String key, String title);
-  
-  /**
    * Returns an appropriate WindowManager instance for given component
    * @return manager or null if no appropriate manager could be found
    */
   public static WindowManager getInstance(Component component) {
-    WindowManager result =  getInstanceImpl(component);
-    if (result==null)
-      LOG.warning("Failed to find window manager for "+component);
-    return result;
+    return getInstance();
   }
-  
-  private static WindowManager getInstanceImpl(Component component) {
-    // get topmost container
-    Component window = component;
-    while (window.getParent()!=null) window = window.getParent();
-    // look it up
-    return (WindowManager)window2manager.get(window);
+  public static WindowManager getInstance() {
+    return INSTANCE;
   }
   
   /**
@@ -149,7 +128,6 @@ public abstract class WindowManager {
     // deal with it in impl
     Component window = openWindowImpl(key, title, image, content, menu, bounds, maximized, close);
     // remember it
-    window2manager.put(window, this);
     key2window.put(key, window);
     // done
     return key;
@@ -234,8 +212,6 @@ public abstract class WindowManager {
    * dialog core routine
    */
   public final int openDialog(String key, String title,  int messageType, JComponent content, Action[] actions, Component owner) {
-    // set us up
-    content.putClientProperty(WINDOW_MANAGER_KEY, this);
     // check options - default to OK
     if (actions==null) 
       actions = Action2.okOnly();
@@ -263,8 +239,6 @@ public abstract class WindowManager {
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, javax.swing.JComponent, javax.swing.JComponent)
    */
   public final String openNonModalDialog(String key, String title,  int messageType, JComponent content, Action[] actions, Component owner) {
-    // set us up
-    content.putClientProperty(WINDOW_MANAGER_KEY, this);
     // check options - none ok
     if (actions==null) actions = new Action[0];
     // key is necessary
@@ -277,7 +251,6 @@ public abstract class WindowManager {
     // do it
     Component window = openNonModalDialogImpl(key, title, messageType, content, actions, owner, bounds);
     // remember it
-    window2manager.put(window, this);
     key2window.put(key, window);
     // done
     return key;

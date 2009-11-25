@@ -108,11 +108,11 @@ public class Workbench extends JPanel {
   /**
    * Constructor
    */
-  public Workbench(Registry setRegistry, WindowManager winManager, Runnable onExit) {
+  public Workbench(Registry setRegistry, Runnable onExit) {
 
     // Initialize data
     registry = new Registry(setRegistry, "cc");
-    windowManager = winManager;
+    windowManager = WindowManager.getInstance();
     runOnExit = onExit;
 
     // Layout
@@ -1088,8 +1088,6 @@ public class Workbench extends JPanel {
 
     /** run */
     protected void execute() {
-      // tell options about window manager - curtesy only
-      Options.getInstance().setWindowManager(windowManager);
       // create widget for options
       OptionsWidget widget = new OptionsWidget(getText());
       widget.setOptions(OptionProvider.getAllOptions());

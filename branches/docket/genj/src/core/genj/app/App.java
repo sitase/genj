@@ -178,23 +178,20 @@ public class App {
         // get app resources now
         Resources resources = Resources.get(App.class);
   
-        // create window manager
-        WindowManager winMgr = new DefaultWindowManager(new Registry(registry, "window"), Gedcom.getImage());
-        
         // Disclaimer - check version and registry value
         String version = Version.getInstance().getVersionString();
         if (!version.equals(registry.get("disclaimer",""))) {
           // keep it      
           registry.put("disclaimer", version);
           // show disclaimer
-          winMgr.openDialog("disclaimer", "Disclaimer", WindowManager.INFORMATION_MESSAGE, resources.getString("app.disclaimer"), Action2.okOnly(), null);    
+          WindowManager.getInstance().openDialog("disclaimer", "Disclaimer", WindowManager.INFORMATION_MESSAGE, resources.getString("app.disclaimer"), Action2.okOnly(), null);    
         }
         
         // setup control center
-        center = new Workbench(registry, winMgr, new Shutdown(registry));
+        center = new Workbench(registry, new Shutdown(registry));
   
         // show it
-        winMgr.openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());
+        WindowManager.getInstance().openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());
   
         // done
         LOG.info("/Startup");

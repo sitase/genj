@@ -65,9 +65,6 @@ public class Options extends OptionProvider {
   /** singleton */
   private final static Options instance = new Options();
 
-  /** window manager */
-  private WindowManager windowManager;
-
   /** resources */
   private Resources resources;
 
@@ -133,13 +130,6 @@ public class Options extends OptionProvider {
   }
 
   /**
-   * Register a window manager
-   */
-  public void setWindowManager(WindowManager set) {
-    windowManager = set;
-  }
-
-  /**
    * Getter - looknfeel
    */
   public int getLookAndFeel() {
@@ -159,10 +149,10 @@ public class Options extends OptionProvider {
     if (set<0||set>lnfs.length-1)
       set = 0;
 
-    // set it - apply on root components if available
-    lnfs[set].apply(windowManager!=null?windowManager.getRootComponents():null);
+    // set it - 20091134 making this a restart only change
+    lnfs[set].apply(null);
 
-    // remember
+    // remember for restart
     lookAndFeel = set;
 
     // done
