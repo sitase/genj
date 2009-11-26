@@ -98,12 +98,12 @@ public class EditView extends View implements ContextProvider  {
   /**
    * Constructor
    */
-  public EditView(String setTitle, Gedcom setGedcom, Registry setRegistry) {
+  public EditView(String setTitle, Context context, Registry setRegistry) {
     
     super(new BorderLayout());
     
     // remember
-    gedcom   = setGedcom;
+    gedcom   = context.getGedcom();
     registry = setRegistry;
     beanFactory = new BeanFactory(registry);
 
@@ -123,6 +123,16 @@ public class EditView extends View implements ContextProvider  {
     amap.put(back, back);
     imap.put(KeyStroke.getKeyStroke("alt RIGHT"), forward);
     amap.put(forward, forward);
+
+    // Check if we were sticky
+    Entity entity = gedcom.getEntity(registry.get("entity", (String)null));
+    if (registry.get("sticky", false) && entity!=null) {
+      isSticky = true;
+    } else {
+      entity = context.getEntity();
+    }
+    if (entity!=null)
+      setContext(new ViewContext(entity));
 
     // Done
   }
@@ -172,24 +182,6 @@ public class EditView extends View implements ContextProvider  {
     // remember
     instances.add(this);
     
-    // Check if we were sticky
-    Entity entity = gedcom.getEntity(registry.get("entity", (String)null));
-    if (registry.get("sticky", false) && entity!=null) {
-      isSticky = true;
-    } else {
-// FIXME docket find last selection
-//      // fallback
-//      ViewContext context = ContextSelectionEvent.getLastBroadcastedSelection();
-//      if (context!=null&&context.getGedcom()==gedcom&&gedcom.contains(context.getEntity()))
-//        entity = context.getEntity();
-      // fallback more (only if needed)
-      if (entity==null)
-        entity = gedcom.getFirstEntity(Gedcom.INDI);
-    }
-    
-    if (entity!=null)
-      setContext(new ViewContext(entity));
-
     // listen to gedcom
     callback.enable();
     gedcom.addGedcomListener((GedcomListener)Spin.over(undo));

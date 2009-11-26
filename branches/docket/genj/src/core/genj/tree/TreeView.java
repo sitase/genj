@@ -141,7 +141,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   /**
    * Constructor
    */
-  public TreeView(String titl, Gedcom gedcom, Registry regIstry) {
+  public TreeView(String titl, Context context, Registry regIstry) {
     
     // remember
     registry = regIstry;
@@ -168,11 +168,11 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     BlueprintManager bpm = BlueprintManager.getInstance();
     for (int t=0;t<Gedcom.ENTITIES.length;t++) {
       String tag = Gedcom.ENTITIES[t];
-      tag2blueprint.put(tag, bpm.getBlueprint(gedcom.getOrigin(), tag, registry.get("blueprint."+tag, "")));
+      tag2blueprint.put(tag, bpm.getBlueprint(context.getGedcom().getOrigin(), tag, registry.get("blueprint."+tag, "")));
     }
     
     // setup model
-    model = new Model(gedcom);
+    model = new Model(context.getGedcom());
     model.setVertical(registry.get("vertical",true));
     model.setFamilies(registry.get("families",true));
     model.setBendArcs(registry.get("bend"    ,true));
@@ -190,13 +190,13 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     model.setHideDescendantsIDs(registry.get("hide.descendants", new ArrayList()));
  
     // root
-    Entity root = gedcom.getEntity(registry.get("root",""));
+    Entity root = context.getGedcom().getEntity(registry.get("root",""));
     if (root==null) 
-      root = gedcom.getFirstEntity(Gedcom.INDI);
+      root = context.getGedcom().getFirstEntity(Gedcom.INDI);
     model.setRoot(root);
     
     try { 
-      currentEntity = gedcom.getEntity(registry.get("current",(String)null));
+      currentEntity = context.getGedcom().getEntity(registry.get("current",(String)null));
     } catch (Exception e) {
       currentEntity = model.getRoot();
     }
@@ -206,7 +206,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     List bookmarks = new ArrayList();
     for (int i=0;i<bs.length;i++) {
       try {
-        bookmarks.add(new Bookmark(this, gedcom, bs[i]));
+        bookmarks.add(new Bookmark(this, context.getGedcom(), bs[i]));
       } catch (Throwable t) {
       }
     }
@@ -556,15 +556,20 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   /**
    * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
    */
-  public List createActions(Property[] properties) {
+  public List<Action2> createActions(Property[] properties) {
     // not supported
     return null;
+  }
+  
+  /** a priority between 0-100 */
+  public int getPriority() {
+    return 50;
   }
 
   /**
    * @see genj.view.ContextSupport#createActions(genj.gedcom.Entity)
    */
-  public List createActions(Entity entity) {
+  public List<Action2> createActions(Entity entity) {
     // fam or indi?
     if (!(entity instanceof Indi||entity instanceof Fam)) 
       return null;
@@ -579,14 +584,14 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   /**
    * @see genj.view.ContextSupport#createActions(genj.gedcom.Gedcom)
    */
-  public List createActions(Gedcom gedcom) {
+  public List<Action2> createActions(Gedcom gedcom) {
     return null;
   }
 
   /**
    * @see genj.view.ContextSupport#createActions(genj.gedcom.Property)
    */
-  public List createActions(Property property) {
+  public List<Action2> createActions(Property property) {
     return null;
   }
 

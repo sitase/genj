@@ -26,6 +26,7 @@ import genj.util.Resources;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -567,29 +568,33 @@ public class Action2 extends AbstractAction implements Runnable, Cloneable {
   /**
    * An action group
    */
-  public static class Group extends ArrayList<Action> {
+  public static class Group extends Action2 implements Iterable<Action2> {
     
-    /** a name */
-    private String name;
-    private ImageIcon icon;
+    private ArrayList<Action2> actions = new ArrayList<Action2>(4);
     
     /** constructor */
-    public Group(String name, ImageIcon imageIcon) {
-      this.icon = imageIcon;
-      this.name = name;
-    }
-    public Group(String name) {
-    	this(name,null);
+    public Group(String text, ImageIcon imageIcon) {
+      super(text);
+      setImage(imageIcon);
     }
     
-    /** accessor */
-    public String getName() {
-      return name;
+    public Group(String text) {
+    	this(text,null);
     }
-	public ImageIcon getIcon() {
-		return icon;
-	}
-  }
+    
+    public void add(Action2 action) {
+      actions.add(action);
+    }
+    
+    public int size() {
+      return actions.size();
+    }
+
+    public Iterator<Action2> iterator() {
+      return actions.iterator();
+    }
+    
+  } //Group
 
 } //ActionDelegate
 

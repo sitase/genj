@@ -98,10 +98,10 @@ public class ReportView extends View {
   /**
    * Constructor
    */
-  public ReportView(String theTitle, Gedcom theGedcom, Registry theRegistry) {
+  public ReportView(String theTitle, Context context, Registry theRegistry) {
 
     // data
-    gedcom   = theGedcom;
+    gedcom   = context.getGedcom();
     registry = theRegistry;
     title    = theTitle;
 

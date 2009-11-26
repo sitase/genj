@@ -167,48 +167,31 @@ public class MenuHelper  {
    * @param actions either ActionDelegates or lists of ActionDelegates that
    * will be separated visually by createSeparator
    */
-  public void createItems(List actions) {
-    // nothing to do?
-    if (actions==null||actions.isEmpty())
+  public void createItems(Iterable<Action2> actions) {
+    // historically - supported null
+    if (actions==null)
       return;
-    createSeparator();
     // Loop through list
-    Iterator it = actions.iterator();
-    while (it.hasNext()) {
-      Object o = it.next();
-      // an action group?
-      if (o instanceof Action2.Group) {
-        createMenu(((Action2.Group)o).getName(), ((Action2.Group)o).getIcon());
-        createItems((List)o);
-        popMenu();
-        continue;
-      }
-      // a nested list ?
-      if (o instanceof List) {
+    boolean first = true;
+    for (Action2 action : actions) {
+      if (first) {
         createSeparator();
-        createItems((List)o);
-        continue;
+        first = false;
       }
-      // a component?
-      if (o instanceof Component) {
-        createItem((Component)o);
-        continue;
-      }
-      // an action?
-      if (o instanceof Action2) {
-        createItem((Action2)o);
-        continue;
-      }
-      // n/a
-      throw new IllegalArgumentException("type "+o.getClass()+" n/a");
+      createItem(action);
     }
     // done
   }
-
-  /**
-   * Creates an item
-   */
+  
   public JMenuItem createItem(Action2 action) {
+    
+    // an action group?
+    if (action instanceof Action2.Group) {
+      JMenu sub = createMenu(action.getText(), action.getImage());
+      createItems((Action2.Group)action);
+      popMenu();
+      return sub;
+    }
     
     // a NOOP results in separator
     if (action == Action2.NOOP) {

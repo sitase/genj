@@ -281,7 +281,7 @@ public class FileAssociation {
 
   /**
    * Gets associations   */
-  public static List getAll(String suffix) {
+  public static List<FileAssociation> getAll(String suffix) {
     List result = new ArrayList();
     Iterator it = associations.iterator();
     while (it.hasNext()) {

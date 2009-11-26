@@ -132,11 +132,11 @@ public class SearchView extends View {
   /**
    * Constructor
    */
-  public SearchView(Gedcom geDcom, Registry reGistry) {
+  public SearchView(Context context, Registry registry) {
     
     // remember
-    gedcom = geDcom;
-    registry = reGistry;
+    gedcom = context.getGedcom();
+    this.registry = registry;
     
     // lookup old search values & settings
     oldPaths = new LinkedList<String>(Arrays.asList(registry.get("old.paths" , DEFAULT_PATHS)));

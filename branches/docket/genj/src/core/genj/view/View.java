@@ -23,6 +23,7 @@ import genj.gedcom.Context;
 
 import java.awt.Component;
 import java.awt.LayoutManager;
+import java.awt.Window;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -80,12 +81,33 @@ public abstract class View extends JPanel implements SelectionListener {
     }
   }
   
+  /**
+   * Find the view for given component
+   */
+  
+  // FIXME docket this doesn't work for out of view components - e.g. component shown from report dialog
+  public static View getView(Component componentInView) {
+    do {
+      if (componentInView instanceof View)
+        return (View)componentInView;
+      if (componentInView instanceof Window)
+        componentInView = ((Window)componentInView).getOwner();
+      else
+        componentInView = componentInView.getParent();
+    } while (componentInView!=null);
+    
+    throw new IllegalArgumentException("Cannot find view for component");
+  }
+  
   public static void fireSelection(Component componentInView, Context context, boolean isActionPerformed) {
-    Component cursor = componentInView;
-    while (cursor!=null && !(cursor instanceof View))
-      cursor = cursor.getParent();
-    if (cursor instanceof View)
-      ((View)cursor).fireSelection(context, isActionPerformed);
+    View.getView(componentInView).fireSelection(context, isActionPerformed);
+  }
+
+  /**
+   * Open a view 
+   */
+  public void open(ViewFactory factory) {
+    
   }
   
   /**

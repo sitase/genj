@@ -21,7 +21,6 @@ package genj.timeline;
 
 import genj.almanac.Almanac;
 import genj.gedcom.Context;
-import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.time.PointInTime;
 import genj.renderer.Options;
@@ -143,7 +142,7 @@ public class TimelineView extends View {
   /**
    * Constructor
    */
-  public TimelineView(String title, Gedcom gedcom, Registry registry) {
+  public TimelineView(String title, Context context, Registry registry) {
     
     // remember
     DPI = Options.getInstance().getDPI();
@@ -175,7 +174,7 @@ public class TimelineView extends View {
       ignoredAlmanacCategories.add(ignored[i]);
     
     // create/keep our sub-parts
-    model = new Model(gedcom, regstry.get("filter", (String[])null));
+    model = new Model(context.getGedcom(), regstry.get("filter", (String[])null));
     model.setTimePerEvent(cmBefEvent/cmPerYear, cmAftEvent/cmPerYear);
     content = new Content();
     ruler = new Ruler();

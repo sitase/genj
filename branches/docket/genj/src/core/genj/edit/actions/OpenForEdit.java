@@ -19,42 +19,34 @@
  */
 package genj.edit.actions;
 
-import genj.edit.EditView;
+import genj.app.Workbench;
+import genj.edit.EditViewFactory;
 import genj.edit.Images;
+import genj.gedcom.Context;
 import genj.util.swing.Action2;
-import genj.view.ViewContext;
 
 /**
  * ActionEdit - edit an entity
  */
 public class OpenForEdit extends Action2 {
-  /** the context to edit */
-  private ViewContext context;
+  private Context context;
+  private Workbench workbench;
+  
   /**
    * Constructor
    */
-  public OpenForEdit(ViewContext ctxt) {
-    context = ctxt;
+  public OpenForEdit(Workbench workbench, Context context) {
+    this.context = context;
+    this.workbench = workbench;
     setImage(Images.imgView);
     setText(AbstractChange.resources.getString("edit"));
   }
+  
   /**
    * @see genj.util.swing.Action2#execute()
    */
   protected void execute() {
-
-    // open an EditView that isn't sticky - we have to
-    // sequentially open each edit until we find a non-sticky one
-// FIXME editview action trying to open edit view
-//    ViewHandle handle;
-//    while (true) {
-//	    handle = manager.openView(EditViewFactory.class, context.getGedcom());
-//	    if (!((EditView)handle.getView()).isSticky()) 
-//	      break;
-//    }
-    
-    // make sure the context change follows through
-//    ((EditView)handle.getView()).setContext(context);
+    workbench.openView(new EditViewFactory(), context);
   }
   
 } //OpenForEdit

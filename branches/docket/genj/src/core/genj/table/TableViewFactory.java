@@ -19,7 +19,7 @@
  */
 package genj.table;
 
-import genj.gedcom.Gedcom;
+import genj.gedcom.Context;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
@@ -38,8 +38,8 @@ public class TableViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
    */
-  public View createView(String title, Gedcom gedcom, Registry registry) {
-    return new TableView(title,gedcom,registry);
+  public View createView(String title, Registry registry, Context context) {
+    return new TableView(title,context,registry);
   }
 
   /**

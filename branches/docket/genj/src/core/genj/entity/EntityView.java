@@ -97,27 +97,21 @@ public class EntityView extends View implements ContextProvider {
   /**
    * Constructor
    */
-  public EntityView(String title, Gedcom ged, Registry reg) {
+  public EntityView(String title, Context context, Registry reg) {
     // save some stuff
     registry = reg;
-    gedcom = ged;
+    gedcom = context.getGedcom();
 
     // grab data from registry
     BlueprintManager bpm = BlueprintManager.getInstance();
     for (int t=0;t<Gedcom.ENTITIES.length;t++) {
       String tag = Gedcom.ENTITIES[t];
-      type2blueprint.put(tag, bpm.getBlueprint(ged.getOrigin(), tag, registry.get("blueprint."+tag, "")));
+      type2blueprint.put(tag, bpm.getBlueprint(gedcom.getOrigin(), tag, registry.get("blueprint."+tag, "")));
     }
     isAntialiasing  = registry.get("antial"  , false);
     
     // Check if we can preset something to show
-    Entity entity;
-// FIXME docket what to select when view comes up    
-    ViewContext context = null;//ContextSelectionEvent.getLastBroadcastedSelection();
-    if (context!=null&&context.getGedcom()==gedcom&&gedcom.contains(context.getEntity()))
-      entity = context.getEntity();
-    else
-      entity = gedcom.getFirstEntity(Gedcom.INDI);
+    Entity entity = context.getEntity();
     if (entity!=null)
       setEntity(entity);
     

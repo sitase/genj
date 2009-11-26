@@ -332,7 +332,7 @@ public class MetaProperty implements Comparable {
   /**
    * Accessor - type
    */
-  public Class getType() {
+  public Class<? extends Property> getType() {
     // check cached type
     if (type==null) {
       String attrType = getAttribute("type");

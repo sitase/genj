@@ -109,10 +109,10 @@ public class NavigatorView extends View {
   /**
    * Constructor
    */
-  public NavigatorView(String title, Gedcom gedcom, Registry registry) {
+  public NavigatorView(String title, Context context, Registry registry) {
     
     // remember
-    this.gedcom = gedcom;
+    this.gedcom = context.getGedcom();
     this.registry = registry;
     
     // layout    
@@ -124,8 +124,7 @@ public class NavigatorView extends View {
     add(new JScrollPane(createPopupPanel()),BorderLayout.CENTER);
     
     // Check if we can preset something to show
-    Entity entity = gedcom.getEntity(registry.get("entity", (String)null));
-    if (entity==null) entity = gedcom.getFirstEntity(Gedcom.INDI);
+    Entity entity = context.getEntity();
     if (entity!=null) 
       setCurrentEntity(entity);
     

@@ -90,10 +90,10 @@ public class TableView extends View {
   /**
    * Constructor
    */
-  public TableView(String titl, Gedcom gedcom, Registry registry) {
+  public TableView(String titl, Context context, Registry registry) {
     
     // keep some stuff
-    this.gedcom = gedcom;
+    this.gedcom = context.getGedcom();
     this.registry = registry;
     this.title = titl;
     

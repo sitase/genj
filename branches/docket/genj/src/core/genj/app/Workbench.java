@@ -54,6 +54,8 @@ import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.ProgressWidget;
+import genj.view.ActionProvider;
+import genj.view.View;
 import genj.view.ViewFactory;
 import genj.window.WindowManager;
 
@@ -65,11 +67,15 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.Action;
 import javax.swing.Box;
@@ -83,6 +89,7 @@ import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
+import swingx.docking.Dockable;
 import swingx.docking.DockingPane;
 
 /**
@@ -90,6 +97,8 @@ import swingx.docking.DockingPane;
  */
 public class Workbench extends JPanel {
 
+  private final static Logger LOG = Logger.getLogger("genj.app");
+  
   private final static String ACC_SAVE = "ctrl S", ACC_EXIT = "ctrl X", ACC_NEW = "ctrl N", ACC_OPEN = "ctrl O";
 
   /** members */
@@ -101,9 +110,10 @@ public class Workbench extends JPanel {
   private StatusBar stats = new StatusBar();
   private ActionExit exit = new ActionExit();
   private DockingPane dockingPane = new DockingPane();
-  private Gedcom gedcom = null;
+  private Context context= null;
   private Runnable runOnExit;
   private List<WorkbenchListener> listeners = new CopyOnWriteArrayList<WorkbenchListener>();
+  private List<Object> plugins = new ArrayList<Object>();
 
   /**
    * Constructor
@@ -114,6 +124,16 @@ public class Workbench extends JPanel {
     registry = new Registry(setRegistry, "cc");
     windowManager = WindowManager.getInstance();
     runOnExit = onExit;
+    
+    // plugins
+    for (PluginFactory pf : ServiceLookup.lookup(PluginFactory.class)) {
+      LOG.info("Loading plugin "+pf.getClass());
+      try {
+        plugins.add(pf.createPlugin(this));
+      } catch (Throwable t) {
+        LOG.log(Level.WARNING, "Plugin creation threw exception", t);
+      }
+    }
 
     // Layout
     setLayout(new BorderLayout());
@@ -124,6 +144,8 @@ public class Workbench extends JPanel {
     // Init menu bar at this point (so it's ready when the first file is loaded)
     menuBar = createMenuBar();
 
+    // FIXME docket restore last selected context
+    
     // Done
   }
 
@@ -147,6 +169,39 @@ public class Workbench extends JPanel {
    */
   /* package */JMenuBar getMenuBar() {
     return menuBar;
+  }
+
+  /**
+   * Lookup all workbench related action providers (from views and plugins)
+   */
+  /*package*/ List<ActionProvider> getActionProviders() {
+    
+    List<ActionProvider> result = new ArrayList<ActionProvider>();
+    
+    // check all dock'd views
+    for (Object key : dockingPane.getDockableKeys()) {
+      Dockable dockable = dockingPane.getDockable(key);
+      if (dockable instanceof ViewDockable) {
+        ViewDockable vd = (ViewDockable)dockable;
+        if (vd.getContent() instanceof ActionProvider)
+          result.add((ActionProvider)vd.getContent());
+      }
+    }
+    
+    // check all plugins
+    for (Object plugin : plugins) {
+      if (plugin instanceof ActionProvider)
+        result.add((ActionProvider)plugin);
+    }
+    
+    // sort by priority
+    Collections.sort(result, new Comparator<ActionProvider>() {
+      public int compare(ActionProvider a1, ActionProvider a2) {
+        return a2.getPriority() - a1.getPriority();
+      }
+    });
+    
+    return result;
   }
 
   /**
@@ -258,8 +313,16 @@ public class Workbench extends JPanel {
     return result;
   }
 
-  public void fireSelection(Context context, boolean isActionPerformed) {
+  public void fireCommit() {
     for (WorkbenchListener listener : listeners)
+      listener.commitRequested();
+  }
+  
+  public void fireSelection(Context context, boolean isActionPerformed) {
+    
+    this.context = new Context(context);
+
+    for (WorkbenchListener listener : listeners) 
       listener.selectionChanged(context, isActionPerformed);
   }
 
@@ -269,6 +332,37 @@ public class Workbench extends JPanel {
 
   public void removeWorkbenchListener(WorkbenchListener listener) {
     listeners.remove(listener);
+  }
+
+  /**
+   * (re)open a view
+   */
+  public View openView(ViewFactory factory, Context context) {
+    
+    // grab current Gedcom
+    if (context == null)
+      throw new IllegalArgumentException("Cannot open view without context");
+
+    // already open or new
+    ViewDockable dockable = (ViewDockable)dockingPane.getDockable(factory);
+    if (dockable != null) {
+      // bring forward
+      dockingPane.putDockable(factory, dockable);
+      // done
+      return dockable.getView();
+    }
+    dockable = new ViewDockable(Workbench.this, factory, context);
+
+    dockingPane.putDockable(factory, dockable);
+
+    dockable.getDocked().addTool(new ActionCloseView(factory));
+
+    // FIXME install some accelerators
+    // new
+    // ActionSave(gedcom).setTarget(handle.getView()).install(handle.getView(),
+    // JComponent.WHEN_IN_FOCUSED_WINDOW);
+    
+    return dockable.getView();
   }
 
   /**
@@ -343,12 +437,9 @@ public class Workbench extends JPanel {
 
     /** run */
     protected void execute() {
-      // FIXME docket commit on all views
-      // // force a commit
-      // for (Gedcom gedcom : GedcomDirectory.getInstance().getGedcoms()) {
-      // WindowManager.broadcast(new CommitRequestedEvent(gedcom,
-      // Workbench.this));
-      // }
+      // commit on all views
+      fireCommit();
+      
       // Remember open gedcoms
       Collection save = new ArrayList();
       for (Iterator gedcoms = GedcomDirectory.getInstance().getGedcoms().iterator(); gedcoms.hasNext();) {
@@ -607,7 +698,7 @@ public class Workbench extends JPanel {
       if (gedcomBeingLoaded != null) {
 
         // remember
-        gedcom = gedcomBeingLoaded;
+        context = new Context(gedcomBeingLoaded);
 
         GedcomDirectory.getInstance().registerGedcom(gedcomBeingLoaded);
 
@@ -627,7 +718,7 @@ public class Workbench extends JPanel {
         // }
         // }
 
-      }
+      } 
 
       // show warnings&stats
       if (reader != null) {
@@ -832,9 +923,9 @@ public class Workbench extends JPanel {
 
       // Choose currently selected Gedcom if necessary
       if (gedcomBeingSaved == null) {
-        if (gedcom == null)
+        if (context == null)
           return false;
-        gedcomBeingSaved = gedcom;
+        gedcomBeingSaved = context.getGedcom();
       }
 
       // Do we need a file-dialog or not?
@@ -997,7 +1088,7 @@ public class Workbench extends JPanel {
           ActionOpen open = new ActionOpen(newOrigin) {
             protected void postExecute(boolean preExecuteResult) {
               super.postExecute(preExecuteResult);
-              // FIXME copy registry from old
+              // FIXME docket copy registry from old
               // if (gedcomBeingLoaded!=null) {
               // ViewManager.getRegistry(gedcomBeingLoaded).set(ViewManager.getRegistry(gedcomBeingSaved));
               // }
@@ -1036,25 +1127,14 @@ public class Workbench extends JPanel {
 
     /** run */
     protected void execute() {
-
-      // already open?
-      if (dockingPane.getDockable(factory) != null)
+      if (context==null)
         return;
-
-      // grab current Gedcom
-      if (gedcom == null)
-        return;
-
-      ViewDockable dockable = new ViewDockable(Workbench.this, factory, gedcom);
-
-      dockingPane.putDockable(factory, dockable);
-
-      dockable.getDocked().addTool(new ActionCloseView(factory));
-
-      // FIXME install some accelerators
-      // new
-      // ActionSave(gedcom).setTarget(handle.getView()).install(handle.getView(),
-      // JComponent.WHEN_IN_FOCUSED_WINDOW);
+      if (context.getEntity()==null) {
+        Entity adam = context.getGedcom().getFirstEntity(Gedcom.INDI);
+        if (adam!=null)
+          context = new Context(adam);
+      }
+      openView(factory, context);
     }
   } // ActionOpenView
 

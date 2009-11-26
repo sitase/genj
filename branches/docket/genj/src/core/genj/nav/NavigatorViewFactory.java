@@ -19,7 +19,7 @@
  */
 package genj.nav;
 
-import genj.gedcom.Gedcom;
+import genj.gedcom.Context;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
@@ -37,8 +37,8 @@ public class NavigatorViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry)
    */
-  public View createView(String title, Gedcom gedcom, Registry registry) {
-    return new NavigatorView(title,gedcom,registry);
+  public View createView(String title, Registry registry, Context context) {
+    return new NavigatorView(title,context,registry);
   }
   
   /**

@@ -22,6 +22,7 @@ package genj.view;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
+import genj.util.swing.Action2;
 
 import java.util.List;
 
@@ -29,25 +30,28 @@ import java.util.List;
  * Support for a actions of property/entity/gedcom
  */
 public interface ActionProvider {
-  
+
+  /** a priority between 0-100 */
+  public int getPriority();
+
   /**
    * Callback for actions on a list of entities
    */
-  public List createActions(Property[] properties);
+  public List<Action2> createActions(Property[] properties);
   
   /**
    * Callback for actions on a property
    */
-  public List createActions(Property property);
+  public List<Action2> createActions(Property property);
 
   /**
    * Callback for actions on an entity
    */
-  public List createActions(Entity entity);
+  public List<Action2> createActions(Entity entity);
 
   /**
    * Callback for actions on a gedcom
    */
-  public List createActions(Gedcom gedcom);
+  public List<Action2> createActions(Gedcom gedcom);
 
 } 

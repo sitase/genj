@@ -28,4 +28,6 @@ public interface WorkbenchListener {
 
   public void selectionChanged(Context context, boolean isActionPerformed);
 
+  public boolean commitRequested();
+  
 }

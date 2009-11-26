@@ -17,39 +17,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.entity;
+package genj.app;
 
-import genj.gedcom.Context;
-import genj.util.Registry;
-import genj.util.swing.ImageIcon;
-import genj.view.View;
-import genj.view.ViewFactory;
-
-
-/**
- * The factory for the EntityView
- */
-public class EntityViewFactory implements ViewFactory {
-
-  /**
-   * @see genj.view.ViewFactory#createView(String, Gedcom, Registry)
-   */
-  public View createView(String title, Registry registry, Context context) {
-    return new EntityView(title, context, registry);
-  }
-
-  /**
-   * @see genj.view.ViewFactory#getImage()
-   */
-  public ImageIcon getImage() {
-    return new ImageIcon(this, "images/View");
-  }
-
-  /**
-   * @see genj.view.ViewFactory#getName(boolean)
-   */
-  public String getTitle() {
-    return EntityView.resources.getString("title");
-  }
-
-} //EntityViewFactory
+public interface PluginFactory {
+  
+  public Object createPlugin(Workbench workbench);
+  
+}
