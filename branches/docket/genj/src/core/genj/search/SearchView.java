@@ -323,7 +323,7 @@ public class SearchView extends View {
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       choicePath.setText(tagPath.toString());
     }
   } //ActionPath
@@ -353,7 +353,7 @@ public class SearchView extends View {
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
 
       // analyze what we've got
       final JTextField field = choiceValue.getTextEditor();
@@ -441,7 +441,7 @@ public class SearchView extends View {
     }
 
     /** run (async) */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       search(gedcom);
     }
     
@@ -464,7 +464,7 @@ public class SearchView extends View {
     /**
      * after execute (on EDT)
      */
-    protected void postExecute(boolean preExecuteResult) {
+    protected boolean postExecute(boolean preExecuteResult) {
       // update count
       labelCount.setText(""+hitCount);
       // reset our state
@@ -475,6 +475,7 @@ public class SearchView extends View {
       actionSearch.setEnabled(true);
       actionStop.setEnabled(false);
       // done
+      return true;
     }
     
     /** search in gedcom (not on EDT) */
@@ -554,7 +555,7 @@ public class SearchView extends View {
       setEnabled(false);
     }
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       actionSearch.cancel(false);
     }
   } //ActionStop

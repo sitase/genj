@@ -28,6 +28,7 @@ import genj.util.WordBuffer;
 import genj.window.WindowManager;
 
 import java.awt.Dimension;
+import java.awt.event.ActionEvent;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -310,7 +311,7 @@ public class DateWidget extends JPanel {
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       PointInTime pit = DateWidget.this.getValue();
       if (pit!=null) {
         try {

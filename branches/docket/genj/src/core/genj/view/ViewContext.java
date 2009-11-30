@@ -35,7 +35,7 @@ import java.util.List;
  */  
 public class ViewContext extends Context {
   
-  private List actions = new ArrayList();
+  private List<Action2> actions = new ArrayList<Action2>();
   
   /**
    * Constructor
@@ -84,7 +84,7 @@ public class ViewContext extends Context {
   /**
    * Access to actions
    */
-  public List getActions() {
+  public List<Action2> getActions() {
     return Collections.unmodifiableList(actions);
   }
   

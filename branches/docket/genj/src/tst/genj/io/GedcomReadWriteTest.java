@@ -53,7 +53,7 @@ public class GedcomReadWriteTest extends TestCase {
     // write it encrypted
     File temp = File.createTempFile("test", ".ged");
     FileOutputStream out = new FileOutputStream(temp);
-    new GedcomWriter(ged, temp.getName(), null, out).write();
+    new GedcomWriter(ged, out).write();
     out.close();
     
     // read again - first without then with password
@@ -71,7 +71,7 @@ public class GedcomReadWriteTest extends TestCase {
     // write it encrypted a second time
     temp = File.createTempFile("test", ".ged");
     out = new FileOutputStream(temp);
-    new GedcomWriter(ged, temp.getName(), null, out).write();
+    new GedcomWriter(ged, out).write();
     out.close();
     
     // read again - this time with password
@@ -83,7 +83,7 @@ public class GedcomReadWriteTest extends TestCase {
     temp = File.createTempFile("test", ".ged");
     out = new FileOutputStream(temp);
     ged.setPassword("");
-    new GedcomWriter(ged, temp.getName(), null, out).write();
+    new GedcomWriter(ged, out).write();
     out.close();
     
     // compare original to last temp now
@@ -107,7 +107,7 @@ public class GedcomReadWriteTest extends TestCase {
     // write it again
     File temp = File.createTempFile("test", ".ged");
     OutputStream out = new FileOutputStream(temp);
-    new GedcomWriter(ged, temp.getName(), null, out).write();
+    new GedcomWriter(ged, out).write();
     out.close();
     
     // compare line by line
@@ -131,7 +131,7 @@ public class GedcomReadWriteTest extends TestCase {
     
     // write it
     FileOutputStream out = new FileOutputStream(temp);
-    new GedcomWriter(ged, temp.getName(), null, out).write();
+    new GedcomWriter(ged, out).write();
     out.close();
     
     // diff files and there should be one difference

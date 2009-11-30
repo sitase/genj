@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.135.2.1 $ $Author: nmeier $ $Date: 2009-11-23 01:53:44 $
+ * $Revision: 1.135.2.2 $ $Author: nmeier $ $Date: 2009-11-30 01:31:04 $
  */
 package genj.gedcom;
 
@@ -219,6 +219,13 @@ public class Gedcom implements Comparable {
    */
   public Origin getOrigin() {
     return origin;
+  }
+  
+  /**
+   * Returns the origin of this gedcom
+   */
+  public void setOrigin(Origin origin) {
+    this.origin = origin;
   }
   
   /**

@@ -46,6 +46,7 @@ import java.awt.Component;
 import java.awt.ContainerOrderFocusTraversalPolicy;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -79,7 +80,7 @@ import spin.Spin;
 /* package */class BasicEditor extends Editor implements ContextProvider {
 
   /** keep a cache of descriptors */
-  private static Map META2DESCRIPTOR = new HashMap();
+  private static Map<MetaProperty, NestedBlockLayout> META2DESCRIPTOR = new HashMap<MetaProperty, NestedBlockLayout>();
   
   /** our gedcom */
   private Gedcom gedcom = null;
@@ -187,8 +188,33 @@ import spin.Spin;
   
   @Override
   public void commit() {
+    
+    // something to commit?
     if (ok.isEnabled())
-      ok.trigger();
+      return;
+    
+    // commit changes (without listing to the change itself)
+    try {
+      gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
+      gedcom.doMuteUnitOfWork(new UnitOfWork() {
+        public void perform(Gedcom gedcom) {
+          beanPanel.commit();
+        }
+      });
+    } finally {
+      gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
+    }
+
+    // lookup current focus now (any temporary props are committed now)
+    PropertyBean focussedBean = getFocus();
+    Property focus = focussedBean !=null ? focussedBean.getProperty() : null;
+    
+    // set selection
+    beanPanel.select(focus);
+
+    // done
+    ok.setEnabled(false);
+    cancel.setEnabled(false);
   }
   
   /**
@@ -197,8 +223,8 @@ import spin.Spin;
   public void setEntity(Entity set, Property focus) {
     
     // commit what needs to be committed
-    if (!gedcom.isWriteLocked()&&currentEntity!=null&&ok.isEnabled()&&view.isCommitChanges()) 
-      ok.trigger();
+    if (ok.isEnabled()&&!gedcom.isWriteLocked()&&currentEntity!=null&&view.isCommitChanges()) 
+      commit();
 
     // remember
     currentEntity = set;
@@ -395,32 +421,8 @@ import spin.Spin;
     }
 
     /** cancel current proxy */
-    protected void execute() {
-      
-      // bean panel?
-      if (beanPanel==null)
-        return;
-      
-      // commit changes (without listing to the change itself)
-      try {
-        gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
-        gedcom.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) {
-            beanPanel.commit();
-          }
-        });
-      } finally {
-        gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
-      }
-
-      // lookup current focus now (any temporary props are committed now)
-      PropertyBean focussedBean = getFocus();
-      Property focus = focussedBean !=null ? focussedBean.getProperty() : null;
-      
-      // set selection
-      beanPanel.select(focus);
-
-      // done
+    public void actionPerformed(ActionEvent event) {
+      commit();
     }
 
   } //OK
@@ -436,7 +438,7 @@ import spin.Spin;
     }
 
     /** cancel current proxy */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // disable ok&cancel
       ok.setEnabled(false);
       cancel.setEnabled(false);
@@ -854,7 +856,7 @@ import spin.Spin;
     }
   
     /** callback initiate create */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // safety check
       if (currentEntity==null)
@@ -895,7 +897,7 @@ import spin.Spin;
       setImage(Images.imgCut);
       this.prop = prop;
     }
-   protected void execute() {
+   public void actionPerformed(ActionEvent event) {
      
      // safety check
      if (currentEntity==null)

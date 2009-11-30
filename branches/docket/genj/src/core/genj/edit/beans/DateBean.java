@@ -29,6 +29,7 @@ import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.PopupWidget;
 import genj.util.swing.TextFieldWidget;
 
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 
 import javax.swing.JLabel;
@@ -174,7 +175,7 @@ public class DateBean extends PropertyBean {
       super.setText(set.getName());
     }
     
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       setFormat(formatToSet);
       date1.requestFocusInWindow();
     }

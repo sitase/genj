@@ -21,6 +21,7 @@ import genj.util.EnvironmentChecker;
 import genj.util.swing.Action2;
 import genj.view.ViewContext;
 
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -152,7 +153,7 @@ public class ReportValidate extends AnnotationsReport {
       final ViewContext ctx = new ViewContext(gedcom);
       ctx.setText(translate("err.nosubmitter", gedcom.getName())).setImage(Gedcom.getImage());
       ctx.addAction(new Action2(translate("fix")) {
-        protected void execute() {
+        public void actionPerformed(ActionEvent event) {
           setEnabled(false);
           gedcom.doMuteUnitOfWork(new UnitOfWork() {
             public void perform(Gedcom gedcom) throws GedcomException {

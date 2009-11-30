@@ -26,7 +26,6 @@ import genj.util.EnvironmentChecker;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.window.DefaultWindowManager;
 import genj.window.WindowManager;
 
 import java.io.File;
@@ -35,6 +34,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.MalformedURLException;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -69,26 +69,19 @@ public class App {
     synchronized (App.class) {
       if (startup==null)  {
         // run startup
-        startup = new Startup();
+        startup = new Startup(args);
         SwingUtilities.invokeLater(startup);
       }
     }
     
     // wait for startup do be done
     synchronized (startup) {
-      if (startup.center==null) try {
+      if (startup.workbench==null) try {
         startup.wait();
       } catch (InterruptedException e) {
       }
     }
 
-    // load
-    SwingUtilities.invokeLater(new Runnable() {
-      public void run() {
-        startup.center.load(args.length>0 ? args[0] : null);
-      }
-    });
-    
   }
   
   /**
@@ -96,11 +89,13 @@ public class App {
    */
   private static class Startup implements Runnable {
     
-    Workbench center;
+    private String[] args;
+    private Workbench workbench;
 
-    /**
-     * Constructor
-     */
+    Startup(String[] args) {
+      this.args = args;
+    }
+    
     public void run() {
       
       // Catch anything that might happen
@@ -188,11 +183,21 @@ public class App {
         }
         
         // setup control center
-        center = new Workbench(registry, new Shutdown(registry));
+        workbench = new Workbench(registry, new Shutdown(registry));
   
         // show it
-        WindowManager.getInstance().openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), center, center.getMenuBar(), center.getExitAction());
+        WindowManager.getInstance().openWindow("cc", resources.getString("app.title"), Gedcom.getImage(), workbench, workbench.getMenuBar(), 
+            new Runnable() { public void run() { workbench.exit(); } }
+        );
   
+        // load
+        if (args.length==0)
+          workbench.restoreGedcom();
+        else try {
+          workbench.openGedcom(new File(args[0]).toURI().toURL());
+        } catch (MalformedURLException e) {
+        }
+        
         // done
         LOG.info("/Startup");
       

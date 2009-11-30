@@ -28,6 +28,7 @@ import genj.window.WindowManager;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -138,7 +139,7 @@ public class BlueprintList extends JSplitPane {
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // check selection
       TreePath path = treeBlueprints.getSelectionPath();
       if (path==null) 
@@ -189,7 +190,7 @@ public class BlueprintList extends JSplitPane {
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // check selection
       TreePath path = treeBlueprints.getSelectionPath();
       if (path==null) 

@@ -19,7 +19,6 @@
  */
 package genj.app;
 
-import genj.common.ContextListWidget;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
@@ -39,7 +38,6 @@ import genj.io.GedcomReader;
 import genj.io.GedcomWriter;
 import genj.option.OptionProvider;
 import genj.option.OptionsWidget;
-import genj.util.DirectAccessTokenizer;
 import genj.util.EnvironmentChecker;
 import genj.util.Origin;
 import genj.util.Registry;
@@ -48,31 +46,26 @@ import genj.util.ServiceLookup;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
-import genj.util.swing.ChoiceWidget;
 import genj.util.swing.FileChooser;
 import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
-import genj.util.swing.ProgressWidget;
 import genj.view.ActionProvider;
 import genj.view.View;
 import genj.view.ViewFactory;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
+import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -84,10 +77,8 @@ import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JMenuBar;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 
 import swingx.docking.Dockable;
 import swingx.docking.DockingPane;
@@ -101,14 +92,14 @@ public class Workbench extends JPanel {
   
   private final static String ACC_SAVE = "ctrl S", ACC_EXIT = "ctrl X", ACC_NEW = "ctrl N", ACC_OPEN = "ctrl O";
 
+  private final static Resources RES = Resources.get(Workbench.class);
+
   /** members */
   private JMenuBar menuBar;
   private Registry registry;
-  private Resources resources = Resources.get(this);
   private WindowManager windowManager;
   private List<Action> gedcomActions = new ArrayList<Action>();
   private StatusBar stats = new StatusBar();
-  private ActionExit exit = new ActionExit();
   private DockingPane dockingPane = new DockingPane();
   private Context context= null;
   private Runnable runOnExit;
@@ -118,10 +109,10 @@ public class Workbench extends JPanel {
   /**
    * Constructor
    */
-  public Workbench(Registry setRegistry, Runnable onExit) {
+  public Workbench(Registry registry, Runnable onExit) {
 
     // Initialize data
-    registry = new Registry(setRegistry, "cc");
+    this.registry = new Registry(registry, "cc");
     windowManager = WindowManager.getInstance();
     runOnExit = onExit;
     
@@ -139,31 +130,360 @@ public class Workbench extends JPanel {
     setLayout(new BorderLayout());
     add(createToolBar(), BorderLayout.NORTH);
     add(dockingPane, BorderLayout.CENTER);
-    add(new StatusBar(), BorderLayout.SOUTH);
+    add(stats, BorderLayout.SOUTH);
 
     // Init menu bar at this point (so it's ready when the first file is loaded)
     menuBar = createMenuBar();
-
-    // FIXME docket restore last selected context
     
+    // start clean
+    for (Action a : gedcomActions) 
+      a.setEnabled(false);
+
     // Done
   }
 
   /**
-   * loads gedcom files
+   * asks and loads gedcom file
    */
-  public void load(String file) {
-    // Load known gedcoms
-    SwingUtilities.invokeLater(new ActionAutoOpen(file));
-  }
+  public boolean openGedcom() {
 
+    // close what we have
+    if (!closeGedcom())
+      return false;
+    
+    // ask user
+    File file = chooseFile(RES.getString("cc.open.title"), RES.getString("cc.open.action"), null);
+    if (file == null)
+      return false;
+    registry.put("last.dir", file.getParentFile().getAbsolutePath());
+    
+    // form origin
+    try {
+      return openGedcom(new URL("file", "", file.getAbsolutePath()));
+    } catch (MalformedURLException e) {
+      // shouldn't
+      return false;
+    }
+    // done
+  }
+  
   /**
-   * Exit action
+   * loads gedcom file
    */
-  /* package */Action2 getExitAction() {
-    return exit;
-  }
+  public boolean openGedcom(URL url) {
 
+    // close what we have
+    if (!closeGedcom())
+      return false;
+    
+    // open connection
+    Origin origin = Origin.create(url);
+
+//    try {
+//    } catch (MalformedURLException e) {
+//      windowManager.openDialog(null, RES.getString("cc.open.invalid_url"), WindowManager.ERROR_MESSAGE, url.toString(), Action2.okOnly(), Workbench.this);
+//      return;
+//    }
+
+    // Check if already open
+    if (GedcomDirectory.getInstance().getGedcom(origin.getName()) != null) {
+      windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.open.already_open", origin.getName()), Action2.okOnly(), Workbench.this);
+      return false;
+    }
+    
+    // FIXME docket read async
+    // Read it - we might try multiple times
+    Gedcom gedcom = null;
+    String password = Gedcom.PASSWORD_UNKNOWN;
+    while (gedcom==null) {
+      
+      // Open Connection and get input stream
+      GedcomReader reader;
+      try {
+  
+        // .. prepare our reader
+        reader = new GedcomReader(origin);
+  
+        // .. set password we're using
+        reader.setPassword(password);
+  
+      } catch (IOException ex) {
+        String txt = RES.getString("cc.open.no_connect_to", origin) + "\n[" + ex.getMessage() + "]";
+        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, txt, Action2.okOnly(), Workbench.this);
+        return false;
+      }
+
+      // .. show progress dialog
+      //String progress = windowManager.openNonModalDialog(null, RES.getString("cc.open.loading", origin.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(reader, getThread()), Action2.cancelOnly(), Workbench.this);
+    
+      try {
+        gedcom = reader.read();
+        
+        // grab warnings
+        // FIXME docket warnings in docket
+//        List warnings = reader.getWarnings();
+//        if (!warnings.isEmpty()) {
+//          windowManager.openNonModalDialog(null, RES.getString("cc.open.warnings", gedcom.getName()), WindowManager.WARNING_MESSAGE, new JScrollPane(new ContextListWidget(gedcom, warnings)), Action2.okOnly(), Workbench.this);
+//        }
+        
+      } catch (GedcomEncryptionException e) {
+        // retry with new password
+        password = windowManager.openDialog(null, origin.getName(), WindowManager.QUESTION_MESSAGE, RES.getString("cc.provide_password"), "", Workbench.this);
+      } catch (GedcomIOException ex) {
+        // tell the user about it
+        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.open.read_error", "" + ex.getLine()) + ":\n" + ex.getMessage(), Action2.okOnly(), Workbench.this);
+        // abort
+        return false;
+      } finally {
+        stats.handleRead(reader.getLines());
+        
+        // close progress
+        //windowManager.close(progress);
+      }
+    }
+
+    // remember
+    context = new Context(gedcom);
+
+    GedcomDirectory.getInstance().registerGedcom(gedcom);
+
+    // enable actions
+    for (Action a : gedcomActions) 
+      a.setEnabled(true);
+
+    // FIXME open views again
+    // if (Options.getInstance().isRestoreViews) {
+    // for (int i=0;i<views2restore.size();i++) {
+    // ViewHandle handle = ViewHandle.restore(viewManager,
+    // gedcomBeingLoaded, (String)views2restore.get(i));
+    // if (handle!=null)
+    // new
+    // ActionSave(gedcomBeingLoaded).setTarget(handle.getView()).install(handle.getView(),
+    // JComponent.WHEN_IN_FOCUSED_WINDOW);
+    // }
+    // }
+
+    stats.setGedcom(gedcom);
+
+    // done
+    return true;
+  }
+  
+  /**
+   * save gedcom file
+   */
+  public boolean saveAsGedcom() {
+    
+    if (context == null)
+      return false;
+    
+    // ask everyone to commit their data
+    fireCommit();
+    
+    // .. choose file
+    // FIXME docket let views participate in save filter
+    SaveOptionsWidget options = new SaveOptionsWidget(context.getGedcom(), new Filter[] {});
+    // (Filter[])viewManager.getViews(Filter.class, gedcomBeingSaved));
+    File file = chooseFile(RES.getString("cc.save.title"), RES.getString("cc.save.action"), options);
+    if (file == null)
+      return false;
+  
+    // Need confirmation if File exists?
+    if (file.exists()) {
+      int rc = windowManager.openDialog(null, RES.getString("cc.save.title"), WindowManager.WARNING_MESSAGE, RES.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
+      if (rc != 0) 
+        return false;
+    }
+    
+    // .. take chosen one & filters
+    if (!file.getName().endsWith(".ged"))
+      file = new File(file.getAbsolutePath() + ".ged");
+    
+    Filter[] filters = options.getFilters();
+    String password = Gedcom.PASSWORD_NOT_SET;
+    if (context.getGedcom().hasPassword())
+      password = options.getPassword();
+    String encoding = options.getEncoding();
+    
+    // swivel gedcom
+    Gedcom gedcom = context.getGedcom();
+    gedcom.setPassword(password);
+    gedcom.setEncoding(encoding);
+    // .. create new origin
+    try {
+      gedcom.setOrigin(Origin.create(new URL("file", "", file.getAbsolutePath())));
+    } catch (Throwable t) {
+      LOG.log(Level.FINER, "Failed to create origin for file "+file, t);
+      return false;
+    }
+  
+    return saveGedcomImpl(gedcom, filters);
+  }
+  
+  /**
+   * save gedcom file
+   */
+  public boolean saveGedcom() {
+
+    if (context == null)
+      return false;
+    
+    // ask everyone to commit their data
+    fireCommit();
+    
+    // do it
+    return saveGedcomImpl(context.getGedcom(), new Filter[0]);
+    
+  }
+  
+  /**
+   * save gedcom file
+   */
+  private boolean saveGedcomImpl(Gedcom gedcom, Filter[] filters) {
+  
+//  // .. open progress dialog
+//  progress = windowManager.openNonModalDialog(null, RES.getString("cc.save.saving", file.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(gedWriter, getThread()), Action2.cancelOnly(), getTarget());
+
+    // FIXME docket async write
+    try {
+      
+      // prep files and writer
+      GedcomWriter writer = null;
+      File file = null, temp = null;
+      try {
+        // .. resolve to canonical file now to make sure we're writing to the
+        // file being pointed to by a symbolic link
+        file = gedcom.getOrigin().getFile().getCanonicalFile();
+
+        // .. create a temporary output
+        temp = File.createTempFile("genj", ".ged", file.getParentFile());
+
+        // .. create writer
+        writer = new GedcomWriter(gedcom, new FileOutputStream(temp));
+      } catch (GedcomEncodingException gee) {
+        windowManager.openDialog(null, gedcom.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.save.write_encoding_error", gee.getMessage()), Action2.okOnly(), Workbench.this);
+        return false;
+      } catch (IOException ex) {
+        windowManager.openDialog(null, gedcom.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.save.open_error", gedcom.getOrigin().getFile().getAbsolutePath()), Action2.okOnly(), Workbench.this);
+        return false;
+      }
+      writer.setFilters(filters);
+
+      // .. write it
+      writer.write();
+      
+      // track what we read
+      stats.handleWrite(writer.getLines());
+      
+      // .. make backup
+      if (file.exists()) {
+        File bak = new File(file.getAbsolutePath() + "~");
+        if (bak.exists())
+          bak.delete();
+        file.renameTo(bak);
+      }
+
+      // .. and now !finally! move from temp to result
+      if (!temp.renameTo(file))
+        throw new GedcomIOException("Couldn't move temporary " + temp.getName() + " to " + file.getName(), -1);
+
+    } catch (GedcomIOException gioex) {
+      windowManager.openDialog(null, gedcom.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.save.write_error", "" + gioex.getLine()) + ":\n" + gioex.getMessage(), Action2.okOnly(), Workbench.this);
+      return false;
+    }
+
+//  // close progress
+//  windowManager.close(progress);
+    
+    // .. note changes are saved now
+    gedcom.doMuteUnitOfWork(new UnitOfWork() {
+      public void perform(Gedcom gedcom) throws GedcomException {
+        gedcom.setUnchanged();
+      }
+    });
+
+    // .. done
+    return false;
+  }
+  
+  /**
+   * exit workbench
+   */
+  public void exit() {
+    
+    // remember current context for exit
+    registry.put("restore.url", context!=null ? context.getGedcom().getOrigin().toString() : "");
+    
+    // Close all Windows
+    windowManager.closeAll();
+
+    // Shutdown
+    runOnExit.run();
+  }
+  
+  /**
+   * closes gedcom file
+   */
+  public boolean closeGedcom() {
+    
+    if (context==null)
+      return true;
+    
+    // commit changes
+    fireCommit();
+    
+    // changes?
+    if (context.getGedcom().hasChanged()) {
+      
+      // close file officially
+      int rc = windowManager.openDialog("confirm-exit", null, WindowManager.WARNING_MESSAGE, RES.getString("cc.savechanges?", context.getGedcom().getName()), Action2.yesNoCancel(), Workbench.this);
+      // cancel - we're done
+      if (rc == 2)
+        return false;
+      // yes - close'n save it
+      if (rc == 0) 
+        if (!saveGedcom())
+          return false;
+
+    }
+
+    // close dockets
+    for (Object key : dockingPane.getDockableKeys())
+      dockingPane.removeDockable(key);
+    
+    // disable buttons
+    for (Action a : gedcomActions) 
+      a.setEnabled(false);
+    
+    // clear stats
+    stats.setGedcom(null);
+    
+    // unregister
+    GedcomDirectory.getInstance().unregisterGedcom(context.getGedcom());
+    context = null;
+
+    // done
+    return true;
+  }
+  
+  /**
+   * Restores last loaded gedcom file
+   */
+  public void restoreGedcom() {
+
+    String restore = registry.get("restore.url", (String)null);
+    try {
+      // no known key means load default
+      if (restore==null)
+        restore = new File("gedcom/example.ged").toURI().toURL().toString();
+      // known key needs value
+      if (restore.length()>0)
+        openGedcom(new URL(restore));
+    } catch (Throwable t) {
+      LOG.log(Level.WARNING, "unexpected error", t);
+    }
+  }
+  
   /**
    * Returns a menu for frame showing this controlcenter
    */
@@ -215,7 +535,9 @@ public class Workbench extends JPanel {
     ButtonHelper bh = new ButtonHelper().setInsets(4).setContainer(result).setFontSize(10);
 
     // Open & New |
-    Action2 actionNew = new ActionNew(), actionOpen = new ActionOpen(), actionSave = new ActionSave(false, false);
+    Action2 actionNew = new ActionNew();
+    Action2 actionOpen = new ActionOpen();
+    Action2 actionSave = new ActionSave(false);
     actionNew.setText(null);
     actionOpen.setText(null);
     actionSave.setText(null);
@@ -251,26 +573,26 @@ public class Workbench extends JPanel {
     JMenuBar result = mh.createBar();
 
     // Create Menues
-    mh.createMenu(resources.getString("cc.menu.file"));
+    mh.createMenu(RES.getString("cc.menu.file"));
     mh.createItem(new ActionNew());
     mh.createItem(new ActionOpen());
-    mh.createSeparator();
 
-    Action2 save = new ActionSave(false, false), saveAs = new ActionSave(true, false);
-
+    Action2 save = new ActionSave(false);
+    Action2 saveAs = new ActionSave(true);
     gedcomActions.add(save);
     gedcomActions.add(saveAs);
-
     mh.createItem(save);
     mh.createItem(saveAs);
 
+    mh.createSeparator();
+    mh.createItem(new ActionClose());
+
     if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in
                                        // application menus apparently
-      mh.createSeparator();
-      mh.createItem(exit);
+      mh.createItem(new ActionExit());
     }
 
-    mh.popMenu().createMenu(resources.getString("cc.menu.view"));
+    mh.popMenu().createMenu(RES.getString("cc.menu.view"));
 
     for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
       ActionOpenView action = new ActionOpenView(factory);
@@ -304,7 +626,7 @@ public class Workbench extends JPanel {
     // if (!EnvironmentChecker.isMac())
     // result.add(Box.createHorizontalGlue());
 
-    mh.popMenu().createMenu(resources.getString("cc.menu.help"));
+    mh.popMenu().createMenu(RES.getString("cc.menu.help"));
 
     mh.createItem(new ActionHelp());
     mh.createItem(new ActionAbout());
@@ -321,7 +643,7 @@ public class Workbench extends JPanel {
   public void fireSelection(Context context, boolean isActionPerformed) {
     
     this.context = new Context(context);
-
+    
     for (WorkbenchListener listener : listeners) 
       listener.selectionChanged(context, isActionPerformed);
   }
@@ -391,15 +713,15 @@ public class Workbench extends JPanel {
   private class ActionAbout extends Action2 {
     /** constructor */
     protected ActionAbout() {
-      setText(resources, "cc.menu.about");
+      setText(RES, "cc.menu.about");
       setImage(Images.imgAbout);
     }
 
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       if (windowManager.show("about"))
         return;
-      windowManager.openDialog("about", resources.getString("cc.menu.about"), WindowManager.INFORMATION_MESSAGE, new AboutWidget(), Action2.okOnly(), Workbench.this);
+      windowManager.openDialog("about", RES.getString("cc.menu.about"), WindowManager.INFORMATION_MESSAGE, new AboutWidget(), Action2.okOnly(), Workbench.this);
       // done
     }
   } // ActionAbout
@@ -410,15 +732,15 @@ public class Workbench extends JPanel {
   private class ActionHelp extends Action2 {
     /** constructor */
     protected ActionHelp() {
-      setText(resources, "cc.menu.contents");
+      setText(RES, "cc.menu.contents");
       setImage(Images.imgHelp);
     }
 
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       if (windowManager.show("help"))
         return;
-      windowManager.openWindow("help", resources.getString("cc.menu.help"), Images.imgHelp, new HelpWidget(), null, null);
+      windowManager.openWindow("help", RES.getString("cc.menu.help"), Images.imgHelp, new HelpWidget(), null, null);
       // done
     }
   } // ActionHelp
@@ -427,86 +749,36 @@ public class Workbench extends JPanel {
    * Action - exit
    */
   private class ActionExit extends Action2 {
+    
     /** constructor */
     protected ActionExit() {
       setAccelerator(ACC_EXIT);
-      setText(resources, "cc.menu.exit");
+      setText(RES, "cc.menu.exit");
       setImage(Images.imgExit);
       setTarget(Workbench.this);
     }
-
+    
+    @Override
+    public void actionPerformed(ActionEvent e) {
+      exit();
+    }
+  }
+  
+  /**
+   * Action - close and exit
+   */
+  private class ActionClose extends Action2 {
+    
+    /** constructor */
+    protected ActionClose() {
+      setText(RES, "cc.menu.close");
+      setImage(Images.imgClose);
+      setTarget(Workbench.this);
+    }
+    
     /** run */
-    protected void execute() {
-      // commit on all views
-      fireCommit();
-      
-      // Remember open gedcoms
-      Collection save = new ArrayList();
-      for (Iterator gedcoms = GedcomDirectory.getInstance().getGedcoms().iterator(); gedcoms.hasNext();) {
-        // next gedcom
-        Gedcom gedcom = (Gedcom) gedcoms.next();
-        // changes need saving?
-        if (gedcom.hasChanged()) {
-          // close file officially
-          int rc = windowManager.openDialog("confirm-exit", null, WindowManager.WARNING_MESSAGE, resources.getString("cc.savechanges?", gedcom.getName()), Action2.yesNoCancel(), Workbench.this);
-          // cancel - we're done
-          if (rc == 2)
-            return;
-          // yes - close'n save it
-          if (rc == 0) {
-            // block exit
-            ActionExit.this.setEnabled(false);
-            // run save
-            new ActionSave(gedcom) {
-              // apres save
-              protected void postExecute(boolean preExecuteResult) {
-                try {
-                  // super first
-                  super.postExecute(preExecuteResult);
-                  // stop still unsaved changes that didn't make it through
-                  // saving
-                  if (gedcomBeingSaved.hasChanged())
-                    return;
-                } finally {
-                  // unblock exit
-                  ActionExit.this.setEnabled(true);
-                }
-                // continue with exit
-                ActionExit.this.trigger();
-              }
-            }.trigger();
-            return;
-          }
-          // no - skip it
-        }
-        // remember as being open, password and open views
-        File file = gedcom.getOrigin().getFile();
-        if (file == null || file.exists()) {
-          StringBuffer restore = new StringBuffer();
-          restore.append(gedcom.getOrigin());
-          restore.append(",");
-          if (gedcom.hasPassword())
-            restore.append(gedcom.getPassword());
-          restore.append(",");
-          // FIXME remember opened stuff
-          // ViewHandle[] views = viewManager.getViews(gedcom);
-          // for (int i=0, j=0;i<views.length;i++) {
-          // if (j++>0) restore.append(",");
-          // restore.append(views[i].persist());
-          // }
-          // save.add(restore);
-        }
-        // next gedcom
-      }
-      registry.put("open", save);
-
-      // Close all Windows
-      windowManager.closeAll();
-
-      // Shutdown
-      runOnExit.run();
-
-      // Done
+    public void actionPerformed(ActionEvent event) {
+      closeGedcom();
     }
   } // ActionExit
 
@@ -518,22 +790,22 @@ public class Workbench extends JPanel {
     /** constructor */
     ActionNew() {
       setAccelerator(ACC_NEW);
-      setText(resources, "cc.menu.new");
-      setTip(resources, "cc.tip.create_file");
+      setText(RES, "cc.menu.new");
+      setTip(RES, "cc.tip.create_file");
       setImage(Images.imgNew);
     }
 
     /** execute callback */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
 
       // let user choose a file
-      File file = chooseFile(resources.getString("cc.create.title"), resources.getString("cc.create.action"), null);
+      File file = chooseFile(RES.getString("cc.create.title"), RES.getString("cc.create.action"), null);
       if (file == null)
         return;
       if (!file.getName().endsWith(".ged"))
         file = new File(file.getAbsolutePath() + ".ged");
       if (file.exists()) {
-        int rc = windowManager.openDialog(null, resources.getString("cc.create.title"), WindowManager.WARNING_MESSAGE, resources.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
+        int rc = windowManager.openDialog(null, RES.getString("cc.create.title"), WindowManager.WARNING_MESSAGE, RES.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
         if (rc != 0)
           return;
       }
@@ -564,306 +836,28 @@ public class Workbench extends JPanel {
    */
   private class ActionOpen extends Action2 {
 
-    /** a preset origin we're reading from */
-    private Origin origin;
-
-    /** a reader we're working on */
-    private GedcomReader reader;
-
-    /** an error we might encounter */
-    private GedcomIOException exception;
-
-    /** a gedcom we're creating */
-    protected Gedcom gedcomBeingLoaded;
-
-    /** key of progress dialog */
-    private String progress;
-
-    /** password in use */
-    private String password = Gedcom.PASSWORD_NOT_SET;
-
-    /** views to load */
-    private List views2restore = new ArrayList();
-
-    /** constructor - good for reloading */
-    protected ActionOpen(String restore) throws MalformedURLException {
-
-      setAsync(ASYNC_SAME_INSTANCE);
-
-      // grab "file[, password][, view#x]"
-      DirectAccessTokenizer tokens = new DirectAccessTokenizer(restore, ",", false);
-      String url = tokens.get(0);
-      String pwd = tokens.get(1);
-      if (url == null)
-        throw new IllegalArgumentException("can't restore " + restore);
-
-      origin = Origin.create(url);
-      if (pwd != null && pwd.length() > 0)
-        password = pwd;
-
-      // grab views we're going to open if successful
-      for (int i = 2;; i++) {
-        String token = tokens.get(i);
-        if (token == null)
-          break;
-        if (token.length() > 0)
-          views2restore.add(tokens.get(i));
-      }
-
-      // done
-    }
-
     /** constructor - good for button or menu item */
     protected ActionOpen() {
       setAccelerator(ACC_OPEN);
-      setTip(resources, "cc.tip.open_file");
-      setText(resources, "cc.menu.open");
+      setTip(RES, "cc.tip.open_file");
+      setText(RES, "cc.menu.open");
       setImage(Images.imgOpen);
-      setAsync(ASYNC_NEW_INSTANCE);
-    }
-
-    /** constructor - good for loading a specific file */
-    protected ActionOpen(Origin setOrigin) {
-      setAsync(ASYNC_SAME_INSTANCE);
-      origin = setOrigin;
-    }
-
-    /**
-     * (sync) pre execute
-     */
-    protected boolean preExecute() {
-
-      // need to ask for origin?
-      if (origin == null) {
-        Action actions[] = { new Action2(resources, "cc.open.choice.local"), new Action2(resources, "cc.open.choice.inet"), Action2.cancel(), };
-        int rc = windowManager.openDialog(null, resources.getString("cc.open.title"), WindowManager.QUESTION_MESSAGE, resources.getString("cc.open.choice"), actions, Workbench.this);
-        switch (rc) {
-        case 0:
-          origin = chooseExisting();
-          break;
-        case 1:
-          origin = chooseURL();
-          break;
-        }
-      }
-      // try to open it
-      return origin == null ? false : open(origin);
     }
 
     /**
      * (Async) execute
      */
-    protected void execute() {
-      try {
-        gedcomBeingLoaded = reader.read();
-      } catch (GedcomIOException ex) {
-        exception = ex;
-      }
+    public void actionPerformed(ActionEvent event) {
+      openGedcom();
     }
-
-    /**
-     * (sync) post execute
-     */
-    protected void postExecute(boolean preExecuteResult) {
-
-      // close progress
-      windowManager.close(progress);
-
-      // any error bubbling up?
-      if (exception != null) {
-
-        // maybe try with different password
-        if (exception instanceof GedcomEncryptionException) {
-
-          password = windowManager.openDialog(null, origin.getName(), WindowManager.QUESTION_MESSAGE, resources.getString("cc.provide_password"), "", Workbench.this);
-
-          if (password == null)
-            password = Gedcom.PASSWORD_UNKNOWN;
-
-          // retry
-          exception = null;
-          trigger();
-
-          return;
-        }
-
-        // tell the user about it
-        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, resources.getString("cc.open.read_error", "" + exception.getLine()) + ":\n" + exception.getMessage(), Action2.okOnly(), Workbench.this);
-
-        return;
-
-      }
-
-      // got a successfull gedcom
-      if (gedcomBeingLoaded != null) {
-
-        // remember
-        context = new Context(gedcomBeingLoaded);
-
-        GedcomDirectory.getInstance().registerGedcom(gedcomBeingLoaded);
-
-        // enable actions
-        for (int i = 0; i < gedcomActions.size(); i++)
-          ((Action2) gedcomActions.get(i)).setEnabled(true);
-
-        // FIXME open views again
-        // if (Options.getInstance().isRestoreViews) {
-        // for (int i=0;i<views2restore.size();i++) {
-        // ViewHandle handle = ViewHandle.restore(viewManager,
-        // gedcomBeingLoaded, (String)views2restore.get(i));
-        // if (handle!=null)
-        // new
-        // ActionSave(gedcomBeingLoaded).setTarget(handle.getView()).install(handle.getView(),
-        // JComponent.WHEN_IN_FOCUSED_WINDOW);
-        // }
-        // }
-
-      } 
-
-      // show warnings&stats
-      if (reader != null) {
-
-        stats.handleRead(reader.getLines());
-
-        // warnings
-        List warnings = reader.getWarnings();
-        if (!warnings.isEmpty()) {
-          windowManager.openNonModalDialog(null, resources.getString("cc.open.warnings", gedcomBeingLoaded.getName()), WindowManager.WARNING_MESSAGE, new JScrollPane(new ContextListWidget(gedcomBeingLoaded, warnings)), Action2.okOnly(), Workbench.this);
-        }
-      }
-
-      // done
-    }
-
-    /**
-     * choose a file
-     */
-    private Origin chooseExisting() {
-      // ask user
-      File file = chooseFile(resources.getString("cc.open.title"), resources.getString("cc.open.action"), null);
-      if (file == null)
-        return null;
-      // remember last directory
-      registry.put("last.dir", file.getParentFile().getAbsolutePath());
-      // form origin
-      try {
-        return Origin.create(new URL("file", "", file.getAbsolutePath()));
-      } catch (MalformedURLException e) {
-        return null;
-      }
-      // done
-    }
-
-    /**
-     * choose a url
-     */
-    private Origin chooseURL() {
-
-      // pop a chooser
-      String[] choices = (String[]) registry.get("urls", new String[0]);
-      ChoiceWidget choice = new ChoiceWidget(choices, "");
-      JLabel label = new JLabel(resources.getString("cc.open.enter_url"));
-
-      int rc = windowManager.openDialog(null, resources.getString("cc.open.title"), WindowManager.QUESTION_MESSAGE, new JComponent[] { label, choice }, Action2.okCancel(), Workbench.this);
-
-      // check the selection
-      String item = choice.getText();
-      if (rc != 0 || item.length() == 0)
-        return null;
-
-      // Try to form Origin
-      Origin origin;
-      try {
-        origin = Origin.create(item);
-      } catch (MalformedURLException ex) {
-        windowManager.openDialog(null, item, WindowManager.ERROR_MESSAGE, resources.getString("cc.open.invalid_url"), Action2.okCancel(), Workbench.this);
-        return null;
-      }
-
-      // Remember URL for dialog
-      Set remember = new HashSet();
-      remember.add(item);
-      for (int c = 0; c < choices.length && c < 9; c++) {
-        remember.add(choices[c]);
-      }
-      registry.put("urls", remember);
-
-      // ... continue
-      return origin;
-    }
-
-    /**
-     * Open Origin - continue with (async) execute if true
-     */
-    private boolean open(Origin origin) {
-
-      // Check if already open
-      if (GedcomDirectory.getInstance().getGedcom(origin.getName()) != null) {
-        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, resources.getString("cc.open.already_open", origin.getName()), Action2.okOnly(), Workbench.this);
-        return false;
-      }
-
-      // Open Connection and get input stream
-      try {
-
-        // .. prepare our reader
-        reader = new GedcomReader(origin);
-
-        // .. set password we're using
-        reader.setPassword(password);
-
-      } catch (IOException ex) {
-        String txt = resources.getString("cc.open.no_connect_to", origin) + "\n[" + ex.getMessage() + "]";
-        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, txt, Action2.okOnly(), Workbench.this);
-        return false;
-      }
-
-      // .. show progress dialog
-      progress = windowManager.openNonModalDialog(null, resources.getString("cc.open.loading", origin.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(reader, getThread()), Action2.cancelOnly(), Workbench.this);
-
-      // .. continue into (async) execute
-      return true;
-    }
-
   } // ActionOpen
-
-  /**
-   * Action - LoadLastOpen
-   */
-  private class ActionAutoOpen extends Action2 {
-    /** file to load */
-    private String file;
-
-    /** constructor */
-    private ActionAutoOpen(String file) {
-
-      this.file = file;
-
-      // check registry for the previously opened or default now
-      file = registry.get("open", "gedcom/example.ged");
-
-    }
-
-    /** run */
-    public void execute() {
-      try {
-        // check if it's a local file
-        File local = new File(file);
-        if (local.exists())
-          file = local.toURI().toURL().toString();
-        ActionOpen open = new ActionOpen(file);
-        open.trigger();
-      } catch (Throwable t) {
-      }
-    }
-  } // LastOpenLoader
 
   /**
    * Action - Save
    */
   private class ActionSave extends Action2 {
     /** whether to ask user */
-    private boolean ask;
+    private boolean saveAs;
     /** gedcom */
     protected Gedcom gedcomBeingSaved;
     /** writer */
@@ -882,229 +876,32 @@ public class Workbench extends JPanel {
     private String password;
 
     /**
-     * Constructor for saving gedcom file without interaction
+     * Constructor for saving gedcom 
      */
-    protected ActionSave(Gedcom gedcom) {
-      this(false, true);
-
-      // remember gedcom
-      this.gedcomBeingSaved = gedcom;
-    }
-
-    /**
-     * Constructor
-     */
-    protected ActionSave(boolean ask, boolean enabled) {
+    protected ActionSave(boolean saveAs) {
       // setup default target
       setTarget(Workbench.this);
       // setup accelerator - IF this is a no-ask save it instead of SaveAs
-      if (!ask)
+      if (!saveAs)
         setAccelerator(ACC_SAVE);
       // remember
-      this.ask = ask;
+      this.saveAs = saveAs;
       // text
-      if (ask)
-        setText(resources.getString("cc.menu.saveas"));
+      if (saveAs)
+        setText(RES.getString("cc.menu.saveas"));
       else
-        setText(resources.getString("cc.menu.save"));
-      setTip(resources, "cc.tip.save_file");
+        setText(RES.getString("cc.menu.save"));
+      setTip(RES, "cc.tip.save_file");
       // setup
       setImage(Images.imgSave);
-      setAsync(ASYNC_NEW_INSTANCE);
-      setEnabled(enabled);
     }
 
-    /**
-     * Initialize save
-     * 
-     * @see genj.util.swing.Action2#preExecute()
-     */
-    protected boolean preExecute() {
-
-      // Choose currently selected Gedcom if necessary
-      if (gedcomBeingSaved == null) {
-        if (context == null)
-          return false;
-        gedcomBeingSaved = context.getGedcom();
-      }
-
-      // Do we need a file-dialog or not?
-      Origin origin = gedcomBeingSaved.getOrigin();
-      String encoding = gedcomBeingSaved.getEncoding();
-      password = gedcomBeingSaved.getPassword();
-
-      if (ask || origin == null || origin.getFile() == null) {
-
-        // .. choose file
-        SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved, new Filter[] {});
-        // FIXME let views participate in save filter
-        // SaveOptionsWidget options = new SaveOptionsWidget(gedcomBeingSaved,
-        // (Filter[])viewManager.getViews(Filter.class, gedcomBeingSaved));
-        file = chooseFile(resources.getString("cc.save.title"), resources.getString("cc.save.action"), options);
-        if (file == null)
-          return false;
-
-        // .. take choosen one & filters
-        if (!file.getName().endsWith(".ged"))
-          file = new File(file.getAbsolutePath() + ".ged");
-        filters = options.getFilters();
-        if (gedcomBeingSaved.hasPassword())
-          password = options.getPassword();
-        encoding = options.getEncoding();
-
-        // .. create new origin
-        try {
-          newOrigin = Origin.create(new URL("file", "", file.getAbsolutePath()));
-        } catch (Throwable t) {
-        }
-
-      } else {
-
-        // .. form File from URL
-        file = origin.getFile();
-
-      }
-
-      // Need confirmation if File exists?
-      if (file.exists() && ask) {
-
-        int rc = windowManager.openDialog(null, resources.getString("cc.save.title"), WindowManager.WARNING_MESSAGE, resources.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
-        if (rc != 0) {
-          newOrigin = null;
-          // 20030221 no need to go for newOrigin in postExecute()
-          return false;
-        }
-
-      }
-
-      // ask everyone to commit their data
-      // FIXME docket commit views
-      // WindowManager.broadcast(new CommitRequestedEvent(gedcomBeingSaved,
-      // Workbench.this));
-
-      // .. open io
-      try {
-
-        // .. resolve to canonical file now to make sure we're writing to the
-        // file being pointed to by a sym link
-        file = file.getCanonicalFile();
-
-        // .. create a temporary output
-        temp = File.createTempFile("genj", ".ged", file.getParentFile());
-
-        // .. create writer
-        gedWriter = new GedcomWriter(gedcomBeingSaved, file.getName(), encoding, new FileOutputStream(temp));
-
-        // .. set options
-        gedWriter.setFilters(filters);
-        gedWriter.setPassword(password);
-
-      } catch (GedcomEncodingException ex) {
-        windowManager.openDialog(null, gedcomBeingSaved.getName(), WindowManager.ERROR_MESSAGE, resources.getString("cc.save.write_encoding_error", ex.getMessage()), Action2.okOnly(), Workbench.this);
-        return false;
-
-      } catch (IOException ex) {
-
-        windowManager.openDialog(null, gedcomBeingSaved.getName(), WindowManager.ERROR_MESSAGE, resources.getString("cc.save.open_error", file.getAbsolutePath()), Action2.okOnly(), Workbench.this);
-        return false;
-      }
-
-      // .. open progress dialog
-      progress = windowManager.openNonModalDialog(null, resources.getString("cc.save.saving", file.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(gedWriter, getThread()), Action2.cancelOnly(), getTarget());
-
-      // .. continue (async)
-      return true;
-
-    }
-
-    /**
-     * (async) execute
-     * 
-     * @see genj.util.swing.Action2#execute()
-     */
-    protected void execute() {
-
-      // catch io problems
-      try {
-
-        // .. do the write
-        gedWriter.write();
-
-        // .. make backup
-        if (file.exists()) {
-          File bak = new File(file.getAbsolutePath() + "~");
-          if (bak.exists())
-            bak.delete();
-          file.renameTo(bak);
-        }
-
-        // .. and now !finally! move from temp to result
-        if (!temp.renameTo(file))
-          throw new GedcomIOException("Couldn't move temporary " + temp.getName() + " to " + file.getName(), -1);
-
-        // .. note changes are saved now
-        if (newOrigin == null)
-          gedcomBeingSaved.doMuteUnitOfWork(new UnitOfWork() {
-            public void perform(Gedcom gedcom) throws GedcomException {
-              gedcomBeingSaved.setUnchanged();
-            }
-          });
-
-      } catch (GedcomIOException ex) {
-        ioex = ex;
-      }
-
-      // done
-    }
-
-    /**
-     * (sync) post write
-     * 
-     * @see genj.util.swing.Action2#postExecute(boolean)
-     */
-    protected void postExecute(boolean preExecuteResult) {
-
-      // close progress
-      windowManager.close(progress);
-
-      // problem encountered?
-      if (ioex != null) {
-        if (ioex instanceof GedcomEncodingException) {
-          windowManager.openDialog(null, gedcomBeingSaved.getName(), WindowManager.ERROR_MESSAGE, resources.getString("cc.save.write_encoding_error", ioex.getMessage()), Action2.okOnly(), Workbench.this);
-        } else {
-          windowManager.openDialog(null, gedcomBeingSaved.getName(), WindowManager.ERROR_MESSAGE, resources.getString("cc.save.write_error", "" + ioex.getLine()) + ":\n" + ioex.getMessage(), Action2.okOnly(), Workbench.this);
-
-        }
-      } else {
-        // SaveAs?
-        if (newOrigin != null) {
-
-          // .. close old
-          Gedcom alreadyOpen = GedcomDirectory.getInstance().getGedcom(newOrigin.getName());
-          if (alreadyOpen != null)
-            GedcomDirectory.getInstance().unregisterGedcom(alreadyOpen);
-
-          // .. open new
-          ActionOpen open = new ActionOpen(newOrigin) {
-            protected void postExecute(boolean preExecuteResult) {
-              super.postExecute(preExecuteResult);
-              // FIXME docket copy registry from old
-              // if (gedcomBeingLoaded!=null) {
-              // ViewManager.getRegistry(gedcomBeingLoaded).set(ViewManager.getRegistry(gedcomBeingSaved));
-              // }
-            }
-          };
-          open.password = password;
-          open.trigger();
-
-        }
-      }
-
-      // track what we read
-      if (gedWriter != null)
-        stats.handleWrite(gedWriter.getLines());
-
-      // .. done
+    @Override
+    public void actionPerformed(ActionEvent e) {
+      if (saveAs)
+        saveAsGedcom();
+      else
+        saveGedcom();
     }
 
   } // ActionSave
@@ -1120,13 +917,13 @@ public class Workbench extends JPanel {
     protected ActionOpenView(ViewFactory vw) {
       factory = vw;
       setText(factory.getTitle());
-      setTip(resources.getString("cc.tip.open_view", factory.getTitle()));
+      setTip(RES.getString("cc.tip.open_view", factory.getTitle()));
       setImage(factory.getImage());
       setEnabled(false);
     }
 
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       if (context==null)
         return;
       if (context.getEntity()==null) {
@@ -1151,7 +948,7 @@ public class Workbench extends JPanel {
     }
 
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       dockingPane.removeDockable(factory);
     }
   } // ActionCloseView
@@ -1162,12 +959,12 @@ public class Workbench extends JPanel {
   private class ActionOptions extends Action2 {
     /** constructor */
     protected ActionOptions() {
-      setText(resources.getString("cc.menu.options"));
+      setText(RES.getString("cc.menu.options"));
       setImage(OptionsWidget.IMAGE);
     }
 
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // create widget for options
       OptionsWidget widget = new OptionsWidget(getText());
       widget.setOptions(OptionProvider.getAllOptions());
@@ -1180,15 +977,16 @@ public class Workbench extends JPanel {
   /**
    * a little status tracker
    */
-  private class StatusBar extends JPanel implements GedcomMetaListener, GedcomDirectory.Listener {
+  private static class StatusBar extends JPanel implements GedcomMetaListener {
 
+    private Gedcom gedcom;
     private int commits;
     private int read, written;
 
     private JLabel[] ents = new JLabel[Gedcom.ENTITIES.length];
     private JLabel changes;
 
-    private StatusBar() {
+    StatusBar() {
 
       super(new NestedBlockLayout("<row><i/><f/><m/><n/><s/><b/><r/><cs wx=\"1\" gx=\"1\"/><mem/></row>"));
 
@@ -1196,12 +994,23 @@ public class Workbench extends JPanel {
         ents[i] = new JLabel("0", Gedcom.getEntityImage(Gedcom.ENTITIES[i]), SwingConstants.LEFT);
         add(ents[i]);
       }
-      changes = new JLabel();
-
+      changes = new JLabel("", SwingConstants.RIGHT);
+      
       add(changes);
       add(new HeapStatusWidget());
 
-      GedcomDirectory.getInstance().addListener(this);
+    }
+    
+    void setGedcom(Gedcom gedcom) {
+      if (this.gedcom!=null)
+        this.gedcom.removeGedcomListener(this);
+      this.gedcom = gedcom;
+      if (this.gedcom!=null)
+        this.gedcom.addGedcomListener(this);
+      commits = 0;
+      read = 0;
+      written = 0;
+      update();
     }
 
     public void gedcomWriteLockReleased(Gedcom gedcom) {
@@ -1218,20 +1027,24 @@ public class Workbench extends JPanel {
       written += lines;
       update();
     }
+    
+    private String count(int type) {
+      return gedcom==null ? "-" : ""+gedcom.getEntities(Gedcom.ENTITIES[type]).size();
+    }
 
     private void update() {
 
-      // FIXME docket workbench is for one gedcom & stats
-      // for (int i=0;i<Gedcom.ENTITIES.length;i++)
-      // ents[i].setText(gedcom.getEntities(Gedcom.ENTITIES[i]).size());
+      for (int i=0;i<Gedcom.ENTITIES.length;i++) {
+        ents[i].setText(count(i));
+      }
 
       WordBuffer buf = new WordBuffer(", ");
       if (commits > 0)
-        buf.append(resources.getString("stat.commits", new Integer(commits)));
+        buf.append(RES.getString("stat.commits", new Integer(commits)));
       if (read > 0)
-        buf.append(resources.getString("stat.lines.read", new Integer(read)));
+        buf.append(RES.getString("stat.lines.read", new Integer(read)));
       if (written > 0)
-        buf.append(resources.getString("stat.lines.written", new Integer(written)));
+        buf.append(RES.getString("stat.lines.written", new Integer(written)));
       changes.setText(buf.toString());
     }
 
@@ -1260,14 +1073,6 @@ public class Workbench extends JPanel {
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-    }
-
-    public void gedcomRegistered(int num, Gedcom gedcom) {
-      gedcom.addGedcomListener(this);
-    }
-
-    public void gedcomUnregistered(int num, Gedcom gedcom) {
-      gedcom.removeGedcomListener(this);
     }
 
   } // Stats

@@ -19,6 +19,8 @@
  */
 package genj.tree;
 
+import java.awt.event.ActionEvent;
+
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
@@ -95,7 +97,7 @@ public class Bookmark extends Action2 {
   /**
    * @see genj.util.swing.Action2#execute()
    */
-  protected void execute() {
+  public void actionPerformed(ActionEvent event) {
     // Either scroll to or change root
     TreeNode node = tree.getModel().getNode(entity);
     if (node!=null)

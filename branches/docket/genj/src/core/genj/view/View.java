@@ -107,7 +107,16 @@ public abstract class View extends JPanel implements SelectionListener {
    * Open a view 
    */
   public void open(ViewFactory factory) {
-    
+    // FIXME docket view from view
+  }
+  
+  /**
+   * Retrieve an existing view 
+   * @return open view or null
+   */
+  public View get(ViewFactory factory) {
+    // FIXME docket view from view
+    return null;
   }
   
   /**

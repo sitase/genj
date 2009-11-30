@@ -40,6 +40,7 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -407,7 +408,7 @@ public class NavigatorView extends View {
       setImage(target.getImage(false));
     }
     /** do it */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // follow immediately
       setCurrentEntity(target);
       // propagate to others

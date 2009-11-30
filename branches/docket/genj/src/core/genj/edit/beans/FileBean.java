@@ -231,7 +231,7 @@ public class FileBean extends PropertyBean {
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       preview.setZoom(zoom/100F);
       registry.put("file.zoom", zoom);
     }

@@ -25,6 +25,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 
 import java.awt.BorderLayout;
+import java.awt.event.ActionEvent;
 import java.util.Collections;
 
 import javax.swing.JPanel;
@@ -78,7 +79,7 @@ class ReportSelector extends JTabbedPane {
       setTip(Resources.get(this), "report.reload.tip");
       setEnabled(!ReportLoader.getInstance().isReportsInClasspath());
     }
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // .. do it (forced!);
       ReportLoader.clear();
       // .. get them

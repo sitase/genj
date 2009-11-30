@@ -35,6 +35,7 @@ import genj.window.WindowManager;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import java.awt.Point;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -179,7 +180,7 @@ public class ReportView extends View {
       setEnabled(false);
       this.start=start;
     }
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       start.cancel(false);
     }
   } //ActionStop
@@ -275,7 +276,7 @@ public class ReportView extends View {
     /**
      * execute
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // set report context
       report.setOwner(ReportView.this);
@@ -308,7 +309,7 @@ public class ReportView extends View {
     /**
      * post execute
      */
-    protected void postExecute(boolean preExecuteResult) {
+    protected boolean postExecute(boolean preExecuteResult) {
       
       context = null;
 
@@ -323,7 +324,7 @@ public class ReportView extends View {
 
       // no more cleanup to do?
       if (!preExecuteResult)
-        return;
+        return false;
 
       // check last line for url
       URL url = null;
@@ -344,6 +345,7 @@ public class ReportView extends View {
       }
 
       // done
+      return true;
     }
   } //ActionStart
 
@@ -355,7 +357,7 @@ public class ReportView extends View {
       setImage(imgSave);
       setTip(RESOURCES, "report.save.tip");
     }
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // .. choose file
       JFileChooser chooser = new JFileChooser(".");

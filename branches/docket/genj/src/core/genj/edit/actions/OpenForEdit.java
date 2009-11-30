@@ -19,6 +19,8 @@
  */
 package genj.edit.actions;
 
+import java.awt.event.ActionEvent;
+
 import genj.app.Workbench;
 import genj.edit.EditViewFactory;
 import genj.edit.Images;
@@ -45,7 +47,7 @@ public class OpenForEdit extends Action2 {
   /**
    * @see genj.util.swing.Action2#execute()
    */
-  protected void execute() {
+  public void actionPerformed(ActionEvent event) {
     workbench.openView(new EditViewFactory(), context);
   }
   

@@ -34,6 +34,7 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
+import java.awt.event.ActionEvent;
 import java.awt.geom.Dimension2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.print.PageFormat;
@@ -413,7 +414,7 @@ public class PrintTask extends Action2 implements Printable, Trackable {
   /**
    * @see genj.util.swing.Action2#execute()
    */
-  protected void execute() {
+  public void actionPerformed(ActionEvent event) {
     try {
       service.createPrintJob().print(new SimpleDoc(this, FLAVOR, null), attributes);
     } catch (PrintException e) {
@@ -424,13 +425,16 @@ public class PrintTask extends Action2 implements Printable, Trackable {
   /**
    * @see genj.util.swing.Action2#postExecute(boolean)
    */
-  protected void postExecute(boolean preExecuteResult) {
+  protected boolean postExecute(boolean preExecuteResult) {
     // close progress
     WindowManager.getInstance(owner).close(progress);
     // something we should know about?
-    if (throwable != null) 
+    if (throwable != null) {
       LOG.log(Level.WARNING, "print() threw error", throwable);
+      return false;
+    }
     // finished
+    return true;
   }
 
   /**

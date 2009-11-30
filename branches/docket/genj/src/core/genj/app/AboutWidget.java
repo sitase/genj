@@ -35,6 +35,7 @@ import genj.util.Resources;
 import genj.util.swing.Action2;
 
 import java.awt.BorderLayout;
+import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
@@ -238,7 +239,7 @@ public class AboutWidget extends JPanel{
     Log() {
       setText("Log");
     }
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       FileAssociation asso = FileAssociation.get(App.LOGFILE, "GenJ Log", AboutWidget.this);
       if (asso!=null)
         asso.execute(App.LOGFILE);

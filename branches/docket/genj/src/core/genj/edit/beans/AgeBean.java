@@ -27,6 +27,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.NestedBlockLayout;
 
+import java.awt.event.ActionEvent;
 import java.util.Arrays;
 
 import javax.swing.JButton;
@@ -105,7 +106,7 @@ public class AgeBean extends PropertyBean {
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       choice.setText(newAge);
     }
   } //ActionUpdate

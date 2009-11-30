@@ -47,6 +47,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
@@ -366,7 +367,7 @@ public class PropertyTableWidget extends JPanel  {
     Action2 createShortcut(String txt, final int y, final Container container) {
       
       Action2 shortcut = new Action2(txt.toUpperCase()) {
-        protected void execute() {
+        public void actionPerformed(ActionEvent event) {
           int x = 0;
           try { x = ((JViewport)table.getParent()).getViewPosition().x; } catch (Throwable t) {};
           table.scrollRectToVisible(new Rectangle(x, y, 1, getParent().getHeight()));

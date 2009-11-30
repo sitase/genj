@@ -24,6 +24,7 @@ import genj.gedcom.PropertyFile;
 import genj.io.FileAssociation;
 import genj.util.swing.Action2;
 
+import java.awt.event.ActionEvent;
 import java.io.File;
 
 /**
@@ -68,7 +69,7 @@ public class RunExternal extends Action2 {
   /**
    * @see genj.util.swing.Action2#execute()
    */
-  protected void execute() {
+  public void actionPerformed(ActionEvent event) {
     if (file==null)
       return;
     if (association==null)

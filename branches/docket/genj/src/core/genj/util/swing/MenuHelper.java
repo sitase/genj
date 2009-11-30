@@ -23,6 +23,7 @@ import genj.util.MnemonicAndText;
 
 import java.awt.Component;
 import java.awt.Font;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.Iterator;
@@ -44,6 +45,10 @@ public class MenuHelper  {
   
   private Stack menus            = new Stack();  // JMenu or JPopupMenu or JMenuBar
   private Component target       = null;
+  // FIXME docket inversion on ActionProvider/separator/popup
+  public final static Action2 NOOP = new Action2() {
+    public void actionPerformed(ActionEvent e) {};
+  };
 
   /** Setters */    
   public MenuHelper popMenu() { 
@@ -194,7 +199,7 @@ public class MenuHelper  {
     }
     
     // a NOOP results in separator
-    if (action == Action2.NOOP) {
+    if (action == MenuHelper.NOOP) {
       createSeparator();
       return null;
     }

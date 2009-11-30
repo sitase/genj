@@ -38,6 +38,7 @@ import genj.util.swing.TextFieldWidget;
 import genj.window.WindowManager;
 
 import java.awt.Insets;
+import java.awt.event.ActionEvent;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -338,7 +339,7 @@ public class Options extends OptionProvider {
       Open() {
         setText("...");
       }
-      protected void execute() {
+      public void actionPerformed(ActionEvent event) {
         File user_home_genj = new File(EnvironmentChecker.getProperty(UserHomeGenJOption.this, "user.home.genj", null, "trying to open user.home.genj")) ;
         FileAssociation asso = FileAssociation.get(user_home_genj, "", null);
         if (asso!=null) asso.execute(user_home_genj);
@@ -435,7 +436,7 @@ public class Options extends OptionProvider {
         return Options.getInstance().getResources().getString("option.filesssociations."+key);
       }
       /** action main */
-      protected void execute() {
+      public void actionPerformed(ActionEvent event) {
 
         // create panel with association fields
         JPanel panel = new JPanel();

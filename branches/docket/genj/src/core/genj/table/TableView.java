@@ -35,6 +35,7 @@ import genj.view.View;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -255,7 +256,7 @@ public class TableView extends View {
       }
       setAccelerator(KeyStroke.getKeyStroke(vk, KeyEvent.CTRL_DOWN_MASK));
     }
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       int next = -1;
       for (int i=0,j=Gedcom.ENTITIES.length; i<j; i++) {
         next = (i+j+dir)%Gedcom.ENTITIES.length;
@@ -279,7 +280,7 @@ public class TableView extends View {
       setImage(Gedcom.getEntityImage(mode.getTag()));
     }
     /** run */
-    public void execute() {
+    public void actionPerformed(ActionEvent event) {
       setMode(mode);
     }
   } //ActionMode

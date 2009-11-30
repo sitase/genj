@@ -36,6 +36,7 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
+import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
 import genj.view.View;
@@ -236,8 +237,22 @@ import javax.swing.tree.TreePath;
   
   @Override
   public void commit() {
-    if (ok.isEnabled())
-      ok.trigger();
+    if (ok.isEnabled()) {
+      Property root = tree.getRoot();
+      if (root==null)
+        return;
+      Gedcom gedcom = root.getGedcom();
+  
+      if (bean!=null) 
+        gedcom.doMuteUnitOfWork(new UnitOfWork() {
+          public void perform(Gedcom gedcom) {
+            bean.commit();
+          }
+        });
+
+      ok.setEnabled(false);
+      cancel.setEnabled(false);
+    }
   }
   
   /**
@@ -265,7 +280,7 @@ import javax.swing.tree.TreePath;
       setText(resources.getString("action.propagate", what)+" ...");
     }
     /** apply it */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // prepare options
       final TextAreaWidget text = new TextAreaWidget("", 4, 10, false, true);
@@ -353,7 +368,7 @@ import javax.swing.tree.TreePath;
     }
     
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // available
       final List selection = presetSelection!=null ? presetSelection : Property.normalize(tree.getSelection());
@@ -433,7 +448,7 @@ import javax.swing.tree.TreePath;
       setAccelerator(ACC_COPY);
     }
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // check selection
       List selection = presetSelection;
@@ -476,7 +491,7 @@ import javax.swing.tree.TreePath;
       setAccelerator(ACC_PASTE);
     }
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
 
       // grab the clipboard content now
       final String content;
@@ -539,7 +554,7 @@ import javax.swing.tree.TreePath;
       setImage(Images.imgNew);
     }
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // need to let user select tags to add?
       if (tags==null) {
@@ -598,25 +613,12 @@ import javax.swing.tree.TreePath;
     /** constructor */
     private OK() {
       setText(Action2.TXT_OK);
+      setEnabled(false);
     }
-  
-    /** cancel current proxy */
-    protected void execute() {
-  
-      Property root = tree.getRoot();
-      if (root==null)
-        return;
-      Gedcom gedcom = root.getGedcom();
-  
-      if (bean!=null) 
-        gedcom.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) {
-            bean.commit();
-          }
-        });
-
-      ok.setEnabled(false);
-      cancel.setEnabled(false);
+    
+    @Override
+    public void actionPerformed(ActionEvent e) {
+      commit();
     }
   
   } //OK
@@ -629,10 +631,11 @@ import javax.swing.tree.TreePath;
     /** constructor */
     private Cancel() {
       setText(Action2.TXT_CANCEL);
+      setEnabled(false);
     }
   
     /** cancel current proxy */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // disable ok&cancel
       ok.setEnabled(false);
       cancel.setEnabled(false);
@@ -659,8 +662,8 @@ import javax.swing.tree.TreePath;
       if (root!=null) {
         Gedcom gedcom = root.getGedcom();
         // ask user for commit if
-        if (!gedcom.isWriteLocked()&&bean!=null&&ok.isEnabled()&&editView.isCommitChanges()) 
-          ok.trigger();
+        if (ok.isEnabled()&&!gedcom.isWriteLocked()&&editView.isCommitChanges()) 
+          commit();
       }
 
       // Clean up
@@ -795,7 +798,7 @@ import javax.swing.tree.TreePath;
         result.addAction(new Paste((Property)selection.get(0)));
         
         // add
-        result.addAction(Action2.NOOP);
+        result.addAction(MenuHelper.NOOP);
         Property prop = (Property)selection.get(0);
         if (!prop.isTransient()) {
           result.addAction(new Add(prop));

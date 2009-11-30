@@ -31,16 +31,17 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
+import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 
@@ -72,8 +73,8 @@ public class SelectEntityWidget extends JPanel {
   private Registry registry = Registry.lookup("genj", null);
   
   /** sorts */
-  private Sort sort;
-  private List<Sort> sorts;
+  private TagPath sort;
+  private List<TagPath> sorts;
   
   private final static String[] SORTS = {
     "INDI:NAME",
@@ -124,14 +125,14 @@ public class SelectEntityWidget extends JPanel {
     }
 
     // assemble sorts
-    sorts = new ArrayList<Sort>(SORTS.length);
+    sorts = new ArrayList<TagPath>(SORTS.length);
     for (int i=0;i<SORTS.length;i++) {
       String path = SORTS[i];
       if (!path.startsWith(type))
         continue;
-      Sort s = new Sort(path);
-      sorts.add(s);
-      if (sort==null||path.equals(registry.get("select.sort."+type, ""))) sort = s;
+      TagPath p = new TagPath(path);
+      sorts.add(p);
+      if (sort==null||path.equals(registry.get("select.sort."+type, ""))) sort = p;
     }
 
     // prepare sorting widget
@@ -150,11 +151,28 @@ public class SelectEntityWidget extends JPanel {
     add(BorderLayout.WEST  , sortWidget);
 
     // init state
-    if (sort!=null) 
-      sort.trigger();
+    sort(sort);
     if (list.length>0) listWidget.setSelectedIndex(0);
     
     // done
+  }
+  
+  /**
+   * Sort by path
+   */
+  public void sort(TagPath path) {
+    // remember
+    sort = path;
+    registry.put("select.sort."+type, path.toString());
+    // Sort
+    PropertyComparator comparator = new PropertyComparator(path);
+    Arrays.sort(list, none!=null ? 1 : 0, list.length, comparator);
+    // reset our data
+    Entity selection = getSelection();
+    listWidget.setModel(new DefaultComboBoxModel(list));
+    sortWidget.setIcon(getPathImage(path));
+    sortWidget.setToolTipText(getPathText(path));
+    setSelection(selection);
   }
   
   /**
@@ -218,6 +236,23 @@ public class SelectEntityWidget extends JPanel {
     listWidget.removeActionListener(listener);
   }
   
+  private MetaProperty getMeta(TagPath tagPath) {
+    MetaProperty meta;
+    if (tagPath.length()>1&&tagPath.getLast().equals(PropertyDate.TAG))
+      meta = Grammar.V55.getMeta(new TagPath(tagPath, tagPath.length()-1));
+    else
+      meta = Grammar.V55.getMeta(tagPath);
+    return meta;
+  }
+  
+  private ImageIcon getPathImage(TagPath tagPath) {
+    return getMeta(tagPath).getImage();
+  }
+  
+  private String getPathText(TagPath tagPath) {
+    return RESOURCES.getString("select.sort", tagPath.length()==1?"ID":getMeta(tagPath).getName());
+  }
+  
   /**
    * Entity Rendering
    */
@@ -246,17 +281,15 @@ public class SelectEntityWidget extends JPanel {
       if (sort==null)
         return e.toString();
       
-      Property p = e.getProperty(sort.tagPath);
-      
       WordBuffer value = new WordBuffer(", ");
       
       // add sorting value first
-      value.append(getString(e.getProperty(sort.tagPath), "?"));
+      value.append(getString(e.getProperty(sort), "?"));
       
       // add all other sorts
-      for (Sort other : sorts) {
-        if (other!=sort && other.tagPath.getFirst().equals(sort.tagPath.getFirst())) {
-          value.append(getString(e.getProperty(other.tagPath), ""));
+      for (TagPath other : sorts) {
+        if (!other.equals(sort) && other.getFirst().equals(sort.getFirst())) {
+          value.append(getString(e.getProperty(other), ""));
         }
       }
       
@@ -284,41 +317,17 @@ public class SelectEntityWidget extends JPanel {
     /**
      * Constructor
      */
-    private Sort(String path) {
-      
-      // path
-      tagPath = new TagPath(path);
-
-      // image
-      MetaProperty meta;
-      if (tagPath.length()>1&&tagPath.getLast().equals(PropertyDate.TAG))
-        meta = Grammar.V55.getMeta(new TagPath(tagPath, tagPath.length()-1));
-      else
-        meta = Grammar.V55.getMeta(tagPath);
-      setImage(meta.getImage());
-      
-      // text
-      setText(RESOURCES.getString("select.sort", tagPath.length()==1?"ID":meta.getName()));
-      
-      // done
+    private Sort(TagPath path) {
+      tagPath = path;
+      setImage(getPathImage(path));
+      setTip(getPathText(path));
     }      
     
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
-      // remember
-      sort = this;
-      registry.put("select.sort."+type, tagPath.toString());
-      // Sort
-      Comparator comparator = new PropertyComparator(tagPath);
-      Arrays.sort(list, none!=null ? 1 : 0, list.length, comparator);
-      // reset our data
-      Entity selection = getSelection();
-      listWidget.setModel(new DefaultComboBoxModel(list));
-      sortWidget.setIcon(getImage());
-      sortWidget.setToolTipText(getText());
-      setSelection(selection);
+    public void actionPerformed(ActionEvent event) {
+      sort(tagPath);
     }
         
   } //Sort

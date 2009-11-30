@@ -215,7 +215,7 @@ public class FileChooserWidget extends JPanel {
     }
 
     /** choose file */    
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
 
       // create and show chooser      
       FileChooser fc = new FileChooser(FileChooserWidget.this, getName(), Action2.TXT_OK, extensions, directory);

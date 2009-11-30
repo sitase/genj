@@ -19,6 +19,8 @@
  */
 package genj.edit.actions;
 
+import java.awt.event.ActionEvent;
+
 import genj.edit.Images;
 import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
@@ -114,7 +116,7 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
   /**
    * @see genj.util.swing.Action2#execute()
    */
-  protected void execute() {
+  public void actionPerformed(ActionEvent event) {
     
     // prepare confirmation message for user
     String msg = getConfirmMessage();

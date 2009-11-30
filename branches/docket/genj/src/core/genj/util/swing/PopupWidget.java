@@ -245,7 +245,7 @@ public class PopupWidget extends JButton {
         
         List as = getActions();
         if (!as.isEmpty())
-          ((Action2)as.get(0)).trigger();
+          ((Action2)as.get(0)).actionPerformed(e);
       }
     }
   } //Model

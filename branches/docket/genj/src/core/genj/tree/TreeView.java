@@ -56,6 +56,7 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseWheelEvent;
@@ -959,7 +960,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       overview.setVisible(!overview.isVisible());
     }
   } //ActionOverview    
@@ -982,7 +983,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       setRoot(root);
     }
   } //ActionTree
@@ -999,7 +1000,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       model.setVertical(!model.isVertical());
       scrollToCurrent();
     }
@@ -1019,7 +1020,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       model.setFamilies(!model.isFamilies());
       scrollToCurrent();
     }
@@ -1039,7 +1040,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       model.setFoldSymbols(!model.isFoldSymbols());
       scrollToCurrent();
     }
@@ -1056,7 +1057,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     }
 
     /** do the choosin' */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // let the user choose an individual
       SelectEntityWidget select = new SelectEntityWidget(model.getGedcom(), Gedcom.INDI, null);
@@ -1091,7 +1092,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     /**
      * @see genj.util.swing.Action2#execute()
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       // calculate a name
       String name = "";

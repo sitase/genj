@@ -32,6 +32,7 @@ import genj.view.ActionProvider;
 import genj.view.View;
 import genj.view.ViewFactory;
 
+import java.awt.event.ActionEvent;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
@@ -170,7 +171,7 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
       return true;
     }
     /** callback */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
       try{
         

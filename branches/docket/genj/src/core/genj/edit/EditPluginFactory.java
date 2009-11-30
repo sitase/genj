@@ -64,8 +64,10 @@ import genj.gedcom.Submitter;
 import genj.gedcom.TagPath;
 import genj.io.FileAssociation;
 import genj.util.swing.Action2;
+import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
+import genj.view.View;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -261,7 +263,7 @@ public class EditPluginFactory implements PluginFactory {
         if (entity instanceof Submitter) createActions(result, (Submitter)entity);
         
         // separator
-        result.add(Action2.NOOP);
+        result.add(MenuHelper.NOOP);
     
         // Check what xrefs can be added
         MetaProperty[] subs = entity.getNestedMetaProperties(0);
@@ -279,15 +281,15 @@ public class EditPluginFactory implements PluginFactory {
         }
     
         // add delete
-        result.add(Action2.NOOP);
+        result.add(MenuHelper.NOOP);
         result.add(new DelEntity(entity));
         
         // add an "edit in EditView"
     // FIXME docket editor 2 editor    
-        EditView[] edits = EditView.getInstances(entity.getGedcom());
-        if (edits.length==0) {
-          result.add(new OpenForEdit(workbench, new Context(entity)));
-        }
+//        EditView[] edits = EditView.getInstances(entity.getGedcom());
+//        if (edits.length==0) {
+//          result.add(new OpenForEdit(workbench, new Context(entity)));
+//        }
         // done
         return result;
       }
@@ -311,7 +313,7 @@ public class EditPluginFactory implements PluginFactory {
           result.add(new CopyIndividual(gedcom, other));
       }
     
-      result.add(Action2.NOOP);
+      result.add(MenuHelper.NOOP);
       result.add(new Undo(gedcom, gedcom.canUndo()));
       result.add(new Redo(gedcom, gedcom.canRedo()));
     

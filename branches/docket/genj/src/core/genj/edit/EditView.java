@@ -41,10 +41,9 @@ import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
-import java.util.ArrayList;
+import java.awt.event.ActionEvent;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Stack;
 import java.util.logging.Logger;
@@ -65,14 +64,14 @@ public class EditView extends View implements ContextProvider  {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.edit");
   
-  /** instances */
-  private static List instances = new LinkedList();
-
   /** the gedcom we're looking at */
   private Gedcom  gedcom;
   
   /** the registry we use */
   private Registry registry;
+  
+  /** stack */
+  private Stack<Context> backs = new Stack<Context>(), forwards = new Stack<Context>();
   
   /** bean factory */
   private BeanFactory beanFactory;
@@ -83,7 +82,7 @@ public class EditView extends View implements ContextProvider  {
   /** actions we offer */
   private Sticky   sticky = new Sticky();
   private Back     back = new Back();
-  private Forward forward = new Forward();
+  private Forward  forward = new Forward();
   private Mode     mode;
   private Callback callback = new Callback();
   private Undo undo;
@@ -113,8 +112,7 @@ public class EditView extends View implements ContextProvider  {
     redo = new Redo(gedcom);
     
     // run mode switch if applicable
-    if (registry.get("advanced", false))
-      mode.trigger();
+    setAdvanced(registry.get("advanced", false));
     
     // add keybindings
     InputMap imap = getInputMap(WHEN_IN_FOCUSED_WINDOW);
@@ -179,9 +177,6 @@ public class EditView extends View implements ContextProvider  {
     // let super do its thing first
     super.addNotify();    
     
-    // remember
-    instances.add(this);
-    
     // listen to gedcom
     callback.enable();
     gedcom.addGedcomListener((GedcomListener)Spin.over(undo));
@@ -203,9 +198,6 @@ public class EditView extends View implements ContextProvider  {
     // remember mode
     registry.put("advanced", mode.advanced);
 
-    // forget this instance
-    instances.remove(this);
-    
     // don't listen to gedcom
     callback.disable();
     gedcom.removeGedcomListener((GedcomListener)Spin.over(undo));
@@ -262,20 +254,6 @@ public class EditView extends View implements ContextProvider  {
   }
   
   /**
-   * Return all open instances for given gedcom
-   */
-  /*package*/ static EditView[] getInstances(Gedcom gedcom) {
-    List result = new ArrayList();
-    Iterator it = instances.iterator();
-    while (it.hasNext()) {
-      EditView edit = (EditView)it.next();
-      if (edit.gedcom==gedcom)
-        result.add(edit);
-    }
-    return (EditView[])result.toArray(new EditView[result.size()]);
-  }
-  
-  /**
    * ContextProvider callback
    */
   public ViewContext getContext() {
@@ -316,14 +294,77 @@ public class EditView extends View implements ContextProvider  {
     
     
   }
+  
+  public void setAdvanced(boolean advanced) {
+    setEditor(advanced ? (Editor)new AdvancedEditor() : new BasicEditor());
+  }
+  
+  public void back() {
+    
+    if (backs.isEmpty())
+      return;
+
+    // push current on forward
+    Context old = editor.getContext();
+    if (old.getEntities().length>0) {
+      forwards.push(editor.getContext());
+      forward.setEnabled(true);
+    }
+    
+    // return to last
+    editor.setContext((Context)backs.pop());
+    
+    // reflect state
+    back.setEnabled(backs.size()>0);
+
+  }
+  
+  public void forward() {
+    
+    if (forwards.isEmpty())
+      return;
+    
+    // push current on back
+    Context old = editor.getContext();
+    if (old.getEntities().length>0) {
+      backs.push(editor.getContext());
+      back.setEnabled(true);
+    }
+    
+    // go forward
+    ViewContext context = new ViewContext((Context)forwards.pop());
+    
+    // let others know (we'll ignore the outgoing never receiving the incoming)
+    // FIXME docket propagate selection
+    //WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
+    editor.setContext(context);
+    
+    // reflect state
+    forward.setEnabled(forwards.size()>0);
+  }
 
   
   public void setContext(Context context) {
     
     // keep track of current editor's context
     ViewContext current = editor.getContext();
-    if (current.getEntity()!=context.getEntity())
-      back.push(current);
+    if (current.getEntity()!=context.getEntity()) {
+      
+      Context c = new Context(context.getEntity());
+      for (Property p : context.getProperties()) 
+        if (p.getEntity().equals(c.getEntity()))
+          c.addProperty(p);
+      
+      backs.push(c);
+      
+      // trim stack - arbitrarily chosen size
+      while (backs.size()>32)
+        backs.remove(0);
+      
+      back.setEnabled(true);
+      forwards.clear();
+      forward.setEnabled(false);
+    }
 
     // tell to editors
     editor.setContext(context);
@@ -381,7 +422,7 @@ public class EditView extends View implements ContextProvider  {
   public Entity getEntity() {
     return editor.getContext().getEntity();
   }
-  
+    
 //  /**
 //   * ContextMenu
 //   */
@@ -413,7 +454,7 @@ public class EditView extends View implements ContextProvider  {
       super.setTip(resources, "action.stick.tip");
     }
     /** run */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       isSticky = !isSticky;
     }
   } //Sticky
@@ -428,16 +469,16 @@ public class EditView extends View implements ContextProvider  {
       setEditor(new BasicEditor());
       setTip(resources, "action.mode");
     }
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       advanced = !advanced;
-      setEditor(advanced ? (Editor)new AdvancedEditor() : new BasicEditor());
+      setAdvanced(advanced);
     }
   } //Advanced
 
   /**
    * Forward to a previous context
    */  
-  private class Forward extends Back {
+  private class Forward extends Action2 {
     
     /**
      * Constructor
@@ -453,28 +494,10 @@ public class EditView extends View implements ContextProvider  {
     /**
      * go forward
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       
-      if (stack.size()==0)
-        return;
-      
-      // push current on back
-      Context old = editor.getContext();
-      if (old.getEntities().length>0) {
-        back.stack.push(editor.getContext());
-        back.setEnabled(true);
-      }
-      
-      // go forward
-      ViewContext context = new ViewContext((Context)stack.pop());
-      
-      // let others know (we'll ignore the outgoing never receiving the incoming)
-      // FIXME docket propagate selection
-      //WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
-      editor.setContext(context);
-      
-      // reflect state
-      setEnabled(stack.size()>0);
+      if (!forwards.isEmpty())
+        forward();
     }
     
   } //Forward
@@ -483,9 +506,6 @@ public class EditView extends View implements ContextProvider  {
    * Return to a previous context
    */  
   private class Back extends Action2 {
-    
-    /** stack of where to go back to  */
-    protected Stack stack = new Stack();
     
     /**
      * Constructor
@@ -502,74 +522,12 @@ public class EditView extends View implements ContextProvider  {
     /**
      * go back
      */
-    protected void execute() {
-      if (stack.size()==0)
-        return;
+    public void actionPerformed(ActionEvent event) {
       
-      // push current on forward
-      Context old = editor.getContext();
-      if (old.getEntities().length>0) {
-        forward.stack.push(editor.getContext());
-        forward.setEnabled(true);
-      }
-      
-      // return to last
-      ViewContext context = new ViewContext((Context)stack.pop());
-      
-      // let others know (we'll ignore the outgoing never receiving the incoming)
-      // FIXME docket propagate selection
-      //WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
-      editor.setContext(context);
-      
-      // reflect state
-      setEnabled(stack.size()>0);
+      if (!backs.isEmpty()) 
+        back();
     }
     
-    /** 
-     * push another on stack 
-     */
-    public void push(Context context) {
-      // clear forward
-      forward.clear();
-      // keep it
-      stack.push(new Context(context));
-      // trim stack - arbitrarily chosen size
-      while (stack.size()>32)
-        stack.remove(0);
-      // we're good
-      setEnabled(true);
-    }
-    
-    void clear() {
-      stack.clear();
-      setEnabled(false);
-    }
-    
-    void remove(Entity entity) {
-      // parse stack
-      for (Iterator it = stack.listIterator(); it.hasNext(); ) {
-        Context ctx = (Context)it.next();
-        Entity[] ents = ctx.getEntities();
-        for (int i = 0; i < ents.length; i++) {
-          if (ents[i]==entity) {
-            it.remove();
-            break;
-          }
-        }
-      }
-      // update status
-      setEnabled(!stack.isEmpty());
-    }
-    
-    void remove(Property prop) {
-      List list = Collections.singletonList(prop);
-      // parse stack
-      for (Iterator it = stack.listIterator(); it.hasNext(); ) {
-        Context ctx = (Context)it.next();
-        ctx.removeProperties(list);
-      }
-      
-    }
   } //Back
 
   /**
@@ -579,32 +537,58 @@ public class EditView extends View implements ContextProvider  {
     
     void enable() {
       gedcom.addGedcomListener((GedcomListener)Spin.over(this));
-      back.clear();
-      forward.clear();
+      backs.clear();
+      forwards.clear();
+      back.setEnabled(false);
+      forward.setEnabled(false);
     }
     
     void disable() {
       gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
-      back.clear();
-      forward.clear();
+      backs.clear();
+      forwards.clear();
+      back.setEnabled(false);
+      forward.setEnabled(false);
     }
     
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      back.remove(entity);
-      forward.remove(entity);
+      remove(entity, backs);
+      remove(entity, forwards);
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-      back.remove(removed);
-      forward.remove(removed);
+      remove(removed, backs);
+      remove(removed, forwards);
     }
 
     public void gedcomWriteLockReleased(Gedcom gedcom) {
+      // check action possible
+      back.setEnabled(!backs.isEmpty());
+      forward.setEnabled(!forwards.isEmpty());
       // check if we should go back to one
-      if (editor.getContext().getEntities().length==0) {
-        if (back.isEnabled()) back.execute();
+      if (editor.getContext().getEntities().length==0 && !backs.isEmpty())
+        back();
+    }
+    
+    void remove(Entity entity,  Stack<Context> stack) {
+      // parse stack
+      for (Iterator<Context> it = stack.listIterator(); it.hasNext(); ) {
+        Context ctx = it.next();
+        if (ctx.getEntity().equals(entity))
+          it.remove();
       }
     }
+    
+    void remove(Property prop, Stack<Context> stack) {
+      List<Property> list = Collections.singletonList(prop);
+      // parse stack
+      for (Iterator<Context> it = stack.listIterator(); it.hasNext(); ) {
+        Context ctx = it.next();
+        ctx.removeProperties(list);
+      }
+      
+    }
+
   } //Back
   
 } //EditView

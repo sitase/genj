@@ -19,6 +19,8 @@
  */
 package genj.edit.beans;
 
+import java.awt.event.ActionEvent;
+
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
 import genj.util.Registry;
@@ -108,7 +110,7 @@ public class SexBean extends PropertyBean {
       this.sex = sex;
       setText(PropertySex.getLabelForSex(sex));
     }
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       SexBean.this.changeSupport.fireChangeEvent();
     }
 

@@ -65,34 +65,25 @@ public class GedcomWriter implements Trackable {
   private boolean cancel = false;
   private Filter[] filters = new Filter[0];
   private Enigma enigma = null;
-  private String password;
-  private String encoding;
 
   /**
    * Constructor for a writer that will write gedcom-formatted output
    * on writeGedcom()
    * @param ged object to write out
-   * @param name file name stored as header value
-   * @param enc encoding - either IBMPC, ASCII, UNICODE or ANSEL
    * @param stream the stream to write to
    */
-  public GedcomWriter(Gedcom ged, String name, String enc, OutputStream stream) throws IOException, GedcomEncodingException {
-    this(ged,name,enc,false,stream);
-  }
-  public GedcomWriter(Gedcom ged, String name, String enc, boolean writeBOM, OutputStream stream) throws IOException, GedcomEncodingException  {
+  public GedcomWriter(Gedcom ged, OutputStream stream) throws IOException, GedcomEncodingException  {
     
     Calendar now = Calendar.getInstance();
 
     // init data
     gedcom = ged;
-    password = gedcom.getPassword();
-    encoding = enc!=null ? enc : ged.getEncoding();
-    file = name;
+    file = ged.getOrigin()==null ? "Uknown" : ged.getOrigin().getFileName();
     line = 0;
     date = PointInTime.getNow().getValue();
     time = new SimpleDateFormat("HH:mm:ss").format(now.getTime());
 
-    CharsetEncoder encoder = getCharset(writeBOM, stream, encoding).newEncoder();
+    CharsetEncoder encoder = getCharset(false, stream, ged.getEncoding()).newEncoder();
     encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
     out = new BufferedWriter(new OutputStreamWriter(stream, encoder));
     
@@ -180,13 +171,6 @@ public class GedcomWriter implements Trackable {
   }
   
   /**
-   * Sets password to use for properties marked for encryption
-   */
-  public void setPassword(String pwd) {
-    password = pwd;
-  }
-
-  /**
    * Number of lines written
    */
   public int getLines() {
@@ -257,7 +241,7 @@ public class GedcomWriter implements Trackable {
     writeLine( "1 GEDC");
     writeLine( "2 VERS "+gedcom.getGrammar().getVersion());
     writeLine( "2 FORM Lineage-Linked");
-    writeLine( "1 CHAR "+encoding);
+    writeLine( "1 CHAR "+gedcom.getEncoding());
     if (gedcom.getLanguage()!=null)
       writeLine( "1 LANG "+gedcom.getLanguage());
     if (gedcom.getPlaceFormat().length()>0) {
@@ -352,19 +336,19 @@ public class GedcomWriter implements Trackable {
       if (enigma==null) {
 
         // no need if password is unknown (data is already/still encrypted)
-        if (password==Gedcom.PASSWORD_UNKNOWN)
+        if (gedcom.getPassword()==Gedcom.PASSWORD_UNKNOWN)
           return value;
           
         // no need if password empty
-        if (password.length()==0)
+        if (gedcom.getPassword().length()==0)
           return value;
 
         // error if password isn't set    
-        if (password==Gedcom.PASSWORD_NOT_SET)
+        if (gedcom.getPassword()==Gedcom.PASSWORD_NOT_SET)
           throw new IOException("Password not set - needed for encryption");
           
         // error if can't encrypt
-        enigma = Enigma.getInstance(password);
+        enigma = Enigma.getInstance(gedcom.getPassword());
         if (enigma==null) 
           throw new IOException("Encryption not available");
           

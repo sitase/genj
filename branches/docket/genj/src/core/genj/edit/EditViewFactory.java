@@ -33,9 +33,6 @@ import genj.view.ViewFactory;
  */
 public class EditViewFactory implements ViewFactory {
     
-  /** a noop is used for separators in returning actions */  
-  private final static Action2 aNOOP = Action2.NOOP;
-  
   /**
    * @see genj.view.ViewFactory#createView(genj.gedcom.Gedcom, genj.util.Registry, java.awt.Frame)
    */

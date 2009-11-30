@@ -39,6 +39,7 @@ import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -232,7 +233,7 @@ public class BlueprintEditor extends JSplitPane {
       super.setTarget(BlueprintEditor.this);
     }
     /** @see genj.util.swing.Action2#execute() */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // only if gedcom is valid
       if (gedcom==null) return;
       // create a tree of available TagPaths

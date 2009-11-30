@@ -19,6 +19,8 @@
  */
 package genj.edit.actions;
 
+import java.awt.event.ActionEvent;
+
 import genj.edit.Images;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
@@ -61,7 +63,7 @@ public class Redo extends Action2 implements GedcomMetaListener {
   /**
    * Undo changes from last transaction
    */
-  protected void execute() {
+  public void actionPerformed(ActionEvent event) {
     if (gedcom.canRedo())
       gedcom.redoUnitOfWork();
   }

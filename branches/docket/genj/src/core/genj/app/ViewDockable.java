@@ -40,6 +40,7 @@ import java.awt.Component;
 import java.awt.Point;
 import java.awt.Toolkit;
 import java.awt.event.AWTEventListener;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -188,7 +189,7 @@ import swingx.docking.Docked;
    * WorkbenchListener callback - workbench signals request for commit of in-flight changes
    */
   public boolean commitRequested() {
-    return true;
+    return view.commit();
   }
   
   /**
@@ -250,7 +251,7 @@ import swingx.docking.Docked;
     /**
      * A Key press initiation of the context menu
      */
-    protected void execute() {
+    public void actionPerformed(ActionEvent event) {
       // only for jcomponents with focus
       Component focus = FocusManager.getCurrentManager().getFocusOwner();
       if (!(focus instanceof JComponent))
