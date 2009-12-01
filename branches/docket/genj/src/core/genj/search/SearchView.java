@@ -50,10 +50,8 @@ import java.awt.event.ActionListener;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 
 import javax.swing.AbstractListModel;
 import javax.swing.JCheckBox;
@@ -80,9 +78,6 @@ public class SearchView extends View {
    OPEN = "<font color=red>",
    CLOSE = "</font>",
    NEWLINE = "<br>";
-  
-  /** max # hits */
-  private final static int MAX_HITS = 255;
   
   /** default values */
   private final static String[]
@@ -119,7 +114,7 @@ public class SearchView extends View {
   private JCheckBox checkRegExp;
   private JLabel labelCount;
   
-  private Action2 actionSearch = new ActionSearch(), actionStop = new ActionStop();
+  private Action2 actionStart = new ActionStart(), actionStop = new ActionStop();
   
   /** history */
   private LinkedList<String> oldPaths, oldValues;
@@ -128,6 +123,9 @@ public class SearchView extends View {
   private final static ImageIcon
     IMG_START = new ImageIcon(SearchView.class, "Start"),
     IMG_STOP  = new ImageIcon(SearchView.class, "Stop" );
+  
+  /** worker */
+  private Worker worker;
 
   /**
    * Constructor
@@ -138,6 +136,25 @@ public class SearchView extends View {
     gedcom = context.getGedcom();
     this.registry = registry;
     
+    // setup worker
+    worker = new Worker((WorkerListener)Spin.over(new WorkerListener() {
+      public void more(List<Hit> hits) {
+        results.add(hits);
+        labelCount.setText(""+results.getSize());
+      }
+      public void started() {
+        // clear current results
+        results.clear();
+        labelCount.setText("");
+        actionStart.setEnabled(false);
+        actionStop.setEnabled(true);
+      }
+      public void stopped() {
+        actionStop.setEnabled(false);
+        actionStart.setEnabled(true);
+      }
+    }));
+    
     // lookup old search values & settings
     oldPaths = new LinkedList<String>(Arrays.asList(registry.get("old.paths" , DEFAULT_PATHS)));
     oldValues= new LinkedList<String>(Arrays.asList(registry.get("old.values", DEFAULT_VALUES)));
@@ -147,8 +164,8 @@ public class SearchView extends View {
     ActionListener aclick = new ActionListener() {
       /** button */
       public void actionPerformed(ActionEvent e) {
-        try { actionStop.trigger(); } catch (Throwable t) {}
-        actionSearch.trigger();
+        stop();
+        start();
       }
     };
     
@@ -200,6 +217,37 @@ public class SearchView extends View {
     // done
   }
   
+  public void start() {
+
+    // stop worker
+    worker.stop();
+    
+    // prep args
+    String value = choiceValue.getText();
+    String path = choicePath.getText();
+    remember(choiceValue, oldValues, value);
+    remember(choicePath , oldPaths , path );
+    
+    // start anew
+    TagPath p = null;
+    if (path.length()>0) try {
+      p = new TagPath(path);
+    } catch (IllegalArgumentException iae) {
+      WindowManager.getInstance(SearchView.this).openDialog(null,value,WindowManager.ERROR_MESSAGE,iae.getMessage(),Action2.okOnly(),SearchView.this);
+      return;
+    }
+    
+    worker.start(gedcom, p, value, checkRegExp.isSelected());
+    
+    // done
+  }
+  
+  public void stop() {
+    
+    worker.stop();
+    
+  }
+  
   /**
    * @see javax.swing.JComponent#addNotify()
    */
@@ -231,7 +279,7 @@ public class SearchView extends View {
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
    */
   public void populate(ToolBar toolbar) {
-    toolbar.add(actionSearch);
+    toolbar.add(actionStart);
     toolbar.add(actionStop);
   }
   
@@ -249,20 +297,6 @@ public class SearchView extends View {
     choice.setValues(old);
     choice.setText(value);
     // done
-  }
-
-  /**
-   * Returns a matcher for given pattern and regex flag
-   */
-  private Matcher getMatcher(String pattern, boolean regex) {
-
-    Matcher result = regex ? (Matcher)new RegExMatcher() : (Matcher)new SimpleMatcher();
-    
-    // init
-    result.init(pattern);
-    
-    // done
-    return result;
   }
 
   /**
@@ -397,150 +431,17 @@ public class SearchView extends View {
   /**
    * Action - trigger search
    */
-  private class ActionSearch extends Action2 {
-    /** tag path */
-    private TagPath tagPath = null;
-    /** count of hits found */
-    private int hitCount = 0;
-    /** entities found */
-    private Set<Entity> entities = new HashSet<Entity>();
-    /** hits */
-    private List<Hit> hits = new ArrayList<Hit>(MAX_HITS);
-    /** the current matcher*/
-    private Matcher matcher;
+  private class ActionStart extends Action2 {
     
     /** constructor */
-    private ActionSearch() {
+    private ActionStart() {
       setImage(IMG_START);
-      setAsync(ASYNC_SAME_INSTANCE);
-    }
-    /**
-     * before execute (sync)
-     */
-    protected boolean preExecute() {
-      // reset results
-      results.clear();
-      // update buttons
-      actionSearch.setEnabled(false);
-      actionStop.setEnabled(true);
-      // prepare matcher & path
-      String value = choiceValue.getText();
-      String path = choicePath.getText();
-      try {
-        matcher = getMatcher(value, checkRegExp.isSelected());
-        tagPath = path.length()>0 ? new TagPath(path) : null;
-      } catch (IllegalArgumentException e) {
-        WindowManager.getInstance(getTarget()).openDialog(null,value,WindowManager.ERROR_MESSAGE,e.getMessage(),Action2.okOnly(),SearchView.this);
-        return false;
-      }
-      // remember
-      remember(choiceValue, oldValues, value);
-      remember(choicePath , oldPaths , path );
-      // continue
-      return true;
-    }
-
-    /** run (async) */
-    public void actionPerformed(ActionEvent event) {
-      search(gedcom);
     }
     
-    /** run (sync() callback on EDT) */
-    protected void syncExecute() {
-      synchronized (hits) {
-        results.add(hits);
-        hits.clear();
-      }
-      labelCount.setText(""+hitCount);
-    }
-    
-    /**
-     * @see genj.util.swing.Action2#handleThrowable(java.lang.String, java.lang.Throwable)
-     */
-    protected void handleThrowable(String phase, Throwable t) {
-      WindowManager.getInstance(getTarget()).openDialog(null,null,WindowManager.INFORMATION_MESSAGE,t.getMessage() ,Action2.okOnly(),SearchView.this);
-    }
-
-    /**
-     * after execute (on EDT)
-     */
-    protected boolean postExecute(boolean preExecuteResult) {
-      // update count
-      labelCount.setText(""+hitCount);
-      // reset our state
-      entities.clear();
-      hits.clear();
-      hitCount = 0;
-      // toggle buttons
-      actionSearch.setEnabled(true);
-      actionStop.setEnabled(false);
-      // done
-      return true;
-    }
-    
-    /** search in gedcom (not on EDT) */
-    private void search(Gedcom gedcom) {
-      for (int t=0; t<Gedcom.ENTITIES.length; t++) {
-        for (Entity e : gedcom.getEntities(Gedcom.ENTITIES[t])) 
-          search(e);
-      }
-    }
-    
-    /** search entity (not on EDT) */
-    private void search(Entity entity) {
-      search(entity, entity, 0);
-    }
-    
-    /** search property (not on EDT) */
-    private void search(Entity entity, Property prop, int pathIndex) {
-      // still going?
-      if (getThread().isInterrupted()) return;
-      // got a path?
-      boolean searchThis = true;
-      if (tagPath!=null) {
-        // break if we don't match path
-        if (pathIndex<tagPath.length()&&!tagPath.get(pathIndex).equals(prop.getTag())) 
-          return;
-        // search this if path is consumed 
-        searchThis = pathIndex>=tagPath.length()-1;
-      }
-      // parse all but transients
-      if (searchThis&&!prop.isTransient()) {
-        // check entity's id
-        if (entity==prop)
-          search(entity, entity, entity.getId(), true);
-        // check prop's value
-        search(entity, prop, prop.getDisplayValue(), false);
-      }
-      // check subs
-      int n = prop.getNoOfProperties();
-      for (int i=0;i<n;i++) {
-        search(entity, prop.getProperty(i), pathIndex+1);
-      }
-      // done
-    }
-
-    /** search property's value */
-    private void search(Entity entity, Property prop, String value, boolean isID) {
-      // look for matches
-      Matcher.Match[] matches = matcher.match(value);
-      if (matches.length==0)
-        return;
-      // too many?
-      if (hitCount==MAX_HITS)
-        throw new IndexOutOfBoundsException(resources.getString("maxhits", Integer.toString(MAX_HITS)));
-      hitCount++;
-      // keep entity
-      entities.add(entity);
-      // create a hit
-      Hit hit = new Hit(prop, value, matches, entities.size(), isID);
-      // keep it
-      synchronized (hits) {
-        hits.add(hit);
-        // sync (on first)?
-        if (hits.size()==1) sync();
-      }
-      // done
+    @Override
+    public void actionPerformed(ActionEvent e) {
+      stop();
+      start();
     }
     
   } //ActionSearch
@@ -556,7 +457,7 @@ public class SearchView extends View {
     }
     /** run */
     public void actionPerformed(ActionEvent event) {
-      actionSearch.cancel(false);
+      stop();
     }
   } //ActionStop
 

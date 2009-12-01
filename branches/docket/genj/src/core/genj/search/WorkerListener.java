@@ -19,41 +19,14 @@
  */
 package genj.search;
 
-import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Matching 
- */
-public abstract class Matcher {
-  
-  /** 
-   * init
-   */
-  public abstract void init(String pattern);
-  
-  /**
-   * match
-   */
-  public final Match[] match(String value) {
-    List<Match> result = new ArrayList<Match>(100);
-    match(value, result);
-    return (Match[])result.toArray(new Match[result.size()]);
-  }
+public interface WorkerListener {
 
-  /**
-   * match (impl)
-   */
-  protected abstract void match(String value, List<Match> result);
+  public void started();
   
-  /**
-   * A match
-   */
-  public static class Match {
-    /** section */
-    public int pos, len;
-    /** constructor */
-    protected Match(int p, int l) { pos=p; len=l; }
-  } //Match
-
-} //Matcher
+  public void more(List<Hit> hits);
+  
+  public void stopped();
+  
+}
