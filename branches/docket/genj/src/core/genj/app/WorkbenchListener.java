@@ -26,8 +26,22 @@ import genj.gedcom.Context;
  */
 public interface WorkbenchListener {
 
+  /**
+   * notification that selection has changed
+   * @param context the new selection
+   * @param isActionPerformed whether to perform action (normally double-click)
+   */
   public void selectionChanged(Context context, boolean isActionPerformed);
 
-  public boolean commitRequested();
+  /**
+   * notification that commit of edits is requested
+   */
+  public void commitRequested();
+  
+  /** 
+   * notification that workbench is closing
+   * @return whether to continue with close operation or not
+   */
+  public boolean workbenchClosing();
   
 }

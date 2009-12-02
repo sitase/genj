@@ -42,6 +42,7 @@ import genj.util.EnvironmentChecker;
 import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
+import genj.util.SafeProxy;
 import genj.util.ServiceLookup;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
@@ -119,11 +120,7 @@ public class Workbench extends JPanel {
     // plugins
     for (PluginFactory pf : ServiceLookup.lookup(PluginFactory.class)) {
       LOG.info("Loading plugin "+pf.getClass());
-      try {
-        plugins.add(pf.createPlugin(this));
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Plugin creation threw exception", t);
-      }
+      plugins.add(SafeProxy.harden(pf.createPlugin(this), LOG));
     }
 
     // Layout
@@ -139,6 +136,9 @@ public class Workbench extends JPanel {
     for (Action a : gedcomActions) 
       a.setEnabled(false);
 
+    // install some accelerators
+    new ActionSave(false).install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
+    
     // Done
   }
 
@@ -504,14 +504,14 @@ public class Workbench extends JPanel {
       if (dockable instanceof ViewDockable) {
         ViewDockable vd = (ViewDockable)dockable;
         if (vd.getContent() instanceof ActionProvider)
-          result.add((ActionProvider)vd.getContent());
+          result.add(SafeProxy.harden((ActionProvider)vd.getContent(), LOG));
       }
     }
     
     // check all plugins
     for (Object plugin : plugins) {
       if (plugin instanceof ActionProvider)
-        result.add((ActionProvider)plugin);
+        result.add(SafeProxy.harden((ActionProvider)plugin, LOG));
     }
     
     // sort by priority
@@ -634,6 +634,14 @@ public class Workbench extends JPanel {
     // Done
     return result;
   }
+  
+  public void addTool(Action2 tool, boolean toolbar) {
+    // FIXME docket support add of tool of toolbar and menu
+  }
+  
+  public void removeTool(Action2 tool) {
+    // FIXME docket support remove of tool
+  }
 
   public void fireCommit() {
     for (WorkbenchListener listener : listeners)
@@ -679,11 +687,6 @@ public class Workbench extends JPanel {
 
     dockable.getDocked().addTool(new ActionCloseView(factory));
 
-    // FIXME install some accelerators
-    // new
-    // ActionSave(gedcom).setTarget(handle.getView()).install(handle.getView(),
-    // JComponent.WHEN_IN_FOCUSED_WINDOW);
-    
     return dockable.getView();
   }
 
@@ -1014,7 +1017,6 @@ public class Workbench extends JPanel {
     }
 
     public void gedcomWriteLockReleased(Gedcom gedcom) {
-      commits++;
       update();
     }
 
@@ -1061,18 +1063,23 @@ public class Workbench extends JPanel {
     }
 
     public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
+      commits++;
     }
 
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
+      commits++;
     }
 
     public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
+      commits++;
     }
 
     public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
+      commits++;
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
+      commits++;
     }
 
   } // Stats

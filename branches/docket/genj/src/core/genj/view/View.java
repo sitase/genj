@@ -48,10 +48,8 @@ public abstract class View extends JPanel implements SelectionListener {
   
   /**
    * commit any outstanding changes
-   * @return true if committed
    */
-  public boolean commit() {
-    return true;
+  public void commit() {
   }
 
   /**

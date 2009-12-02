@@ -261,9 +261,8 @@ public class EditView extends View implements ContextProvider  {
   }
   
   @Override
-  public boolean commit() {
+  public void commit() {
     editor.commit();
-    return true;
   }
   
   public void select(Context context, boolean isActionPerformed) {

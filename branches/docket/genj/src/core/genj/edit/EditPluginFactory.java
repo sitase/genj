@@ -34,7 +34,6 @@ import genj.edit.actions.CreateSpouse;
 import genj.edit.actions.CreateXReference;
 import genj.edit.actions.DelEntity;
 import genj.edit.actions.DelProperty;
-import genj.edit.actions.OpenForEdit;
 import genj.edit.actions.Redo;
 import genj.edit.actions.RunExternal;
 import genj.edit.actions.SetPlaceHierarchy;
@@ -67,7 +66,6 @@ import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
-import genj.view.View;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -79,10 +77,6 @@ import java.util.List;
 import javax.swing.JPanel;
 
 public class EditPluginFactory implements PluginFactory {
-  
-  public int getPriority() {
-    return 100; // highest
-  }
   
   public Object createPlugin(Workbench workbench) {
     return new EditPlugin(workbench);
