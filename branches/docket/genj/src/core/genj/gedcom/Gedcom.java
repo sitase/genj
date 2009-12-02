@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.135.2.2 $ $Author: nmeier $ $Date: 2009-11-30 01:31:04 $
+ * $Revision: 1.135.2.3 $ $Author: nmeier $ $Date: 2009-12-02 03:39:07 $
  */
 package genj.gedcom;
 
@@ -994,6 +994,10 @@ public class Gedcom implements Comparable {
    * Clears flag for unsaved changes
    */
   public void setUnchanged() {
+    
+    // is dirty?
+    if (!isDirty)
+      return;
     
     // do it
     undoHistory.clear();
