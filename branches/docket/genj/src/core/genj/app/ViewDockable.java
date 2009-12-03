@@ -93,6 +93,7 @@ import swingx.docking.Docked;
     // create the view
     setContent(view);
     setTitle(title);
+    setIcon(factory.getImage());
   }
   
   public View getView() {
@@ -188,8 +189,15 @@ import swingx.docking.Docked;
   /**
    * WorkbenchListener callback - workbench signals request for commit of in-flight changes
    */
-  public boolean commitRequested() {
-    return view.commit();
+  public void commitRequested() {
+    view.commit();
+  }
+  
+  /**
+   * WorkbenchListener callback - workbench signals closing 
+   */
+  public boolean workbenchClosing() {
+    return view.closing();
   }
   
   /**
@@ -423,5 +431,11 @@ import swingx.docking.Docked;
     }
     
   } //ContextHook
+
+  public void gedcomClosed(Gedcom gedcom) {
+  }
+
+  public void gedcomOpened(Gedcom gedcom) {
+  }
   
 } //ViewDockable

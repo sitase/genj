@@ -31,6 +31,12 @@ import java.util.List;
  */
 public interface ActionProvider {
 
+  /** priorities */
+  public final static int
+    HIGH = 90,
+    NORMAL = 50,
+    LOW = 10;
+
   /** a priority between 0-100 */
   public int getPriority();
 

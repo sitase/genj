@@ -28,7 +28,7 @@ import genj.util.swing.ImageIcon;
  * The interface to a view's factory
  */
 public interface ViewFactory {
-
+  
   /**
    * Callback for creating a view 
    */

@@ -27,6 +27,7 @@ import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.logging.Logger;
 
 import javax.swing.AbstractAction;
@@ -309,6 +310,14 @@ public class Action2 extends AbstractAction {
     public Group(String text, ImageIcon imageIcon) {
       super(text);
       setImage(imageIcon);
+    }
+    
+    /** constructor */
+    public Group(String text, ImageIcon imageIcon, List<Action2> actions) {
+      super(text);
+      setImage(imageIcon);
+      
+      this.actions.addAll(actions);
     }
     
     public Group(String text) {

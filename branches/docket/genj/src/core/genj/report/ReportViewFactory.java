@@ -20,35 +20,20 @@
 package genj.report;
 
 import genj.gedcom.Context;
-import genj.gedcom.Entity;
-import genj.gedcom.Gedcom;
-import genj.gedcom.Property;
-import genj.gedcom.UnitOfWork;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
-import genj.view.ActionProvider;
 import genj.view.View;
 import genj.view.ViewFactory;
-
-import java.awt.event.ActionEvent;
-import java.util.Collections;
-import java.util.List;
-import java.util.logging.Level;
 
 
 /**
  * The factory for the TableView
  */
-public class ReportViewFactory implements ViewFactory, ActionProvider {
+public class ReportViewFactory implements ViewFactory {
 
   /*package*/ final static ImageIcon IMG = new ImageIcon(ReportViewFactory.class, "View");
 
-  public int getPriority() {
-    return 50; // normal
-  }
-  
   /**
    * Factory method - create instance of view
    */
@@ -69,134 +54,5 @@ public class ReportViewFactory implements ViewFactory, ActionProvider {
   public String getTitle() {
     return Resources.get(this).getString("title");
   }
-  
-  /**
-   * Plugin actions for entities
-   */
-  public List<Action2> createActions(Property[] properties) {
-    return getActions(properties, properties[0].getGedcom());
-  }
-
-  /**
-   * Plugin actions for entity
-   */
-  public List<Action2> createActions(Entity entity) {
-    return getActions(entity, entity.getGedcom());
-  }
-
-  /**
-   * Plugin actions for gedcom
-   */
-  public List<Action2> createActions(Gedcom gedcom) {
-    return getActions(gedcom, gedcom);
-  }
-
-  /**
-   * Plugin actions for property
-   */
-  public List<Action2> createActions(Property property) {
-    return getActions(property, property.getGedcom());
-  }
-
-  /**
-   * collects actions for reports valid for given context
-   */
-  private List getActions(Object context, Gedcom gedcom) {
-    
-    Action2.Group result = new Action2.Group("Reports");
-    Action2.Group batch = result;
-    
-    // Look through reports
-    for (Report report : ReportLoader.getInstance().getReports()) {
-      try {
-        String accept = report.accepts(context); 
-        if (accept!=null) {
-          ActionRun run = new ActionRun(accept, context, gedcom, report);
-          if (batch.size()>10) {
-            Action2.Group next = new Action2.Group("...");
-            batch.add(next);
-            batch = next;
-          }
-          batch.add(run);
-        }
-      } catch (Throwable t) {
-        ReportView.LOG.log(Level.WARNING, "Report "+report.getClass().getName()+" failed in accept()", t);
-      }
-    }
-    
-    // done
-    return Collections.singletonList(result);
-  }
-  
-  /**
-   * Run a report
-   */
-  private class ActionRun extends Action2 {
-    /** context */
-    private Object context;
-    /** gedcom */
-    private Gedcom gedcom;
-    /** report */
-    private Report report;
-    /** constructor */
-    private ActionRun(String txt, Object context, Gedcom gedcom, Report report) {
-      // remember
-      this.context = context;
-      this.gedcom = gedcom;
-      this.report = report;
-      // show
-      setImage(report.getImage());
-      setText(txt);
-      // we're async
-      setAsync(Action2.ASYNC_SAME_INSTANCE);
-    }
-    /** callback (edt sync) */
-    protected boolean preExecute() {
-      // a report with standard out?
-      if (report.usesStandardOut()) {
-// FIXME docket need to open report view on stdout report    	  
-//        // get handle of a ReportView 
-//        Object[] views = manager.getViews(ReportView.class, gedcom);
-//        ReportView view;
-//        if (views.length==0)
-//          view = (ReportView)manager.openView(ReportViewFactory.class, gedcom).getView();
-//        else 
-//          view = (ReportView)views[0];
-//        // run it in view
-//        view.run(report, context);
-        // we're done ourselves - don't go into execute()
-        return false;
-      }
-      // go ahead into async execute
-      return true;
-    }
-    /** callback */
-    public void actionPerformed(ActionEvent event) {
-      
-      try{
-        
-        if (report.isReadOnly())
-          report.start(context);
-        else
-          gedcom.doUnitOfWork(new UnitOfWork() {
-            public void perform(Gedcom gedcom) {
-              try {
-                report.start(context);
-              } catch (Throwable t) {
-                throw new RuntimeException(t);
-              }
-            }
-          });
-      
-      } catch (Throwable t) {
-        Throwable cause = t.getCause();
-        if (cause instanceof InterruptedException)
-          report.println("***cancelled");
-        else
-          ReportView.LOG.log(Level.WARNING, "encountered throwable in "+report.getClass().getName()+".start()", cause!=null?cause:t);
-      }
-    }
-    
-  } //ActionRun
 
 } //ReportViewFactory

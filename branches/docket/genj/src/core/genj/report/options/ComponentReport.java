@@ -30,7 +30,7 @@ public class ComponentReport extends Report
     /**
      * Report options. This list is generated from the components.
      */
-    private List<PropertyOption> options = null;
+    private List<Option> options = null;
 
     /**
      * Configurable components in categories.
@@ -102,7 +102,7 @@ public class ComponentReport extends Report
      * Generates the option list for this report.
      */
     @Override
-    public List<PropertyOption> getOptions()
+    public List<Option> getOptions()
     {
         if (options != null)
             return options;
@@ -142,7 +142,7 @@ public class ComponentReport extends Report
      * @param options
      * @param category
      */
-    private void addOptions(Map<String, AggregatorOption> optionsCache, List<PropertyOption> options, String category)
+    private void addOptions(Map<String, AggregatorOption> optionsCache, List<Option> options, String category)
     {
         for (PropertyOption option : options)
         {

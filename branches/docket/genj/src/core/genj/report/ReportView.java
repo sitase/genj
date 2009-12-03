@@ -22,7 +22,6 @@ package genj.report;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.UnitOfWork;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
@@ -47,18 +46,14 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.Writer;
-import java.net.URL;
 import java.nio.charset.Charset;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JScrollPane;
-import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
-import javax.swing.text.Element;
 
 // FIXME docket add report picker w/reload and grouping on run - add run last 
 /**
@@ -125,36 +120,136 @@ public class ReportView extends View {
     // save report options
     ReportLoader.getInstance().saveOptions();
   }
-
+  
   /**
-   * Runs a specific report
+   * start a report
    */
-  /*package*/ void run(Report report, Object context) {
-    // not if running
-    if (!actionStart.isEnabled()) 
-      return;
-    // to front
+  public void startReport(Report report, Object context) {
+    // FIXME docket startReport()
+  }
+  
+  public void startReport() {
     
-// FIXME docket report wants its view to come forward    
-//    manager.showView(this);
-    // start it
+//    ReportSelector selector = new ReportSelector();
+//    
+//    WindowManager.getInstance().openDialog("report", 
+//        RESOURCES.getString("report.reports"),
+//        WindowManager.QUESTION_MESSAGE, 
+//        selector, 
+//        Action2.okCancel(), 
+//        ReportView.this);
+//    
+//    // go
+//    setRunning(true);
+//
+//    report = selector.getReport();
+//    if (report==null)
+//      return false;
+//
+//    out = new PrintWriter(new OutputWriter());
+//
+//    // either use preset context, gedcom file or ask for entity
+//    Object useContext = context;
+//    context = null;
+//    
+//    if (useContext==null) {
+//      if (report.getStartMethod(gedcom)!=null)
+//        useContext = gedcom;
+//      else  for (int i=0;i<Gedcom.ENTITIES.length;i++) {
+//        String tag = Gedcom.ENTITIES[i];
+//        Entity sample = gedcom.getFirstEntity(tag);
+//        if (report.accepts(sample)!=null) {
+//          
+//          // give the report a chance to name our dialog
+//          String txt = report.accepts(sample.getClass());
+//          if (txt==null) Gedcom.getName(tag);
+//          
+//          // ask user for context now
+//          useContext = report.getEntityFromUser(txt, gedcom, tag);
+//          if (useContext==null) 
+//            return false;
+//          break;
+//        }
+//      }
+//    }
+//
+//    // check if appropriate
+//    if (useContext==null||report.accepts(useContext)==null) {
+//      WindowManager.getInstance(getTarget()).openDialog(null,report.getName(),WindowManager.ERROR_MESSAGE,RESOURCES.getString("report.noaccept"),Action2.okOnly(),ReportView.this);
+//      return false;
+//    }
+//    context = useContext;
+//
+//    // clear the current output
+//    output.clear();
+
+//    // set report context
+//    report.setOwner(ReportView.this);
+//    report.setOut(out);
+//
+//    try{
+//      
+//      if (report.isReadOnly())
+//        report.start(context);
+//      else
+//        gedcom.doUnitOfWork(new UnitOfWork() {
+//          public void perform(Gedcom gedcom) {
+//            try {
+//              report.start(context);
+//            } catch (Throwable t) {
+//              throw new RuntimeException(t);
+//            }
+//          }
+//        });
+//    
+//    } catch (Throwable t) {
+//      Throwable cause = t.getCause();
+//      if (cause instanceof InterruptedException)
+//        report.println("***cancelled");
+//      else
+//        report.println(cause!=null?cause:t);
+//    }
+//    context = null;
+//
+//    // stop run
+//    setRunning(false);
+//
+//    // flush
+//    if (out!=null) {
+//      out.flush();
+//      out.close();
+//    }
+//
+//    // no more cleanup to do?
+//    if (!preExecuteResult)
+//      return false;
+//
+//    // check last line for url
+//    URL url = null;
+//    try {
+//      AbstractDocument doc = (AbstractDocument)output.getDocument();
+//      Element p = doc.getParagraphElement(doc.getLength()-1);
+//      String line = doc.getText(p.getStartOffset(), p.getEndOffset()-p.getStartOffset());
+//      url = new URL(line);
+//    } catch (Throwable t) {
+//    }
+//
+//    if (url!=null) {
+//      try {
+//        output.setPage(url);
+//      } catch (IOException e) {
+//        LOG.log(Level.WARNING, "couldn't show html in report output", e);
+//      }
+//    }
+//
     
-    // TODO this is a hack - I want to pass the context over but also use the same ActionStart instance
-    actionStart.setContext(context);
-    actionStart.trigger();
   }
 
   /**
-   * Helper that sets buttons states
+   * stop any running report
    */
-  private boolean setRunning(boolean on) {
-
-    // Show it on buttons
-    actionStart.setEnabled(!on);
-    actionStop .setEnabled(on);
-
-    // Done
-    return true;
+  public void stopReport() {
+    // FIXME docket stopReport()
   }
   
   /**
@@ -181,7 +276,7 @@ public class ReportView extends View {
       this.start=start;
     }
     public void actionPerformed(ActionEvent event) {
-      start.cancel(false);
+      stopReport();
     }
   } //ActionStop
 
@@ -201,152 +296,17 @@ public class ReportView extends View {
 
     /** constructor */
     protected ActionStart() {
-      // setup async
-      setAsync(ASYNC_SAME_INSTANCE);
       // show
       setImage(imgStart);
       setTip(RESOURCES, "report.start.tip");
-    }
-    
-    protected void setContext(Object context) {
-      this.context = context;
-    }
-
-    /**
-     * pre execute
-     */
-    protected boolean preExecute() {
-      
-      ReportSelector selector = new ReportSelector();
-      
-      WindowManager.getInstance().openDialog("report", 
-          RESOURCES.getString("report.reports"),
-          WindowManager.QUESTION_MESSAGE, 
-          selector, 
-          Action2.okCancel(), 
-          ReportView.this);
-      
-      // go
-      setRunning(true);
-
-      report = selector.getReport();
-      if (report==null)
-        return false;
-
-      out = new PrintWriter(new OutputWriter());
-
-      // either use preset context, gedcom file or ask for entity
-      Object useContext = context;
-      context = null;
-      
-      if (useContext==null) {
-        if (report.getStartMethod(gedcom)!=null)
-          useContext = gedcom;
-        else  for (int i=0;i<Gedcom.ENTITIES.length;i++) {
-          String tag = Gedcom.ENTITIES[i];
-          Entity sample = gedcom.getFirstEntity(tag);
-          if (report.accepts(sample)!=null) {
-            
-            // give the report a chance to name our dialog
-            String txt = report.accepts(sample.getClass());
-            if (txt==null) Gedcom.getName(tag);
-            
-            // ask user for context now
-            useContext = report.getEntityFromUser(txt, gedcom, tag);
-            if (useContext==null) 
-              return false;
-            break;
-          }
-        }
-      }
-
-      // check if appropriate
-      if (useContext==null||report.accepts(useContext)==null) {
-        WindowManager.getInstance(getTarget()).openDialog(null,report.getName(),WindowManager.ERROR_MESSAGE,RESOURCES.getString("report.noaccept"),Action2.okOnly(),ReportView.this);
-        return false;
-      }
-      context = useContext;
-
-      // clear the current output
-      output.clear();
-
-      // done
-      return true;
     }
     /**
      * execute
      */
     public void actionPerformed(ActionEvent event) {
-      
-      // set report context
-      report.setOwner(ReportView.this);
-      report.setOut(out);
-
-      try{
-        
-        if (report.isReadOnly())
-          report.start(context);
-        else
-          gedcom.doUnitOfWork(new UnitOfWork() {
-            public void perform(Gedcom gedcom) {
-              try {
-                report.start(context);
-              } catch (Throwable t) {
-                throw new RuntimeException(t);
-              }
-            }
-          });
-      
-      } catch (Throwable t) {
-        Throwable cause = t.getCause();
-        if (cause instanceof InterruptedException)
-          report.println("***cancelled");
-        else
-          report.println(cause!=null?cause:t);
-      }
+      startReport();
     }
 
-    /**
-     * post execute
-     */
-    protected boolean postExecute(boolean preExecuteResult) {
-      
-      context = null;
-
-      // stop run
-      setRunning(false);
-
-      // flush
-      if (out!=null) {
-        out.flush();
-        out.close();
-      }
-
-      // no more cleanup to do?
-      if (!preExecuteResult)
-        return false;
-
-      // check last line for url
-      URL url = null;
-      try {
-        AbstractDocument doc = (AbstractDocument)output.getDocument();
-        Element p = doc.getParagraphElement(doc.getLength()-1);
-        String line = doc.getText(p.getStartOffset(), p.getEndOffset()-p.getStartOffset());
-        url = new URL(line);
-      } catch (Throwable t) {
-      }
-
-      if (url!=null) {
-        try {
-          output.setPage(url);
-        } catch (IOException e) {
-          LOG.log(Level.WARNING, "couldn't show html in report output", e);
-        }
-      }
-
-      // done
-      return true;
-    }
   } //ActionStart
 
   /**

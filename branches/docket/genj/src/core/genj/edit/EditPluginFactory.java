@@ -34,6 +34,7 @@ import genj.edit.actions.CreateSpouse;
 import genj.edit.actions.CreateXReference;
 import genj.edit.actions.DelEntity;
 import genj.edit.actions.DelProperty;
+import genj.edit.actions.OpenForEdit;
 import genj.edit.actions.Redo;
 import genj.edit.actions.RunExternal;
 import genj.edit.actions.SetPlaceHierarchy;
@@ -94,7 +95,7 @@ public class EditPluginFactory implements PluginFactory {
     }
     
     public int getPriority() {
-      return 100; // highest
+      return HIGH;
     }
 
     /** 
@@ -279,11 +280,9 @@ public class EditPluginFactory implements PluginFactory {
         result.add(new DelEntity(entity));
         
         // add an "edit in EditView"
-    // FIXME docket editor 2 editor    
-//        EditView[] edits = EditView.getInstances(entity.getGedcom());
-//        if (edits.length==0) {
-//          result.add(new OpenForEdit(workbench, new Context(entity)));
-//        }
+        if (null==workbench.getView(new EditViewFactory()))
+          result.add(new OpenForEdit(workbench, new Context(entity)));
+        
         // done
         return result;
       }

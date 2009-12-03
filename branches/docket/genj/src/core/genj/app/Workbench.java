@@ -138,10 +138,20 @@ public class Workbench extends JPanel {
 
     // install some accelerators
     new ActionSave(false).install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
+    new ActionExit().install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
+    new ActionOpen().install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
     
     // Done
   }
-
+  
+  /**
+   * current context
+   * @return null or context
+   */
+  public Context getContext() {
+    return context!=null ? new Context(context) : null;
+  }
+  
   /**
    * asks and loads gedcom file
    */
@@ -265,6 +275,10 @@ public class Workbench extends JPanel {
 
     stats.setGedcom(gedcom);
 
+    // tell plugins
+    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
+        SafeProxy.harden((WorkbenchListener)plugin).gedcomOpened(gedcom);
+    
     // done
     return true;
   }
@@ -446,6 +460,10 @@ public class Workbench extends JPanel {
           return false;
 
     }
+    
+    // tell plugins
+    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
+        SafeProxy.harden((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
 
     // close dockets
     for (Object key : dockingPane.getDockableKeys())
@@ -601,6 +619,7 @@ public class Workbench extends JPanel {
     }
     mh.createSeparator();
     mh.createItem(new ActionOptions());
+    mh.popMenu();
 
     // 20060209
     // Stephane reported a problem running GenJ on MacOS Tiger:
@@ -626,7 +645,8 @@ public class Workbench extends JPanel {
     // if (!EnvironmentChecker.isMac())
     // result.add(Box.createHorizontalGlue());
 
-    mh.popMenu().createMenu(RES.getString("cc.menu.help"));
+    result.add(Box.createGlue());
+    mh.createMenu(RES.getString("cc.menu.help"));
 
     mh.createItem(new ActionHelp());
     mh.createItem(new ActionAbout());
@@ -635,12 +655,24 @@ public class Workbench extends JPanel {
     return result;
   }
   
-  public void addTool(Action2 tool, boolean toolbar) {
-    // FIXME docket support add of tool of toolbar and menu
+  /**
+   * Install a tool into the workbench
+   */
+  public void installTool(Action2 tool, boolean toolbar) {
+    
+    // FIXME docket install toolbar tools
+    if (toolbar)
+      throw new IllegalArgumentException("tool in toolbar is not supported yet");
+    
+    // to the left of separator and help menu - can this be done better? 
+    menuBar.add(new MenuHelper().createItem(tool), menuBar.getMenuCount()-2);
   }
-  
-  public void removeTool(Action2 tool) {
-    // FIXME docket support remove of tool
+
+  /**
+   * Uninstall a tool from the workbench
+   */
+  public void uninstallTool(Action2 tool) {
+    // FIXME docket uninstall tools
   }
 
   public void fireCommit() {
@@ -665,6 +697,22 @@ public class Workbench extends JPanel {
   }
 
   /**
+   * access a view
+   * @return view or null if not open
+   */
+  public View getView(ViewFactory factory) {
+    ViewDockable dockable = (ViewDockable)dockingPane.getDockable(factory.getClass());
+    return dockable!=null ? dockable.getView() : null;
+  }
+  
+  /**
+   * close a view
+   */
+  public void closeView(ViewFactory factory) {
+    dockingPane.removeDockable(factory.getClass());
+  }
+  
+  /**
    * (re)open a view
    */
   public View openView(ViewFactory factory, Context context) {
@@ -674,16 +722,16 @@ public class Workbench extends JPanel {
       throw new IllegalArgumentException("Cannot open view without context");
 
     // already open or new
-    ViewDockable dockable = (ViewDockable)dockingPane.getDockable(factory);
+    ViewDockable dockable = (ViewDockable)dockingPane.getDockable(factory.getClass());
     if (dockable != null) {
       // bring forward
-      dockingPane.putDockable(factory, dockable);
+      dockingPane.putDockable(factory.getClass(), dockable);
       // done
       return dockable.getView();
     }
     dockable = new ViewDockable(Workbench.this, factory, context);
 
-    dockingPane.putDockable(factory, dockable);
+    dockingPane.putDockable(factory.getClass(), dockable);
 
     dockable.getDocked().addTool(new ActionCloseView(factory));
 
@@ -952,7 +1000,7 @@ public class Workbench extends JPanel {
 
     /** run */
     public void actionPerformed(ActionEvent event) {
-      dockingPane.removeDockable(factory);
+      closeView(factory);
     }
   } // ActionCloseView
 
@@ -1083,5 +1131,6 @@ public class Workbench extends JPanel {
     }
 
   } // Stats
+
 
 } // ControlCenter

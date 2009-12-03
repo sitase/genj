@@ -53,6 +53,12 @@ public abstract class View extends JPanel implements SelectionListener {
   }
 
   /**
+   * prepare to close
+   */
+  public boolean closing() {
+    return true;
+  }
+  /**
    * add listener
    */
   public void addSelectionListener(SelectionListener listener) {
@@ -102,13 +108,6 @@ public abstract class View extends JPanel implements SelectionListener {
   }
 
   /**
-   * Open a view 
-   */
-  public void open(ViewFactory factory) {
-    // FIXME docket view from view
-  }
-  
-  /**
    * Retrieve an existing view 
    * @return open view or null
    */
@@ -130,4 +129,5 @@ public abstract class View extends JPanel implements SelectionListener {
   public void populate(ToolBar toolbar) {
     // noop
   }
+
 }

@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.1 $ $Author: nmeier $ $Date: 2009-11-25 02:47:49 $
+ * $Revision: 1.136.2.2 $ $Author: nmeier $ $Date: 2009-12-03 02:42:11 $
  */
 package genj.report;
 
@@ -54,9 +54,9 @@ import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -98,10 +98,11 @@ public abstract class Report implements Cloneable {
 
   /** categories */
   private static final Category DEFAULT_CATEGORY = new Category("Other", IMG_SHELL);
-  private static final Categories categories = new Categories();
+  private static final Map<String,Category> CATEGORIES = new TreeMap<String,Category>();
+  
   static {
       // Default category when category isn't defined in properties file
-      categories.add(DEFAULT_CATEGORY);
+      CATEGORIES.put(DEFAULT_CATEGORY.getName(), DEFAULT_CATEGORY);
   }
 
   private final static String[][] OPTION_TEXTS = {
@@ -132,7 +133,7 @@ public abstract class Report implements Cloneable {
   private final static WindowManager windowManager = WindowManager.getInstance();
 
   /** options */
-  private List<PropertyOption> options;
+  private List<? extends Option> options;
 
   /** image */
   private ImageIcon image;
@@ -184,21 +185,20 @@ public abstract class Report implements Cloneable {
   /**
    * Store report's options
    */
-  public void saveOptions() {
+  /*package*/ void saveOptions() {
     // if known
     if (options==null)
       return;
     // save 'em
-    Iterator it = options.iterator();
-    while (it.hasNext())
-      ((Option)it.next()).persist(registry);
+    for (Option option : options)
+      option.persist(registry);
     // done
   }
 
   /**
    * Get report's options
    */
-  public List<PropertyOption> getOptions() {
+  public List<? extends Option> getOptions() {
 
     // already calculated
     if (options!=null)
@@ -208,19 +208,22 @@ public abstract class Report implements Cloneable {
     options = PropertyOption.introspect(this);
 
     // restore options values
-    for (PropertyOption option : options) {
+    for (Option option : options) {
       // restore old value
       option.restore(registry);
       // options do try to localize the name and tool tip based on a properties file
       // in the same package as the instance - problem is that this
       // won't work with our special way of resolving i18n in reports
       // so we have to do that manually
-      String oname = translateOption(option.getProperty());
-      if (oname.length()>0) option.setName(oname);
-      String toolTipKey = option.getProperty() + ".tip";
-      String toolTip = translateOption(toolTipKey);
-      if (toolTip.length() > 0 && !toolTip.equals(toolTipKey))
-          option.setToolTip(toolTip);
+      if (option instanceof PropertyOption) {
+        PropertyOption poption = (PropertyOption)option;
+        String oname = translateOption(poption.getProperty());
+        if (oname.length()>0) poption.setName(oname);
+        String toolTipKey = poption.getProperty() + ".tip";
+        String toolTip = translateOption(toolTipKey);
+        if (toolTip.length() > 0 && !toolTip.equals(toolTipKey))
+            poption.setToolTip(toolTip);
+      }
       // set category
       option.setCategory(getName());
     }
@@ -261,10 +264,10 @@ public abstract class Report implements Cloneable {
       if (name.equals("category"))
           return DEFAULT_CATEGORY;
 
-      Category category = (Category)categories.get(name);
+      Category category = CATEGORIES.get(name);
       if (category == null) {
           category = createCategory(name);
-          categories.add(category);
+          CATEGORIES.put(category.getName() ,category);
       }
       return category;
   }
@@ -609,7 +612,7 @@ public abstract class Report implements Cloneable {
 
     // Remember?
     if (key!=null&&result!=null&&result.length()>0) {
-      List values = new ArrayList(defaultChoices.length+1);
+      List<String> values = new ArrayList<String>(defaultChoices.length+1);
       values.add(result);
       for (int d=0;d<defaultChoices.length&&d<20;d++)
         if (!result.equalsIgnoreCase(defaultChoices[d]))
@@ -627,7 +630,7 @@ public abstract class Report implements Cloneable {
   public final boolean getOptionsFromUser(String title, Object options) {
 
     // grab options by introspection
-    List os = PropertyOption.introspect(options);
+    List<? extends Option> os = PropertyOption.introspect(options);
 
     // calculate a logical prefix for this options object (strip packages and enclosing type info)
     String prefix = options.getClass().getName();
@@ -640,18 +643,18 @@ public abstract class Report implements Cloneable {
 
     // restore parameters
     Registry r = new Registry(registry, prefix);
-    Iterator it = os.iterator();
-    while (it.hasNext()) {
-      PropertyOption option  = (PropertyOption)it.next();
+    for (Option option : os) {
+      
       option.restore(r);
 
       // translate the options as a courtesy now - while options do try
       // to localize the name they base that on a properties file in the
       // same package as the instance - problem is that this won't work
       // with our special way of resolving i18n in reports
-      String oname = translate(prefix+"."+option.getName());
-      if (oname.length()>0) option.setName(oname);
-
+      if (option instanceof PropertyOption) {
+        String oname = translate(prefix+"."+option.getName());
+        if (oname.length()>0) ((PropertyOption)option).setName(oname);
+      }
     }
 
     // show to user and check for non-ok
@@ -662,9 +665,8 @@ public abstract class Report implements Cloneable {
 
     // save parameters
     widget.stopEditing();
-    it = os.iterator();
-    while (it.hasNext())
-      ((Option)it.next()).persist(r);
+    for (Option option : os)
+      option.persist(r);
 
     // done
     return true;
@@ -1013,10 +1015,10 @@ public abstract class Report implements Cloneable {
           // needs to be named start
           if (!methods[m].getName().equals("start")) continue;
           // make sure its a one-arg
-          Class[] params = methods[m].getParameterTypes();
+          Class<?>[] params = methods[m].getParameterTypes();
           if (params.length!=1) continue;
           // keep it
-          Class param = params[0];
+          Class<?> param = params[0];
           if (param.isAssignableFrom(context.getClass()))
             return methods[m];
           // try next
@@ -1046,12 +1048,6 @@ public abstract class Report implements Cloneable {
 
         public ImageIcon getImage() {
             return image;
-        }
-    }
-
-    private static class Categories extends TreeMap {
-        void add(Category category) {
-            put(category.getName(), category);
         }
     }
 

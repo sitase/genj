@@ -564,7 +564,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   
   /** a priority between 0-100 */
   public int getPriority() {
-    return 50;
+    return NORMAL;
   }
 
   /**
