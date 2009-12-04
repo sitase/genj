@@ -46,7 +46,6 @@ import genj.util.SafeProxy;
 import genj.util.ServiceLookup;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 import genj.util.swing.FileChooser;
 import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
@@ -74,6 +73,7 @@ import java.util.logging.Logger;
 
 import javax.swing.Action;
 import javax.swing.Box;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -103,6 +103,7 @@ public class Workbench extends JPanel {
   private WindowManager windowManager;
   private List<Action> gedcomActions = new ArrayList<Action>();
   private Menu menu = new Menu();
+  private Toolbar toolbar = new Toolbar();
   private StatusBar stats = new StatusBar();
   private DockingPane dockingPane = new DockingPane();
   private Context context= null;
@@ -128,7 +129,7 @@ public class Workbench extends JPanel {
 
     // Layout
     setLayout(new BorderLayout());
-    add(createToolBar(), BorderLayout.NORTH);
+    add(toolbar, BorderLayout.NORTH);
     add(dockingPane, BorderLayout.CENTER);
     add(stats, BorderLayout.SOUTH);
 
@@ -410,11 +411,12 @@ public class Workbench extends JPanel {
 //  windowManager.close(progress);
     
     // .. note changes are saved now
-    gedcom.doMuteUnitOfWork(new UnitOfWork() {
-      public void perform(Gedcom gedcom) throws GedcomException {
-        gedcom.setUnchanged();
-      }
-    });
+    if (gedcom.hasChanged())
+      gedcom.doMuteUnitOfWork(new UnitOfWork() {
+        public void perform(Gedcom gedcom) throws GedcomException {
+          gedcom.setUnchanged();
+        }
+      });
 
     // .. done
     return false;
@@ -543,55 +545,14 @@ public class Workbench extends JPanel {
   }
 
   /**
-   * Returns a button bar for the top
-   */
-  private JToolBar createToolBar() {
-
-    // create toolbar and setup helper
-    JToolBar result = new JToolBar();
-    result.setFloatable(false);
-    ButtonHelper bh = new ButtonHelper().setInsets(4).setContainer(result).setFontSize(10);
-
-    // Open & New |
-    Action2 actionNew = new ActionNew();
-    Action2 actionOpen = new ActionOpen();
-    Action2 actionSave = new ActionSave(false);
-    actionNew.setText(null);
-    actionOpen.setText(null);
-    actionSave.setText(null);
-    gedcomActions.add(actionSave);
-
-    bh.create(actionNew);
-    bh.create(actionOpen);
-    bh.create(actionSave);
-
-    result.addSeparator();
-
-// Views is not something folks will choose much - we want to fill it with functionality instead
-//    for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
-//      ActionOpenView action = new ActionOpenView(factory);
-//      action.setText(null);
-//      bh.create(action);
-//      gedcomActions.add(action);
-//    }
-
-    // some glue at the end to space things out
-    result.add(Box.createGlue());
-
-    // done
-    return result;
-  }
-
-  /**
    * Install a tool into the workbench
    */
-  public void installTool(Action2 tool, boolean toolbar) {
+  public void installTool(Action2 tool, boolean inToolbar) {
     
-    // FIXME docket install toolbar tools
-    if (toolbar)
-      throw new IllegalArgumentException("tool in toolbar is not supported yet");
-    
-    menu.addTool(tool);
+    if (inToolbar)
+      toolbar.addTool(tool);
+    else
+      menu.addTool(tool);
   }
 
   /**
@@ -599,6 +560,7 @@ public class Workbench extends JPanel {
    */
   public void uninstallTool(Action2 tool) {
     menu.delTool(tool);
+    toolbar.delTool(tool);
   }
 
   public void fireCommit() {
@@ -928,7 +890,7 @@ public class Workbench extends JPanel {
   /**
    * a little status tracker
    */
-  private static class StatusBar extends JPanel implements GedcomMetaListener {
+  private class StatusBar extends JPanel implements GedcomMetaListener {
 
     private Gedcom gedcom;
     private int commits;
@@ -965,6 +927,7 @@ public class Workbench extends JPanel {
     }
 
     public void gedcomWriteLockReleased(Gedcom gedcom) {
+      commits++;
       update();
     }
 
@@ -1011,23 +974,18 @@ public class Workbench extends JPanel {
     }
 
     public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-      commits++;
     }
 
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      commits++;
     }
 
     public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      commits++;
     }
 
     public void gedcomPropertyChanged(Gedcom gedcom, Property prop) {
-      commits++;
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-      commits++;
     }
 
   } // Stats
@@ -1144,6 +1102,51 @@ public class Workbench extends JPanel {
       
     }
     
+  } // Menu
+
+  /**
+   * our toolbar
+   */
+  private class Toolbar extends JToolBar {
+
+    private int toolIndex;
+    
+    /**
+     * Constructor
+     */
+    private Toolbar() {
+
+      setFloatable(false);
+
+      // defaults
+      add(new ActionNew());
+      add(new ActionOpen());
+      ActionSave save = new ActionSave(false);
+      add(save);
+      gedcomActions.add(save);
+      
+      addSeparator();
+      
+      // remember position for tools
+      toolIndex = getComponentCount();
+
+      // done
+    }
+    
+    private void addTool(Action2 action) {
+      add(action);
+    }
+    
+    private void delTool(Action2 action) {
+      for (int i=0; i<getComponentCount(); i++) {
+        Component c = getComponent(i);
+        if (c instanceof JButton && action.equals(((JButton)c).getAction())) {
+          remove(i);
+          return;
+        }
+      }
+    }
+
   }
 
 } // ControlCenter
