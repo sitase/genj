@@ -109,9 +109,9 @@ public class TableView extends View {
     setLayout(new BorderLayout());
     add(propertyTable, BorderLayout.CENTER);
     
-    // shortcuts
-    new NextMode(true).install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    new NextMode(false).install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
+    // shortcuts KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, KeyEvent.CTRL_DOWN_MASK)
+    new NextMode(true).install(this, "ctrl pressed LEFT");
+    new NextMode(false).install(this, "ctrl pressed RIGHT");
     
     // done
   }
@@ -246,15 +246,11 @@ public class TableView extends View {
   private class NextMode extends Action2 {
     private int dir;
     private NextMode(boolean left) {
-      int vk;
       if (left) {
-        vk = KeyEvent.VK_LEFT;
         dir = -1;
       } else {
-        vk = KeyEvent.VK_RIGHT;
         dir = 1;
       }
-      setAccelerator(KeyStroke.getKeyStroke(vk, KeyEvent.CTRL_DOWN_MASK));
     }
     public void actionPerformed(ActionEvent event) {
       int next = -1;

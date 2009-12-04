@@ -57,7 +57,6 @@ public class Action2 extends AbstractAction {
   
   /** attributes */
   private Component target;
-  private KeyStroke accelerator;
   
   /** predefined strings */
   public final static String
@@ -120,18 +119,6 @@ public class Action2 extends AbstractAction {
     return target;
   }
   
-  /** accessor - accelerator */
-  public Action2 setAccelerator(String s) {
-    accelerator = KeyStroke.getKeyStroke(s);
-    return this;
-  }
-  
-  /** accessor - accelerator */
-  public Action2 setAccelerator(KeyStroke accelerator) {
-    this.accelerator = accelerator;
-    return this;
-  }
-  
   /**
    * accessor - image 
    */
@@ -189,6 +176,11 @@ public class Action2 extends AbstractAction {
     super.putValue(KEY_MNEMONIC, c==0 ? null : new Integer(c));
     return this;
   }
+  
+  public char getMnemonic() {
+    Integer val = (Integer)super.getValue(KEY_MNEMONIC);
+    return val != null ? (char)val.intValue() : (char)0;
+  }
 
   /**
    * accessor - text
@@ -225,23 +217,6 @@ public class Action2 extends AbstractAction {
      */
   public Icon getImage() {
     return (Icon)super.getValue(KEY_ICON);
-  }
-
-  /** accessor - accelerator */
-  public KeyStroke getAccelerator() {
-    return accelerator;
-  }
-  
-  /** install into components action map */
-  public void install(JComponent into, int condition) {
-    
-    if (accelerator==null)
-      return;
-    
-    InputMap inputs = into.getInputMap(condition);
-    inputs.put(accelerator, this);
-    into.getActionMap().put(this, this);
-      
   }
 
   /** convenience factory */
@@ -298,6 +273,17 @@ public class Action2 extends AbstractAction {
     private Constant(String txt) { super(txt); }
     public void actionPerformed(ActionEvent e) {};
   };
+  
+  public void install(JComponent component, String shortcut) {
+    install(component,shortcut,JComponent.WHEN_IN_FOCUSED_WINDOW);
+  }
+  
+  public void install(JComponent component, String shortcut, int condition) {
+    InputMap inputs = component.getInputMap(condition);
+    inputs.put(KeyStroke.getKeyStroke(shortcut), this);
+    component.getActionMap().put(this, this);
+  }
+
   
   /**
    * An action group

@@ -177,11 +177,6 @@ import javax.swing.tree.TreePath;
     setFocusTraversalPolicy(new FocusPolicy());
     setFocusCycleRoot(true);
     
-    // shortcuts
-    new Cut().install(tree, JComponent.WHEN_FOCUSED);
-    new Copy().install(tree, JComponent.WHEN_FOCUSED);
-    new Paste().install(tree, JComponent.WHEN_FOCUSED);
-    
     // done    
   }
   
@@ -191,6 +186,17 @@ import javax.swing.tree.TreePath;
   public ViewContext getContext() {
     return tree.getContext();
   }
+
+  @Override
+  public void addNotify() {
+    // continue
+    super.addNotify();
+    // shortcuts
+    new Cut().install(this, ACC_CUT, JComponent.WHEN_FOCUSED);
+    new Copy().install(this, ACC_COPY, JComponent.WHEN_FOCUSED);
+    new Paste().install(this, ACC_PASTE, JComponent.WHEN_FOCUSED);
+    
+  }
   
   /**
    * Component callback event in case removed from parent. Used
@@ -199,6 +205,7 @@ import javax.swing.tree.TreePath;
   public void removeNotify() {
     // remember
     registry.put("divider",splitPane.getDividerLocation());
+    
     // continue
     super.removeNotify();
   }
@@ -362,9 +369,8 @@ import javax.swing.tree.TreePath;
       super.setText(resources.getString("action.cut"));
     }
     
-    /** constructor */
     private Cut() {
-      setAccelerator(ACC_CUT);
+      
     }
     
     /** run */
@@ -445,7 +451,6 @@ import javax.swing.tree.TreePath;
     }
     /** constructor */
     protected Copy() {
-      setAccelerator(ACC_COPY);
     }
     /** run */
     public void actionPerformed(ActionEvent event) {
@@ -488,7 +493,6 @@ import javax.swing.tree.TreePath;
     }
     /** constructor */
     protected Paste() {
-      setAccelerator(ACC_PASTE);
     }
     /** run */
     public void actionPerformed(ActionEvent event) {

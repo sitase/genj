@@ -129,5 +129,5 @@ public abstract class View extends JPanel implements SelectionListener {
   public void populate(ToolBar toolbar) {
     // noop
   }
-
+  
 }

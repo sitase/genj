@@ -26,7 +26,6 @@ import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
-import genj.gedcom.UnitOfWork;
 import genj.util.swing.Action2;
 import genj.view.ActionProvider;
 
@@ -39,7 +38,7 @@ import java.util.logging.Level;
  * A plugin for adding report tools
  */
 public class ReportPluginFactory implements PluginFactory {
-
+  
   /** factory */
   public Object createPlugin(Workbench workbench) {
     return new ReportPlugin(workbench);
@@ -49,23 +48,34 @@ public class ReportPluginFactory implements PluginFactory {
   private class ReportPlugin implements ActionProvider, WorkbenchListener {
     
     private Workbench workbench;
-    private Action2.Group actions = new Action2.Group("Reports");
+    private Action2.Group actions;
     
     public ReportPlugin(Workbench workbench) {
       this.workbench = workbench;
       
       workbench.addWorkbenchListener(this);
 
-      installActions();
+    }
+    
+    private void uninstallActions() {
+      if (actions!=null) {
+        workbench.uninstallTool(actions);
+        actions = null;
+      }
     }
     
     private void installActions() {
-      workbench.uninstallTool(actions);
+      
+      uninstallActions();
+      
       Context context = workbench.getContext();
       if (context!=null) {
-        Action2.Group action = getAction(context.getGedcom(), context.getGedcom());
-        if (action.size()>0)
-          workbench.installTool(action, false);
+        Action2.Group newActions = new Action2.Group("Reports");
+        getActions(context.getGedcom(), context.getGedcom(), newActions);
+        if (newActions.size()>0) {
+          actions = newActions;
+          workbench.installTool(actions, false);
+        }
       }
     }
     
@@ -80,7 +90,7 @@ public class ReportPluginFactory implements PluginFactory {
     }
     
     public void gedcomClosed(Gedcom gedcom) {
-      installActions();
+      uninstallActions();
     }
     
     public void gedcomOpened(Gedcom gedcom) {
@@ -124,7 +134,8 @@ public class ReportPluginFactory implements PluginFactory {
      */
     private List<Action2> getActions(Object context, Gedcom gedcom) {
 
-      Action2.Group action = getAction(context, gedcom);
+      Action2.Group action = new Action2.Group("Reports", ReportViewFactory.IMG);
+      getActions(context, gedcom, action);
       List<Action2> result = new ArrayList<Action2>();
       if (action.size()>0)
         result.add(action);
@@ -132,23 +143,20 @@ public class ReportPluginFactory implements PluginFactory {
       
     }
     
-    private Action2.Group getAction(Object context, Gedcom gedcom) {
+    private void getActions(Object context, Gedcom gedcom, Action2.Group group) {
     
-      Action2.Group group = new Action2.Group("Reports", ReportViewFactory.IMG);
-      Action2.Group batch = group;
-      
       // Look through reports
       for (Report report : ReportLoader.getInstance().getReports()) {
         try {
           String accept = report.accepts(context); 
           if (accept!=null) {
             ActionRun run = new ActionRun(accept, context, gedcom, report);
-            if (batch.size()>10) {
+            if (group.size()>10) {
               Action2.Group next = new Action2.Group("...");
-              batch.add(next);
-              batch = next;
+              group.add(next);
+              group = next;
             }
-            batch.add(run);
+            group.add(run);
           }
         } catch (Throwable t) {
           ReportView.LOG.log(Level.WARNING, "Report "+report.getClass().getName()+" failed in accept()", t);
@@ -156,7 +164,6 @@ public class ReportPluginFactory implements PluginFactory {
       }
       
       // done
-      return group;
     }
     
     /**

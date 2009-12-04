@@ -57,6 +57,7 @@ import genj.view.ViewFactory;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -76,7 +77,9 @@ import javax.swing.Box;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
@@ -96,10 +99,10 @@ public class Workbench extends JPanel {
   private final static Resources RES = Resources.get(Workbench.class);
 
   /** members */
-  private JMenuBar menuBar;
   private Registry registry;
   private WindowManager windowManager;
   private List<Action> gedcomActions = new ArrayList<Action>();
+  private Menu menu = new Menu();
   private StatusBar stats = new StatusBar();
   private DockingPane dockingPane = new DockingPane();
   private Context context= null;
@@ -129,17 +132,14 @@ public class Workbench extends JPanel {
     add(dockingPane, BorderLayout.CENTER);
     add(stats, BorderLayout.SOUTH);
 
-    // Init menu bar at this point (so it's ready when the first file is loaded)
-    menuBar = createMenuBar();
-    
     // start clean
     for (Action a : gedcomActions) 
       a.setEnabled(false);
 
     // install some accelerators
-    new ActionSave(false).install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    new ActionExit().install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    new ActionOpen().install(this, JComponent.WHEN_IN_FOCUSED_WINDOW);
+    new ActionSave(false).install(this, ACC_SAVE, JComponent.WHEN_IN_FOCUSED_WINDOW);
+    new ActionExit().install(this, ACC_EXIT, JComponent.WHEN_IN_FOCUSED_WINDOW);
+    new ActionOpen().install(this, ACC_OPEN, JComponent.WHEN_IN_FOCUSED_WINDOW);
     
     // Done
   }
@@ -157,15 +157,15 @@ public class Workbench extends JPanel {
    */
   public boolean openGedcom() {
 
-    // close what we have
-    if (!closeGedcom())
-      return false;
-    
     // ask user
     File file = chooseFile(RES.getString("cc.open.title"), RES.getString("cc.open.action"), null);
     if (file == null)
       return false;
     registry.put("last.dir", file.getParentFile().getAbsolutePath());
+    
+    // close what we have
+    if (!closeGedcom())
+      return false;
     
     // form origin
     try {
@@ -461,10 +461,6 @@ public class Workbench extends JPanel {
 
     }
     
-    // tell plugins
-    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
-        SafeProxy.harden((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
-
     // close dockets
     for (Object key : dockingPane.getDockableKeys())
       dockingPane.removeDockable(key);
@@ -476,6 +472,10 @@ public class Workbench extends JPanel {
     // clear stats
     stats.setGedcom(null);
     
+    // tell plugins
+    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
+        SafeProxy.harden((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
+
     // unregister
     GedcomDirectory.getInstance().unregisterGedcom(context.getGedcom());
     context = null;
@@ -506,7 +506,7 @@ public class Workbench extends JPanel {
    * Returns a menu for frame showing this controlcenter
    */
   /* package */JMenuBar getMenuBar() {
-    return menuBar;
+    return menu;
   }
 
   /**
@@ -583,79 +583,6 @@ public class Workbench extends JPanel {
   }
 
   /**
-   * Creates our MenuBar
-   */
-  private JMenuBar createMenuBar() {
-
-    MenuHelper mh = new MenuHelper();
-    JMenuBar result = mh.createBar();
-
-    // Create Menues
-    mh.createMenu(RES.getString("cc.menu.file"));
-    mh.createItem(new ActionNew());
-    mh.createItem(new ActionOpen());
-
-    Action2 save = new ActionSave(false);
-    Action2 saveAs = new ActionSave(true);
-    gedcomActions.add(save);
-    gedcomActions.add(saveAs);
-    mh.createItem(save);
-    mh.createItem(saveAs);
-
-    mh.createSeparator();
-    mh.createItem(new ActionClose());
-
-    if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in
-                                       // application menus apparently
-      mh.createItem(new ActionExit());
-    }
-
-    mh.popMenu().createMenu(RES.getString("cc.menu.view"));
-
-    for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
-      ActionOpenView action = new ActionOpenView(factory);
-      gedcomActions.add(action);
-      mh.createItem(action);
-    }
-    mh.createSeparator();
-    mh.createItem(new ActionOptions());
-    mh.popMenu();
-
-    // 20060209
-    // Stephane reported a problem running GenJ on MacOS Tiger:
-    //
-    // java.lang.ArrayIndexOutOfBoundsException: 3 > 2::
-    // at java.util.Vector.insertElementAt(Vector.java:557)::
-    // at apple.laf.ScreenMenuBar.add(ScreenMenuBar.java:266)::
-    // at apple.laf.ScreenMenuBar.addSubmenu(ScreenMenuBar.java:207)::
-    // at apple.laf.ScreenMenuBar.addNotify(ScreenMenuBar.java:53)::
-    // at java.awt.Frame.addNotify(Frame.java:478)::
-    // at java.awt.Window.pack(Window.java:436)::
-    // atgenj.window.DefaultWindowManager.openFrameImpl(Unknown Source)::
-    // at genj.window.AbstractWindowManager.openFrame(Unknown Source)::
-    // at genj.app.App$Startup.run(Unknown Source)::
-    // 
-    // apparently something wrong with how the Mac parses the menu-bar
-    // According to this post
-    // http://lists.apple.com/archives/java-dev/2005/Aug/msg00060.html
-    // the offending thing might be a non-menu-item (glue) added to the menu
-    // as we did here previously - so let's remove that for Macs for now
-    // 20061116 remove the glue in all situations - we don't have to hide help
-    // on the right
-    // if (!EnvironmentChecker.isMac())
-    // result.add(Box.createHorizontalGlue());
-
-    result.add(Box.createGlue());
-    mh.createMenu(RES.getString("cc.menu.help"));
-
-    mh.createItem(new ActionHelp());
-    mh.createItem(new ActionAbout());
-
-    // Done
-    return result;
-  }
-  
-  /**
    * Install a tool into the workbench
    */
   public void installTool(Action2 tool, boolean toolbar) {
@@ -664,15 +591,14 @@ public class Workbench extends JPanel {
     if (toolbar)
       throw new IllegalArgumentException("tool in toolbar is not supported yet");
     
-    // to the left of separator and help menu - can this be done better? 
-    menuBar.add(new MenuHelper().createItem(tool), menuBar.getMenuCount()-2);
+    menu.addTool(tool);
   }
 
   /**
    * Uninstall a tool from the workbench
    */
   public void uninstallTool(Action2 tool) {
-    // FIXME docket uninstall tools
+    menu.delTool(tool);
   }
 
   public void fireCommit() {
@@ -732,8 +658,6 @@ public class Workbench extends JPanel {
     dockable = new ViewDockable(Workbench.this, factory, context);
 
     dockingPane.putDockable(factory.getClass(), dockable);
-
-    dockable.getDocked().addTool(new ActionCloseView(factory));
 
     return dockable.getView();
   }
@@ -803,7 +727,6 @@ public class Workbench extends JPanel {
     
     /** constructor */
     protected ActionExit() {
-      setAccelerator(ACC_EXIT);
       setText(RES, "cc.menu.exit");
       setImage(Images.imgExit);
       setTarget(Workbench.this);
@@ -840,7 +763,6 @@ public class Workbench extends JPanel {
 
     /** constructor */
     ActionNew() {
-      setAccelerator(ACC_NEW);
       setText(RES, "cc.menu.new");
       setTip(RES, "cc.tip.create_file");
       setImage(Images.imgNew);
@@ -889,7 +811,6 @@ public class Workbench extends JPanel {
 
     /** constructor - good for button or menu item */
     protected ActionOpen() {
-      setAccelerator(ACC_OPEN);
       setTip(RES, "cc.tip.open_file");
       setText(RES, "cc.menu.open");
       setImage(Images.imgOpen);
@@ -932,9 +853,6 @@ public class Workbench extends JPanel {
     protected ActionSave(boolean saveAs) {
       // setup default target
       setTarget(Workbench.this);
-      // setup accelerator - IF this is a no-ask save it instead of SaveAs
-      if (!saveAs)
-        setAccelerator(ACC_SAVE);
       // remember
       this.saveAs = saveAs;
       // text
@@ -985,24 +903,6 @@ public class Workbench extends JPanel {
       openView(factory, context);
     }
   } // ActionOpenView
-
-  /**
-   * Action - close view
-   */
-  private class ActionCloseView extends Action2 {
-    private ViewFactory factory;
-
-    /** constructor */
-    protected ActionCloseView(ViewFactory factory) {
-      setImage(Images.imgClose);
-      this.factory = factory;
-    }
-
-    /** run */
-    public void actionPerformed(ActionEvent event) {
-      closeView(factory);
-    }
-  } // ActionCloseView
 
   /**
    * Action - Options
@@ -1132,5 +1032,118 @@ public class Workbench extends JPanel {
 
   } // Stats
 
+  /**
+   * Our MenuBar
+   */
+  private class Menu extends JMenuBar {
+    
+    private int toolIndex;
+    
+    private Menu() {
+      
+      MenuHelper mh = new MenuHelper().pushMenu(this);
+
+      // File
+      mh.createMenu(RES.getString("cc.menu.file"));
+      mh.createItem(new ActionNew());
+      mh.createItem(new ActionOpen());
+  
+      Action2 save = new ActionSave(false);
+      Action2 saveAs = new ActionSave(true);
+      gedcomActions.add(save);
+      gedcomActions.add(saveAs);
+      mh.createItem(save);
+      mh.createItem(saveAs);
+  
+      mh.createSeparator();
+      mh.createItem(new ActionClose());
+  
+      if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in
+                                         // application menus apparently
+        mh.createItem(new ActionExit());
+      }
+  
+      mh.popMenu();
+      
+      // Views
+      mh.createMenu(RES.getString("cc.menu.view"));
+  
+      for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
+        ActionOpenView action = new ActionOpenView(factory);
+        gedcomActions.add(action);
+        mh.createItem(action);
+      }
+      mh.createSeparator();
+      mh.createItem(new ActionOptions());
+      mh.popMenu();
+  
+      // 20060209
+      // Stephane reported a problem running GenJ on MacOS Tiger:
+      //
+      // java.lang.ArrayIndexOutOfBoundsException: 3 > 2::
+      // at java.util.Vector.insertElementAt(Vector.java:557)::
+      // at apple.laf.ScreenMenuBar.add(ScreenMenuBar.java:266)::
+      // at apple.laf.ScreenMenuBar.addSubmenu(ScreenMenuBar.java:207)::
+      // at apple.laf.ScreenMenuBar.addNotify(ScreenMenuBar.java:53)::
+      // at java.awt.Frame.addNotify(Frame.java:478)::
+      // at java.awt.Window.pack(Window.java:436)::
+      // atgenj.window.DefaultWindowManager.openFrameImpl(Unknown Source)::
+      // at genj.window.AbstractWindowManager.openFrame(Unknown Source)::
+      // at genj.app.App$Startup.run(Unknown Source)::
+      // 
+      // apparently something wrong with how the Mac parses the menu-bar
+      // According to this post
+      // http://lists.apple.com/archives/java-dev/2005/Aug/msg00060.html
+      // the offending thing might be a non-menu-item (glue) added to the menu
+      // as we did here previously - so let's remove that for Macs for now
+      // 20061116 remove the glue in all situations - we don't have to hide help
+      // on the right
+      // if (!EnvironmentChecker.isMac())
+      // result.add(Box.createHorizontalGlue());
+
+      // Tools
+      toolIndex = getMenuCount();
+
+      // Help
+      add(Box.createGlue());
+      mh.createMenu(RES.getString("cc.menu.help"));
+      mh.createItem(new ActionHelp());
+      mh.createItem(new ActionAbout());
+  
+      // Done
+    }
+    
+    private void delTool(Action2 tool) {
+      for (int i=0; i<getMenuCount(); i++) {
+        Component c = getComponent(i);
+        if (!(c instanceof JMenu)) continue;
+        JMenu menu = (JMenu)c;
+        if (tool.equals(menu.getAction())) 
+          remove(i--);
+        else 
+          delToolRecursive(menu, tool);
+      }
+    }
+    
+    private void delToolRecursive(JMenu menu, Action2 tool) {
+      for (int i=0;i<menu.getMenuComponentCount();i++) {
+        Component c = menu.getMenuComponent(i);
+        if (!(c instanceof JMenuItem)) continue;
+        JMenuItem item = (JMenuItem)c;
+        if (tool.equals(item.getAction()))
+          remove(i--);
+        else if (item instanceof JMenu)
+          delToolRecursive((JMenu)item, tool);
+      }
+    }
+    
+    private void addTool(Action2 tool) {
+      
+      // to the left of separator and help menu - can this be done better? 
+      add(new MenuHelper().createItem(tool), toolIndex);
+      
+    }
+    
+  }
 
 } // ControlCenter

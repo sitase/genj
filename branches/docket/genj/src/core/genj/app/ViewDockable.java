@@ -45,6 +45,7 @@ import java.awt.event.MouseEvent;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -66,6 +67,7 @@ import swingx.docking.Docked;
   private final static Logger LOG = Logger.getLogger("genj.app");
   private final static ContextHook HOOK = new ContextHook();
 
+  private ViewFactory factory;
   private View view;
   private Workbench workbench;
   private boolean ignoreSelectionChanged = false;
@@ -76,7 +78,8 @@ import swingx.docking.Docked;
   public ViewDockable(Workbench workbench, ViewFactory factory, Context context) {
 
     this.workbench = workbench;
-
+    this.factory = factory;
+    
     // title
     String title = factory.getTitle();
 
@@ -111,17 +114,22 @@ import swingx.docking.Docked;
     workbench.addWorkbenchListener(this);
 
     // only if ToolBarSupport and no bar installed
+    final AtomicBoolean toolbar = new AtomicBoolean(false);
+    
     view.populate(new ToolBar() {
       public void add(Action action) {
         docked.addTool(action);
+        toolbar.set(true);
       }
 
       public void add(JComponent component) {
         docked.addTool(component);
+        toolbar.set(true);
       }
 
       public void addSeparator() {
         docked.addToolSeparator();
+        toolbar.set(true);
       }
     });
 
@@ -149,6 +157,11 @@ import swingx.docking.Docked;
     // }
     // } catch (Throwable t) {
     // }
+
+    if (toolbar.get()) {
+      docked.addToolSeparator();
+      docked.addTool(new ActionCloseView());
+    }
 
     // done
   }
@@ -438,4 +451,20 @@ import swingx.docking.Docked;
   public void gedcomOpened(Gedcom gedcom) {
   }
   
+  /**
+   * Action - close view
+   */
+  private class ActionCloseView extends Action2 {
+
+    /** constructor */
+    protected ActionCloseView() {
+      setImage(Images.imgClose);
+    }
+
+    /** run */
+    public void actionPerformed(ActionEvent event) {
+      workbench.closeView(factory);
+    }
+  } // ActionCloseView
+
 } //ViewDockable
