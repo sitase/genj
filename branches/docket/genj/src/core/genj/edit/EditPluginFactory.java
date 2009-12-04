@@ -21,6 +21,7 @@ package genj.edit;
 
 import genj.app.PluginFactory;
 import genj.app.Workbench;
+import genj.app.WorkbenchListener;
 import genj.common.SelectEntityWidget;
 import genj.crypto.Enigma;
 import genj.edit.actions.AbstractChange;
@@ -48,6 +49,7 @@ import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomDirectory;
 import genj.gedcom.GedcomException;
+import genj.gedcom.GedcomListener;
 import genj.gedcom.Indi;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
@@ -77,21 +79,25 @@ import java.util.List;
 
 import javax.swing.JPanel;
 
+import spin.Spin;
+
 public class EditPluginFactory implements PluginFactory {
   
   public Object createPlugin(Workbench workbench) {
     return new EditPlugin(workbench);
   }
 
-  private class EditPlugin implements ActionProvider {
+  private class EditPlugin implements ActionProvider, WorkbenchListener {
     
     private Workbench workbench;
+    private List<Action2> workbenchActions = new ArrayList<Action2>();
     
     /**
      * Constructor
      */
     private EditPlugin(Workbench workbench) {
       this.workbench = workbench;
+      workbench.addWorkbenchListener(this);
     }
     
     public int getPriority() {
@@ -364,6 +370,38 @@ public class EditPluginFactory implements PluginFactory {
         }
       }
       // done
+    }
+
+    public void commitRequested() {
+    }
+
+    public void gedcomClosed(Gedcom gedcom) {
+      for (Action2 action : workbenchActions) {
+        workbench.uninstallTool(action);
+        if (action instanceof GedcomListener)
+          gedcom.removeGedcomListener((GedcomListener)Spin.over(action));
+      }
+      workbenchActions.clear();
+    }
+
+    public void gedcomOpened(Gedcom gedcom) {
+      workbenchActions.add(new Undo(gedcom));
+      workbenchActions.add(new Redo(gedcom));
+      for (Action2 action : workbenchActions) {
+        workbench.installTool(action, true);
+        if (action instanceof GedcomListener)
+          gedcom.addGedcomListener((GedcomListener)Spin.over(action));
+      }
+    }
+
+    public void selectionChanged(Context context, boolean isActionPerformed) {
+      // TODO Auto-generated method stub
+      
+    }
+
+    public boolean workbenchClosing() {
+      // TODO Auto-generated method stub
+      return false;
     }
     
   }

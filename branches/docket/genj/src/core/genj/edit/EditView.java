@@ -179,8 +179,6 @@ public class EditView extends View implements ContextProvider  {
     
     // listen to gedcom
     callback.enable();
-    gedcom.addGedcomListener((GedcomListener)Spin.over(undo));
-    gedcom.addGedcomListener((GedcomListener)Spin.over(redo));
     
   }
 
@@ -349,9 +347,9 @@ public class EditView extends View implements ContextProvider  {
     ViewContext current = editor.getContext();
     if (current.getEntity()!=context.getEntity()) {
       
-      Context c = new Context(context.getEntity());
-      for (Property p : context.getProperties()) 
-        if (p.getEntity().equals(c.getEntity()))
+      Context c = new Context(current.getEntity());
+      for (Property p : current.getProperties()) 
+        if (p.getEntity().equals(current.getEntity()))
           c.addProperty(p);
       
       backs.push(c);
