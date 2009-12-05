@@ -22,6 +22,7 @@ package genj.edit;
 import genj.app.PluginFactory;
 import genj.app.Workbench;
 import genj.app.WorkbenchListener;
+import genj.app.Workbench.ToolLocation;
 import genj.common.SelectEntityWidget;
 import genj.crypto.Enigma;
 import genj.edit.actions.AbstractChange;
@@ -388,7 +389,7 @@ public class EditPluginFactory implements PluginFactory {
       workbenchActions.add(new Undo(gedcom));
       workbenchActions.add(new Redo(gedcom));
       for (Action2 action : workbenchActions) {
-        workbench.installTool(action, true);
+        workbench.installTool(action, ToolLocation.TOOLBAR);
         if (action instanceof GedcomListener)
           gedcom.addGedcomListener((GedcomListener)Spin.over(action));
       }

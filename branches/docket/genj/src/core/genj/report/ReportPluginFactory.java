@@ -22,6 +22,7 @@ package genj.report;
 import genj.app.PluginFactory;
 import genj.app.Workbench;
 import genj.app.WorkbenchListener;
+import genj.app.Workbench.ToolLocation;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
@@ -74,7 +75,7 @@ public class ReportPluginFactory implements PluginFactory {
         getActions(context.getGedcom(), context.getGedcom(), newActions);
         if (newActions.size()>0) {
           actions = newActions;
-          workbench.installTool(actions, false);
+          workbench.installTool(actions, ToolLocation.MAINMENU);
         }
       }
     }

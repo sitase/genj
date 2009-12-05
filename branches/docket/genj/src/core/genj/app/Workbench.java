@@ -543,16 +543,26 @@ public class Workbench extends JPanel {
     
     return result;
   }
+  
+  public enum ToolLocation {
+    TOOLBAR,
+    MAINMENU,
+    TOOLSMENU
+  }
 
   /**
-   * Install a tool into the workbench
+   * Install a tool into the workbench. 
+   * @param binding where to install the tool
    */
-  public void installTool(Action2 tool, boolean inToolbar) {
-    
-    if (inToolbar)
+  public void installTool(Action2 tool, ToolLocation location) {
+    switch (location) {
+    case TOOLBAR:
       toolbar.addTool(tool);
-    else
+    case MAINMENU:
       menu.addTool(tool);
+    case TOOLSMENU:
+      throw new IllegalArgumentException("not supported yet");
+    }
   }
 
   /**
