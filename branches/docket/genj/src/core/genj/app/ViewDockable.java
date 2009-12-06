@@ -103,6 +103,7 @@ import swingx.docking.Docked;
     return (View)getContent();
   }
 
+  
   @Override
   public void docked(final Docked docked) {
     super.docked(docked);
@@ -112,6 +113,9 @@ import swingx.docking.Docked;
 
     // listen to workbench
     workbench.addWorkbenchListener(this);
+    
+    // tell others
+    workbench.fireViewOpened(view);
 
     // only if ToolBarSupport and no bar installed
     final AtomicBoolean toolbar = new AtomicBoolean(false);
@@ -174,6 +178,9 @@ import swingx.docking.Docked;
 
     // don't listen to workbench
     workbench.removeWorkbenchListener(this);
+    
+    // tell others
+    workbench.fireViewClosed(view);
 
     // continue
     super.undocked();
@@ -463,8 +470,14 @@ import swingx.docking.Docked;
 
     /** run */
     public void actionPerformed(ActionEvent event) {
-      workbench.closeView(factory);
+      workbench.closeView(factory.getClass());
     }
   } // ActionCloseView
+
+  public void viewClosed(View view) {
+  }
+
+  public void viewOpened(View view) {
+  }
 
 } //ViewDockable

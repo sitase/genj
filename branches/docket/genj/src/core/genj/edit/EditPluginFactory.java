@@ -70,6 +70,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
+import genj.view.View;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -287,7 +288,7 @@ public class EditPluginFactory implements PluginFactory {
         result.add(new DelEntity(entity));
         
         // add an "edit in EditView"
-        if (null==workbench.getView(new EditViewFactory()))
+        if (null==workbench.getView(EditViewFactory.class))
           result.add(new OpenForEdit(workbench, new Context(entity)));
         
         // done
@@ -396,13 +397,16 @@ public class EditPluginFactory implements PluginFactory {
     }
 
     public void selectionChanged(Context context, boolean isActionPerformed) {
-      // TODO Auto-generated method stub
-      
     }
 
     public boolean workbenchClosing() {
-      // TODO Auto-generated method stub
-      return false;
+      return true;
+    }
+
+    public void viewClosed(View view) {
+    }
+
+    public void viewOpened(View view) {
     }
     
   }

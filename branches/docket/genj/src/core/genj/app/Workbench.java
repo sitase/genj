@@ -99,6 +99,7 @@ public class Workbench extends JPanel {
   private final static Resources RES = Resources.get(Workbench.class);
 
   /** members */
+  private List<ViewFactory> viewFactories = ServiceLookup.lookup(ViewFactory.class);
   private Registry registry;
   private WindowManager windowManager;
   private List<Action> gedcomActions = new ArrayList<Action>();
@@ -278,7 +279,7 @@ public class Workbench extends JPanel {
 
     // tell plugins
     for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
-        SafeProxy.harden((WorkbenchListener)plugin).gedcomOpened(gedcom);
+        ((WorkbenchListener)plugin).gedcomOpened(gedcom);
     
     // done
     return true;
@@ -476,7 +477,7 @@ public class Workbench extends JPanel {
     
     // tell plugins
     for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
-        SafeProxy.harden((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
+      ((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
 
     // unregister
     GedcomDirectory.getInstance().unregisterGedcom(context.getGedcom());
@@ -587,7 +588,21 @@ public class Workbench extends JPanel {
     for (WorkbenchListener listener : listeners) 
       listener.selectionChanged(context, isActionPerformed);
   }
+  
+  /*package*/ void fireViewOpened(View view) {
+    // tell plugins
+    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
+      ((WorkbenchListener)plugin).viewOpened(view);
+    
+  }
 
+  /*package*/ void fireViewClosed(View view) {
+    // tell plugins
+    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
+      ((WorkbenchListener)plugin).viewClosed(view);
+    
+  }
+  
   public void addWorkbenchListener(WorkbenchListener listener) {
     listeners.add(listener);
   }
@@ -600,26 +615,44 @@ public class Workbench extends JPanel {
    * access a view
    * @return view or null if not open
    */
-  public View getView(ViewFactory factory) {
-    ViewDockable dockable = (ViewDockable)dockingPane.getDockable(factory.getClass());
+  public View getView(Class<? extends ViewFactory> factoryClass) {
+    ViewDockable dockable = (ViewDockable)dockingPane.getDockable(factoryClass);
     return dockable!=null ? dockable.getView() : null;
   }
   
   /**
    * close a view
    */
-  public void closeView(ViewFactory factory) {
-    dockingPane.removeDockable(factory.getClass());
+  public void closeView(Class<? extends ViewFactory> factory) {
+    dockingPane.removeDockable(factory);
   }
   
   /**
    * (re)open a view
    */
-  public View openView(ViewFactory factory, Context context) {
+  public View openView(Class<? extends ViewFactory> factory) {
+    // grab current Gedcom
+    if (this.context == null)
+      throw new IllegalArgumentException("no context");
+    return openView(factory, new Context(context));
+  }
+  
+  /**
+   * (re)open a view
+   */
+  public View openView(Class<? extends ViewFactory> factory, Context context) {
+    for (ViewFactory vf : viewFactories) {
+      if (vf.getClass().equals(factory))
+        return openViewImpl(vf, context);
+    }
+    throw new IllegalArgumentException("unknown factory");
+  }
+  
+  private View openViewImpl(ViewFactory factory, Context context) {
     
     // grab current Gedcom
-    if (context == null)
-      throw new IllegalArgumentException("Cannot open view without context");
+    if (this.context == null || context.getGedcom()!=this.context.getGedcom())
+      throw new IllegalArgumentException("Invalid context");
 
     // already open or new
     ViewDockable dockable = (ViewDockable)dockingPane.getDockable(factory.getClass());
@@ -874,7 +907,7 @@ public class Workbench extends JPanel {
         if (adam!=null)
           context = new Context(adam);
       }
-      openView(factory, context);
+      openViewImpl(factory, context);
     }
   } // ActionOpenView
 
@@ -1038,7 +1071,7 @@ public class Workbench extends JPanel {
       // Views
       mh.createMenu(RES.getString("cc.menu.view"));
   
-      for (ViewFactory factory : ServiceLookup.lookup(ViewFactory.class)) {
+      for (ViewFactory factory : viewFactories) {
         ActionOpenView action = new ActionOpenView(factory);
         gedcomActions.add(action);
         mh.createItem(action);

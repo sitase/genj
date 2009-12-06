@@ -48,7 +48,7 @@ public class OpenForEdit extends Action2 {
    * @see genj.util.swing.Action2#execute()
    */
   public void actionPerformed(ActionEvent event) {
-    workbench.openView(new EditViewFactory(), context);
+    workbench.openView(EditViewFactory.class, context);
   }
   
 } //OpenForEdit

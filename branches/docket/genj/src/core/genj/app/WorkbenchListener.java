@@ -21,6 +21,7 @@ package genj.app;
 
 import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
+import genj.view.View;
 
 /**
  * Workbench callbacks
@@ -56,5 +57,15 @@ public interface WorkbenchListener {
    * @return whether to continue with close operation or not
    */
   public void gedcomOpened(Gedcom gedcom);
+  
+  /**
+   * notification that a view has been opened
+   */
+  public void viewOpened(View view);
+
+  /**
+   * notification that a view has been opened
+   */
+  public void viewClosed(View view);
 
 }

@@ -88,7 +88,6 @@ public abstract class View extends JPanel implements SelectionListener {
   /**
    * Find the view for given component
    */
-  
   // FIXME docket this doesn't work for out of view components - e.g. component shown from report dialog
   public static View getView(Component componentInView) {
     do {
@@ -107,15 +106,6 @@ public abstract class View extends JPanel implements SelectionListener {
     View.getView(componentInView).fireSelection(context, isActionPerformed);
   }
 
-  /**
-   * Retrieve an existing view 
-   * @return open view or null
-   */
-  public View get(ViewFactory factory) {
-    // FIXME docket view from view
-    return null;
-  }
-  
   /**
    * follow selection
    */

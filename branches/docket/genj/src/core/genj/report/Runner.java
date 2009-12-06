@@ -22,27 +22,39 @@ package genj.report;
 import genj.gedcom.Gedcom;
 import genj.gedcom.UnitOfWork;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * A runner for reports
  */
 /*package*/ class Runner implements Runnable {
+  
+  private final static Logger LOG = Logger.getLogger("genj.report");
 
   private final static long FLUSH_WAIT = 500;
 
   private Gedcom gedcom;
   private Object context;
   private Report report;
-  private RunnerListener listener;
+  private Object callback;
   
-  /*package*/ Runner(Gedcom gedcom, Object context, Report report, RunnerListener listener) {
+  /**
+   * Constructor
+   * @param gedcom Gedcom the report works on
+   * @param context Context the report getsas input
+   * @param report Report to run
+   * @param callback Appendable or Closeable
+   */
+  /*package*/ Runner(Gedcom gedcom, Object context, Report report, Object callback) {
     this.gedcom = gedcom;
     this.context= context;
     this.report = report;
-    this.listener = listener;
+    this.callback = callback;
   }
   
   public void run() {
@@ -51,8 +63,6 @@ import java.io.Writer;
     report.setOut(new PrintWriter(new WriterImpl()));
     
     // signal start
-    listener.started();
-    
     try{
       if (report.isReadOnly()) {
         report.start(context);
@@ -75,12 +85,11 @@ import java.io.Writer;
       else
         report.println(cause!=null?cause:t);
     } finally {
-      // signal stop
-      listener.stopped();
+      // flush
+      report.flush();
+      report.getOut().close();
     }
 
-    // flush
-    report.flush();
 
 //  // check last line for url
 //  URL url = null;
@@ -118,8 +127,14 @@ import java.io.Writer;
      * @see java.io.Writer#close()
      */
     public void close() {
-      // clear buffer
-      buffer.setLength(0);
+      flush();
+      if (callback instanceof Closeable)
+        try {
+          ((Closeable)callback).close();
+        } catch (IOException e) {
+          LOG.log(Level.WARNING, "couldn't close callback", e);
+        }
+        LOG.log(Level.FINER, "close");
     }
 
     /**
@@ -134,11 +149,19 @@ import java.io.Writer;
       // mark
       lastFlush = System.currentTimeMillis();
 
-      // grab text, reset buffer and dump it
-      String txt = buffer.toString();
-      buffer.setLength(0);
-      listener.flushed(txt);
+      // dump buffer
+      if (callback instanceof Appendable)
+        try {
+          ((Appendable)callback).append(buffer);
+        } catch (IOException e) {
+          LOG.log(Level.WARNING, "couldn't append", e);
+        }
+      if (LOG.isLoggable(Level.FINER))
+        LOG.log(Level.FINER, buffer.toString());
         
+      // clear it
+      buffer.setLength(0);
+      
       // done
     }
 

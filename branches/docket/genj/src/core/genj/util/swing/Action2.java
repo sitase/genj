@@ -326,6 +326,12 @@ public class Action2 extends AbstractAction {
       throw new IllegalArgumentException("group doesn't support actionPerformed()");
     }
     
+    @Override
+    public void setEnabled(boolean newValue) {
+      for (Action action : actions)
+        action.setEnabled(newValue);
+    }
+    
   } //Group
 
 } //Action2

@@ -39,6 +39,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.BufferedReader;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -89,6 +90,9 @@ public class ReportView extends View {
 
   /** title of this view */
   private String title;
+  
+  /** plugin */
+  private ReportPlugin plugin = null;
 
   /**
    * Constructor
@@ -118,6 +122,10 @@ public class ReportView extends View {
     super.removeNotify();
     // save report options
     ReportLoader.getInstance().saveOptions();
+  }
+  
+  /*package*/ void setPlugin(ReportPlugin plugin) {
+    this.plugin = plugin;
   }
   
   /**
@@ -157,21 +165,51 @@ public class ReportView extends View {
     // clear the current output
     output.clear();
     
+    // set running
+    actionStart.setEnabled(false);
+    actionStop.setEnabled(true);
+    if (plugin!=null)
+      plugin.setEnabled(false);
+    
     // kick it off
-    new Thread(new Runner(gedcom, context, report, (RunnerListener)Spin.over(new RunnerListener() {
-      public void flushed(String s) {
-        output.add(s);
-      }
-      public void started() {
-        actionStart.setEnabled(false);
-        actionStop.setEnabled(true);
-      }
+    new Thread(new Runner(gedcom, context, report, Spin.over(new RunnerCallback()))).start();
 
-      public void stopped() {
+  }
+
+  /**
+   * callback for runner
+   */
+  private class RunnerCallback implements Appendable, Closeable {
+    
+    private boolean closed = false;
+
+    public void close() throws IOException {
+      if (!closed) {
+        closed = true;
         actionStart.setEnabled(true);
         actionStop.setEnabled(false);
+        if (plugin!=null)
+          plugin.setEnabled(true);
       }
-    }))).start();
+    }
+    
+    public Appendable append(CharSequence csq) throws IOException {
+      if (!closed)
+        output.add(csq.toString());
+      return this;
+    }
+
+    public Appendable append(char c) throws IOException {
+      if (!closed)
+        output.add(Character.toString(c));
+      return this;
+    }
+
+    public Appendable append(CharSequence csq, int start, int end) throws IOException {
+      if (!closed)
+        output.add(csq.subSequence(start, end).toString());
+      return this;
+    }
 
   }
   
