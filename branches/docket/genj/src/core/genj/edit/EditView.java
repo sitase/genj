@@ -345,8 +345,8 @@ public class EditView extends View implements ContextProvider  {
     
     // keep track of current editor's context
     ViewContext current = editor.getContext();
-    if (current.getEntity()!=context.getEntity()) {
-      
+    if (current.getEntity()!=null && current.getEntity()!=context.getEntity()) {
+
       Context c = new Context(current.getEntity());
       for (Property p : current.getProperties()) 
         if (p.getEntity().equals(current.getEntity()))

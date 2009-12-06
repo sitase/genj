@@ -558,8 +558,10 @@ public class Workbench extends JPanel {
     switch (location) {
     case TOOLBAR:
       toolbar.addTool(tool);
+      return;
     case MAINMENU:
       menu.addTool(tool);
+      return;
     case TOOLSMENU:
       throw new IllegalArgumentException("not supported yet");
     }
