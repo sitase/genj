@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.2 $ $Author: nmeier $ $Date: 2009-12-03 02:42:11 $
+ * $Revision: 1.136.2.3 $ $Author: nmeier $ $Date: 2009-12-06 01:14:32 $
  */
 package genj.report;
 
@@ -517,6 +517,8 @@ public abstract class Report implements Cloneable {
    */
   public void showComponentToUser(JComponent component) {
 
+    // FIXME docket show report output in report view
+    
     // open a non-modal dialog
     windowManager.openNonModalDialog(getClass().getName()+"#component",getName(), WindowManager.INFORMATION_MESSAGE,component,Action2.okOnly(),owner.get());
 

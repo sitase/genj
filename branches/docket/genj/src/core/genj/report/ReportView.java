@@ -45,7 +45,6 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringReader;
-import java.io.Writer;
 import java.nio.charset.Charset;
 import java.util.logging.Logger;
 
@@ -55,7 +54,8 @@ import javax.swing.JScrollPane;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 
-// FIXME docket add report picker w/reload and grouping on run - add run last 
+import spin.Spin;
+
 /**
  * Component for running reports on genealogic data
  */
@@ -64,14 +64,13 @@ public class ReportView extends View {
   /*package*/ static Logger LOG = Logger.getLogger("genj.report");
 
   /** time between flush of output writer to output text area */
-  private final static long FLUSH_WAIT = 200;
   private final static String EOL= System.getProperty("line.separator");
 
   /** statics */
   private final static ImageIcon
-    imgStart = new ImageIcon(ReportView.class,"Start"      ),
-    imgStop  = new ImageIcon(ReportView.class,"Stop"       ),
-    imgSave  = new ImageIcon(ReportView.class,"Save"       );
+    imgStart = new ImageIcon(ReportView.class,"Start"),
+    imgStop  = new ImageIcon(ReportView.class,"Stop"),
+    imgSave  = new ImageIcon(ReportView.class,"Save");
 
 
   /** gedcom this view is for */
@@ -124,125 +123,84 @@ public class ReportView extends View {
   /**
    * start a report
    */
-  public void startReport(Report report, Object context) {
-    // FIXME docket startReport()
+  public void startReport(final Report report, Object context) {
+    
+    if (!actionStart.isEnabled())
+      return;
+    
+    if (report.getStartMethod(gedcom)==null) {
+      for (int i=0;i<Gedcom.ENTITIES.length;i++) {
+        String tag = Gedcom.ENTITIES[i];
+        Entity sample = gedcom.getFirstEntity(tag);
+        if (sample!=null && report.accepts(sample)!=null) {
+
+          // give the report a chance to name our dialog
+          String txt = report.accepts(sample.getClass());
+          if (txt==null) 
+            Gedcom.getName(tag);
+          
+          // ask user for context now
+          context = report.getEntityFromUser(txt, gedcom, tag);
+          if (context==null) 
+            return;
+          break;
+        }
+      }
+    }
+
+    // check if appropriate
+    if (context==null||report.accepts(context)==null) {
+      WindowManager.getInstance(ReportView.this).openDialog(null,report.getName(),WindowManager.ERROR_MESSAGE,RESOURCES.getString("report.noaccept"),Action2.okOnly(),ReportView.this);
+      return;
+    }
+    
+    // clear the current output
+    output.clear();
+    
+    // kick it off
+    new Thread(new Runner(gedcom, context, report, (RunnerListener)Spin.over(new RunnerListener() {
+      public void flushed(String s) {
+        output.add(s);
+      }
+      public void started() {
+        actionStart.setEnabled(false);
+        actionStop.setEnabled(true);
+      }
+
+      public void stopped() {
+        actionStart.setEnabled(true);
+        actionStop.setEnabled(false);
+      }
+    }))).start();
+
   }
   
+  /**
+   * Start a report after selection
+   */
   public void startReport() {
     
-//    ReportSelector selector = new ReportSelector();
-//    
-//    WindowManager.getInstance().openDialog("report", 
-//        RESOURCES.getString("report.reports"),
-//        WindowManager.QUESTION_MESSAGE, 
-//        selector, 
-//        Action2.okCancel(), 
-//        ReportView.this);
-//    
-//    // go
-//    setRunning(true);
-//
-//    report = selector.getReport();
-//    if (report==null)
-//      return false;
-//
-//    out = new PrintWriter(new OutputWriter());
-//
-//    // either use preset context, gedcom file or ask for entity
-//    Object useContext = context;
-//    context = null;
-//    
-//    if (useContext==null) {
-//      if (report.getStartMethod(gedcom)!=null)
-//        useContext = gedcom;
-//      else  for (int i=0;i<Gedcom.ENTITIES.length;i++) {
-//        String tag = Gedcom.ENTITIES[i];
-//        Entity sample = gedcom.getFirstEntity(tag);
-//        if (report.accepts(sample)!=null) {
-//          
-//          // give the report a chance to name our dialog
-//          String txt = report.accepts(sample.getClass());
-//          if (txt==null) Gedcom.getName(tag);
-//          
-//          // ask user for context now
-//          useContext = report.getEntityFromUser(txt, gedcom, tag);
-//          if (useContext==null) 
-//            return false;
-//          break;
-//        }
-//      }
-//    }
-//
-//    // check if appropriate
-//    if (useContext==null||report.accepts(useContext)==null) {
-//      WindowManager.getInstance(getTarget()).openDialog(null,report.getName(),WindowManager.ERROR_MESSAGE,RESOURCES.getString("report.noaccept"),Action2.okOnly(),ReportView.this);
-//      return false;
-//    }
-//    context = useContext;
-//
-//    // clear the current output
-//    output.clear();
-
-//    // set report context
-//    report.setOwner(ReportView.this);
-//    report.setOut(out);
-//
-//    try{
-//      
-//      if (report.isReadOnly())
-//        report.start(context);
-//      else
-//        gedcom.doUnitOfWork(new UnitOfWork() {
-//          public void perform(Gedcom gedcom) {
-//            try {
-//              report.start(context);
-//            } catch (Throwable t) {
-//              throw new RuntimeException(t);
-//            }
-//          }
-//        });
-//    
-//    } catch (Throwable t) {
-//      Throwable cause = t.getCause();
-//      if (cause instanceof InterruptedException)
-//        report.println("***cancelled");
-//      else
-//        report.println(cause!=null?cause:t);
-//    }
-//    context = null;
-//
-//    // stop run
-//    setRunning(false);
-//
-//    // flush
-//    if (out!=null) {
-//      out.flush();
-//      out.close();
-//    }
-//
-//    // no more cleanup to do?
-//    if (!preExecuteResult)
-//      return false;
-//
-//    // check last line for url
-//    URL url = null;
-//    try {
-//      AbstractDocument doc = (AbstractDocument)output.getDocument();
-//      Element p = doc.getParagraphElement(doc.getLength()-1);
-//      String line = doc.getText(p.getStartOffset(), p.getEndOffset()-p.getStartOffset());
-//      url = new URL(line);
-//    } catch (Throwable t) {
-//    }
-//
-//    if (url!=null) {
-//      try {
-//        output.setPage(url);
-//      } catch (IOException e) {
-//        LOG.log(Level.WARNING, "couldn't show html in report output", e);
-//      }
-//    }
-//
+    ReportSelector selector = new ReportSelector();
+    try {
+      selector.select(ReportLoader.getInstance().getReportByName(registry.get("lastreport", (String)null)));
+    } catch (Throwable t) {
+    }
     
+    WindowManager.getInstance().openDialog("report", 
+        RESOURCES.getString("report.reports"),
+        WindowManager.QUESTION_MESSAGE, 
+        selector, 
+        Action2.okCancel(), 
+        ReportView.this);
+    
+    Report report = selector.getReport();
+    if (report==null)
+      return;
+    
+    registry.put("lastreport", report.getClass().getName());
+    
+    startReport(report, gedcom);
+
   }
 
   /**
@@ -508,61 +466,5 @@ public class ReportView extends View {
 
   } //Output
 
-  /**
-   * A printwriter that directs output to the text area
-   */
-  private class OutputWriter extends Writer {
-
-    /** buffer */
-    private StringBuffer buffer = new StringBuffer(4*1024);
-
-    /** timer */
-    private long lastFlush = -1;
-
-    /**
-     * @see java.io.Writer#close()
-     */
-    public void close() {
-      // clear buffer
-      buffer.setLength(0);
-    }
-
-    /**
-     * @see java.io.Writer#flush()
-     */
-    public void flush() {
-
-      // something to flush?
-      if (buffer.length()==0)
-        return;
-
-      // mark
-      lastFlush = System.currentTimeMillis();
-
-      // grab text, reset buffer and dump it
-      String txt = buffer.toString();
-      buffer.setLength(0);
-      
-      output.add(txt);
-
-      // done
-    }
-
-    /**
-     * @see java.io.Writer#write(char[], int, int)
-     */
-    public void write(char[] cbuf, int off, int len) throws IOException {
-      // append to buffer - strip any \r from \r\n
-      for (int i=0;i<len;i++) {
-        char c = cbuf[off+i];
-        if (c!='\r') buffer.append(c);
-      }
-      // check flush
-      if (System.currentTimeMillis()-lastFlush > FLUSH_WAIT)
-        flush();
-      // done
-    }
-
-  } //OutputWriter
 
 } //ReportView

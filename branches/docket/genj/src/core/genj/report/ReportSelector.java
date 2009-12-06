@@ -63,10 +63,17 @@ class ReportSelector extends JTabbedPane {
       }
     });
     
-    // FIXME docket restore last selected report
     if (list.getRowCount()>0)
       list.setSelectionRow(0);
     
+  }
+  
+  /**
+   * select a report
+   */
+  public void select(Report report) {
+    if (report!=null)
+      list.setSelection(report);
   }
   
 
