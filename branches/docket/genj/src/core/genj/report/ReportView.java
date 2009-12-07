@@ -224,12 +224,9 @@ public class ReportView extends View {
     } catch (Throwable t) {
     }
     
-    WindowManager.getInstance().openDialog("report", 
-        RESOURCES.getString("report.reports"),
-        WindowManager.QUESTION_MESSAGE, 
-        selector, 
-        Action2.okCancel(), 
-        ReportView.this);
+    if (0!=WindowManager.getInstance().openDialog("report", RESOURCES.getString("report.reports"),
+        WindowManager.QUESTION_MESSAGE, selector, Action2.okCancel(), ReportView.this))
+      return;
     
     Report report = selector.getReport();
     if (report==null)

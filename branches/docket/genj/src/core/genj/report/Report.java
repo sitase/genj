@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.3 $ $Author: nmeier $ $Date: 2009-12-06 01:14:32 $
+ * $Revision: 1.136.2.4 $ $Author: nmeier $ $Date: 2009-12-07 02:52:12 $
  */
 package genj.report;
 
@@ -201,11 +201,13 @@ public abstract class Report implements Cloneable {
   public List<? extends Option> getOptions() {
 
     // already calculated
-    if (options!=null)
-      return options;
+// FIXME docket cache options    
+//    if (options!=null)
+//      return options;
 
     // calculate options
-    options = PropertyOption.introspect(this);
+    // 20091205 going recursive here is new to support Przemek's case of settings on report's components
+    options = PropertyOption.introspect(this, true);
 
     // restore options values
     for (Option option : options) {
@@ -223,9 +225,13 @@ public abstract class Report implements Cloneable {
         String toolTip = translateOption(toolTipKey);
         if (toolTip.length() > 0 && !toolTip.equals(toolTipKey))
             poption.setToolTip(toolTip);
-      }
-      // set category
-      option.setCategory(getName());
+      } 
+      // set default category
+      if (option.getCategory()==null)
+        option.setCategory(getName());
+      else
+        option.setCategory(translateOption(option.getCategory()));
+
     }
 
     // done

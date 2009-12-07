@@ -60,7 +60,19 @@ public abstract class PropertyOption extends Option {
    * Get options for given instance
    */
   public static List<PropertyOption> introspect(Object instance) {
+    return introspect(instance, false);
+  }
 
+  public static List<PropertyOption> introspect(Object instance, boolean recursively) {
+    return introspect(instance, recursively?new ArrayList<Object>():null);
+  }
+  
+  private static List<PropertyOption> introspect(Object instance, List<Object> trackingRecursivelyVisited) {
+ 
+    // tracking visited?
+    if (trackingRecursivelyVisited!=null)
+      trackingRecursivelyVisited.add(instance);   
+    
     // prepare result
     List<PropertyOption> result = new ArrayList<PropertyOption>();
     Set<String> beanattrs = new HashSet<String>();
@@ -81,7 +93,7 @@ public abstract class PropertyOption extends Option {
           // int, boolean, String?
           if (!Impl.isSupportedArgument(property.getPropertyType()))
             continue;
-
+          
           // try a read
           property.getReadMethod().invoke(instance, (Object[])null);
 
@@ -118,15 +130,25 @@ public abstract class PropertyOption extends Option {
       }
 
       // int, boolean, String?
-      if (!Impl.isSupportedArgument(type))
-        continue;
-
-      // create
-      result.add(FieldImpl.create(instance, field));
-
+      if (Impl.isSupportedArgument(type)) {
+        result.add(FieldImpl.create(instance, field));
+      } else {
+        // could still be recursive
+        if (trackingRecursivelyVisited!=null)
+          try {
+            for (PropertyOption recursiveOption : introspect(field.get(instance), trackingRecursivelyVisited)) {
+              String cat = recursiveOption.getCategory();
+              recursiveOption.setCategory(field.getName() );
+              result.add(recursiveOption);
+            }
+          } catch (Throwable t) {
+            // ignore it
+          }
+      }
+ 
       // next
     }
-
+    
     // done
     return result;
   }
