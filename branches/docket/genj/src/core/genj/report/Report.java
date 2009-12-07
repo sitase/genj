@@ -17,20 +17,15 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.4 $ $Author: nmeier $ $Date: 2009-12-07 02:52:12 $
+ * $Revision: 1.136.2.5 $ $Author: nmeier $ $Date: 2009-12-07 23:47:32 $
  */
 package genj.report;
 
-import genj.chart.Chart;
 import genj.common.SelectEntityWidget;
-import genj.fo.Document;
-import genj.fo.Format;
-import genj.fo.FormatOptionsWidget;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.time.PointInTime;
-import genj.io.FileAssociation;
 import genj.option.Option;
 import genj.option.OptionsWidget;
 import genj.option.PropertyOption;
@@ -51,14 +46,11 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -266,19 +258,27 @@ public abstract class Report implements Cloneable {
    * properties file, the category is set to "Other".
    */
   public Category getCategory() {
-      String name = translate("category");
-      if (name.equals("category"))
-          return DEFAULT_CATEGORY;
+    
+    // find category in report settings
+    String key = translate("category");
+    if (key.equals("category"))
+        return DEFAULT_CATEGORY;
 
-      Category category = CATEGORIES.get(name);
-      if (category == null) {
-          category = createCategory(name);
-          CATEGORIES.put(category.getName() ,category);
-      }
+    // try to find it
+    Category category = CATEGORIES.get(key);
+    if (category!=null)
       return category;
+
+    // try to localize it with standard value
+    String name = COMMON_RESOURCES.getString("category."+key.toLowerCase(), key);
+    
+    // create it
+    category = createCategory(key, name);
+    CATEGORIES.put(key ,category);
+    return category;
   }
 
-  private Category createCategory(String name) {
+  private Category createCategory(String key, String name) {
       String file = "Category" + name + ".png";
 
       InputStream in = Report.class.getResourceAsStream(file);
@@ -419,124 +419,124 @@ public abstract class Report implements Cloneable {
     return result;
   }
 
-  /**
-   * A sub-class can show a document to the user with this method allowing
-   * to save, transform and view it
-   */
-  public void showDocumentToUser(Document doc) {
+//  /**
+//   * A sub-class can show a document to the user with this method allowing
+//   * to save, transform and view it
+//   */
+//  public void showDocumentToUser(Document doc) {
+//
+//    String title = "Document "+doc.getTitle();
+//
+//    Registry foRegistry = new Registry(registry, getClass().getName()+".fo");
+//
+//    Action[] actions = Action2.okCancel();
+//    FormatOptionsWidget output = new FormatOptionsWidget(doc, foRegistry);
+//    output.connect(actions[0]);
+//    int rc = windowManager.openDialog("reportdoc", title, WindowManager.QUESTION_MESSAGE, output, actions, owner.get());
+//
+//    // cancel?
+//    if (rc!=0)
+//      return;
+//
+//    // grab formatter and output file
+//    Format formatter = output.getFormat();
+//
+//    File file = null;
+//    String progress = null;
+//    if (formatter.getFileExtension()!=null) {
+//
+//      file = output.getFile();
+//      if (file==null)
+//        return;
+//      file.getParentFile().mkdirs();
+//
+//      // show a progress dialog
+//      progress = windowManager.openNonModalDialog(
+//          null, title, WindowManager.INFORMATION_MESSAGE, new JLabel("Writing Document to file "+file+" ..."), Action2.okOnly(), owner.get());
+//
+//    }
+//
+//    // store options
+//    output.remember(foRegistry);
+//
+//    // format and write
+//    try {
+//      formatter.format(doc, file);
+//    } catch (Throwable t) {
+//      LOG.log(Level.WARNING, "formatting "+doc+" failed", t);
+//      windowManager.openDialog(null, "Formatting "+doc+" failed", WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), owner.get());
+//      file = null;
+//    }
+//
+//    // close progress dialog
+//    if (progress!=null)
+//      windowManager.close(progress);
+//
+//    // open document
+//    if (file!=null) {
+//    	showFileToUser(file, formatter.getFileExtension());
+//    }
+//
+//    // done
+//  }
 
-    String title = "Document "+doc.getTitle();
+//  /**
+//   * Show a file if there's a file association for it
+//   */
+//	public void showFileToUser(File file)
+//	{
+//		showFileToUser(file, null);
+//	}
 
-    Registry foRegistry = new Registry(registry, getClass().getName()+".fo");
+//	  /**
+//	   * Show a file if there's a file association for it
+//	   */
+//	public void showFileToUser(File file, String extension)
+//	{
+//		// let ReportView show the file or show it in external application
+//		if (owner.get() instanceof ReportView && ("html".equals(extension) || file.getName().endsWith(".html"))) {
+//			try {
+//				log("" + file.toURI().toURL());
+//			} catch (MalformedURLException e) {
+//				e.printStackTrace();
+//			}
+//		} else {
+//			FileAssociation association = null;
+//			if (extension != null)
+//				association = FileAssociation.get(extension, extension, "Open", owner.get());
+//			else
+//				association = FileAssociation.get(file, "Open", owner.get());
+//			if (association != null)
+//				association.execute(file);
+//		}
+//	}
 
-    Action[] actions = Action2.okCancel();
-    FormatOptionsWidget output = new FormatOptionsWidget(doc, foRegistry);
-    output.connect(actions[0]);
-    int rc = windowManager.openDialog("reportdoc", title, WindowManager.QUESTION_MESSAGE, output, actions, owner.get());
+//  /**
+//   * A sub-class can show a chart to the user with this method
+//   */
+//  public final void showChartToUser(Chart chart) {
+//    showComponentToUser(chart);
+//  }
 
-    // cancel?
-    if (rc!=0)
-      return;
+//  /**
+//   * A sub-class can show a Java Swing component to the user with this method
+//   */
+//  public void showComponentToUser(JComponent component) {
+//
+//    // FIXME docket show report output in report view
+//    
+//    // open a non-modal dialog
+//    windowManager.openNonModalDialog(getClass().getName()+"#component",getName(), WindowManager.INFORMATION_MESSAGE,component,Action2.okOnly(),owner.get());
+//
+//    // done
+//  }
 
-    // grab formatter and output file
-    Format formatter = output.getFormat();
-
-    File file = null;
-    String progress = null;
-    if (formatter.getFileExtension()!=null) {
-
-      file = output.getFile();
-      if (file==null)
-        return;
-      file.getParentFile().mkdirs();
-
-      // show a progress dialog
-      progress = windowManager.openNonModalDialog(
-          null, title, WindowManager.INFORMATION_MESSAGE, new JLabel("Writing Document to file "+file+" ..."), Action2.okOnly(), owner.get());
-
-    }
-
-    // store options
-    output.remember(foRegistry);
-
-    // format and write
-    try {
-      formatter.format(doc, file);
-    } catch (Throwable t) {
-      LOG.log(Level.WARNING, "formatting "+doc+" failed", t);
-      windowManager.openDialog(null, "Formatting "+doc+" failed", WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), owner.get());
-      file = null;
-    }
-
-    // close progress dialog
-    if (progress!=null)
-      windowManager.close(progress);
-
-    // open document
-    if (file!=null) {
-    	showFileToUser(file, formatter.getFileExtension());
-    }
-
-    // done
-  }
-
-  /**
-   * Show a file if there's a file association for it
-   */
-	public void showFileToUser(File file)
-	{
-		showFileToUser(file, null);
-	}
-
-	  /**
-	   * Show a file if there's a file association for it
-	   */
-	public void showFileToUser(File file, String extension)
-	{
-		// let ReportView show the file or show it in external application
-		if (owner.get() instanceof ReportView && ("html".equals(extension) || file.getName().endsWith(".html"))) {
-			try {
-				log("" + file.toURI().toURL());
-			} catch (MalformedURLException e) {
-				e.printStackTrace();
-			}
-		} else {
-			FileAssociation association = null;
-			if (extension != null)
-				association = FileAssociation.get(extension, extension, "Open", owner.get());
-			else
-				association = FileAssociation.get(file, "Open", owner.get());
-			if (association != null)
-				association.execute(file);
-		}
-	}
-
-  /**
-   * A sub-class can show a chart to the user with this method
-   */
-  public final void showChartToUser(Chart chart) {
-    showComponentToUser(chart);
-  }
-
-  /**
-   * A sub-class can show a Java Swing component to the user with this method
-   */
-  public void showComponentToUser(JComponent component) {
-
-    // FIXME docket show report output in report view
-    
-    // open a non-modal dialog
-    windowManager.openNonModalDialog(getClass().getName()+"#component",getName(), WindowManager.INFORMATION_MESSAGE,component,Action2.okOnly(),owner.get());
-
-    // done
-  }
-
-  /**
-   * A sub-class can open a browser that will show the given URL with this method
-   */
-  public final void showBrowserToUser(URL url) {
-    FileAssociation.open(url, owner.get());
-  }
+//  /**
+//   * A sub-class can open a browser that will show the given URL with this method
+//   */
+//  public final void showBrowserToUser(URL url) {
+//    FileAssociation.open(url, owner.get());
+//  }
 
   /**
    * A sub-class can ask the user for an entity (e.g. Individual) with this method
@@ -970,14 +970,11 @@ public abstract class Report implements Cloneable {
    * @param context normally an instance of type Gedcom but depending on
    *    accepts() could also be of type Entity or Property
    */
-  public void start(Object context) throws Throwable {
+  public Object start(Object context) throws Throwable {
     try {
-      getStartMethod(context).invoke(this, new Object[]{ context });
-    } catch (Throwable t) {
-      String msg = "can't run report on input";
-      if (t instanceof InvocationTargetException)
-        throw ((InvocationTargetException)t).getTargetException();
-      throw t;
+      return getStartMethod(context).invoke(this, new Object[]{ context });
+    } catch (InvocationTargetException t) {
+      throw ((InvocationTargetException)t).getTargetException();
     }
   }
 

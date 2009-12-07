@@ -26,19 +26,24 @@ import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
+import genj.report.Report.Category;
 import genj.util.swing.Action2;
 import genj.view.ActionProvider;
 import genj.view.View;
 
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 
 /** 
  * Plugin 
  */
 public class ReportPlugin implements ActionProvider, WorkbenchListener {
+  
+  private final static int MAX_HISTORY = 5;
   
   private Workbench workbench;
   private Action2.Group actions;
@@ -139,21 +144,31 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
   private void getActions(Object context, Gedcom gedcom, Action2.Group group) {
   
     // Look through reports
+    Map<Category, Action2.Group> categories = new HashMap<Category, Action2.Group>();
     for (Report report : ReportLoader.getInstance().getReports()) {
       try {
         String accept = report.accepts(context); 
         if (accept!=null) {
           ActionRun run = new ActionRun(accept, context, report);
-          if (group.size()>10) {
-            Action2.Group next = new Action2.Group("...");
-            group.add(next);
-            group = next;
+          if (report.getCategory()==null)
+            group.add(run);
+          else {
+            Category cat = report.getCategory();
+            Action2.Group catgroup = categories.get(cat);
+            if (catgroup==null) {
+              catgroup = new Action2.Group(cat.getName(), cat.getImage());
+              categories.put(cat, catgroup);
+            }
+            catgroup.add(run);
           }
-          group.add(run);
         }
       } catch (Throwable t) {
         ReportView.LOG.log(Level.WARNING, "Report "+report.getClass().getName()+" failed in accept()", t);
       }
+    }
+    
+    for (Action2.Group cat : categories.values()) {
+      group.add(cat);
     }
     
     // done
@@ -187,7 +202,7 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
       View view = workbench.getView(ReportViewFactory.class);
       if (view==null)
         view = workbench.openView(ReportViewFactory.class);
-
+      
       ((ReportView)view).startReport(report, context);
     }
   } //ActionRun

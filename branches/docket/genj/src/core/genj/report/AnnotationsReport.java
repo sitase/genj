@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.1 $ $Author: pewu $ $Date: 2009-10-21 08:40:54 $
+ * $Revision: 1.1.2.1 $ $Author: nmeier $ $Date: 2009-12-07 23:47:32 $
  */
 package genj.report;
 
@@ -65,7 +65,7 @@ public abstract class AnnotationsReport extends Report
      * Starts the report.
      */
 	@Override
-	public void start(Object context) throws Throwable
+	public Object start(Object context) throws Throwable
 	{
 		Gedcom gedcom = getGedcom(context);
 
@@ -77,7 +77,7 @@ public abstract class AnnotationsReport extends Report
 		super.start(context);
 
 		if (!startAsFo)
-			showAnnotationsToUser(gedcom, message, annotations);
+			return showAnnotationsToUser(gedcom, message, annotations);
 		else
 		{
 			Document doc = new Document(getName());
@@ -87,7 +87,7 @@ public abstract class AnnotationsReport extends Report
 				doc.addText(ctx.getText());
 				doc.nextParagraph();
 			}
-		    showDocumentToUser(doc);
+		    return doc;
 		}
 	}
 
@@ -133,12 +133,13 @@ public abstract class AnnotationsReport extends Report
 	/**
 	 * Show annotations containing text and references to Gedcom objects.
 	 */
-	private void showAnnotationsToUser(Gedcom gedcom, String msg,
+	private JPanel showAnnotationsToUser(Gedcom gedcom, String msg,
 			List<Context> annotations)
 	{
 		if (annotations.isEmpty())
 		{
 		      getOptionFromUser(message, Report.OPTION_OK);
+		      return null;
 		}
 		else
 		{
@@ -148,7 +149,7 @@ public abstract class AnnotationsReport extends Report
 			content.add(BorderLayout.CENTER, new JScrollPane(
 					new ContextListWidget(gedcom, annotations)));
 
-			showComponentToUser(content);
+			return content;
 		}
 	}
 

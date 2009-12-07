@@ -22,7 +22,6 @@ package genj.report;
 import genj.gedcom.Gedcom;
 import genj.gedcom.UnitOfWork;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -41,7 +40,7 @@ import java.util.logging.Logger;
   private Gedcom gedcom;
   private Object context;
   private Report report;
-  private Object callback;
+  private Callback callback;
   
   /**
    * Constructor
@@ -50,7 +49,7 @@ import java.util.logging.Logger;
    * @param report Report to run
    * @param callback Appendable or Closeable
    */
-  /*package*/ Runner(Gedcom gedcom, Object context, Report report, Object callback) {
+  /*package*/ Runner(Gedcom gedcom, Object context, Report report, Callback callback) {
     this.gedcom = gedcom;
     this.context= context;
     this.report = report;
@@ -62,16 +61,17 @@ import java.util.logging.Logger;
     // set report context
     report.setOut(new PrintWriter(new WriterImpl()));
     
-    // signal start
+    // run
+    final Object[] result = { null };
     try{
       if (report.isReadOnly()) {
-        report.start(context);
+        result[0] = report.start(context);
       } else {
         final Object finalContext = context;
         gedcom.doUnitOfWork(new UnitOfWork() {
           public void perform(Gedcom gedcom) {
             try {
-              report.start(finalContext);
+              result[0] = report.start(finalContext);
             } catch (Throwable t) {
               throw new RuntimeException(t);
             }
@@ -89,7 +89,9 @@ import java.util.logging.Logger;
       report.flush();
       report.getOut().close();
     }
-
+    
+    // signal done
+    callback.handleResult(report, result[0]);
 
 //  // check last line for url
 //  URL url = null;
@@ -128,13 +130,7 @@ import java.util.logging.Logger;
      */
     public void close() {
       flush();
-      if (callback instanceof Closeable)
-        try {
-          ((Closeable)callback).close();
-        } catch (IOException e) {
-          LOG.log(Level.WARNING, "couldn't close callback", e);
-        }
-        LOG.log(Level.FINER, "close");
+      LOG.log(Level.FINER, "close");
     }
 
     /**
@@ -150,14 +146,7 @@ import java.util.logging.Logger;
       lastFlush = System.currentTimeMillis();
 
       // dump buffer
-      if (callback instanceof Appendable)
-        try {
-          ((Appendable)callback).append(buffer);
-        } catch (IOException e) {
-          LOG.log(Level.WARNING, "couldn't append", e);
-        }
-      if (LOG.isLoggable(Level.FINER))
-        LOG.log(Level.FINER, buffer.toString());
+      callback.handleOutput(report, buffer.toString());
         
       // clear it
       buffer.setLength(0);
@@ -182,4 +171,15 @@ import java.util.logging.Logger;
     }
 
   } //OutputWriter
+  
+  /**
+   * a runner callback
+   */
+  public interface Callback {
+    
+    public void handleOutput(Report report, String output);
+    
+    public void handleResult(Report report, Object result);
+    
+  }
 }

@@ -213,17 +213,19 @@ public class ReportFlashList extends Report {
   /**
    * Our main logic
    */
-  private void start(Gedcom gedcom, Collection indis, Indi indiDeCujus) {
+  private Document start(Gedcom gedcom, Collection indis, Indi indiDeCujus) {
 
     //Get location and lastname options based on PLAC tag in gedcom and user input
     // Updates values of recordKey, posLoc1, posLoc2, posLoc3, existPLACTag
-    if (!getFlashOptions(gedcom)) return;
+    if (!getFlashOptions(gedcom)) 
+      return null;
     
     // get de-cujus (sosa 1) if entry point is generic
     if (indiDeCujus == null) {
       String msg = translate("AskDeCujus");
       indiDeCujus = (Indi)getEntityFromUser(msg, gedcom, Gedcom.INDI);
-      if (indiDeCujus == null) return;
+      if (indiDeCujus == null) 
+        return null;
       }
 
     // prepare our index
@@ -330,7 +332,8 @@ public class ReportFlashList extends Report {
     
     // done with main output
     println(translate("Completed"));      
-    showDocumentToUser(doc);
+    
+    return doc;
   
   } // end_of_start
 

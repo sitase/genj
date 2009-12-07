@@ -103,7 +103,7 @@ public class ReportGraphicalTree extends Report
     /**
      * The report's entry point
      */
-    public void start(Indi indi) {
+    public Object start(Indi indi) {
 
         // Replace variables
         replaceVariables(indi);
@@ -127,12 +127,11 @@ public class ReportGraphicalTree extends Report
         if (output == null)  // Report cancelled
         {
             restoreOptionValues();
-            return;
+            return null;
         }
 
         try {
             output.output(renderer);
-            output.display(this);
         } catch (OutOfMemoryError e) {
             println("ERROR! The report ran out of memory.\n");
             println("You can try to do the following things:");
@@ -145,6 +144,8 @@ public class ReportGraphicalTree extends Report
 
         // Restore option values (those with replaced variables)
         restoreOptionValues();
+        
+        return output.result(this);
     }
 
     /**

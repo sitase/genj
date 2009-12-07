@@ -39,7 +39,6 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.BufferedReader;
-import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -172,43 +171,30 @@ public class ReportView extends View {
       plugin.setEnabled(false);
     
     // kick it off
-    new Thread(new Runner(gedcom, context, report, Spin.over(new RunnerCallback()))).start();
+    new Thread(new Runner(gedcom, context, report, (Runner.Callback)Spin.over(new RunnerCallback()))).start();
 
   }
 
   /**
    * callback for runner
    */
-  private class RunnerCallback implements Appendable, Closeable {
+  private class RunnerCallback implements Runner.Callback {
     
-    private boolean closed = false;
-
-    public void close() throws IOException {
-      if (!closed) {
-        closed = true;
-        actionStart.setEnabled(true);
-        actionStop.setEnabled(false);
-        if (plugin!=null)
-          plugin.setEnabled(true);
-      }
-    }
-    
-    public Appendable append(CharSequence csq) throws IOException {
-      if (!closed)
-        output.add(csq.toString());
-      return this;
+    public void handleOutput(Report report, String s) {
+      output.add(s);
     }
 
-    public Appendable append(char c) throws IOException {
-      if (!closed)
-        output.add(Character.toString(c));
-      return this;
-    }
+    public void handleResult(Report report, Object result) {
 
-    public Appendable append(CharSequence csq, int start, int end) throws IOException {
-      if (!closed)
-        output.add(csq.subSequence(start, end).toString());
-      return this;
+// FIXME docket handle report outputs
+// File, URL, Document, JComponent
+      
+      LOG.fine("Result of report "+report.getName()+" = "+result);
+      
+      actionStart.setEnabled(true);
+      actionStop.setEnabled(false);
+      if (plugin!=null)
+        plugin.setEnabled(true);
     }
 
   }
