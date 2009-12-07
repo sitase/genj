@@ -26,7 +26,6 @@ import genj.util.Trackable;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
-import genj.util.swing.ProgressWidget;
 import genj.util.swing.UnitGraphics;
 import genj.window.WindowManager;
 
@@ -119,9 +118,6 @@ public class PrintTask extends Action2 implements Printable, Trackable {
     title = RESOURCES.getString("title", setTitle);
     registry = setRegistry;
 
-    // setup async
-    setAsync(Action2.ASYNC_SAME_INSTANCE);
-    
     // restore last service
     PrintService service = registry.get(getDefaultService());
     if (!service.isDocFlavorSupported(FLAVOR))
@@ -405,7 +401,7 @@ public class PrintTask extends Action2 implements Printable, Trackable {
       attributes.add(new Destination(new File(file).toURI()));
     
     // setup progress dlg
-    progress = WindowManager.getInstance(owner).openNonModalDialog(null, title, WindowManager.INFORMATION_MESSAGE, new ProgressWidget(this, getThread()), Action2.cancelOnly(), owner);
+//    progress = WindowManager.getInstance(owner).openNonModalDialog(null, title, WindowManager.INFORMATION_MESSAGE, new ProgressWidget(this, getThread()), Action2.cancelOnly(), owner);
 
     // continue
     return true;
@@ -441,7 +437,6 @@ public class PrintTask extends Action2 implements Printable, Trackable {
    * @see genj.util.Trackable#cancelTrackable()
    */
   public void cancelTrackable() {
-    cancel(true);
   }
 
   /**
