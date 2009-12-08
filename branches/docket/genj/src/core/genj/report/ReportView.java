@@ -19,9 +19,12 @@
  */
 package genj.report;
 
+import genj.fo.Format;
+import genj.fo.FormatOptionsWidget;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
+import genj.io.FileAssociation;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
@@ -31,7 +34,8 @@ import genj.view.ToolBar;
 import genj.view.View;
 import genj.window.WindowManager;
 
-import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
@@ -39,15 +43,20 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.io.BufferedReader;
+import java.io.CharArrayWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringReader;
+import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.swing.Action;
+import javax.swing.JComponent;
 import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JScrollPane;
@@ -70,7 +79,9 @@ public class ReportView extends View {
   private final static ImageIcon
     imgStart = new ImageIcon(ReportView.class,"Start"),
     imgStop  = new ImageIcon(ReportView.class,"Stop"),
-    imgSave  = new ImageIcon(ReportView.class,"Save");
+    imgSave  = new ImageIcon(ReportView.class,"Save"),
+    imgConsole = new ImageIcon(ReportView.class,"ReportShell"),
+    imgGui = new ImageIcon(ReportView.class,"ReportGui");
 
 
   /** gedcom this view is for */
@@ -80,7 +91,8 @@ public class ReportView extends View {
   private Output      output;
   private ActionStart actionStart = new ActionStart();
   private ActionStop  actionStop = new ActionStop(actionStart);
-
+  private ActionConsole actionConsole = new ActionConsole();
+  
   /** registry for settings */
   private Registry registry;
 
@@ -107,8 +119,8 @@ public class ReportView extends View {
     output = new Output();
 
     // Layout for this component
-    setLayout(new BorderLayout());
-    add(new JScrollPane(output), BorderLayout.CENTER);
+    setLayout(new CardLayout());
+    add(new JScrollPane(output), "output");
 
     // done
   }
@@ -163,6 +175,9 @@ public class ReportView extends View {
     
     // clear the current output
     output.clear();
+    while (getComponentCount()>1)
+      remove(1);
+    showConsole(true);
     
     // set running
     actionStart.setEnabled(false);
@@ -186,15 +201,17 @@ public class ReportView extends View {
 
     public void handleResult(Report report, Object result) {
 
-// FIXME docket handle report outputs
-// File, URL, Document, JComponent
-      
       LOG.fine("Result of report "+report.getName()+" = "+result);
       
+      // let report happend again
       actionStart.setEnabled(true);
       actionStop.setEnabled(false);
       if (plugin!=null)
         plugin.setEnabled(true);
+      
+      // handle result
+      showResult(result);
+
     }
 
   }
@@ -232,12 +249,134 @@ public class ReportView extends View {
   }
   
   /**
+   * show console instead of result of a report run
+   */
+  /*package*/ void showConsole(boolean show) {
+    if (show) {
+      ((CardLayout)getLayout()).first(this);
+      actionConsole.setEnabled(getComponentCount()>1);
+      actionConsole.setImage(imgGui);
+    } else {
+      ((CardLayout)getLayout()).last(this);
+      actionConsole.setEnabled(true);
+      actionConsole.setImage(imgConsole);
+    }
+  }
+  
+  /**
+   * show result of a report run
+   */
+  /*package*/ void showResult(Object result) {
+    
+    // none?
+    if (result==null)
+      return;
+
+    // Exception?
+    if (result instanceof InterruptedException) {
+      output.add("*** cancelled");
+      return;
+    }
+    
+    if (result instanceof Throwable) {
+      CharArrayWriter buf = new CharArrayWriter(256);
+      ((Throwable)result).printStackTrace(new PrintWriter(buf));
+      output.add("*** exception caught" + '\n' + buf);
+      return;
+    }
+    
+    // File?
+    if (result instanceof File) {
+      File file = (File)result;
+      if (file.getName().endsWith(".htm") || file.getName().endsWith(".html")) {
+        try {
+          result = file.toURI().toURL();
+        } catch (Throwable t) {
+          // can't happen
+        }
+      } else {
+          FileAssociation association = FileAssociation.get(file, (String)null, this);
+          if (association != null)
+              association.execute(file);
+          return;
+      }
+    }
+    
+    // URL?
+    if (result instanceof URL) {
+      try {
+        output.setPage((URL)result);
+      } catch (IOException e) {
+        output.add("*** can't open URL "+result+": "+e.getMessage());
+      }
+      return;
+    }
+    
+    // component?
+    if (result instanceof JComponent) {
+      JComponent c = (JComponent)result;
+      c.setMinimumSize(new Dimension(0,0));
+      add((JComponent)result, "result");
+      showConsole(false);
+      return;
+    }
+    
+    // document
+    if (result instanceof genj.fo.Document) {
+      
+      genj.fo.Document doc = (genj.fo.Document)result;
+      String title = "Document "+doc.getTitle();
+
+      Registry foRegistry = new Registry(registry, getClass().getName()+".fo");
+
+      Action[] actions = Action2.okCancel();
+      FormatOptionsWidget options = new FormatOptionsWidget(doc, foRegistry);
+      options.connect(actions[0]);
+      if (0!=WindowManager.getInstance().openDialog("reportdoc", title, WindowManager.QUESTION_MESSAGE, options, actions, this))
+        return;
+
+      // grab formatter and output file
+      Format formatter = options.getFormat();
+      File file = null;
+      String progress = null;
+      if (formatter.getFileExtension()==null) 
+        return;
+
+      file = options.getFile();
+      if (file==null)
+        return;
+      file.getParentFile().mkdirs();
+
+      // store options
+      options.remember(foRegistry);
+
+      // format and write
+      try {
+        formatter.format(doc, file);
+      } catch (Throwable t) {
+        LOG.log(Level.WARNING, "formatting "+doc+" failed", t);
+        output.add("*** formatting "+doc+" failed");
+        return;
+      }
+
+      // go back to document's file
+      showResult(file);
+
+      return;
+    }
+
+    // unknown
+    output.add("*** report returned unknown result "+result);
+  }
+  
+  /**
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
    */
   public void populate(ToolBar toolbar) {
 
     toolbar.add(actionStart);
     toolbar.add(actionStop);
+    toolbar.add(actionConsole);
     toolbar.add(new ActionSave());
 
     // done
@@ -287,6 +426,20 @@ public class ReportView extends View {
     }
 
   } //ActionStart
+  
+  /**
+   * Action: Console
+   */
+  private class ActionConsole extends Action2 {
+    protected ActionConsole() {
+      setImage(imgConsole);
+      setTip(RESOURCES, "report.output");
+      setEnabled(false);
+    }
+    public void actionPerformed(ActionEvent event) {
+      showConsole(!output.isVisible());
+    }
+  }
 
   /**
    * Action: SAVE
@@ -489,3 +642,4 @@ public class ReportView extends View {
 
 
 } //ReportView
+

@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.5 $ $Author: nmeier $ $Date: 2009-12-07 23:47:32 $
+ * $Revision: 1.136.2.6 $ $Author: nmeier $ $Date: 2009-12-08 04:41:29 $
  */
 package genj.report;
 
@@ -193,9 +193,8 @@ public abstract class Report implements Cloneable {
   public List<? extends Option> getOptions() {
 
     // already calculated
-// FIXME docket cache options    
-//    if (options!=null)
-//      return options;
+    if (options!=null)
+      return options;
 
     // calculate options
     // 20091205 going recursive here is new to support Przemek's case of settings on report's components

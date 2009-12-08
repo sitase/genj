@@ -318,6 +318,10 @@ public class FileAssociation {
     String suffix = getSuffix(file);
     if (suffix.length()==0)
       return null;
+    
+    if (name==null)
+      name = suffix;
+    
     return get(suffix, suffix, name, owner);
   }
   

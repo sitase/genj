@@ -41,6 +41,7 @@ import java.util.logging.Logger;
   private Object context;
   private Report report;
   private Callback callback;
+  private Object result;
   
   /**
    * Constructor
@@ -62,16 +63,15 @@ import java.util.logging.Logger;
     report.setOut(new PrintWriter(new WriterImpl()));
     
     // run
-    final Object[] result = { null };
     try{
       if (report.isReadOnly()) {
-        result[0] = report.start(context);
+        result = report.start(context);
       } else {
         final Object finalContext = context;
         gedcom.doUnitOfWork(new UnitOfWork() {
           public void perform(Gedcom gedcom) {
             try {
-              result[0] = report.start(finalContext);
+              result = report.start(finalContext);
             } catch (Throwable t) {
               throw new RuntimeException(t);
             }
@@ -79,11 +79,9 @@ import java.util.logging.Logger;
         });
       }    
     } catch (Throwable t) {
-      Throwable cause = t.getCause();
-      if (cause instanceof InterruptedException)
-        report.println("***cancelled");
-      else
-        report.println(cause!=null?cause:t);
+      if (t.getCause()!=null)
+        t = t.getCause();
+      result = t;
     } finally {
       // flush
       report.flush();
@@ -91,27 +89,8 @@ import java.util.logging.Logger;
     }
     
     // signal done
-    callback.handleResult(report, result[0]);
+    callback.handleResult(report, result);
 
-//  // check last line for url
-//  URL url = null;
-//  try {
-//    AbstractDocument doc = (AbstractDocument)output.getDocument();
-//    Element p = doc.getParagraphElement(doc.getLength()-1);
-//    String line = doc.getText(p.getStartOffset(), p.getEndOffset()-p.getStartOffset());
-//    url = new URL(line);
-//  } catch (Throwable t) {
-//  }
-//
-//  if (url!=null) {
-//    try {
-//      output.setPage(url);
-//    } catch (IOException e) {
-//      LOG.log(Level.WARNING, "couldn't show html in report output", e);
-//    }
-//  }
-//
-  
   }
   
   /**
