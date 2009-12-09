@@ -43,13 +43,15 @@ import javax.swing.JTextArea;
 /**
  * ActionChange - change the gedcom information
  */
-public abstract class AbstractChange extends Action2 implements UnitOfWork {
+public abstract class AbstractChange extends Action2 {
   
   /** resources */
   /*package*/ final static Resources resources = Resources.get(AbstractChange.class);
   
   /** the gedcom we're working on */
   protected Gedcom gedcom;
+  
+  private Context selection;
   
   /** image *new* */
   protected final static ImageIcon imgNew = Images.imgNewEntity;
@@ -65,20 +67,6 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
     super.setText(text);
   }
 
-  /**
-   * Show a dialog for errors
-   */  
-  protected void handleThrowable(String phase, Throwable t) {
-    // for a NPE I've seen a null message - better convert that to string here
-    String message = ""+t.getMessage();
-    // show it
-    getWindowManager().openDialog("err", "Error", WindowManager.ERROR_MESSAGE, message, Action2.okOnly(), getTarget());
-  }
-  
-  protected WindowManager getWindowManager() {
-    return WindowManager.getInstance(getTarget());    
-  }
-  
   /** 
    * Returns the confirmation message - null if none
    */
@@ -118,6 +106,8 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
    */
   public void actionPerformed(ActionEvent event) {
     
+    final View view = View.getView(event);
+    
     // prepare confirmation message for user
     String msg = getConfirmMessage();
     if (msg!=null) {
@@ -129,30 +119,33 @@ public abstract class AbstractChange extends Action2 implements UnitOfWork {
       };
       
       // Recheck with the user
-      int rc = getWindowManager().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, getTarget() );
+      int rc = WindowManager.getInstance().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, view );
       if (rc!=0)
         return;
     }
         
     // do the change
     try {
-      gedcom.doUnitOfWork(this);
+      gedcom.doUnitOfWork(new UnitOfWork() {
+        public void perform(Gedcom gedcom) throws GedcomException {
+          selection = execute(gedcom, view);
+        }
+      });
     } catch (Throwable t) {
-      getWindowManager().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), getTarget());
+      WindowManager.getInstance().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), view);
     }
     
+    // propagate selection
+    if (selection!=null)
+      view.fireSelection(selection, true);
+      
     // done
   }
   
   /**
    * perform the actual change
    */
-  public abstract void perform(Gedcom gedcom) throws GedcomException;
+  protected abstract Context execute(Gedcom gedcom, View view) throws GedcomException;
 
-  protected void fireSelection(Context context, boolean isActionPerformed) {
-    if (getTarget()!=null)
-      View.fireSelection(getTarget(), context, isActionPerformed);
-  }
-  
 } //Change
 

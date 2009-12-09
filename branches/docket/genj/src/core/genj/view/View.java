@@ -24,11 +24,16 @@ import genj.gedcom.Context;
 import java.awt.Component;
 import java.awt.LayoutManager;
 import java.awt.Window;
+import java.util.EventObject;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 
+/**
+ * A baseclass for all our views
+ */
 public abstract class View extends JPanel implements SelectionListener {
 
   private List<SelectionListener> listeners = new CopyOnWriteArrayList<SelectionListener>();
@@ -86,14 +91,27 @@ public abstract class View extends JPanel implements SelectionListener {
   }
   
   /**
+   * Find the view for given event
+   */
+  public static View getView(EventObject event) {
+    Object source = event.getSource();
+    if (source instanceof Component)
+      return View.getView((Component)source);
+    else
+      throw new IllegalArgumentException("Cannot find view for event "+event);
+  }
+
+  /**
    * Find the view for given component
    */
-  // FIXME docket this doesn't work for out of view components - e.g. component shown from report dialog
   public static View getView(Component componentInView) {
     do {
       if (componentInView instanceof View)
         return (View)componentInView;
-      if (componentInView instanceof Window)
+      
+      if (componentInView instanceof JPopupMenu)
+        componentInView = ((JPopupMenu)componentInView).getInvoker();
+      else if (componentInView instanceof Window)
         componentInView = ((Window)componentInView).getOwner();
       else
         componentInView = componentInView.getParent();

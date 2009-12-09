@@ -119,7 +119,7 @@ public class Options extends OptionProvider {
     /** callback - edit option */
     protected void edit() {
       ScreenResolutionScale scale = new ScreenResolutionScale(dpi);
-      int rc = widget.getWindowManager().openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, scale, Action2.okCancel(), widget);
+      int rc = WindowManager.getInstance().openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, scale, Action2.okCancel(), widget);
       if (rc==0)
         dpi = scale.getDPI();
     }

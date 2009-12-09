@@ -230,7 +230,6 @@ public class BlueprintEditor extends JSplitPane {
     private ActionInsert() {
       super.setText(resources.getString("prop.insert"));
       super.setTip(resources.getString("prop.insert.tip"));
-      super.setTarget(BlueprintEditor.this);
     }
     /** @see genj.util.swing.Action2#execute() */
     public void actionPerformed(ActionEvent event) {
@@ -241,7 +240,7 @@ public class BlueprintEditor extends JSplitPane {
       TagPath[] paths = gedcom.getGrammar().getAllPaths(blueprint.getTag(), Property.class);
       tree.setPaths(paths, new TagPath[0]);
       // Recheck with the user
-      int option =  WindowManager.getInstance(getTarget()).openDialog(null,resources.getString("prop.insert.tip"),WindowManager.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
+      int option = WindowManager.getInstance().openDialog(null,resources.getString("prop.insert.tip"),WindowManager.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
       // .. OK?
       if (option!=0) return;
       // add those properties

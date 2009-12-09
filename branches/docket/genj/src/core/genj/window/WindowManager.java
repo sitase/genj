@@ -168,9 +168,6 @@ public class WindowManager {
    * Returns an appropriate WindowManager instance for given component
    * @return manager or null if no appropriate manager could be found
    */
-  public static WindowManager getInstance(Component component) {
-    return getInstance();
-  }
   public static WindowManager getInstance() {
     return INSTANCE;
   }
@@ -186,7 +183,7 @@ public class WindowManager {
     close(key);
     // grab parameters
     Rectangle bounds = registry.get(key, (Rectangle)null);
-    boolean maximized = registry.get(key+".maximized", false);
+    boolean maximized = registry.get(key+".maximized", true);
     // deal with it in impl
     Component window = openWindowImpl(key, title, image, content, menu, bounds, maximized, onClose);
     // remember it
@@ -238,8 +235,11 @@ public class WindowManager {
 
     // place
     if (bounds==null) {
-      frame.pack();
-      Dimension dim = frame.getSize();
+      // since docket - windows should have a reasonable default size
+      // packing them like dialogs is not right anymore
+      //frame.pack();
+      //Dimension dim = frame.getSize();
+      Dimension dim = new Dimension(640,480);
       bounds = new Rectangle(screen.width/2-dim.width/2, screen.height/2-dim.height/2,dim.width,dim.height);
       LOG.log(Level.FINE, "Sizing window "+key+" to "+bounds+" after pack()");
     }

@@ -55,9 +55,6 @@ public class Action2 extends AbstractAction {
     
   private final static Logger LOG = Logger.getLogger("genj.actions");
   
-  /** attributes */
-  private Component target;
-  
   /** predefined strings */
   public final static String
     TXT_YES         = UIManager.getString("OptionPane.yesButtonText"),
@@ -101,22 +98,6 @@ public class Action2 extends AbstractAction {
     if (KEY_TIP.equals(key))
       return getTip();
     return super.getValue(key);
-  }
-  
-  /**
-   * accessor - topmost target component
-   */
-  public Action2 setTarget(Component t) {
-    // remember
-    target = t;
-    return this;
-  }
-  
-  /**
-   * accessor - target component
-   */
-  public Component getTarget() {
-    return target;
   }
   
   /**

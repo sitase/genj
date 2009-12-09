@@ -43,7 +43,6 @@ import javax.swing.JPopupMenu;
 public class MenuHelper  {
   
   private Stack<JComponent> menus = new Stack<JComponent>();  // JMenu or JPopupMenu or JMenuBar
-  private Component target = null;
   
   // FIXME docket inversion on ActionProvider/separator/popup
   public final static Action2 NOOP = new Action2() {
@@ -64,11 +63,6 @@ public class MenuHelper  {
     return this;
   }
   
-  public MenuHelper setTarget(Component set) { 
-    target=set; 
-    return this; 
-  }
-
   /**
    * Creates a menu
    */
@@ -149,8 +143,6 @@ public class MenuHelper  {
     JMenuItem result = new JMenuItem();
     result.setAction(action);
     result.setMnemonic(action.getMnemonic());
-    if (target!=null) 
-      action.setTarget(target);
     
     // add it to current menu on stack  
     menus.peek().add(result);

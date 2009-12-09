@@ -169,7 +169,7 @@ public class ReportView extends View {
 
     // check if appropriate
     if (context==null||report.accepts(context)==null) {
-      WindowManager.getInstance(ReportView.this).openDialog(null,report.getName(),WindowManager.ERROR_MESSAGE,RESOURCES.getString("report.noaccept"),Action2.okOnly(),ReportView.this);
+      WindowManager.getInstance().openDialog(null,report.getName(),WindowManager.ERROR_MESSAGE,RESOURCES.getString("report.noaccept"),Action2.okOnly(),ReportView.this);
       return;
     }
     
@@ -465,7 +465,7 @@ public class ReportView extends View {
 
       // .. exits ?
       if (file.exists()) {
-        int rc = WindowManager.getInstance(getTarget()).openDialog(null, title, WindowManager.WARNING_MESSAGE, "File exists. Overwrite?", Action2.yesNo(), ReportView.this);
+        int rc = WindowManager.getInstance().openDialog(null, title, WindowManager.WARNING_MESSAGE, "File exists. Overwrite?", Action2.yesNo(), ReportView.this);
         if (rc!=0) {
           return;
         }
@@ -476,7 +476,7 @@ public class ReportView extends View {
       try {
         out = new OutputStreamWriter(new FileOutputStream(file), Charset.forName("UTF8"));
       } catch (IOException ex) {
-        WindowManager.getInstance(getTarget()).openDialog(null,title,WindowManager.ERROR_MESSAGE,"Error while saving to\n"+file.getAbsolutePath(),Action2.okOnly(),ReportView.this);
+        WindowManager.getInstance().openDialog(null,title,WindowManager.ERROR_MESSAGE,"Error while saving to\n"+file.getAbsolutePath(),Action2.okOnly(),ReportView.this);
         return;
       }
 

@@ -64,7 +64,7 @@ public class PlaceBean extends PropertyBean {
     // listen to selection of global and ask for confirmation
     global.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        WindowManager wm = WindowManager.getInstance(PlaceBean.this);
+        WindowManager wm = WindowManager.getInstance();
         if (wm!=null&&global.isSelected()) {
           int rc = wm.openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, getGlobalConfirmMessage(),Action2.yesNo(), PlaceBean.this);
           global.setSelected(rc==0);

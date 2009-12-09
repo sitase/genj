@@ -232,7 +232,6 @@ public class PrintWidget extends JTabbedPane implements OptionListener {
     /** constructor */
     private Settings() {
       super.setText(PrintTask.RESOURCES.getString("settings"));
-      super.setTarget(PrintWidget.this);
     }
 
     /** run */

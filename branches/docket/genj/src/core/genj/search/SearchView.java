@@ -233,7 +233,7 @@ public class SearchView extends View {
     if (path.length()>0) try {
       p = new TagPath(path);
     } catch (IllegalArgumentException iae) {
-      WindowManager.getInstance(SearchView.this).openDialog(null,value,WindowManager.ERROR_MESSAGE,iae.getMessage(),Action2.okOnly(),SearchView.this);
+      WindowManager.getInstance().openDialog(null,value,WindowManager.ERROR_MESSAGE,iae.getMessage(),Action2.okOnly(),SearchView.this);
       return;
     }
     

@@ -211,7 +211,6 @@ public class FileChooserWidget extends JPanel {
     /** constructor */
     private Choose() {
       setText("...");
-      setTarget(FileChooserWidget.this);
     }
 
     /** choose file */    

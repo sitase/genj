@@ -105,7 +105,7 @@ public class NameBean extends PropertyBean {
     cAll.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         String msg = getReplaceAllMsg();
-        WindowManager wm = WindowManager.getInstance(NameBean.this);
+        WindowManager wm = WindowManager.getInstance();
         if (wm!=null&&msg!=null&&cAll.isSelected()) {
           int rc = wm.openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), NameBean.this);
           cAll.setSelected(rc==0);

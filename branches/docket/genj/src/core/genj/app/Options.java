@@ -478,8 +478,7 @@ public class Options extends OptionProvider {
         l.stateChanged(null);
 
         // show a dialog with file association fields
-        WindowManager mgr = widget.getWindowManager();
-        int rc = mgr.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, panel, new Action[]{ ok, delete, cancel }, widget);
+        int rc = WindowManager.getInstance().openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, panel, new Action[]{ ok, delete, cancel }, widget);
         if (rc==-1||rc==2)
           return;
 

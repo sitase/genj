@@ -232,7 +232,7 @@ public class EditView extends View implements ContextProvider  {
     JCheckBox auto = new JCheckBox(resources.getString("confirm.autocomit"));
     auto.setFocusable(false);
     
-    int rc = WindowManager.getInstance(this).openDialog(null, 
+    int rc = WindowManager.getInstance().openDialog(null, 
         resources.getString("confirm.keep.changes"), WindowManager.QUESTION_MESSAGE, 
         new JComponent[] {
           new JLabel(resources.getString("confirm.keep.changes")),
@@ -331,9 +331,6 @@ public class EditView extends View implements ContextProvider  {
     // go forward
     ViewContext context = new ViewContext((Context)forwards.pop());
     
-    // let others know (we'll ignore the outgoing never receiving the incoming)
-    // FIXME docket propagate selection
-    //WindowManager.broadcast(new ContextSelectionEvent(context, EditView.this));
     editor.setContext(context);
     
     // reflect state

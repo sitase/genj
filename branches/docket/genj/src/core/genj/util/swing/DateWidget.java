@@ -32,7 +32,6 @@ import java.awt.event.ActionEvent;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.logging.Logger;
 
 import javax.swing.Action;
 import javax.swing.JPanel;
@@ -317,15 +316,10 @@ public class DateWidget extends JPanel {
         try {
           pit.set(newCalendar);
         } catch (GedcomException e) {
-          WindowManager wm = WindowManager.getInstance(DateWidget.this);
-          if (wm==null) {
-            Logger.getLogger("genj.util.swing").info(e.getMessage());
-          } else {
-            Action[] actions = { Action2.ok(),  new Action2(Calendar.TXT_CALENDAR_RESET) };
-            int rc = wm.openDialog(null, Calendar.TXT_CALENDAR_SWITCH, WindowManager.ERROR_MESSAGE, e.getMessage(), actions, DateWidget.this);
-            if (rc==0) 
-              return;
-          }
+          Action[] actions = { Action2.ok(),  new Action2(Calendar.TXT_CALENDAR_RESET) };
+          int rc = WindowManager.getInstance().openDialog(null, Calendar.TXT_CALENDAR_SWITCH, WindowManager.ERROR_MESSAGE, e.getMessage(), actions, DateWidget.this);
+          if (rc==0) 
+            return;
           pit = new PointInTime(newCalendar);
         }
         // change

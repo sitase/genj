@@ -20,13 +20,14 @@
 package genj.edit.actions;
 
 import genj.edit.Images;
+import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
+import genj.view.View;
 
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 
 /**
@@ -35,7 +36,7 @@ import java.util.Set;
 public class DelProperty extends AbstractChange {
   
   /** the candidates to delete */
-  private Set candidates = new HashSet();
+  private Set<Property> candidates = new HashSet<Property>();
   
   /**
    * Constructor
@@ -56,11 +57,10 @@ public class DelProperty extends AbstractChange {
   /**
    * Perform the delete
    */
-  public void perform(Gedcom gedcom) throws GedcomException {
-    for (Iterator candidate = candidates.iterator(); candidate.hasNext();) {
-      Property prop  = (Property) candidate.next();
+  protected Context execute(Gedcom gedcom, View view) throws GedcomException {
+    for (Property prop : candidates) 
       prop.getParent().delProperty(prop);
-    }
+    return null;
   }
   
 } //DelProperty

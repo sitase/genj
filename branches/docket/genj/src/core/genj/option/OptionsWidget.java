@@ -170,13 +170,6 @@ public class OptionsWidget extends JPanel {
   }
 
   /**
-   * Access to window manager
-   */
-  public WindowManager getWindowManager() {
-    return WindowManager.getInstance(this);
-  }
-
-  /**
    * Intercept new ui to get default renderer that provides us with colors
    */  
   public void setUI(TreeUI ui) {

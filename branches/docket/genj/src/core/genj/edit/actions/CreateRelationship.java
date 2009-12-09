@@ -146,7 +146,7 @@ public abstract class CreateRelationship extends AbstractChange {
       }
     });
     
-// FIXME docket
+// FIXME let create relationship auto-pick last created object (most likely target)
 //    // preselect something (for anything but indi and fam)?
 //    if (!(targetType.equals(Gedcom.INDI)||targetType.equals(Gedcom.FAM)))
 //      select.setSelection(gedcom.getEntity(ViewManager.getRegistry(gedcom).get("select."+targetType, (String)null)));
@@ -156,9 +156,9 @@ public abstract class CreateRelationship extends AbstractChange {
   }
 
   /**
-   * @see genj.edit.EditViewFactory.Change#change()
+   * perform the change
    */
-  public void perform(Gedcom gedcom) throws GedcomException {
+  protected final Context execute(Gedcom gedcom, View view) throws GedcomException {
     // create the entity if necessary
     Entity change;
     if (existing!=null) {
@@ -180,13 +180,11 @@ public abstract class CreateRelationship extends AbstractChange {
     Property focus = change(change, change!=existing);
     
     // remember selection
-// FIXME docket    
+ // FIXME let create relationship auto-pick last created object (most likely target)
 //    ViewManager.getRegistry(gedcom).put("select."+targetType, change.getId());
     
-    // select
-    fireSelection(new Context(focus), false);
-    
     // done
+    return new Context(focus);
   }
   
   /**

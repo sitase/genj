@@ -1061,7 +1061,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
       
       // let the user choose an individual
       SelectEntityWidget select = new SelectEntityWidget(model.getGedcom(), Gedcom.INDI, null);
-      int rc = WindowManager.getInstance(getTarget()).openDialog("select.root", getText(), WindowManager.QUESTION_MESSAGE, select, Action2.okCancel(), TreeView.this);
+      int rc = WindowManager.getInstance().openDialog("select.root", getText(), WindowManager.QUESTION_MESSAGE, select, Action2.okCancel(), TreeView.this);
       if (rc==0) 
         setRoot(select.getSelection());
       
@@ -1106,7 +1106,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
       }
       
       // Ask for name of bookmark
-      name = WindowManager.getInstance(getTarget()).openDialog(
+      name = WindowManager.getInstance().openDialog(
         null, title, WindowManager.QUESTION_MESSAGE, resources.getString("bookmark.name"), name, TreeView.this
       );
       

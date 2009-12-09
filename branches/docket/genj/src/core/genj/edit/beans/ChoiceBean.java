@@ -88,7 +88,7 @@ public class ChoiceBean extends PropertyBean {
     global.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         String msg = getGlobalReplaceMsg();
-        WindowManager wm = WindowManager.getInstance(ChoiceBean.this);
+        WindowManager wm = WindowManager.getInstance();
         if (wm!=null&&msg!=null&&global.isSelected()) {
           int rc = wm.openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), ChoiceBean.this);
           global.setSelected(rc==0);

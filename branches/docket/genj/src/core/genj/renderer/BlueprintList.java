@@ -146,7 +146,7 @@ public class BlueprintList extends JSplitPane {
         return;
       Object node = path.getLastPathComponent();
       // get name
-      String name = WindowManager.getInstance(BlueprintList.this).openDialog(
+      String name = WindowManager.getInstance().openDialog(
         null,
         null,
         WindowManager.QUESTION_MESSAGE,
@@ -200,7 +200,7 @@ public class BlueprintList extends JSplitPane {
         return;
       // confirm
       Blueprint blueprint = (Blueprint)node;
-      int rc = WindowManager.getInstance(BlueprintList.this).openDialog(null,null,WindowManager.QUESTION_MESSAGE,resources.getString("blueprint.del.confirm", blueprint.getName()),Action2.okCancel(),BlueprintList.this); 
+      int rc = WindowManager.getInstance().openDialog(null,null,WindowManager.QUESTION_MESSAGE,resources.getString("blueprint.del.confirm", blueprint.getName()),Action2.okCancel(),BlueprintList.this); 
       if (rc!=0) 
         return;
       // remove selection

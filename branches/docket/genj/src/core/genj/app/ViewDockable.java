@@ -202,7 +202,7 @@ import swingx.docking.Docked;
    * WorkbenchListener callback - workbench signals selection change
    */
   public void selectionChanged(Context context, boolean isActionPerformed) {
-    if (!ignoreSelectionChanged)
+    if (!ignoreSelectionChanged || isActionPerformed)
       view.select(context, isActionPerformed);
   }
   
@@ -379,7 +379,7 @@ import swingx.docking.Docked;
       while (target.getParent()!=null) target = target.getParent();
 
       // create a popup
-      MenuHelper mh = new MenuHelper().setTarget(target);
+      MenuHelper mh = new MenuHelper();
       JPopupMenu popup = mh.createPopup();
 
       // popup local actions?

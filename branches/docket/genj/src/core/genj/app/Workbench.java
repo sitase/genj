@@ -736,7 +736,6 @@ public class Workbench extends JPanel {
     protected ActionExit() {
       setText(RES, "cc.menu.exit");
       setImage(Images.imgExit);
-      setTarget(Workbench.this);
     }
     
     @Override
@@ -754,7 +753,6 @@ public class Workbench extends JPanel {
     protected ActionClose() {
       setText(RES, "cc.menu.close");
       setImage(Images.imgClose);
-      setTarget(Workbench.this);
     }
     
     /** run */
@@ -858,8 +856,6 @@ public class Workbench extends JPanel {
      * Constructor for saving gedcom 
      */
     protected ActionSave(boolean saveAs) {
-      // setup default target
-      setTarget(Workbench.this);
       // remember
       this.saveAs = saveAs;
       // text
