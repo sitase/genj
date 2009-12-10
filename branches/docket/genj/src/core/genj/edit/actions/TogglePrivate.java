@@ -25,9 +25,9 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.util.swing.Action2;
-import genj.view.View;
 import genj.window.WindowManager;
 
+import java.awt.event.ActionEvent;
 import java.util.Collection;
 
 /**
@@ -56,12 +56,12 @@ public class TogglePrivate extends AbstractChange {
     setText(resources.getString(makePrivate?"private":"public"));
   }
   
-  protected Context execute(Gedcom gedcom, View view) throws GedcomException {
+  protected Context execute(Gedcom gedcom, ActionEvent event) throws GedcomException {
     
     // check if that's something we can do
     String pwd = gedcom.getPassword();
     if (pwd==Gedcom.PASSWORD_UNKNOWN) {
-        WindowManager.getInstance().openDialog(null,getText(),WindowManager.WARNING_MESSAGE,"This Gedcom file contains encrypted information that has to be decrypted before changing private/public status of other information",Action2.okOnly(),view);
+        WindowManager.getInstance().openDialog(null,getText(),WindowManager.WARNING_MESSAGE,"This Gedcom file contains encrypted information that has to be decrypted before changing private/public status of other information",Action2.okOnly(),event);
         return null;              
     }
       
@@ -69,12 +69,12 @@ public class TogglePrivate extends AbstractChange {
     if (pwd==Gedcom.PASSWORD_NOT_SET) {
       
       pwd = WindowManager.getInstance().openDialog(
-        null,
+        (String)null,
         getText(),
         WindowManager.QUESTION_MESSAGE,
         AbstractChange.resources.getString("password", gedcom.getName()),
         "",
-        view 
+        event 
       );
       
       // canceled?
@@ -83,7 +83,7 @@ public class TogglePrivate extends AbstractChange {
     }
 
     // check if the user wants to do it recursively
-    int recursive = WindowManager.getInstance().openDialog(null,getText(),WindowManager.QUESTION_MESSAGE,AbstractChange.resources.getString("recursive"), Action2.okCancel(),view);
+    int recursive = WindowManager.getInstance().openDialog(null,getText(),WindowManager.QUESTION_MESSAGE,AbstractChange.resources.getString("recursive"), Action2.okCancel(),event);
 
     // change it
     gedcom.setPassword(pwd); 

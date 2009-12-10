@@ -19,11 +19,12 @@
  */
 package genj.edit.actions;
 
+import java.awt.event.ActionEvent;
+
 import genj.gedcom.Context;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
-import genj.view.View;
 
 /**
  * Swap HUSB/WIFE for family
@@ -44,7 +45,7 @@ public class SwapSpouses extends AbstractChange {
   /**
    * @see genj.edit.actions.AbstractChange#change()
    */
-  protected Context execute(Gedcom gedcom, View view) throws GedcomException {
+  protected Context execute(Gedcom gedcom, ActionEvent event) throws GedcomException {
     fam.swapSpouses();
     return null;
   }

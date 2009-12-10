@@ -24,7 +24,6 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.util.swing.NestedBlockLayout;
-import genj.view.View;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -94,7 +93,7 @@ public class CreateEntity extends AbstractChange {
   /**
    * @see genj.edit.EditViewFactory.Change#change()
    */
-  protected Context execute(Gedcom gedcom, View view) throws GedcomException {
+  protected Context execute(Gedcom gedcom, ActionEvent event) throws GedcomException {
     // check id
     String id = null;
     if (requestID.isEditable()) {

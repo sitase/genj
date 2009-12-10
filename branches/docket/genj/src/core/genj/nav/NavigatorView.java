@@ -32,6 +32,7 @@ import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
+import genj.view.SelectionSink;
 import genj.view.View;
 
 import java.awt.BorderLayout;
@@ -412,7 +413,7 @@ public class NavigatorView extends View {
       // follow immediately
       setCurrentEntity(target);
       // propagate to others
-      View.fireSelection(NavigatorView.this, new Context(target), true);
+      SelectionSink.Dispatcher.fireSelection(event, new Context(target), true);
     }
   } //Jump
 

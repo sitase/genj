@@ -28,11 +28,15 @@ import genj.gedcom.Options;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
 import genj.gedcom.PropertyXRef;
+import genj.util.swing.ImageIcon;
 
 /**
  * knows how to create a sibling for an individual
  */
 public class CreateSibling extends CreateRelationship {
+  
+  private final static ImageIcon IMG_BROTHER = new ImageIcon(CreateParent.class, "Brother.png");
+  private final static ImageIcon IMG_SISTER = new ImageIcon(CreateParent.class, "Sister.png");
   
   private Indi sibling;
   private boolean isBrotherNotSister;
@@ -42,6 +46,7 @@ public class CreateSibling extends CreateRelationship {
     super(calcName(isBrotherNotSister), sibling.getGedcom(), Gedcom.INDI);
     this.sibling = sibling;
     this.isBrotherNotSister = isBrotherNotSister;
+    setImage(isBrotherNotSister? IMG_BROTHER : IMG_SISTER);
   }
   
   private static String calcName(boolean isBrotherNotSister) {

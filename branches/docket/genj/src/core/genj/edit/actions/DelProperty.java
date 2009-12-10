@@ -24,8 +24,8 @@ import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
-import genj.view.View;
 
+import java.awt.event.ActionEvent;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -57,7 +57,7 @@ public class DelProperty extends AbstractChange {
   /**
    * Perform the delete
    */
-  protected Context execute(Gedcom gedcom, View view) throws GedcomException {
+  protected Context execute(Gedcom gedcom, ActionEvent event) throws GedcomException {
     for (Property prop : candidates) 
       prop.getParent().delProperty(prop);
     return null;

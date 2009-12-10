@@ -19,12 +19,13 @@
  */
 package genj.edit.actions;
 
+import java.awt.event.ActionEvent;
+
 import genj.edit.Images;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
-import genj.view.View;
 
 /**
  * EDelete - delete an entity
@@ -55,7 +56,7 @@ public class DelEntity extends AbstractChange {
   /**
    * @see genj.edit.EditViewFactory.Change#change()
    */
-  protected Context execute(Gedcom gedcom, View view) throws GedcomException {
+  protected Context execute(Gedcom gedcom, ActionEvent event) throws GedcomException {
     candidate.getGedcom().deleteEntity(candidate);
     return null;
   }

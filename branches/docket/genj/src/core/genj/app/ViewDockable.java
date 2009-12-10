@@ -28,7 +28,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
 import genj.view.ActionProvider;
 import genj.view.ContextProvider;
-import genj.view.SelectionListener;
+import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
@@ -65,7 +65,7 @@ import swingx.docking.Docked;
 /**
  * A dockable for views
  */
-/* package */class ViewDockable extends DefaultDockable implements SelectionListener, WorkbenchListener {
+/* package */class ViewDockable extends DefaultDockable implements WorkbenchListener {
   
   private final static Logger LOG = Logger.getLogger("genj.app");
   private final static ContextHook HOOK = new ContextHook();
@@ -110,9 +110,6 @@ import swingx.docking.Docked;
   @Override
   public void docked(final Docked docked) {
     super.docked(docked);
-
-    // listen to view
-    view.addSelectionListener(this);
 
     // listen to workbench
     workbench.addWorkbenchListener(this);
@@ -175,9 +172,6 @@ import swingx.docking.Docked;
 
   @Override
   public void undocked() {
-
-    // don't listen to view
-    view.removeSelectionListener(this);
 
     // don't listen to workbench
     workbench.removeWorkbenchListener(this);
@@ -336,7 +330,7 @@ import swingx.docking.Docked;
 
           // a double-click on provider?
           if (me.getButton() == MouseEvent.BUTTON1 && me.getID() == MouseEvent.MOUSE_CLICKED && me.getClickCount() == 2) {
-            View.fireSelection(component, context, true);
+        	  SelectionSink.Dispatcher.fireSelection(component,context, true);
             return;
           }
 

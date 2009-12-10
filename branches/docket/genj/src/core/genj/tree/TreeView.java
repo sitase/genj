@@ -44,6 +44,7 @@ import genj.util.swing.ViewPortAdapter;
 import genj.util.swing.ViewPortOverview;
 import genj.view.ActionProvider;
 import genj.view.ContextProvider;
+import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
@@ -885,7 +886,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
         repaint();
         overview.repaint();
         // propagate it
-        fireSelection(new Context(currentEntity), false);
+        SelectionSink.Dispatcher.fireSelection(e,new Context(currentEntity), false);
         return;
       }
       // runnable?

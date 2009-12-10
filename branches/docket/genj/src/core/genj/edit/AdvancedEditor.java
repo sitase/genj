@@ -39,7 +39,7 @@ import genj.util.swing.ButtonHelper;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
-import genj.view.View;
+import genj.view.SelectionSink;
 import genj.view.ViewContext;
 import genj.window.WindowManager;
 
@@ -724,7 +724,7 @@ import javax.swing.tree.TreePath;
         ViewContext context = new ViewContext(gedcom);
         context.addProperties(selection);
 
-        View.fireSelection(AdvancedEditor.this, context, false);
+        SelectionSink.Dispatcher.fireSelection(AdvancedEditor.this, context, false);
       } finally {
         ignoreSelection = false;
       }

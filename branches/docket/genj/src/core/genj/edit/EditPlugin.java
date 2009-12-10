@@ -66,7 +66,6 @@ import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
-import genj.view.View;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -160,7 +159,7 @@ public class EditPlugin implements ActionProvider {
     }
     
     @Override
-    protected Context execute(Gedcom gedcom, View view) throws GedcomException {
+    protected Context execute(Gedcom gedcom, ActionEvent event) throws GedcomException {
       Entity e = gedcom.createEntity(Gedcom.INDI, dupe() ? null : existing.getId());
       e.copyProperties(existing.getProperties(), true);
       return new Context(e);
@@ -242,6 +241,14 @@ public class EditPlugin implements ActionProvider {
 
     switch (purpose) {
       case MENU:
+    	  
+          // create entities
+          if (context.getEntities().length==1 && context.getEntity() instanceof Indi) {
+            Action2.Group edit = new EditActionGroup();
+	    	edit.addAll(createActions((Indi)context.getEntity(), true));
+          	result.add(edit);
+          }
+          
         break;
       case CONTEXT:
         
@@ -289,11 +296,7 @@ public class EditPlugin implements ActionProvider {
         result.add(new Undo(context.getGedcom()));
         result.add(new Redo(context.getGedcom()));
         
-        result.add(MenuHelper.NOOP);
-        
-        // create entities
-        if (context.getEntities().length==1 && context.getEntity() instanceof Indi)
-          result.addAll(createActions((Indi)context.getEntity(), true));
+        //result.add(MenuHelper.NOOP);
         
         break;
     }

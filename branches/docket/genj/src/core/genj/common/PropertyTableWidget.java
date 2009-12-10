@@ -35,6 +35,7 @@ import genj.util.swing.HeadlessLabel;
 import genj.util.swing.LinkWidget;
 import genj.util.swing.SortableTableModel;
 import genj.view.ContextProvider;
+import genj.view.SelectionSink;
 import genj.view.View;
 import genj.view.ViewContext;
 
@@ -521,7 +522,7 @@ public class PropertyTableWidget extends JPanel  {
       
       // tell about it
       if (context!=null)
-        View.fireSelection(PropertyTableWidget.this, context, false);
+    	  SelectionSink.Dispatcher.fireSelection(PropertyTableWidget.this, context, false);	
 
       
       // done

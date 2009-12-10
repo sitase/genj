@@ -19,8 +19,6 @@
  */
 package genj.edit.actions;
 
-import java.awt.event.ActionEvent;
-
 import genj.edit.Images;
 import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
@@ -31,8 +29,10 @@ import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
-import genj.view.View;
+import genj.view.SelectionSink;
 import genj.window.WindowManager;
+
+import java.awt.event.ActionEvent;
 
 import javax.swing.Action;
 import javax.swing.JComponent;
@@ -105,10 +105,8 @@ public abstract class AbstractChange extends Action2 {
   /**
    * @see genj.util.swing.Action2#execute()
    */
-  public void actionPerformed(ActionEvent event) {
-    
-    final View view = View.getView(event);
-    
+  public void actionPerformed(final ActionEvent event) {
+	  
     // prepare confirmation message for user
     String msg = getConfirmMessage();
     if (msg!=null) {
@@ -120,7 +118,7 @@ public abstract class AbstractChange extends Action2 {
       };
       
       // Recheck with the user
-      int rc = WindowManager.getInstance().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, view );
+      int rc = WindowManager.getInstance().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, event );
       if (rc!=0)
         return;
     }
@@ -129,16 +127,16 @@ public abstract class AbstractChange extends Action2 {
     try {
       gedcom.doUnitOfWork(new UnitOfWork() {
         public void perform(Gedcom gedcom) throws GedcomException {
-          selection = execute(gedcom, view);
+          selection = execute(gedcom, event);
         }
       });
     } catch (Throwable t) {
-      WindowManager.getInstance().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), view);
+      WindowManager.getInstance().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), event);
     }
     
     // propagate selection
     if (selection!=null)
-      view.fireSelection(selection, true);
+    	SelectionSink.Dispatcher.fireSelection(event,selection, true);
       
     // done
   }
@@ -146,7 +144,7 @@ public abstract class AbstractChange extends Action2 {
   /**
    * perform the actual change
    */
-  protected abstract Context execute(Gedcom gedcom, View view) throws GedcomException;
+  protected abstract Context execute(Gedcom gedcom, ActionEvent event) throws GedcomException;
 
 } //Change
 

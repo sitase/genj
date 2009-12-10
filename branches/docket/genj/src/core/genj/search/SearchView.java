@@ -36,6 +36,7 @@ import genj.util.swing.HeadlessLabel;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
 import genj.view.ContextProvider;
+import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
@@ -621,7 +622,7 @@ public class SearchView extends View {
     public void valueChanged(ListSelectionEvent e) {
       int row = listResults.getSelectedIndex();
       if (row>=0)
-        fireSelection(new Context(results.getHit(row).getProperty()), false);
+    	  SelectionSink.Dispatcher.fireSelection(SearchView.this, new Context(results.getHit(row).getProperty()), false);
     }
 
     

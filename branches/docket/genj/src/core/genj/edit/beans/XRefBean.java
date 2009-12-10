@@ -22,6 +22,7 @@ package genj.edit.beans;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
 import genj.util.Registry;
+import genj.view.SelectionSink;
 import genj.view.View;
 import genj.view.ViewContext;
 
@@ -55,7 +56,7 @@ public class XRefBean extends PropertyBean {
         if (xref==null)
           return;
         // tell about it
-        View.fireSelection(preview, new ViewContext(xref), true);
+        SelectionSink.Dispatcher.fireSelection(e, new ViewContext(xref), true);
       }
     });
   }

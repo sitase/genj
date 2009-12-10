@@ -24,9 +24,6 @@ import genj.gedcom.Context;
 import java.awt.Component;
 import java.awt.LayoutManager;
 import java.awt.Window;
-import java.util.EventObject;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -35,8 +32,6 @@ import javax.swing.JPopupMenu;
  * A baseclass for all our views
  */
 public abstract class View extends JPanel implements SelectionListener {
-
-  private List<SelectionListener> listeners = new CopyOnWriteArrayList<SelectionListener>();
 
   /**
    * Constructor
@@ -63,43 +58,6 @@ public abstract class View extends JPanel implements SelectionListener {
   public boolean closing() {
     return true;
   }
-  /**
-   * add listener
-   */
-  public void addSelectionListener(SelectionListener listener) {
-    listeners.add(listener);
-  }
-  
-  /**
-   * remove listener
-   */
-  public void removeSelectionListener(SelectionListener listener) {
-    listeners.remove(listener);
-  }
-
-  /**
-   * fire selection event
-   * @param context
-   * @param isActionPerformed
-   */
-  public void fireSelection(Context context, boolean isActionPerformed) {
-    if (context==null)
-      throw new IllegalArgumentException("context cannot be null");
-    for (SelectionListener listener : listeners) {
-      listener.select(context, isActionPerformed);
-    }
-  }
-  
-  /**
-   * Find the view for given event
-   */
-  public static View getView(EventObject event) {
-    Object source = event.getSource();
-    if (source instanceof Component)
-      return View.getView((Component)source);
-    else
-      throw new IllegalArgumentException("Cannot find view for event "+event);
-  }
 
   /**
    * Find the view for given component
@@ -118,10 +76,6 @@ public abstract class View extends JPanel implements SelectionListener {
     } while (componentInView!=null);
     
     throw new IllegalArgumentException("Cannot find view for component");
-  }
-  
-  public static void fireSelection(Component componentInView, Context context, boolean isActionPerformed) {
-    View.getView(componentInView).fireSelection(context, isActionPerformed);
   }
 
   /**

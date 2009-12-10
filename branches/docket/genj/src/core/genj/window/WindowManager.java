@@ -41,6 +41,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.EventObject;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.StringTokenizer;
@@ -54,9 +55,11 @@ import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 
 /**
@@ -257,9 +260,30 @@ public class WindowManager {
   
   
   /**
-   * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.lang.String, String[], javax.swing.JComponent)
+   * Find a component for given source
    */
-  public final int openDialog(String key, String title,  int messageType, String txt, Action[] actions, Component owner) {
+  public static Component getComponent(Object source) {
+	  
+	  if (source instanceof EventObject)
+		  source = ((EventObject)source).getSource();
+	  
+		do {
+		      if (source instanceof JPopupMenu) 
+		    	  source = ((JPopupMenu)source).getInvoker();
+		      else if (source instanceof JMenu)
+		    	  source = ((JMenu)source).getParent();
+		      else if (source instanceof Component)
+		    	  return (Component)source;
+		      else
+		  	    throw new IllegalArgumentException("Cannot find parent for source "+source);
+		    	  
+	    } while (source!=null);
+	    
+	    throw new IllegalArgumentException("Cannot find parent for source "+source);
+	}
+
+
+  public final int openDialog(String key, String title,  int messageType, String txt, Action[] actions, Object source) {
     
     // analyze the text
     int maxLine = 40;
@@ -290,13 +314,13 @@ public class WindowManager {
     JScrollPane content = new JScrollPane(text);
       
     // delegate
-    return openDialog(key, title, messageType, content, actions, owner);
+    return openDialog(key, title, messageType, content, actions, source);
   }
   
   /**
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.awt.Dimension, javax.swing.JComponent[], java.lang.String[], javax.swing.JComponent)
    */
-  public final int openDialog(String key, String title,  int messageType, JComponent[] content, Action[] actions, Component owner) {
+  public final int openDialog(String key, String title,  int messageType, JComponent[] content, Action[] actions, Object source) {
     // assemble content into Box (don't use Box here because
     // Box extends Container in pre JDK 1.4)
     JPanel box = new JPanel();
@@ -307,29 +331,26 @@ public class WindowManager {
       content[i].setAlignmentX(0F);
     }
     // delegate
-    return openDialog(key, title, messageType, box, actions, owner);
+    return openDialog(key, title, messageType, box, actions, source);
   }
 
   /**
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.lang.String, java.lang.String, javax.swing.JComponent)
    */
-  public final String openDialog(String key, String title,  int messageType, String txt, String value, Component owner) {
+  public final String openDialog(String key, String title,  int messageType, String txt, String value, Object source) {
 
     // prepare text field and label
     TextFieldWidget tf = new TextFieldWidget(value, 24);
     JLabel lb = new JLabel(txt);
     
     // delegate
-    int rc = openDialog(key, title, messageType, new JComponent[]{ lb, tf}, Action2.okCancel(), owner);
+    int rc = openDialog(key, title, messageType, new JComponent[]{ lb, tf}, Action2.okCancel(), source);
     
     // analyze
     return rc==0?tf.getText().trim():null;
   }
 
-  /**
-   * dialog core routine
-   */
-  public final int openDialog(String key, String title,  int messageType, JComponent content, Action[] actions, Component owner) {
+  public final int openDialog(String key, String title,  int messageType, JComponent content, Action[] actions, Object source) {
     // check options - default to OK
     if (actions==null) 
       actions = Action2.okOnly();
@@ -341,7 +362,7 @@ public class WindowManager {
     // grab parameters
     Rectangle bounds = registry.get(key, (Rectangle)null);
     // do it
-    Object rc = openDialogImpl(key, title, messageType, content, actions, owner, bounds);
+    Object rc = openDialogImpl(key, title, messageType, content, actions, source, bounds);
     // analyze - check which action was responsible for close
     for (int a=0; a<actions.length; a++) 
       if (rc==actions[a]) return a;
@@ -351,25 +372,28 @@ public class WindowManager {
   /**
    * Dialog implementation
    */
-  private Object openDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Component owner, Rectangle bounds) {
+  private Object openDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Object source, Rectangle bounds) {
 
     // create an option pane
     JOptionPane optionPane = new Content(messageType, content, actions);
     
+    // calc parent
+    Component parent = getComponent(source);
+    
     // let it create the dialog
-    final JDialog dlg = optionPane.createDialog(owner != null ? owner : defaultFrame, title);
+    final JDialog dlg = optionPane.createDialog(parent != null ? parent : defaultFrame, title);
     dlg.setResizable(true);
     dlg.setModal(true);
     if (bounds==null) {
       dlg.pack();
-      if (owner!=null)
-        dlg.setLocationRelativeTo(owner.getParent());
+      if (parent!=null)
+        dlg.setLocationRelativeTo(parent.getParent());
     } else {
-      if (owner==null) {
+      if (parent==null) {
         dlg.setBounds(bounds.intersection(screen));
       } else {
         dlg.setBounds(new Rectangle(bounds.getSize()).intersection(screen));
-        dlg.setLocationRelativeTo(owner.getParent());
+        dlg.setLocationRelativeTo(parent.getParent());
       }
     }
 

@@ -30,6 +30,7 @@ import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.EditorHyperlinkSupport;
 import genj.util.swing.ImageIcon;
+import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.window.WindowManager;
@@ -536,7 +537,7 @@ public class ReportView extends View {
       if (id!=null) {
         Entity entity = gedcom.getEntity(id);
         if (entity!=null)
-          fireSelection(new Context(entity), e.getClickCount()>1);
+        	SelectionSink.Dispatcher.fireSelection(e, new Context(entity), e.getClickCount()>1);
       }
     }
 

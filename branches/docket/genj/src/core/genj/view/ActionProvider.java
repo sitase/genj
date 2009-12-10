@@ -73,6 +73,23 @@ public interface ActionProvider {
   }
   
   /**
+   * an action group for edit
+   */
+  public final class EditActionGroup extends Action2.Group {
+    public EditActionGroup() {
+      super(Resources.get(EditActionGroup.class).getString("group.edit"));
+    }
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof EditActionGroup;
+    }
+    @Override
+    public int hashCode() {
+      return EditActionGroup.class.hashCode();
+    }
+  }
+  
+  /**
    * an action group for a property
    */
   public final class PropertyActionGroup extends Action2.Group {

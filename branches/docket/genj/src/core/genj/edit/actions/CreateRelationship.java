@@ -27,7 +27,6 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
 import genj.util.WordBuffer;
 import genj.util.swing.NestedBlockLayout;
-import genj.view.View;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -64,7 +63,7 @@ public abstract class CreateRelationship extends AbstractChange {
    * Constructor
    */
   public CreateRelationship(String name, Gedcom gedcom, String targetType) {
-    super(gedcom, Gedcom.getEntityImage(targetType).getOverLayed(imgNew), resources.getString("link", name));
+    super(gedcom, Gedcom.getEntityImage(targetType), resources.getString("link", name));
     this.targetType = targetType;
   }
 
@@ -158,7 +157,7 @@ public abstract class CreateRelationship extends AbstractChange {
   /**
    * perform the change
    */
-  protected final Context execute(Gedcom gedcom, View view) throws GedcomException {
+  protected final Context execute(Gedcom gedcom, ActionEvent event) throws GedcomException {
     // create the entity if necessary
     Entity change;
     if (existing!=null) {

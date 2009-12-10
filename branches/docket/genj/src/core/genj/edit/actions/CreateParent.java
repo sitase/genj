@@ -29,11 +29,14 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertyChild;
 import genj.gedcom.PropertySex;
 import genj.gedcom.PropertyXRef;
+import genj.util.swing.ImageIcon;
 
 /**
  * Create a child of a family or person
  */
 public class CreateParent extends CreateRelationship {
+	
+  private final static ImageIcon IMG = new ImageIcon(CreateParent.class, "Parents.png");
   
   /** the child and family we're creating a parent for */
   private Indi child;
@@ -46,12 +49,14 @@ public class CreateParent extends CreateRelationship {
       throw new IllegalArgumentException("can't create additional parent in family with husband and wife");
     this.family = family;
     this.child = null;
+    setImage(IMG);
   }
   
   /** constructor */
   public CreateParent(Indi child) {
     super(resources.getString("create.parent"), child.getGedcom(), Gedcom.INDI);
     this.child = child;
+    setImage(IMG);
     
     // check if the child already is part of a family without spouse
     Fam[] fams = child.getFamiliesWhereChild();

@@ -51,6 +51,7 @@ import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
+import genj.view.SelectionSink;
 import genj.view.View;
 import genj.view.ViewFactory;
 import genj.view.ActionProvider.Purpose;
@@ -91,7 +92,7 @@ import swingx.docking.DockingPane;
 /**
  * The central component of the GenJ application
  */
-public class Workbench extends JPanel {
+public class Workbench extends JPanel implements SelectionSink {
 
   private final static Logger LOG = Logger.getLogger("genj.app");
   

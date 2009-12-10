@@ -31,6 +31,7 @@ import genj.util.swing.SliderWidget;
 import genj.util.swing.UnitGraphics;
 import genj.util.swing.ViewPortAdapter;
 import genj.view.ContextProvider;
+import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
@@ -596,7 +597,7 @@ public class TimelineView extends View {
         selectedEvents.add(hit);
         
         // tell about it
-        fireSelection(getContext(), false);
+        SelectionSink.Dispatcher.fireSelection(e, getContext(), false);
       }
       
       // show
