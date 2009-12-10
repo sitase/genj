@@ -35,7 +35,6 @@ import genj.util.swing.HeadlessLabel;
 import genj.util.swing.LinkWidget;
 import genj.util.swing.SortableTableModel;
 import genj.view.ContextProvider;
-import genj.view.SelectionListener;
 import genj.view.View;
 import genj.view.ViewContext;
 
@@ -173,7 +172,7 @@ public class PropertyTableWidget extends JPanel  {
       
       // use all of selected entities properties if there are no property selections
       if (props.length==0) {
-        List all = new ArrayList();
+        List<Property> all = new ArrayList<Property>();
         Entity[] ents = context.getEntities();
         for (int i = 0; i < ents.length; i++) {
           all.addAll(ents[i].getProperties(Property.class));
@@ -321,7 +320,9 @@ public class PropertyTableWidget extends JPanel  {
       setRowHeight((int)Math.ceil(Options.getInstance().getDefaultFont().getLineMetrics("", new FontRenderContext(null,false,false)).getHeight())+getRowMargin());
       
       getColumnModel().getSelectionModel().addListSelectionListener(this);
-      getSelectionModel().addListSelectionListener(this);
+      
+      // 20091208 JTable already implements and add itself as listener
+      //getSelectionModel().addListSelectionListener(this);
       
       // prep sortable model
       setModel(sortableModel);
