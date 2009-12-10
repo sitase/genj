@@ -23,7 +23,6 @@ package genj.util.swing;
 import genj.util.MnemonicAndText;
 import genj.util.Resources;
 
-import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -294,7 +293,19 @@ public class Action2 extends AbstractAction {
     public void add(Action2 action) {
       actions.add(action);
     }
+
+    public void addAll(Group action) {
+      actions.addAll(action.actions);
+    }
     
+    public void addAll(List<Action2> actions) {
+      this.actions.addAll(actions);
+    }
+    
+    public void clear() {
+      actions.clear();
+    }
+
     public int size() {
       return actions.size();
     }
@@ -312,7 +323,7 @@ public class Action2 extends AbstractAction {
       for (Action action : actions)
         action.setEnabled(newValue);
     }
-    
+
   } //Group
 
 } //Action2

@@ -21,19 +21,12 @@ package genj.util.swing;
 
 import genj.util.MnemonicAndText;
 
-import java.awt.Component;
-import java.awt.Font;
 import java.awt.event.ActionEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.util.Stack;
 
 import javax.swing.Icon;
-import javax.swing.ImageIcon;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
 import javax.swing.JMenu;
-import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 
@@ -61,6 +54,15 @@ public class MenuHelper  {
     menus.push(menu);
     
     return this;
+  }
+  
+  public static JMenu createMenu(Action2.Group action) {
+    MenuHelper h = new MenuHelper();
+    JMenu result = new JMenu(action);
+    h.pushMenu(result);
+    for (Action2 sub : action)
+      h.createItem(sub);
+    return result;
   }
   
   /**
@@ -125,10 +127,13 @@ public class MenuHelper  {
     
     // an action group?
     if (action instanceof Action2.Group) {
+      Action2.Group group = (Action2.Group)action;
+      if (group.size()==0)
+        return null;
       JMenu sub = new JMenu(action);
       sub.setMnemonic(action.getMnemonic());
       pushMenu(sub);
-      createItems((Action2.Group)action);
+      createItems(group);
       popMenu();
       return sub;
     }

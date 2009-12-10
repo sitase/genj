@@ -553,14 +553,6 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     
     // done
   }
-
-  /**
-   * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
-   */
-  public List<Action2> createActions(Property[] properties) {
-    // not supported
-    return null;
-  }
   
   /** a priority between 0-100 */
   public int getPriority() {
@@ -568,32 +560,25 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   }
 
   /**
-   * @see genj.view.ContextSupport#createActions(genj.gedcom.Entity)
+   * create actions for a context
    */
-  public List<Action2> createActions(Entity entity) {
-    // fam or indi?
-    if (!(entity instanceof Indi||entity instanceof Fam)) 
-      return null;
-    // create an action for our tree
-    List result = new ArrayList(2);
-    result.add(new ActionRoot(entity));
-    result.add(new ActionBookmark(entity, false));
+  public List<Action2> createActions(Context context, Purpose purpose) {
+    
+    List<Action2> result = new ArrayList<Action2>(2);
+
+    // for context menu of one record
+    if (purpose==Purpose.CONTEXT&&context.getEntities().length==1) {
+      // fam or indi?
+      Entity entity = context.getEntity();
+      if (entity instanceof Indi||entity instanceof Fam) { 
+        // create an action for our tree
+        result.add(new ActionRoot(entity));
+        result.add(new ActionBookmark(entity, false));
+      }
+    }
+    
     // done
     return result;
-  }
-
-  /**
-   * @see genj.view.ContextSupport#createActions(genj.gedcom.Gedcom)
-   */
-  public List<Action2> createActions(Gedcom gedcom) {
-    return null;
-  }
-
-  /**
-   * @see genj.view.ContextSupport#createActions(genj.gedcom.Property)
-   */
-  public List<Action2> createActions(Property property) {
-    return null;
   }
 
   /**

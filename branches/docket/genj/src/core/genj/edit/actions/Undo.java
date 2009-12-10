@@ -41,7 +41,6 @@ public class Undo extends Action2 implements GedcomMetaListener {
    */
   public Undo(Gedcom gedcom) {
     this(gedcom, gedcom.canUndo());
-    setText(null);
   }
 
   /**

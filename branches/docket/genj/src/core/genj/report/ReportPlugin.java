@@ -21,7 +21,6 @@ package genj.report;
 
 import genj.app.Workbench;
 import genj.app.WorkbenchListener;
-import genj.app.Workbench.ToolLocation;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
@@ -46,7 +45,7 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
   private final static int MAX_HISTORY = 5;
   
   private Workbench workbench;
-  private Action2.Group actions;
+  private Action2.Group workbenchActions = new Action2.Group("Reports");
   
   public ReportPlugin(Workbench workbench) {
     this.workbench = workbench;
@@ -54,29 +53,7 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
     workbench.addWorkbenchListener(this);
 
   }
-  
-  private void uninstallActions() {
-    if (actions!=null) {
-      workbench.uninstallTool(actions);
-      actions = null;
-    }
-  }
-  
-  private void installActions() {
     
-    uninstallActions();
-    
-    Context context = workbench.getContext();
-    if (context!=null) {
-      Action2.Group newActions = new Action2.Group("Reports");
-      getActions(context.getGedcom(), context.getGedcom(), newActions);
-      if (newActions.size()>0) {
-        actions = newActions;
-        workbench.installTool(actions, ToolLocation.MAINMENU);
-      }
-    }
-  }
-  
   public void commitRequested() {
   }
   
@@ -88,15 +65,68 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
   }
   
   public void gedcomClosed(Gedcom gedcom) {
-    uninstallActions();
   }
   
   public void gedcomOpened(Gedcom gedcom) {
-    installActions();
   }
   
   public int getPriority() {
     return NORMAL;
+  }
+
+  /**
+   * actions we provide
+   */
+  public List<Action2> createActions(Context context, Purpose purpose) {
+    
+    List<Action2> result = new ArrayList<Action2>();
+    
+    switch (purpose) {
+      case TOOLBAR:
+        break;
+        
+      case MENU:
+        workbenchActions.clear();
+        getActions(context.getGedcom(), context.getGedcom(), workbenchActions);
+        result.add(workbenchActions);
+        break;
+        
+      case CONTEXT:
+
+        // props
+        Property[] properties = context.getProperties();
+        if (properties.length>1) {
+          Action2.Group group = new ActionProvider.PropertiesActionGroup(properties);
+          getActions(properties, context.getGedcom(), group);
+          result.add(group);
+        } else if (properties.length==1) {
+          Action2.Group group = new ActionProvider.PropertyActionGroup(context.getProperty());
+          getActions(context.getProperty(), context.getGedcom(), group);
+          result.add(group);
+        }
+        
+        // entities
+        Entity[] entities = context.getEntities();
+        if (entities.length>1) {
+          Action2.Group group = new ActionProvider.EntitiesActionGroup(entities);
+          getActions(entities, context.getGedcom(), group);
+          result.add(group);
+        } else if (entities.length==1) {
+          Action2.Group group = new ActionProvider.EntityActionGroup(context.getEntity());
+          getActions(context.getEntity(), context.getGedcom(), group);
+          result.add(group);
+        }
+        
+        // gedcom
+        Action2.Group group = new ActionProvider.GedcomActionGroup(context.getGedcom());
+        getActions(context.getGedcom(), context.getGedcom(), group);
+        result.add(group);
+        
+        break;
+    }
+
+    // done
+    return result;
   }
   
   /**
@@ -216,7 +246,7 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
   }
   
   /*package*/ void setEnabled(boolean set) {
-    if (actions!=null)
-      actions.setEnabled(set);
+    if (workbenchActions!=null)
+      workbenchActions.setEnabled(set);
   }
 }

@@ -19,17 +19,27 @@
  */
 package genj.view;
 
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
+import genj.gedcom.TagPath;
+import genj.util.Resources;
 import genj.util.swing.Action2;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
  * Support for a actions of property/entity/gedcom
  */
 public interface ActionProvider {
+  
+  public enum Purpose {
+    TOOLBAR,
+    CONTEXT,
+    MENU
+  }
 
   /** priorities */
   public final static int
@@ -43,21 +53,118 @@ public interface ActionProvider {
   /**
    * Callback for actions on a list of entities
    */
-  public List<Action2> createActions(Property[] properties);
+  public List<Action2> createActions(Context context, Purpose purpose);
+
+  /**
+   * an action group for tools
+   */
+  public final class ToolsActionGroup extends Action2.Group {
+    public ToolsActionGroup() {
+      super(Resources.get(ToolsActionGroup.class).getString("group.tools"));
+    }
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof ToolsActionGroup;
+    }
+    @Override
+    public int hashCode() {
+      return ToolsActionGroup.class.hashCode();
+    }
+  }
   
   /**
-   * Callback for actions on a property
+   * an action group for a property
    */
-  public List<Action2> createActions(Property property);
+  public final class PropertyActionGroup extends Action2.Group {
+    private Property p;
+    public PropertyActionGroup(Property property) {
+      super(Property.LABEL+" '"+TagPath.get(property).getName() + '\'', property.getImage(false));
+      p = property;
+    }
+    @Override
+    public boolean equals(Object that) {
+      return that instanceof PropertyActionGroup && ((PropertyActionGroup)that).p.equals(this.p);
+    }
+    @Override
+    public int hashCode() {
+      return p.hashCode();
+    }
+  }
 
   /**
-   * Callback for actions on an entity
+   * an action group for an entity
    */
-  public List<Action2> createActions(Entity entity);
+  public class EntityActionGroup extends Action2.Group {
+    private Entity e;
+    public EntityActionGroup(Entity entity) {
+      super(Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'', entity.getImage(false));
+      e = entity;
+    }
+    @Override
+    public boolean equals(Object that) {
+      return that instanceof EntityActionGroup && ((EntityActionGroup)that).e.equals(this.e);
+    }
+    @Override
+    public int hashCode() {
+      return e.hashCode();
+    }
+  }
 
   /**
-   * Callback for actions on a gedcom
+   * an action group for a list of properties
    */
-  public List<Action2> createActions(Gedcom gedcom);
+  public class PropertiesActionGroup extends Action2.Group {
+    private Property[] ps;
+    public PropertiesActionGroup(Property[] properties) {
+      super("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
+      ps = properties;
+    }
+    @Override
+    public boolean equals(Object that) {
+      return that instanceof PropertiesActionGroup && Arrays.equals(((PropertiesActionGroup)that).ps, this.ps);
+    }
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(ps);
+    }
+  }
+  
+  /**
+   * an action group for a list of entities
+   */
+  public class EntitiesActionGroup extends Action2.Group {
+    private Entity[] es;
+    public EntitiesActionGroup(Entity[] entities) {
+      super("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
+      es = entities;
+    }
+    @Override
+    public boolean equals(Object that) {
+      return that instanceof EntitiesActionGroup && Arrays.equals(((EntitiesActionGroup)that).es, this.es);
+    }
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(es);
+    }
+  }
 
+  /**
+   * an action group for gedcom
+   */
+  public class GedcomActionGroup extends Action2.Group {
+    private Gedcom gedcom;
+    public GedcomActionGroup(Gedcom gedcom) {
+      super("Gedcom '"+gedcom.getName()+'\'', Gedcom.getImage());
+      this.gedcom = gedcom;
+    }
+    @Override
+    public boolean equals(Object that) {
+      return that instanceof GedcomActionGroup && ((GedcomActionGroup)that).gedcom.equals(this.gedcom);
+    }
+    @Override
+    public int hashCode() {
+      return gedcom.hashCode();
+    }
+  }
+  
 } 

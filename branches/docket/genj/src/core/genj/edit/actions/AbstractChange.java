@@ -65,6 +65,7 @@ public abstract class AbstractChange extends Action2 {
     gedcom = ged;
     super.setImage(img);
     super.setText(text);
+    super.setTip(text);
   }
 
   /** 

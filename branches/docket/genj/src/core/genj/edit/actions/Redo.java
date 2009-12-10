@@ -41,7 +41,6 @@ public class Redo extends Action2 implements GedcomMetaListener {
    */
   public Redo(Gedcom gedcom) {
     this(gedcom, gedcom.canRedo());
-    setText(null);
   }
   
   /**

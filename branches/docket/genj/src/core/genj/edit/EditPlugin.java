@@ -20,8 +20,6 @@
 package genj.edit;
 
 import genj.app.Workbench;
-import genj.app.WorkbenchListener;
-import genj.app.Workbench.ToolLocation;
 import genj.common.SelectEntityWidget;
 import genj.crypto.Enigma;
 import genj.edit.actions.AbstractChange;
@@ -49,7 +47,6 @@ import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomDirectory;
 import genj.gedcom.GedcomException;
-import genj.gedcom.GedcomListener;
 import genj.gedcom.Indi;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
@@ -80,22 +77,18 @@ import java.util.List;
 
 import javax.swing.JPanel;
 
-import spin.Spin;
-
 /**
  * our editing plugin
  */
-public class EditPlugin implements ActionProvider, WorkbenchListener {
+public class EditPlugin implements ActionProvider {
   
   private Workbench workbench;
-  private List<Action2> workbenchActions = new ArrayList<Action2>();
   
   /**
    * Constructor
    */
   /*package*/ EditPlugin(Workbench workbench) {
     this.workbench = workbench;
-    workbench.addWorkbenchListener(this);
   }
   
   public int getPriority() {
@@ -178,35 +171,30 @@ public class EditPlugin implements ActionProvider, WorkbenchListener {
   /**
    * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
    */
-  public List<Action2> createActions(Property[] properties) {
-    List<Action2> result = new ArrayList<Action2>();
-    // not accepting any entities here
-    for (int i = 0; i < properties.length; i++) 
-      if (properties[i] instanceof Entity) return result;
+  private void createActions(Property[] properties, Action2.Group group) {
+    
     // Toggle "Private"
     if (Enigma.isAvailable())
-      result.add(new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties)));
+      group.add(new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties)));
+    
     // Delete
-    result.add(new DelProperty(properties));
+    group.add(new DelProperty(properties));
+    
     // done
-    return result;
   }
 
   /**
    * @see genj.view.ContextSupport#createActions(Property)
    */
-  public List<Action2> createActions(Property property) {
-    
-    // create the actions
-    List<Action2> result = new ArrayList<Action2>();
+  private void createActions(Property property, Action2.Group group) {
     
     // FileAssociationActions for PropertyFile
     if (property instanceof PropertyFile)  
-      createActions(result, (PropertyFile)property); 
+      createActions(group, (PropertyFile)property); 
       
     // Place format for PropertyFile
     if (property instanceof PropertyPlace)  
-      result.add(new SetPlaceHierarchy((PropertyPlace)property)); 
+      group.add(new SetPlaceHierarchy((PropertyPlace)property)); 
       
     // Check what xrefs can be added
     MetaProperty[] subs = property.getNestedMetaProperties(0);
@@ -221,7 +209,7 @@ public class EditPlugin implements ActionProvider, WorkbenchListener {
           type==PropertyMedia.class 
         ) {
         // .. make sure @@ forces a non-substitute!
-        result.add(new CreateXReference(property,subs[s].getTag()));
+        group.add(new CreateXReference(property,subs[s].getTag()));
         // continue
         continue;
       }
@@ -232,128 +220,188 @@ public class EditPlugin implements ActionProvider, WorkbenchListener {
     if ( property instanceof PropertyEvent
         && ( (property.getEntity() instanceof Indi)
             || property.getGedcom().getGrammar().getMeta(new TagPath("INDI:ASSO")).allows("TYPE"))  )
-      result.add(new CreateAssociation(property));
+      group.add(new CreateAssociation(property));
     
     // Toggle "Private"
     if (Enigma.isAvailable())
-      result.add(new TogglePrivate(property.getGedcom(), Collections.singletonList(property)));
+      group.add(new TogglePrivate(property.getGedcom(), Collections.singletonList(property)));
     
     // Delete
     if (!property.isTransient()) 
-      result.add(new DelProperty(property));
+      group.add(new DelProperty(property));
+  
+    // done
+  }
+  
+  /**
+   * Actions for context
+   */
+  public List<Action2> createActions(Context context, Purpose purpose) {
+    
+    List<Action2> result = new ArrayList<Action2>();
+
+    switch (purpose) {
+      case MENU:
+        break;
+      case CONTEXT:
+        
+        // sub-menu for properties
+        if (context.getProperties().length>1) {
+          Action2.Group group = new ActionProvider.PropertiesActionGroup(context.getProperties());
+          createActions(context.getProperties(), group);
+          if (group.size()>0)
+            result.add(group);
+        } else if (context.getProperties().length==1) {
+          Action2.Group group = new ActionProvider.PropertyActionGroup(context.getProperty());
+          createActions(context.getProperty(), group);
+          if (group.size()>0)
+            result.add(group);
+        }
+     
+        // sub-menu for entity
+        if (context.getEntities().length==1) {
+          Action2.Group group = new ActionProvider.EntityActionGroup(context.getEntity());
+          createActions(context.getEntity(), group);
+          if (group.size()>0)
+            result.add(group);
+          
+          // add an "edit in EditView"
+          if (null==workbench.getView(EditViewFactory.class))
+            result.add(new OpenForEdit(workbench, context));
+
+        }
+        
+        // sub-menu for gedcom
+        Action2.Group group = new ActionProvider.GedcomActionGroup(context.getGedcom());
+        createActions(context.getGedcom(), group);
+        if (group.size()>0)
+          result.add(group);
+        
+        // global undo/redo
+        result.add(new Undo(context.getGedcom()));
+        result.add(new Redo(context.getGedcom()));
+
+        break;
+        
+      case TOOLBAR:
+        
+        // undo/redo
+        result.add(new Undo(context.getGedcom()));
+        result.add(new Redo(context.getGedcom()));
+        
+        result.add(MenuHelper.NOOP);
+        
+        // create entities
+        if (context.getEntities().length==1 && context.getEntity() instanceof Indi)
+          result.addAll(createActions((Indi)context.getEntity(), true));
+        
+        break;
+    }
   
     // done
     return result;
   }
 
   /**
-     * @see genj.view.ViewFactory#createActions(Entity)
-     */
-    public List<Action2> createActions(Entity entity) {
+   * @see genj.view.ViewFactory#createActions(Entity)
+   */
+  private void createActions(Entity entity, Action2.Group group) {
+    
+    // indi?
+    if (entity instanceof Indi) 
+      group.addAll(createActions((Indi)entity, false));
       
-      // create the actions
-      List<Action2> result = new ArrayList<Action2>();
-      
-      // indi?
-      if (entity instanceof Indi) createActions(result, (Indi)entity);
-      // fam?
-      if (entity instanceof Fam) createActions(result, (Fam)entity);
-      // submitter?
-      if (entity instanceof Submitter) createActions(result, (Submitter)entity);
-      
-      // separator
-      result.add(MenuHelper.NOOP);
-  
-      // Check what xrefs can be added
-      MetaProperty[] subs = entity.getNestedMetaProperties(0);
-      for (int s=0;s<subs.length;s++) {
-        // NOTE||REPO||SOUR||SUBM
-        Class<? extends Property> type = subs[s].getType();
-        if (type==PropertyNote.class||
-            type==PropertyRepository.class||
-            type==PropertySource.class||
-            type==PropertySubmitter.class||
-            type==PropertyMedia.class
-            ) {
-          result.add(new CreateXReference(entity,subs[s].getTag()));
-        }
+    // fam?
+    if (entity instanceof Fam) createActions(group, (Fam)entity);
+    // submitter?
+    if (entity instanceof Submitter) createActions(group, (Submitter)entity);
+    
+    // separator
+    group.add(MenuHelper.NOOP);
+
+    // Check what xrefs can be added
+    MetaProperty[] subs = entity.getNestedMetaProperties(0);
+    for (int s=0;s<subs.length;s++) {
+      // NOTE||REPO||SOUR||SUBM
+      Class<? extends Property> type = subs[s].getType();
+      if (type==PropertyNote.class||
+          type==PropertyRepository.class||
+          type==PropertySource.class||
+          type==PropertySubmitter.class||
+          type==PropertyMedia.class
+          ) {
+        group.add(new CreateXReference(entity,subs[s].getTag()));
       }
-  
-      // add delete
-      result.add(MenuHelper.NOOP);
-      result.add(new DelEntity(entity));
-      
-      // add an "edit in EditView"
-      if (null==workbench.getView(EditViewFactory.class))
-        result.add(new OpenForEdit(workbench, new Context(entity)));
-      
-      // done
-      return result;
     }
+
+    // add delete
+    group.add(MenuHelper.NOOP);
+    group.add(new DelEntity(entity));
+    
+    // done
+  }
 
   /**
    * @see genj.view.ContextMenuSupport#createActions(Gedcom)
    */
-  public List<Action2> createActions(Gedcom gedcom) {
+  private void createActions(Gedcom gedcom, Action2.Group group) {
+    
     // create the actions
-    List<Action2> result = new ArrayList<Action2>();
-    result.add(new CreateEntity(gedcom, Gedcom.INDI));
-    result.add(new CreateEntity(gedcom, Gedcom.FAM));
-    result.add(new CreateEntity(gedcom, Gedcom.NOTE));
-    result.add(new CreateEntity(gedcom, Gedcom.OBJE));
-    result.add(new CreateEntity(gedcom, Gedcom.REPO));
-    result.add(new CreateEntity(gedcom, Gedcom.SOUR));
-    result.add(new CreateEntity(gedcom, Gedcom.SUBM));
+    group.add(new CreateEntity(gedcom, Gedcom.INDI));
+    group.add(new CreateEntity(gedcom, Gedcom.FAM));
+    group.add(new CreateEntity(gedcom, Gedcom.NOTE));
+    group.add(new CreateEntity(gedcom, Gedcom.OBJE));
+    group.add(new CreateEntity(gedcom, Gedcom.REPO));
+    group.add(new CreateEntity(gedcom, Gedcom.SOUR));
+    group.add(new CreateEntity(gedcom, Gedcom.SUBM));
   
     for (Gedcom other : GedcomDirectory.getInstance().getGedcoms()) {
       if (other!=gedcom && other.getEntities(Gedcom.INDI).size()>0)
-        result.add(new CopyIndividual(gedcom, other));
+        group.add(new CopyIndividual(gedcom, other));
     }
   
-    result.add(MenuHelper.NOOP);
-    result.add(new Undo(gedcom, gedcom.canUndo()));
-    result.add(new Redo(gedcom, gedcom.canRedo()));
-  
     // done
-    return result;
   }
 
   /**
    * Create actions for Individual
    */
-  private void createActions(List<Action2> result, Indi indi) {
-    result.add(new CreateChild(indi, true));
-    result.add(new CreateChild(indi, false));
+  private List<Action2> createActions(Indi indi, boolean simple) {
+    List<Action2> result = new ArrayList<Action2>(8);
     result.add(new CreateParent(indi));
     result.add(new CreateSpouse(indi));
+    result.add(new CreateChild(indi, true));
+    result.add(new CreateChild(indi, false));
     result.add(new CreateSibling(indi, true));
     result.add(new CreateSibling(indi, false));
-    result.add(new CreateAlias(indi));
+    if (!simple)
+      result.add(new CreateAlias(indi));
+    return result;
   }
 
   /**
    * Create actions for Families
    */
-  private void createActions(List<Action2> result, Fam fam) {
-    result.add(new CreateChild(fam, true));
-    result.add(new CreateChild(fam, false));
+  private void createActions(Action2.Group group, Fam fam) {
+    group.add(new CreateChild(fam, true));
+    group.add(new CreateChild(fam, false));
     if (fam.getNoOfSpouses()<2)
-      result.add(new CreateParent(fam));
+      group.add(new CreateParent(fam));
     if (fam.getNoOfSpouses()!=0)
-      result.add(new SwapSpouses(fam));
+      group.add(new SwapSpouses(fam));
   }
 
   /**
    * Create actions for Submitters
    */
-  private void createActions(List<Action2> result, Submitter submitter) {
-    result.add(new SetSubmitter(submitter));
+  private void createActions(Action2.Group group, Submitter submitter) {
+    group.add(new SetSubmitter(submitter));
   }
 
   /**  
    * Create actions for PropertyFile
    */
-  private void createActions(List<Action2> result, PropertyFile file) {
+  private void createActions(Action2.Group group, PropertyFile file) {
   
     // find suffix
     String suffix = file.getSuffix();
@@ -361,54 +409,14 @@ public class EditPlugin implements ActionProvider, WorkbenchListener {
     // lookup associations
     List<FileAssociation> assocs = FileAssociation.getAll(suffix);
     if (assocs.isEmpty()) {
-      result.add(new RunExternal(file));
+      group.add(new RunExternal(file));
     } else {
       for (FileAssociation fa : assocs) {
-        result.add(new RunExternal(file,fa));
+        group.add(new RunExternal(file,fa));
       }
     }
     // done
   }
 
-  public void commitRequested() {
-  }
-
-  public void gedcomClosed(Gedcom gedcom) {
-    for (Action2 action : workbenchActions) {
-      workbench.uninstallTool(action);
-      if (action instanceof GedcomListener)
-        gedcom.removeGedcomListener((GedcomListener)Spin.over(action));
-    }
-    workbenchActions.clear();
-  }
-
-  public void gedcomOpened(Gedcom gedcom) {
-    
-    workbenchActions.add(new Undo(gedcom));
-    workbenchActions.add(new Redo(gedcom));
-//    workbenchActions.add(new CreateEntity(gedcom, Gedcom.INDI));
-//    workbenchActions.add(new CreateSibling(gedcom, Gedcom.INDI));
-    
-    for (Action2 action : workbenchActions) {
-      workbench.installTool(action, ToolLocation.TOOLBAR);
-      if (action instanceof GedcomListener)
-        gedcom.addGedcomListener((GedcomListener)Spin.over(action));
-    }
-
-  }
-
-  public void selectionChanged(Context context, boolean isActionPerformed) {
-  }
-
-  public boolean workbenchClosing() {
-    return true;
-  }
-
-  public void viewClosed(View view) {
-  }
-
-  public void viewOpened(View view) {
-  }
-  
 }
 

@@ -53,6 +53,7 @@ import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
 import genj.view.View;
 import genj.view.ViewFactory;
+import genj.view.ActionProvider.Purpose;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
@@ -281,6 +282,9 @@ public class Workbench extends JPanel {
     for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
         ((WorkbenchListener)plugin).gedcomOpened(gedcom);
     
+    // re-install tools
+    installTools();
+    
     // done
     return true;
   }
@@ -442,7 +446,8 @@ public class Workbench extends JPanel {
    * closes gedcom file
    */
   public boolean closeGedcom() {
-    
+
+    // noop?
     if (context==null)
       return true;
     
@@ -474,6 +479,9 @@ public class Workbench extends JPanel {
     
     // clear stats
     stats.setGedcom(null);
+    
+    // clear tools
+    uninstallTools();
     
     // tell plugins
     for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
@@ -545,37 +553,6 @@ public class Workbench extends JPanel {
     return result;
   }
   
-  public enum ToolLocation {
-    TOOLBAR,
-    MAINMENU,
-    TOOLSMENU
-  }
-
-  /**
-   * Install a tool into the workbench. 
-   * @param binding where to install the tool
-   */
-  public void installTool(Action2 tool, ToolLocation location) {
-    switch (location) {
-    case TOOLBAR:
-      toolbar.addTool(tool);
-      return;
-    case MAINMENU:
-      menu.addTool(tool);
-      return;
-    case TOOLSMENU:
-      throw new IllegalArgumentException("not supported yet");
-    }
-  }
-
-  /**
-   * Uninstall a tool from the workbench
-   */
-  public void uninstallTool(Action2 tool) {
-    menu.delTool(tool);
-    toolbar.delTool(tool);
-  }
-
   public void fireCommit() {
     for (WorkbenchListener listener : listeners)
       listener.commitRequested();
@@ -583,10 +560,62 @@ public class Workbench extends JPanel {
   
   public void fireSelection(Context context, boolean isActionPerformed) {
     
+    // FIXME docket redo toolbar and menu
+//    if (action instanceof GedcomListener)
+//      gedcom.removeGedcomListener((GedcomListener)Spin.over(action));
+//    if (action instanceof GedcomListener)
+//      gedcom.addGedcomListener((GedcomListener)Spin.over(action));
+    
+    // remember 
     this.context = new Context(context);
     
+    // notify
     for (WorkbenchListener listener : listeners) 
       listener.selectionChanged(context, isActionPerformed);
+    
+    // update tools
+    installTools();
+  }
+  
+  private void uninstallTools() {
+    if (context==null)
+      return;
+    // FIXME docket let installed tools de-participate from gedcom notifications
+    menu.reset();
+    toolbar.reset();
+  }
+  
+  private void installTools() {
+    
+    if (context==null)
+      return;
+    
+    // cleanup first
+    uninstallTools();
+
+    // FIXME docket let installed tools participate in gedcom notifications
+
+    // let providers speak
+    for (ActionProvider provider : getActionProviders()) {
+      for (Action2 action : provider.createActions(context, Purpose.TOOLBAR)) {
+        if (action instanceof Action2.Group)
+          LOG.warning("ActionProvider "+provider+" returned a group for toolbar");
+        else {
+          if (action==MenuHelper.NOOP)
+            toolbar.addSeparator();
+          else
+            toolbar.add(action);
+        }
+      }
+      for (Action2 action : provider.createActions(context, Purpose.MENU)) {
+        if (action instanceof Action2.Group)
+          menu.add((Action2.Group)action);
+        else 
+          LOG.warning("ActionProvider "+provider+" returned a non-group for menu");
+      }
+    }
+    
+    // done
   }
   
   /*package*/ void fireViewOpened(View view) {
@@ -1036,7 +1065,7 @@ public class Workbench extends JPanel {
    */
   private class Menu extends JMenuBar {
     
-    private int toolIndex;
+    private int toolStart, toolEnd;
     
     private Menu() {
       
@@ -1101,7 +1130,8 @@ public class Workbench extends JPanel {
       // result.add(Box.createHorizontalGlue());
 
       // Tools
-      toolIndex = getMenuCount();
+      toolStart = getMenuCount();
+      toolEnd = toolStart;
 
       // Help
       add(Box.createGlue());
@@ -1112,35 +1142,41 @@ public class Workbench extends JPanel {
       // Done
     }
     
-    private void delTool(Action2 tool) {
-      for (int i=0; i<getMenuCount(); i++) {
-        Component c = getComponent(i);
-        if (!(c instanceof JMenu)) continue;
-        JMenu menu = (JMenu)c;
-        if (tool.equals(menu.getAction())) 
-          remove(i--);
-        else 
-          delToolRecursive(menu, tool);
-      }
+    private void add(Action2.Group group) {
+      if (group.size()==0)
+        return;
+
+      add(MenuHelper.createMenu(group), toolEnd);
+      
+      toolEnd++;
     }
     
-    private void delToolRecursive(JMenu menu, Action2 tool) {
-      for (int i=0;i<menu.getMenuComponentCount();i++) {
-        Component c = menu.getMenuComponent(i);
-        if (!(c instanceof JMenuItem)) continue;
-        JMenuItem item = (JMenuItem)c;
-        if (tool.equals(item.getAction()))
-          remove(i--);
-        else if (item instanceof JMenu)
-          delToolRecursive((JMenu)item, tool);
+    private void reset() {
+      
+      while (toolEnd>toolStart) {
+        Component c = getComponent(toolEnd-1);
+        if (c instanceof JMenu) {
+          JMenu menu = (JMenu)c;
+          reset(menu);
+        }
+        remove(toolEnd-1);
+        toolEnd--;
       }
+      
     }
     
-    private void addTool(Action2 tool) {
-      
-      // to the left of separator and help menu - can this be done better? 
-      add(new MenuHelper().createItem(tool), toolIndex);
-      
+    private void reset(JMenu menu) {
+      while (menu.getComponentCount()>0) {
+        Component c = menu.getMenuComponent(0);
+        if (c instanceof JMenuItem) {
+          JMenuItem item = (JMenuItem)c;
+          if (item instanceof JMenu)
+            reset((JMenu)item);
+          Action action = item.getAction();
+          // FIXME fixup action
+        }
+        menu.remove(0);
+      }
     }
     
   } // Menu
@@ -1174,17 +1210,14 @@ public class Workbench extends JPanel {
       // done
     }
     
-    private void addTool(Action2 action) {
-      add(action);
-    }
-    
-    private void delTool(Action2 action) {
-      for (int i=0; i<getComponentCount(); i++) {
-        Component c = getComponent(i);
-        if (c instanceof JButton && action.equals(((JButton)c).getAction())) {
-          remove(i);
-          return;
+    private void reset() {
+      while (toolIndex<getComponentCount()) {
+        Component c = getComponent(toolIndex);
+        if (c instanceof JButton) {
+          Action action = ((JButton)c).getAction();
+          // FIXME fixup action
         }
+        remove(toolIndex);
       }
     }
 

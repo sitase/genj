@@ -23,7 +23,6 @@ import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
-import genj.gedcom.TagPath;
 import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
@@ -34,6 +33,7 @@ import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
 import genj.view.ViewFactory;
+import genj.view.ActionProvider.Purpose;
 
 import java.awt.AWTEvent;
 import java.awt.Component;
@@ -44,7 +44,10 @@ import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -371,84 +374,49 @@ import swingx.docking.Docked;
       // make sure any existing popup is cleared
       MenuSelectionManager.defaultManager().clearSelectedPath();
       
-      // find all action providers
-      List<ActionProvider> providers = getWorkbench(target).getActionProviders();
-      
-      // hook up context menu to toplevel component - child components are more likely to have been 
-      // removed already by the time any of the associated actions are run
-      while (target.getParent()!=null) target = target.getParent();
-
       // create a popup
       MenuHelper mh = new MenuHelper();
       JPopupMenu popup = mh.createPopup();
 
       // popup local actions?
       mh.createItems(context.getActions());
-      mh.createSeparator(); // it's lazy
       
-      // items for set or single property?
-      if (properties.length>1) {
-        mh.createMenu("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
-        for (ActionProvider provider : providers) try {
-          mh.createSeparator();
-          mh.createItems(provider.createActions(properties));
-        } catch (Throwable t) {
-          LOG.log(Level.WARNING, "Action Provider exception on createActions(Property[])", t);
-        }
-        mh.popMenu();
-      }
-      if (properties.length==1) {
-        Property property = properties[0];
-        while (property!=null&&!(property instanceof Entity)&&!property.isTransient()) {
-          // a sub-menu with appropriate actions
-          mh.createMenu(Property.LABEL+" '"+TagPath.get(property).getName() + '\'' , property.getImage(false));
-          for (ActionProvider provider : providers) try {
-            mh.createItems(provider.createActions(property));
-          } catch (Throwable t) {
-            LOG.log(Level.WARNING, "Action Provider exception on createActions(Property)", t);
+      // get and merge all actions
+      List<Action2> groups = new ArrayList<Action2>(8);
+      List<Action2> singles = new ArrayList<Action2>(8);
+      Map<Action2.Group,Action2.Group> lookup = new HashMap<Action2.Group,Action2.Group>();
+      for (Action2 action : getProvidedActions(getWorkbench(target).getActionProviders(), context)) {
+        if (action instanceof Action2.Group) {
+          Action2.Group group = lookup.get(action);
+          if (group!=null) {
+            group.add(MenuHelper.NOOP);
+            group.addAll((Action2.Group)action);
+          } else {
+            lookup.put((Action2.Group)action, (Action2.Group)action);
+            groups.add((Action2.Group)action);
           }
-          mh.popMenu();
-          // recursively for parents
-          property = property.getParent();
+        } else {
+          singles.add(action);
         }
       }
-          
-      // items for set or single entity
-      if (entities.length>1) {
-        mh.createMenu("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
-        for (ActionProvider provider : providers) try {
-          mh.createSeparator();
-          mh.createItems(provider.createActions(entities));
-        } catch (Throwable t) {
-          LOG.log(Level.WARNING, "Action Provider exception on createActions(Entity[])", t);
-        }
-        mh.popMenu();
-      }
-      if (entities.length==1) {
-        Entity entity = entities[0];
-        String title = Gedcom.getName(entity.getTag(),false)+" '"+entity.getId()+'\'';
-        mh.createMenu(title, entity.getImage(false));
-        for (ActionProvider provider : providers) try {
-          mh.createItems(provider.createActions(entity));
-        } catch (Throwable t) {
-          LOG.log(Level.WARNING, "Action Provider exception on createActions(Entity)", t);
-        }
-        mh.popMenu();
-      }
-          
-      // items for gedcom
-      String title = "Gedcom '"+gedcom.getName()+'\'';
-      mh.createMenu(title, Gedcom.getImage());
-      for (ActionProvider provider : providers) try {
-        mh.createItems(provider.createActions(gedcom));
-      } catch (Throwable t) {
-        LOG.log(Level.WARNING, "Action Provider exception on createActions(Gedcom", t);
-      }
-      mh.popMenu();
-
+      
+      // add to menu
+      mh.createItems(groups);
+      mh.createItems(singles);
+      
       // done
       return popup;
     }
+    
+    private List<Action2> getProvidedActions(List<ActionProvider> providers, Context context) {
+      // ask the action providers
+      List<Action2> actions = new ArrayList<Action2>(8);
+      for (ActionProvider provider : providers) 
+        actions.addAll(provider.createActions(context, Purpose.CONTEXT));
+      // done
+      return actions;
+    }
+
     
   } //ContextHook
 
