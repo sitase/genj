@@ -36,9 +36,9 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
-import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
+import genj.view.ActionProvider;
 import genj.view.SelectionSink;
 import genj.view.ViewContext;
 import genj.window.WindowManager;
@@ -802,7 +802,7 @@ import javax.swing.tree.TreePath;
         result.addAction(new Paste((Property)selection.get(0)));
         
         // add
-        result.addAction(MenuHelper.NOOP);
+        result.addAction(new ActionProvider.SeparatorAction());
         Property prop = (Property)selection.get(0);
         if (!prop.isTransient()) {
           result.addAction(new Add(prop));

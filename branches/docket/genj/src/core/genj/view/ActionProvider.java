@@ -56,6 +56,12 @@ public interface ActionProvider {
   public List<Action2> createActions(Context context, Purpose purpose);
 
   /**
+   * an action for separator indication
+   */
+  public final class SeparatorAction extends Action2 {
+  }
+  
+  /**
    * an action group for tools
    */
   public final class ToolsActionGroup extends Action2.Group {

@@ -519,20 +519,6 @@ public class WindowManager {
   }
   
   /**
-   * @see genj.window.WindowManager#closeAll()
-   */
-  public void closeAll() {
-
-    // loop through keys    
-    String[] keys = recallKeys();
-    for (int k=0; k<keys.length; k++) {
-      close(keys[k]);
-    }
-    
-    // done
-  }
-  
-  /**
    * Get the window for given owner component
    */  
   private Window getWindowForComponent(Component c) {

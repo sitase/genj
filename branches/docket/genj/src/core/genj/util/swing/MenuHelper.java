@@ -20,8 +20,10 @@
 package genj.util.swing;
 
 import genj.util.MnemonicAndText;
+import genj.view.ActionProvider.SeparatorAction;
 
-import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Stack;
 
 import javax.swing.Icon;
@@ -34,14 +36,10 @@ import javax.swing.JPopupMenu;
  * Class which provides some static helpers for menu-handling
  */
 public class MenuHelper  {
-  
+
+  private List<Action2> actions = new ArrayList<Action2>(16);
   private Stack<JComponent> menus = new Stack<JComponent>();  // JMenu or JPopupMenu or JMenuBar
   
-  // FIXME docket inversion on ActionProvider/separator/popup
-  public final static Action2 NOOP = new Action2() {
-    public void actionPerformed(ActionEvent e) {};
-  };
-
   /** Setters */    
   public MenuHelper popMenu() { 
     menus.pop(); 
@@ -56,12 +54,11 @@ public class MenuHelper  {
     return this;
   }
   
-  public static JMenu createMenu(Action2.Group action) {
-    MenuHelper h = new MenuHelper();
+  public JMenu createMenu(Action2.Group action) {
     JMenu result = new JMenu(action);
-    h.pushMenu(result);
+    pushMenu(result);
     for (Action2 sub : action)
-      h.createItem(sub);
+      createItem(sub);
     return result;
   }
   
@@ -123,6 +120,10 @@ public class MenuHelper  {
     // done
   }
   
+  public List<Action2> getActions() {
+    return actions;
+  }
+  
   public JMenuItem createItem(Action2 action) {
     
     // an action group?
@@ -139,7 +140,8 @@ public class MenuHelper  {
     }
     
     // a NOOP results in separator
-    if (action == MenuHelper.NOOP) {
+    // TODO this should not refer to something from genj.view
+    if (action instanceof SeparatorAction) {
       createSeparator();
       return null;
     }
@@ -148,6 +150,8 @@ public class MenuHelper  {
     JMenuItem result = new JMenuItem();
     result.setAction(action);
     result.setMnemonic(action.getMnemonic());
+    
+    actions.add(action);
     
     // add it to current menu on stack  
     menus.peek().add(result);

@@ -190,7 +190,7 @@ import spin.Spin;
   public void commit() {
     
     // something to commit?
-    if (ok.isEnabled())
+    if (!ok.isEnabled())
       return;
     
     // commit changes (without listing to the change itself)

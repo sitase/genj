@@ -63,7 +63,6 @@ import genj.gedcom.Submitter;
 import genj.gedcom.TagPath;
 import genj.io.FileAssociation;
 import genj.util.swing.Action2;
-import genj.util.swing.MenuHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
 
@@ -242,14 +241,20 @@ public class EditPlugin implements ActionProvider {
     switch (purpose) {
       case MENU:
     	  
-          // create entities
-          if (context.getEntities().length==1 && context.getEntity() instanceof Indi) {
-            Action2.Group edit = new EditActionGroup();
-	    	edit.addAll(createActions((Indi)context.getEntity(), true));
-          	result.add(edit);
-          }
+        // create entities
+        Action2.Group edit = new EditActionGroup();
+        if (context.getEntity()==null)
+          createActions(context.getGedcom(), edit);
+        else if (context.getEntities().length==1 && context.getEntity() instanceof Indi)
+	      createActions((Indi)context.getEntity(), true, edit);
+        result.add(edit);
           
+        edit.add(new ActionProvider.SeparatorAction());
+        edit.add(new Undo(context.getGedcom()));
+        edit.add(new Redo(context.getGedcom()));
+        
         break;
+        
       case CONTEXT:
         
         // sub-menu for properties
@@ -276,6 +281,7 @@ public class EditPlugin implements ActionProvider {
           if (null==workbench.getView(EditViewFactory.class))
             result.add(new OpenForEdit(workbench, context));
 
+
         }
         
         // sub-menu for gedcom
@@ -284,23 +290,19 @@ public class EditPlugin implements ActionProvider {
         if (group.size()>0)
           result.add(group);
         
-        // global undo/redo
+        result.add(new ActionProvider.SeparatorAction());
         result.add(new Undo(context.getGedcom()));
         result.add(new Redo(context.getGedcom()));
-
+        
         break;
         
       case TOOLBAR:
-        
-        // undo/redo
         result.add(new Undo(context.getGedcom()));
         result.add(new Redo(context.getGedcom()));
-        
-        //result.add(MenuHelper.NOOP);
-        
         break;
     }
-  
+
+    
     // done
     return result;
   }
@@ -312,7 +314,7 @@ public class EditPlugin implements ActionProvider {
     
     // indi?
     if (entity instanceof Indi) 
-      group.addAll(createActions((Indi)entity, false));
+      createActions((Indi)entity, false, group);
       
     // fam?
     if (entity instanceof Fam) createActions(group, (Fam)entity);
@@ -320,7 +322,7 @@ public class EditPlugin implements ActionProvider {
     if (entity instanceof Submitter) createActions(group, (Submitter)entity);
     
     // separator
-    group.add(MenuHelper.NOOP);
+    group.add(new ActionProvider.SeparatorAction());
 
     // Check what xrefs can be added
     MetaProperty[] subs = entity.getNestedMetaProperties(0);
@@ -338,7 +340,7 @@ public class EditPlugin implements ActionProvider {
     }
 
     // add delete
-    group.add(MenuHelper.NOOP);
+    group.add(new ActionProvider.SeparatorAction());
     group.add(new DelEntity(entity));
     
     // done
@@ -369,17 +371,15 @@ public class EditPlugin implements ActionProvider {
   /**
    * Create actions for Individual
    */
-  private List<Action2> createActions(Indi indi, boolean simple) {
-    List<Action2> result = new ArrayList<Action2>(8);
-    result.add(new CreateParent(indi));
-    result.add(new CreateSpouse(indi));
-    result.add(new CreateChild(indi, true));
-    result.add(new CreateChild(indi, false));
-    result.add(new CreateSibling(indi, true));
-    result.add(new CreateSibling(indi, false));
+  private void createActions(Indi indi, boolean simple, Action2.Group group) {
+    group.add(new CreateParent(indi));
+    group.add(new CreateSpouse(indi));
+    group.add(new CreateChild(indi, true));
+    group.add(new CreateChild(indi, false));
+    group.add(new CreateSibling(indi, true));
+    group.add(new CreateSibling(indi, false));
     if (!simple)
-      result.add(new CreateAlias(indi));
-    return result;
+      group.add(new CreateAlias(indi));
   }
 
   /**

@@ -24,6 +24,7 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomDirectory;
 import genj.gedcom.GedcomException;
+import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomMetaListener;
 import genj.gedcom.Indi;
 import genj.gedcom.Property;
@@ -58,7 +59,6 @@ import genj.view.ActionProvider.Purpose;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
-import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -75,13 +75,10 @@ import java.util.logging.Logger;
 
 import javax.swing.Action;
 import javax.swing.Box;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
-import javax.swing.JMenu;
 import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
@@ -265,18 +262,7 @@ public class Workbench extends JPanel implements SelectionSink {
     for (Action a : gedcomActions) 
       a.setEnabled(true);
 
-    // FIXME open views again
-    // if (Options.getInstance().isRestoreViews) {
-    // for (int i=0;i<views2restore.size();i++) {
-    // ViewHandle handle = ViewHandle.restore(viewManager,
-    // gedcomBeingLoaded, (String)views2restore.get(i));
-    // if (handle!=null)
-    // new
-    // ActionSave(gedcomBeingLoaded).setTarget(handle.getView()).install(handle.getView(),
-    // JComponent.WHEN_IN_FOCUSED_WINDOW);
-    // }
-    // }
-
+    // connect dots
     stats.setGedcom(gedcom);
 
     // tell plugins
@@ -436,9 +422,6 @@ public class Workbench extends JPanel implements SelectionSink {
     // remember current context for exit
     registry.put("restore.url", context!=null ? context.getGedcom().getOrigin().toString() : "");
     
-    // Close all Windows
-    windowManager.closeAll();
-
     // Shutdown
     runOnExit.run();
   }
@@ -579,44 +562,76 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   private void uninstallTools() {
+    
+    // can't be if context == null
     if (context==null)
-      return;
-    // FIXME docket let installed tools de-participate from gedcom notifications
+      throw new IllegalArgumentException("context==null");
+    
+    // unhook up actions to gedcom
+    removeGedcomListeners(menu.getTools());
+    removeGedcomListeners(toolbar.getTools());
+    
+    // clear 'em
     menu.reset();
     toolbar.reset();
   }
   
   private void installTools() {
     
+    // can't be if context == null
     if (context==null)
-      return;
+      throw new IllegalArgumentException("context==null");
     
     // cleanup first
     uninstallTools();
 
-    // FIXME docket let installed tools participate in gedcom notifications
-
     // let providers speak
+    List<Action2> tools = new ArrayList<Action2>();
+    
     for (ActionProvider provider : getActionProviders()) {
       for (Action2 action : provider.createActions(context, Purpose.TOOLBAR)) {
         if (action instanceof Action2.Group)
           LOG.warning("ActionProvider "+provider+" returned a group for toolbar");
         else {
-          if (action==MenuHelper.NOOP)
+          if (action instanceof ActionProvider.SeparatorAction)
             toolbar.addSeparator();
-          else
-            toolbar.add(action);
+          else {
+            toolbar.addTool(action);
+          }
         }
       }
       for (Action2 action : provider.createActions(context, Purpose.MENU)) {
-        if (action instanceof Action2.Group)
-          menu.add((Action2.Group)action);
-        else 
+        if (action instanceof Action2.Group) {
+          menu.addTool((Action2.Group)action);
+        } else {
           LOG.warning("ActionProvider "+provider+" returned a non-group for menu");
+        }
       }
     }
     
+    // hook up actions to gedcom
+    addGedcomListeners(menu.getTools());
+    addGedcomListeners(toolbar.getTools());
+    
     // done
+  }
+  
+  private void addGedcomListeners(List<Action2> actions) {
+    if (context==null)
+      throw new IllegalArgumentException("context==null");
+    Gedcom gedcom = context.getGedcom();
+    for (Action action : actions)
+      if (action instanceof GedcomListener)
+        gedcom.addGedcomListener((GedcomListener)action);
+  }
+  
+  private void removeGedcomListeners(List<Action2> actions) {
+    if (context==null)
+      throw new IllegalArgumentException("context==null");
+    Gedcom gedcom = context.getGedcom();
+    for (Action action : actions)
+      if (action instanceof GedcomListener)
+        gedcom.removeGedcomListener((GedcomListener)action);
   }
   
   /*package*/ void fireViewOpened(View view) {
@@ -1067,6 +1082,7 @@ public class Workbench extends JPanel implements SelectionSink {
   private class Menu extends JMenuBar {
     
     private int toolStart, toolEnd;
+    private List<Action2> tools = new ArrayList<Action2>();
     
     private Menu() {
       
@@ -1143,41 +1159,26 @@ public class Workbench extends JPanel implements SelectionSink {
       // Done
     }
     
-    private void add(Action2.Group group) {
+    private void addTool(Action2.Group group) {
       if (group.size()==0)
         return;
-
-      add(MenuHelper.createMenu(group), toolEnd);
-      
+      MenuHelper mh = new MenuHelper();
+      add(mh.createMenu(group), toolEnd);
+      tools.addAll(mh.getActions());
       toolEnd++;
+    }
+    
+    private List<Action2> getTools() {
+      return tools;
     }
     
     private void reset() {
       
       while (toolEnd>toolStart) {
-        Component c = getComponent(toolEnd-1);
-        if (c instanceof JMenu) {
-          JMenu menu = (JMenu)c;
-          reset(menu);
-        }
         remove(toolEnd-1);
         toolEnd--;
       }
-      
-    }
-    
-    private void reset(JMenu menu) {
-      while (menu.getComponentCount()>0) {
-        Component c = menu.getMenuComponent(0);
-        if (c instanceof JMenuItem) {
-          JMenuItem item = (JMenuItem)c;
-          if (item instanceof JMenu)
-            reset((JMenu)item);
-          Action action = item.getAction();
-          // FIXME fixup action
-        }
-        menu.remove(0);
-      }
+      tools.clear();
     }
     
   } // Menu
@@ -1188,6 +1189,7 @@ public class Workbench extends JPanel implements SelectionSink {
   private class Toolbar extends JToolBar {
 
     private int toolIndex;
+    private List<Action2> tools = new ArrayList<Action2>();
     
     /**
      * Constructor
@@ -1211,17 +1213,22 @@ public class Workbench extends JPanel implements SelectionSink {
       // done
     }
     
+    private List<Action2> getTools() {
+      return tools;
+    }
+    
     private void reset() {
+      tools.clear();
       while (toolIndex<getComponentCount()) {
-        Component c = getComponent(toolIndex);
-        if (c instanceof JButton) {
-          Action action = ((JButton)c).getAction();
-          // FIXME fixup action
-        }
         remove(toolIndex);
       }
     }
-
+    
+    public void addTool(Action2 action) {
+      tools.add(action);
+      // do it
+      super.add(action);
+    }
   }
 
 } // ControlCenter

@@ -383,7 +383,7 @@ import swingx.docking.Docked;
         if (action instanceof Action2.Group) {
           Action2.Group group = lookup.get(action);
           if (group!=null) {
-            group.add(MenuHelper.NOOP);
+            group.add(new ActionProvider.SeparatorAction());
             group.addAll((Action2.Group)action);
           } else {
             lookup.put((Action2.Group)action, (Action2.Group)action);

@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.6 $ $Author: nmeier $ $Date: 2009-12-08 04:41:29 $
+ * $Revision: 1.136.2.7 $ $Author: nmeier $ $Date: 2009-12-11 00:17:18 $
  */
 package genj.report;
 
@@ -417,125 +417,6 @@ public abstract class Report implements Cloneable {
     registry.put(key, result.toString());
     return result;
   }
-
-//  /**
-//   * A sub-class can show a document to the user with this method allowing
-//   * to save, transform and view it
-//   */
-//  public void showDocumentToUser(Document doc) {
-//
-//    String title = "Document "+doc.getTitle();
-//
-//    Registry foRegistry = new Registry(registry, getClass().getName()+".fo");
-//
-//    Action[] actions = Action2.okCancel();
-//    FormatOptionsWidget output = new FormatOptionsWidget(doc, foRegistry);
-//    output.connect(actions[0]);
-//    int rc = windowManager.openDialog("reportdoc", title, WindowManager.QUESTION_MESSAGE, output, actions, owner.get());
-//
-//    // cancel?
-//    if (rc!=0)
-//      return;
-//
-//    // grab formatter and output file
-//    Format formatter = output.getFormat();
-//
-//    File file = null;
-//    String progress = null;
-//    if (formatter.getFileExtension()!=null) {
-//
-//      file = output.getFile();
-//      if (file==null)
-//        return;
-//      file.getParentFile().mkdirs();
-//
-//      // show a progress dialog
-//      progress = windowManager.openNonModalDialog(
-//          null, title, WindowManager.INFORMATION_MESSAGE, new JLabel("Writing Document to file "+file+" ..."), Action2.okOnly(), owner.get());
-//
-//    }
-//
-//    // store options
-//    output.remember(foRegistry);
-//
-//    // format and write
-//    try {
-//      formatter.format(doc, file);
-//    } catch (Throwable t) {
-//      LOG.log(Level.WARNING, "formatting "+doc+" failed", t);
-//      windowManager.openDialog(null, "Formatting "+doc+" failed", WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), owner.get());
-//      file = null;
-//    }
-//
-//    // close progress dialog
-//    if (progress!=null)
-//      windowManager.close(progress);
-//
-//    // open document
-//    if (file!=null) {
-//    	showFileToUser(file, formatter.getFileExtension());
-//    }
-//
-//    // done
-//  }
-
-//  /**
-//   * Show a file if there's a file association for it
-//   */
-//	public void showFileToUser(File file)
-//	{
-//		showFileToUser(file, null);
-//	}
-
-//	  /**
-//	   * Show a file if there's a file association for it
-//	   */
-//	public void showFileToUser(File file, String extension)
-//	{
-//		// let ReportView show the file or show it in external application
-//		if (owner.get() instanceof ReportView && ("html".equals(extension) || file.getName().endsWith(".html"))) {
-//			try {
-//				log("" + file.toURI().toURL());
-//			} catch (MalformedURLException e) {
-//				e.printStackTrace();
-//			}
-//		} else {
-//			FileAssociation association = null;
-//			if (extension != null)
-//				association = FileAssociation.get(extension, extension, "Open", owner.get());
-//			else
-//				association = FileAssociation.get(file, "Open", owner.get());
-//			if (association != null)
-//				association.execute(file);
-//		}
-//	}
-
-//  /**
-//   * A sub-class can show a chart to the user with this method
-//   */
-//  public final void showChartToUser(Chart chart) {
-//    showComponentToUser(chart);
-//  }
-
-//  /**
-//   * A sub-class can show a Java Swing component to the user with this method
-//   */
-//  public void showComponentToUser(JComponent component) {
-//
-//    // FIXME docket show report output in report view
-//    
-//    // open a non-modal dialog
-//    windowManager.openNonModalDialog(getClass().getName()+"#component",getName(), WindowManager.INFORMATION_MESSAGE,component,Action2.okOnly(),owner.get());
-//
-//    // done
-//  }
-
-//  /**
-//   * A sub-class can open a browser that will show the given URL with this method
-//   */
-//  public final void showBrowserToUser(URL url) {
-//    FileAssociation.open(url, owner.get());
-//  }
 
   /**
    * A sub-class can ask the user for an entity (e.g. Individual) with this method
