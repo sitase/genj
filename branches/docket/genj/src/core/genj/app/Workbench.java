@@ -154,6 +154,50 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   /**
+   * create a new gedcom file
+   */
+  public void newGedcom() {
+    
+    // let user choose a file
+    File file = chooseFile(RES.getString("cc.create.title"), RES.getString("cc.create.action"), null);
+    if (file == null)
+      return;
+    if (!file.getName().endsWith(".ged"))
+      file = new File(file.getAbsolutePath() + ".ged");
+    if (file.exists()) {
+      int rc = windowManager.openDialog(null, RES.getString("cc.create.title"), WindowManager.WARNING_MESSAGE, RES.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
+      if (rc != 0)
+        return;
+    }
+    
+    // close existing
+    if (!closeGedcom())
+      return;
+    
+    // form the origin
+    Gedcom gedcom;
+    try {
+      gedcom = new Gedcom(Origin.create(new URL("file", "", file.getAbsolutePath())));
+    } catch (MalformedURLException e) {
+      LOG.log(Level.WARNING, "unexpected exception creating new gedcom", e);
+      return;
+    }
+    
+    try {
+      Indi adam = (Indi) gedcom.createEntity(Gedcom.INDI);
+      adam.addDefaultProperties();
+      adam.setName("Adam", "");
+      adam.setSex(PropertySex.MALE);
+      Submitter submitter = (Submitter) gedcom.createEntity(Gedcom.SUBM);
+      submitter.setName(EnvironmentChecker.getProperty(this, "user.name", "?", "user name used as submitter in new gedcom"));
+    } catch (GedcomException e) {
+    }
+    
+    // done
+    setGedcom(gedcom);
+  }
+  
+  /**
    * asks and loads gedcom file
    */
   public boolean openGedcom() {
@@ -252,8 +296,22 @@ public class Workbench extends JPanel implements SelectionSink {
         //windowManager.close(progress);
       }
     }
+    
+    // done
+    setGedcom(gedcom);
+    
+    return true;
+  }
+  
+  private void setGedcom(Gedcom gedcom) {
+    
+    // catch anyone trying this without close
+    if (context!=null)
+      throw new IllegalArgumentException("context!=null");
 
-    // remember
+    // restore context
+    String ctx = registry.get(gedcom.getName(), (String)null);
+    
     context = new Context(gedcom);
 
     GedcomDirectory.getInstance().registerGedcom(gedcom);
@@ -273,7 +331,6 @@ public class Workbench extends JPanel implements SelectionSink {
     installTools();
     
     // done
-    return true;
   }
   
   /**
@@ -457,7 +514,7 @@ public class Workbench extends JPanel implements SelectionSink {
     for (Object key : dockingPane.getDockableKeys())
       dockingPane.removeDockable(key);
     
-    // disable buttons
+    // disable gedcom buttons
     for (Action a : gedcomActions) 
       a.setEnabled(false);
     
@@ -470,6 +527,9 @@ public class Workbench extends JPanel implements SelectionSink {
     // tell plugins
     for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
       ((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
+    
+    // remember context
+    registry.put(context.getGedcom().getName(), context.toString());
 
     // unregister
     GedcomDirectory.getInstance().unregisterGedcom(context.getGedcom());
@@ -543,12 +603,12 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   public void fireSelection(Context context, boolean isActionPerformed) {
+
+    // known?
+    if (this.context.equals(context))
+      return;
     
-    // FIXME docket redo toolbar and menu
-//    if (action instanceof GedcomListener)
-//      gedcom.removeGedcomListener((GedcomListener)Spin.over(action));
-//    if (action instanceof GedcomListener)
-//      gedcom.addGedcomListener((GedcomListener)Spin.over(action));
+    LOG.fine("fireSelection("+context+")");
     
     // remember 
     this.context = new Context(context);
@@ -820,36 +880,7 @@ public class Workbench extends JPanel implements SelectionSink {
 
     /** execute callback */
     public void actionPerformed(ActionEvent event) {
-
-      // let user choose a file
-      File file = chooseFile(RES.getString("cc.create.title"), RES.getString("cc.create.action"), null);
-      if (file == null)
-        return;
-      if (!file.getName().endsWith(".ged"))
-        file = new File(file.getAbsolutePath() + ".ged");
-      if (file.exists()) {
-        int rc = windowManager.openDialog(null, RES.getString("cc.create.title"), WindowManager.WARNING_MESSAGE, RES.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
-        if (rc != 0)
-          return;
-      }
-      // form the origin
-      try {
-        Gedcom newGedcom = new Gedcom(Origin.create(new URL("file", "", file.getAbsolutePath())));
-        // create default entities
-        try {
-          Indi adam = (Indi) newGedcom.createEntity(Gedcom.INDI);
-          adam.addDefaultProperties();
-          adam.setName("Adam", "");
-          adam.setSex(PropertySex.MALE);
-          Submitter submitter = (Submitter) newGedcom.createEntity(Gedcom.SUBM);
-          submitter.setName(EnvironmentChecker.getProperty(this, "user.name", "?", "user name used as submitter in new gedcom"));
-        } catch (GedcomException e) {
-        }
-        // remember
-        GedcomDirectory.getInstance().registerGedcom(newGedcom);
-      } catch (MalformedURLException e) {
-      }
-
+      newGedcom();
     }
 
   } // ActionNew

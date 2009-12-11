@@ -217,7 +217,7 @@ import javax.swing.tree.TreePath;
   public void setContext(Context context) {
     
     // ignore?
-    if (ignoreSelection||context.getEntities().length==0)
+    if (ignoreSelection||context.getEntities().isEmpty())
       return;
 
     // clear current selection
@@ -229,10 +229,10 @@ import javax.swing.tree.TreePath;
       tree.setRoot(entity);
 
     // set selection
-    Property[] props = context.getProperties();
-    if (props.length==0&&entity.getNoOfProperties()>0) 
-      props = new Property[]{ entity.getProperty(0) }; 
-    tree.setSelection(Arrays.asList(props));
+    List<? extends Property> props = context.getProperties();
+    if (props.isEmpty()&&entity.getNoOfProperties()>0) 
+      props = Collections.singletonList(entity.getProperty(0)); 
+    tree.setSelection(props);
     
     // 20060301 set focus since selection change won't do that anymore
     if (bean!=null)
@@ -283,7 +283,7 @@ import javax.swing.tree.TreePath;
         return;
       }
       // setup looks
-      this.what = "'"+Property.getPropertyNames(Property.toArray(properties),5)+"' ("+properties.size()+")";
+      this.what = "'"+Property.getPropertyNames(properties,5)+"' ("+properties.size()+")";
       setText(resources.getString("action.propagate", what)+" ...");
     }
     /** apply it */
@@ -681,9 +681,9 @@ import javax.swing.tree.TreePath;
       editPane.repaint();
       
       // can show bean if single selection
-      Property[] selection = Property.toArray(tree.getSelection());
-      if (selection.length==1) {
-        Property prop = selection[0];
+      List<Property> selection = tree.getSelection();
+      if (selection.size()==1) {
+        Property prop = selection.get(0);
         try {
   
           // get a bean for property
@@ -719,10 +719,9 @@ import javax.swing.tree.TreePath;
       }
       
       // tell to others
-      if (selection.length>0) try {
+      if (!selection.isEmpty()) try {
         ignoreSelection = true;
-        ViewContext context = new ViewContext(gedcom);
-        context.addProperties(selection);
+        ViewContext context = new ViewContext(gedcom, new ArrayList<Entity>(), selection);
 
         SelectionSink.Dispatcher.fireSelection(AdvancedEditor.this, context, false);
       } finally {
@@ -790,11 +789,11 @@ import javax.swing.tree.TreePath;
       
       // check selection
       ViewContext result = super.getContext();
-      Property[] props = result.getProperties();
-      List selection = tree.getSelection();
+      List<? extends Property> props = result.getProperties();
+      List<Property> selection = tree.getSelection();
 
       // cut copy paste
-      if (props.length>0) {
+      if (!props.isEmpty()) {
         result.addAction(new Cut(selection));
         result.addAction(new Copy(selection));
       }

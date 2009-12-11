@@ -568,7 +568,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     List<Action2> result = new ArrayList<Action2>(2);
 
     // for context menu of one record
-    if (purpose==Purpose.CONTEXT&&context.getEntities().length==1) {
+    if (purpose==Purpose.CONTEXT&&context.getEntities().size()==1) {
       // fam or indi?
       Entity entity = context.getEntity();
       if (entity instanceof Indi||entity instanceof Fam) { 

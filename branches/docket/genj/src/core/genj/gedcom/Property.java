@@ -1041,17 +1041,17 @@ public abstract class Property implements Comparable<Property> {
    * @param properties the properties to look at
    * @param limit max number of names followed by "..." where zero is all
    */
-  public static String getPropertyNames(Property[] properties, int limit) {
+  public static String getPropertyNames(Iterable<? extends Property> properties, int limit) {
     
     WordBuffer result = new WordBuffer(", ");
     int i=0;
-    while (i<properties.length) {
-      result.append(properties[i++].getPropertyName());
-      if (i==limit) break;
+    for (Property prop : properties) {
+      if (i==limit) {
+        result.append("...");
+        break;
+      }
+      result.append(prop.getPropertyName());
     }
-    if (i<properties.length)
-      result.append("...");
-    
     return result.toString();
   }
   
@@ -1062,12 +1062,11 @@ public abstract class Property implements Comparable<Property> {
    * @param properties properties to normalize
    * @return normalized list
    */
-  public static List normalize(List properties) {
+  public static List<Property> normalize(List<? extends Property> properties) {
     
-    ArrayList result = new ArrayList(properties.size());
+    ArrayList<Property> result = new ArrayList<Property>(properties.size());
     
-    for (Iterator it = properties.iterator(); it.hasNext(); ) {
-      Property prop = (Property)it.next();
+    for (Property prop : properties) {
       if (prop.isTransient())
         continue;
       // any containing in selection as well?

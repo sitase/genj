@@ -47,7 +47,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -124,13 +123,11 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
     if (root==null) 
       return new ViewContext(gedcom);
     // no selection - it's the root
-    Property[] selection = Property.toArray(getSelection());
-    if (selection.length==0)
+    List<Property> selection = getSelection();
+    if (selection.isEmpty())
       return new ViewContext(root);
     // we can be specific now
-    ViewContext result = new ViewContext(gedcom);
-    result.addProperties(selection);
-    return result;
+    return new ViewContext(gedcom, new ArrayList<Entity>(), selection);
   }
   
   /**
@@ -264,12 +261,12 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
   /**
    * returns the currently selected properties
    */
-  public List getSelection() {
+  public List<Property> getSelection() {
     // go through selection paths
-    List result = new ArrayList();
+    List<Property> result = new ArrayList<Property>();
     TreePath[] paths = getSelectionPaths();
     for (int i=0;paths!=null&&i<paths.length;i++) {
-      result.add(paths[i].getLastPathComponent());
+      result.add((Property)paths[i].getLastPathComponent());
     }
     // done
     return result;
@@ -381,7 +378,10 @@ public class PropertyTreeWidget extends DnDTree implements ContextProvider {
       draggingFrom = ged;
       
       // normalize selection
-      List list = Property.normalize(Arrays.asList(nodes));
+      List<Property> props = new ArrayList<Property>(nodes.length);
+      for (Object node : nodes)
+        props.add((Property)node);
+      List<Property> list = Property.normalize(props);
       
       // done 
       return new PropertyTransferable(list);

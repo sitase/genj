@@ -69,7 +69,6 @@ import genj.view.ActionProvider;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -169,11 +168,11 @@ public class EditPlugin implements ActionProvider {
   /**
    * @see genj.view.ActionProvider#createActions(Entity[], ViewManager)
    */
-  private void createActions(Property[] properties, Action2.Group group) {
+  private void createActions(List<? extends Property> properties, Action2.Group group) {
     
     // Toggle "Private"
     if (Enigma.isAvailable())
-      group.add(new TogglePrivate(properties[0].getGedcom(), Arrays.asList(properties)));
+      group.add(new TogglePrivate(properties.get(0).getGedcom(), properties));
     
     // Delete
     group.add(new DelProperty(properties));
@@ -245,7 +244,7 @@ public class EditPlugin implements ActionProvider {
         Action2.Group edit = new EditActionGroup();
         if (context.getEntity()==null)
           createActions(context.getGedcom(), edit);
-        else if (context.getEntities().length==1 && context.getEntity() instanceof Indi)
+        else if (context.getEntities().size()==1 && context.getEntity() instanceof Indi)
 	      createActions((Indi)context.getEntity(), true, edit);
         result.add(edit);
           
@@ -258,12 +257,12 @@ public class EditPlugin implements ActionProvider {
       case CONTEXT:
         
         // sub-menu for properties
-        if (context.getProperties().length>1) {
+        if (context.getProperties().size()>1) {
           Action2.Group group = new ActionProvider.PropertiesActionGroup(context.getProperties());
           createActions(context.getProperties(), group);
           if (group.size()>0)
             result.add(group);
-        } else if (context.getProperties().length==1) {
+        } else if (context.getProperties().size()==1) {
           Action2.Group group = new ActionProvider.PropertyActionGroup(context.getProperty());
           createActions(context.getProperty(), group);
           if (group.size()>0)
@@ -271,7 +270,7 @@ public class EditPlugin implements ActionProvider {
         }
      
         // sub-menu for entity
-        if (context.getEntities().length==1) {
+        if (context.getEntities().size()==1) {
           Action2.Group group = new ActionProvider.EntityActionGroup(context.getEntity());
           createActions(context.getEntity(), group);
           if (group.size()>0)

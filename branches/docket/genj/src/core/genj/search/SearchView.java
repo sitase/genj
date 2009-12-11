@@ -589,14 +589,13 @@ public class SearchView extends View {
      */
     public ViewContext getContext() {
       
-      ViewContext result = new ViewContext(gedcom);
-      
+      List<Property> properties = new ArrayList<Property>();
       Object[] selection = getSelectedValues();
       for (int i = 0; i < selection.length; i++) {
         Hit hit = (Hit)selection[i];
-        result.addProperty(hit.getProperty());
+        properties.add(hit.getProperty());
       }
-      return result;
+      return new ViewContext(gedcom, new ArrayList<Entity>(), properties);
     }
 
     /**

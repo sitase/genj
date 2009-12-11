@@ -36,7 +36,6 @@ import genj.util.swing.LinkWidget;
 import genj.util.swing.SortableTableModel;
 import genj.view.ContextProvider;
 import genj.view.SelectionSink;
-import genj.view.View;
 import genj.view.ViewContext;
 
 import java.awt.BorderLayout;
@@ -169,27 +168,34 @@ public class PropertyTableWidget extends JPanel  {
       table.ignoreSelection = true;
       
       // loop over selected properties
-      Property[] props = context.getProperties();
+      List<? extends Property> props = context.getProperties();
       
       // use all of selected entities properties if there are no property selections
-      if (props.length==0) {
-        List<Property> all = new ArrayList<Property>();
-        Entity[] ents = context.getEntities();
-        for (int i = 0; i < ents.length; i++) {
-          all.addAll(ents[i].getProperties(Property.class));
-          all.add(ents[i]);
-        }
-        props = Property.toArray(all);
+      if (props.isEmpty()) {
+        List<Property> ps = new ArrayList<Property>(context.getProperties());
+        for (Entity ent : context.getEntities())
+          if (!ps.contains(ent))
+            ps.add(ent);
+        props = ps;
       }
+        
+//      if (props.isEmpty()) {
+//        List<Property> all = new ArrayList<Property>();
+//        List<? extends Entity> ents = context.getEntities();
+//        for (int i = 0; i < ents.size(); i++) {
+//          all.addAll(ents.get(i).getProperties(Property.class));
+//          all.add(ents.get(i));
+//        }
+//        props = all;
+//      }
       
       ListSelectionModel rows = table.getSelectionModel();
       ListSelectionModel cols = table.getColumnModel().getSelectionModel();
       table.clearSelection();
       
       int r=-1,c=-1;
-      for (int i=0;i<props.length;i++) {
+      for (Property prop : props) {
   
-        Property prop = props[i];
         r = getRow(prop.getEntity());
         if (r<0)
           continue;
@@ -321,7 +327,6 @@ public class PropertyTableWidget extends JPanel  {
       setRowHeight((int)Math.ceil(Options.getInstance().getDefaultFont().getLineMetrics("", new FontRenderContext(null,false,false)).getHeight())+getRowMargin());
       
       getColumnModel().getSelectionModel().addListSelectionListener(this);
-      
       // 20091208 JTable already implements and add itself as listener
       //getSelectionModel().addListSelectionListener(this);
       
@@ -498,7 +503,7 @@ public class PropertyTableWidget extends JPanel  {
       if (ignoreSelection||e.getValueIsAdjusting())
         return;
 
-      ViewContext context = null;
+      List<Property> properties = new ArrayList<Property>();
       ListSelectionModel rows = getSelectionModel();
       ListSelectionModel cols  = getColumnModel().getSelectionModel();
       
@@ -515,14 +520,13 @@ public class PropertyTableWidget extends JPanel  {
           if (prop==null)
             prop = propertyModel.getProperty(model.modelIndex(r));
           // keep it
-          if (context==null) context = new ViewContext(prop);
-          else context.addProperty(prop);
+          properties.add(prop);
         }
       }
       
       // tell about it
-      if (context!=null)
-    	  SelectionSink.Dispatcher.fireSelection(PropertyTableWidget.this, context, false);	
+      if (!properties.isEmpty())
+    	  SelectionSink.Dispatcher.fireSelection(PropertyTableWidget.this, new Context(properties.get(0).getGedcom(), new ArrayList<Entity>(), properties), false);	
 
       
       // done
@@ -548,10 +552,8 @@ public class PropertyTableWidget extends JPanel  {
         return null;
       SortableTableModel model = (SortableTableModel)getModel();
       
-      // prepare result
-      ViewContext result = new ViewContext(ged);
-      
       // one row one col?
+      List<Property> properties = new ArrayList<Property>();
       int[] rows = getSelectedRows();
       if (rows.length>0) {
         int[] cols = getSelectedColumns();
@@ -565,7 +567,7 @@ public class PropertyTableWidget extends JPanel  {
             // add property for each cell
             Property p = (Property)getValueAt(rows[r], cols[c]);
             if (p!=null) {
-              result.addProperty(p);
+              properties.add(p);
               rowRepresented = true;
             }
             // next selected col
@@ -573,14 +575,14 @@ public class PropertyTableWidget extends JPanel  {
           
           // add representation for each row that wasn't represented by a property
           if (!rowRepresented)
-            result.addProperty(propertyModel.getProperty(model.modelIndex(rows[r])));
+            properties.add(propertyModel.getProperty(model.modelIndex(rows[r])));
           
           // next selected row
         }
       }
       
       // done
-      return result;
+      return new ViewContext(ged, new ArrayList<Entity>(), properties);
     }
     
     /**

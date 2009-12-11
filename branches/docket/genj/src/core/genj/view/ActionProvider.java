@@ -27,7 +27,7 @@ import genj.gedcom.TagPath;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -137,18 +137,18 @@ public interface ActionProvider {
    * an action group for a list of properties
    */
   public class PropertiesActionGroup extends Action2.Group {
-    private Property[] ps;
-    public PropertiesActionGroup(Property[] properties) {
-      super("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.length+")");
-      ps = properties;
+    private List<Property> ps;
+    public PropertiesActionGroup(List<? extends Property> properties) {
+      super("'"+Property.getPropertyNames(properties, 5)+"' ("+properties.size()+")");
+      ps = new ArrayList<Property>(properties);
     }
     @Override
     public boolean equals(Object that) {
-      return that instanceof PropertiesActionGroup && Arrays.equals(((PropertiesActionGroup)that).ps, this.ps);
+      return that instanceof PropertiesActionGroup && ((PropertiesActionGroup)that).ps.equals(this.ps);
     }
     @Override
     public int hashCode() {
-      return Arrays.hashCode(ps);
+      return ps.hashCode();
     }
   }
   
@@ -156,18 +156,18 @@ public interface ActionProvider {
    * an action group for a list of entities
    */
   public class EntitiesActionGroup extends Action2.Group {
-    private Entity[] es;
-    public EntitiesActionGroup(Entity[] entities) {
-      super("'"+Property.getPropertyNames(entities,5)+"' ("+entities.length+")");
-      es = entities;
+    private List<Entity> es;
+    public EntitiesActionGroup(List<? extends Entity> entities) {
+      super("'"+Property.getPropertyNames(entities,5)+"' ("+entities.size()+")");
+      es = new ArrayList<Entity>(entities);
     }
     @Override
     public boolean equals(Object that) {
-      return that instanceof EntitiesActionGroup && Arrays.equals(((EntitiesActionGroup)that).es, this.es);
+      return that instanceof EntitiesActionGroup && ((EntitiesActionGroup)that).es.equals(this.es);
     }
     @Override
     public int hashCode() {
-      return Arrays.hashCode(es);
+      return es.hashCode();
     }
   }
 

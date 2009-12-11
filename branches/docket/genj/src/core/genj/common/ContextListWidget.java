@@ -19,7 +19,6 @@
  */
 package genj.common;
 
-import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
@@ -30,9 +29,8 @@ import genj.view.ViewContext;
 
 import java.awt.Component;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Vector;
 
 import javax.swing.AbstractListModel;
@@ -68,7 +66,7 @@ public class ContextListWidget extends JList implements ContextProvider {
   /** 
    * Constructor
    */
-  public ContextListWidget(Gedcom gedcom, List contextList) {
+  public ContextListWidget(Gedcom gedcom, List<ViewContext> contextList) {
     this(gedcom);
     setContextList(contextList);
   }
@@ -85,11 +83,16 @@ public class ContextListWidget extends JList implements ContextProvider {
       return (ViewContext)selection[0];
     
     // merge
-    ViewContext result = new ViewContext(ged);
+    List<Property> props = new ArrayList<Property>(16);
+    List<Entity> ents = new ArrayList<Entity>(16);
+    
     for (int i = 0; i < selection.length; i++) {
-      Context context = (Context)selection[i];
-      result.addContext(context);
+      ViewContext context = (ViewContext)selection[i];
+      props.addAll(context.getProperties());
+      ents.addAll(context.getEntities());
     }
+    
+    ViewContext result = new ViewContext(ged, ents, props);
     
     // done
     return result;
@@ -118,7 +121,7 @@ public class ContextListWidget extends JList implements ContextProvider {
   /**
    * Set the list to show
    */
-  public void setContextList(List contextList) {
+  public void setContextList(List<ViewContext> contextList) {
     ((Model)getModel()).setContextList(contextList);
   }
   
@@ -150,7 +153,7 @@ public class ContextListWidget extends JList implements ContextProvider {
    */
   private static class Model extends AbstractListModel implements GedcomListener {
     
-    private List list = new ArrayList();
+    private List<ViewContext> list = new ArrayList<ViewContext>();
     
     private void setContextList(List set) {
       // clear old
@@ -179,9 +182,10 @@ public class ContextListWidget extends JList implements ContextProvider {
     }
 
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      for (Iterator it=list.iterator(); it.hasNext(); ) {
-        Context context = (Context)it.next();
-        context.removeEntities(Collections.singletonList(entity));
+      for (ListIterator<ViewContext> it=list.listIterator(); it.hasNext(); ) {
+        ViewContext context = (ViewContext)it.next();
+        if (context.getEntities().contains(entity))
+          it.set(new ViewContext(context.getGedcom()));
       }
       // TODO this could be less coarse grained
       fireContentsChanged(this, 0, list.size());
@@ -197,9 +201,10 @@ public class ContextListWidget extends JList implements ContextProvider {
     }
 
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
-      for (Iterator it=list.iterator(); it.hasNext(); ) {
-        Context context = (Context)it.next();
-        context.removeProperties(Collections.singletonList(removed));
+      for (ListIterator<ViewContext> it=list.listIterator(); it.hasNext(); ) {
+        ViewContext context = (ViewContext)it.next();
+        if (context.getProperties().contains(property))
+          it.set(new ViewContext(context.getGedcom()));
       }
       // TODO this could be less coarse grained
       fireContentsChanged(this, 0, list.size());
@@ -226,7 +231,7 @@ public class ContextListWidget extends JList implements ContextProvider {
       // let super do its thing
       super.getListCellRendererComponent(list, null, index, isSelected, cellHasFocus);
       // patch up
-      Context ctx = (Context)value;
+      ViewContext ctx = (ViewContext)value;
       setIcon(ctx.getImage());
       setText(ctx.getText());
       // done

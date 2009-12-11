@@ -90,7 +90,6 @@ import swingx.docking.Docked;
     Registry registry = new Registry(Registry.lookup(context.getGedcom().getOrigin().getFileName(), context.getGedcom().getOrigin()), factory.getClass().getName() + ".1");
 
     // create new View
-    // FIXME docket pass in current selection context to new view
     view = factory.createView(title, registry, context);
     
     // backlink
@@ -181,18 +180,6 @@ import swingx.docking.Docked;
 
     // continue
     super.undocked();
-  }
-
-  /**
-   * SelectionListener callback - view fired selection change
-   */
-  public void select(Context context, boolean isActionPerformed) {
-    ignoreSelectionChanged = true;
-    try {
-      workbench.fireSelection(context, isActionPerformed);
-    } finally {
-      ignoreSelectionChanged = false;
-    }
   }
 
   /**
@@ -361,8 +348,8 @@ import swingx.docking.Docked;
       if (context==null)
         return null;
       
-      Property[] properties = context.getProperties();
-      Entity[] entities = context.getEntities();
+      List<? extends Property> properties = context.getProperties();
+      List<? extends Entity> entities = context.getEntities();
       Gedcom gedcom = context.getGedcom();
 
       // make sure any existing popup is cleared

@@ -94,24 +94,24 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
       case CONTEXT:
 
         // props
-        Property[] properties = context.getProperties();
-        if (properties.length>1) {
+        List<? extends Property> properties = context.getProperties();
+        if (properties.size()>1) {
           Action2.Group group = new ActionProvider.PropertiesActionGroup(properties);
           getActions(properties, context.getGedcom(), group);
           result.add(group);
-        } else if (properties.length==1) {
+        } else if (properties.size()==1) {
           Action2.Group group = new ActionProvider.PropertyActionGroup(context.getProperty());
           getActions(context.getProperty(), context.getGedcom(), group);
           result.add(group);
         }
         
         // entities
-        Entity[] entities = context.getEntities();
-        if (entities.length>1) {
+        List<? extends Entity> entities = context.getEntities();
+        if (entities.size()>1) {
           Action2.Group group = new ActionProvider.EntitiesActionGroup(entities);
           getActions(entities, context.getGedcom(), group);
           result.add(group);
-        } else if (entities.length==1) {
+        } else if (entities.size()==1) {
           Action2.Group group = new ActionProvider.EntityActionGroup(context.getEntity());
           getActions(context.getEntity(), context.getGedcom(), group);
           result.add(group);

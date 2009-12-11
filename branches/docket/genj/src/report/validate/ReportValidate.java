@@ -7,7 +7,6 @@
  */
 package validate;
 
-import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
@@ -182,7 +181,7 @@ public class ReportValidate extends AnnotationsReport {
   /**
    * show validation results
    */
-private void results(List<Context> issues) {
+private void results(List<ViewContext> issues) {
 
     // any fixes proposed at all?
     if (issues.size()==0) {
@@ -192,7 +191,7 @@ private void results(List<Context> issues) {
 
     // show fixes
     setMessage(translate("issues", Integer.toString(issues.size())));
-    for (Context ctx : issues)
+    for (ViewContext ctx : issues)
     	addAnnotation(ctx);
 
     // done

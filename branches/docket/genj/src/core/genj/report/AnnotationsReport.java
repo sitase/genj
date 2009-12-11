@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.1.2.1 $ $Author: nmeier $ $Date: 2009-12-07 23:47:32 $
+ * $Revision: 1.1.2.2 $ $Author: nmeier $ $Date: 2009-12-11 05:51:24 $
  */
 package genj.report;
 
@@ -49,7 +49,7 @@ public abstract class AnnotationsReport extends Report
 	/**
 	 * List of collected annotations.
 	 */
-	private List<Context> annotations = new ArrayList<Context>();
+	private List<ViewContext> annotations = new ArrayList<ViewContext>();
 
 	/**
 	 * List header or other message when the annotation list is empty.
@@ -82,7 +82,7 @@ public abstract class AnnotationsReport extends Report
 		{
 			Document doc = new Document(getName());
 			doc.startSection(message);
-			for (Context ctx : annotations)
+			for (ViewContext ctx : annotations)
 			{
 				doc.addText(ctx.getText());
 				doc.nextParagraph();
@@ -96,7 +96,7 @@ public abstract class AnnotationsReport extends Report
 		this.message = message;
 	}
 
-	protected void addAnnotation(Context ctx)
+	protected void addAnnotation(ViewContext ctx)
 	{
 		annotations.add(ctx);
 	}
@@ -134,7 +134,7 @@ public abstract class AnnotationsReport extends Report
 	 * Show annotations containing text and references to Gedcom objects.
 	 */
 	private JPanel showAnnotationsToUser(Gedcom gedcom, String msg,
-			List<Context> annotations)
+			List<ViewContext> annotations)
 	{
 		if (annotations.isEmpty())
 		{

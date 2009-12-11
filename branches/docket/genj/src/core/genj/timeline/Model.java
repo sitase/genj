@@ -212,19 +212,19 @@ import spin.Spin;
     Set propertyHits = new HashSet();
     Set entityHits = new HashSet();
     
-    Property[] props = context.getProperties();
-    Entity[] ents = context.getEntities();
+    List<? extends Property> props = context.getProperties();
+    List<? extends Entity> ents = context.getEntities();
     
     for (int l=0; l<layers.size(); l++) {
       Iterator events = ((List)layers.get(l)).iterator();
       while (events.hasNext()) {
         Event event = (Event)events.next();
-        for (int j = 0; j < ents.length; j++) {
-          if (ents[j]==event.getEntity())
+        for (int j = 0; j < ents.size(); j++) {
+          if (ents.get(j)==event.getEntity())
             entityHits.add(event);
         }
-        for (int i = 0; i < props.length; i++) {
-          if (event.getProperty()==props[i]||event.getProperty().contains(props[i]))
+        for (int i = 0; i < props.size(); i++) {
+          if (event.getProperty()==props.get(i)||event.getProperty().contains(props.get(i)))
             propertyHits.add(event);
         }
       }

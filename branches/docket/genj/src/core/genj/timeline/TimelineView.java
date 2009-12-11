@@ -21,7 +21,9 @@ package genj.timeline;
 
 import genj.almanac.Almanac;
 import genj.gedcom.Context;
+import genj.gedcom.Entity;
 import genj.gedcom.GedcomException;
+import genj.gedcom.Property;
 import genj.gedcom.time.PointInTime;
 import genj.renderer.Options;
 import genj.util.Registry;
@@ -531,13 +533,13 @@ public class TimelineView extends View {
      * ContextProvider - callback
      */
     public ViewContext getContext() {
-      ViewContext ctx = new ViewContext(model.gedcom);
+      List<Property> props = new ArrayList<Property>();
       for (Iterator events = selectedEvents.iterator(); events.hasNext();) {
         Model.Event event = (Model.Event) events.next();
-        ctx.addProperty(event.pe);
-        //ctx.addProperty(event.pd);
+        props.add(event.pe);
+        //props.add(event.pd);
       }
-      return ctx;
+      return new ViewContext(model.gedcom, new ArrayList<Entity>(), props);
     }
     
     /**

@@ -33,6 +33,7 @@ import genj.util.EnvironmentChecker;
 import genj.util.Origin;
 import genj.util.Resources;
 import genj.util.Trackable;
+import genj.view.ViewContext;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -747,7 +748,7 @@ public class GedcomReader implements Trackable {
   /**
    * A generated warning
    */
-  private static class Warning extends Context {
+  private static class Warning extends ViewContext {
 
     private int lineNumber;
 
@@ -775,7 +776,7 @@ public class GedcomReader implements Trackable {
      * compare by line #
      */
     @Override
-    public int compareTo(Context o) {
+    public int compareTo(ViewContext o) {
       Warning that = (Warning)o;
       return lineNumber - that.lineNumber;
     }
@@ -783,7 +784,8 @@ public class GedcomReader implements Trackable {
     /**
      * @see Annotation#setText(String)
      */
-    public Context setText(String text) {
+    @Override
+    public ViewContext setText(String text) {
       super.setText(RESOURCES.getString("read.warn", new Object[] { Integer.toString(lineNumber), text }));
       return this;
     }

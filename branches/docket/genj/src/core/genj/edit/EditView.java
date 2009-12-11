@@ -42,9 +42,11 @@ import genj.window.WindowManager;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Stack;
 import java.util.logging.Logger;
 
@@ -303,7 +305,7 @@ public class EditView extends View implements ContextProvider  {
 
     // push current on forward
     Context old = editor.getContext();
-    if (old.getEntities().length>0) {
+    if (old.getEntities().size()>0) {
       forwards.push(editor.getContext());
       forward.setEnabled(true);
     }
@@ -323,7 +325,7 @@ public class EditView extends View implements ContextProvider  {
     
     // push current on back
     Context old = editor.getContext();
-    if (old.getEntities().length>0) {
+    if (old.getEntities().size()>0) {
       backs.push(editor.getContext());
       back.setEnabled(true);
     }
@@ -344,12 +346,7 @@ public class EditView extends View implements ContextProvider  {
     ViewContext current = editor.getContext();
     if (current.getEntity()!=null && current.getEntity()!=context.getEntity()) {
 
-      Context c = new Context(current.getEntity());
-      for (Property p : current.getProperties()) 
-        if (p.getEntity().equals(current.getEntity()))
-          c.addProperty(p);
-      
-      backs.push(c);
+      backs.push(new Context(current));
       
       // trim stack - arbitrarily chosen size
       while (backs.size()>32)
@@ -560,7 +557,7 @@ public class EditView extends View implements ContextProvider  {
       back.setEnabled(!backs.isEmpty());
       forward.setEnabled(!forwards.isEmpty());
       // check if we should go back to one
-      if (editor.getContext().getEntities().length==0 && !backs.isEmpty())
+      if (editor.getContext().getEntities().size()==0 && !backs.isEmpty())
         back();
     }
     
@@ -576,9 +573,13 @@ public class EditView extends View implements ContextProvider  {
     void remove(Property prop, Stack<Context> stack) {
       List<Property> list = Collections.singletonList(prop);
       // parse stack
-      for (Iterator<Context> it = stack.listIterator(); it.hasNext(); ) {
+      for (ListIterator<Context> it = stack.listIterator(); it.hasNext(); ) {
         Context ctx = it.next();
-        ctx.removeProperties(list);
+        if (ctx.getProperties().contains(prop)) {
+          List<Property> props = new ArrayList<Property>(ctx.getProperties());
+          props.remove(prop);
+          it.set(new Context(ctx.getGedcom(), ctx.getEntities(), props));
+        }
       }
       
     }

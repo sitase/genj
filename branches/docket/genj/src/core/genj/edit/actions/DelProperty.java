@@ -26,8 +26,8 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
 
 import java.awt.event.ActionEvent;
-import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -49,9 +49,9 @@ public class DelProperty extends AbstractChange {
   /**
    * Constructor
    */
-  public DelProperty(Property[] properties) {
-    super(properties[0].getGedcom(), Images.imgDelEntity, resources.getString("delete"));
-    candidates.addAll(Arrays.asList(properties));
+  public DelProperty(List<? extends Property> properties) {
+    super(properties.get(0).getGedcom(), Images.imgDelEntity, resources.getString("delete"));
+    candidates.addAll(properties);
   }
 
   /**

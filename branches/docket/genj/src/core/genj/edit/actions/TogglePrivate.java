@@ -36,7 +36,7 @@ import java.util.Collection;
 public class TogglePrivate extends AbstractChange {
   
   /** the properties */
-  private Collection<Property> properties;
+  private Collection<? extends Property> properties;
   
   /** make public or private */
   private boolean makePrivate;
@@ -44,7 +44,7 @@ public class TogglePrivate extends AbstractChange {
   /**
    * Constructor
    */
-  public TogglePrivate(Gedcom gedcom, Collection<Property> properties) {
+  public TogglePrivate(Gedcom gedcom, Collection<? extends Property> properties) {
     super(gedcom, MetaProperty.IMG_PRIVATE, "");
     this.gedcom = gedcom;
     this.properties = properties;
