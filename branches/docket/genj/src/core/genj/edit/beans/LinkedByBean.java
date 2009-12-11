@@ -22,7 +22,6 @@ package genj.edit.beans;
 import genj.common.AbstractPropertyTableModel;
 import genj.common.PropertyTableWidget;
 import genj.gedcom.Entity;
-import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
@@ -100,16 +99,13 @@ public class LinkedByBean extends PropertyBean {
     private Entity entity;
     
     private Model(Entity entity) {
+      super(entity.getGedcom());
       this.entity = entity;
       for (Iterator ps = entity.getProperties(PropertyXRef.class).iterator(); ps.hasNext(); ) {
         PropertyXRef p = (PropertyXRef)ps.next();
         if (p.getTarget()!=null)
           xrefs.add(p);
       }
-    }
-    
-    public Gedcom getGedcom() {
-      return entity.getGedcom();
     }
     
     public int getNumCols() {

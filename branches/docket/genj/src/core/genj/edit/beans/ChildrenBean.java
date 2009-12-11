@@ -96,10 +96,8 @@ public class ChildrenBean extends PropertyBean {
   private class Children extends AbstractPropertyTableModel {
     private Fam fam;
     private Children(Fam fam) {
+      super(fam.getGedcom());
       this.fam = fam;
-    }
-    public Gedcom getGedcom() {
-      return fam.getGedcom();
     }
     public int getNumCols() {
       return PATHS.length;

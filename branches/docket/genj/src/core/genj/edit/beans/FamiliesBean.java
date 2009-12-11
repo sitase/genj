@@ -22,7 +22,6 @@ package genj.edit.beans;
 import genj.common.AbstractPropertyTableModel;
 import genj.common.PropertyTableWidget;
 import genj.gedcom.Fam;
-import genj.gedcom.Gedcom;
 import genj.gedcom.Indi;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
@@ -108,12 +107,9 @@ public class FamiliesBean extends PropertyBean {
     private Fam[] fams;
     
     private Families(Indi indi) {
+      super(indi.getGedcom());
       this.indi = indi;
       fams = indi.getFamiliesWhereSpouse();
-    }
-    
-    public Gedcom getGedcom() {
-      return indi.getGedcom();
     }
     public int getNumCols() {
       return 5;

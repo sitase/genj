@@ -22,7 +22,6 @@ package genj.edit.beans;
 import genj.common.AbstractPropertyTableModel;
 import genj.common.PropertyTableWidget;
 import genj.gedcom.Fam;
-import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
 import genj.util.Registry;
@@ -103,10 +102,8 @@ public class SpousesBean extends PropertyBean {
     private Fam fam;
     
     private SpousesInFamily(Fam fam) {
+      super(fam.getGedcom());
       this.fam = fam;
-    }
-    public Gedcom getGedcom() {
-      return fam.getGedcom();
     }
     public int getNumCols() {
       return PATHS.length;

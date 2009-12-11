@@ -66,7 +66,7 @@ public class TableView extends View {
   /*package*/ PropertyTableWidget propertyTable;
   
   /** the modes we're offering */
-  private Map modes = new HashMap();
+  private Map<String, Mode> modes = new HashMap<String, Mode>();
     {
       modes.put(Gedcom.INDI, new Mode(Gedcom.INDI, new String[]{"INDI","INDI:NAME","INDI:SEX","INDI:BIRT:DATE","INDI:BIRT:PLAC","INDI:FAMS", "INDI:FAMC", "INDI:OBJE:FILE"}));
       modes.put(Gedcom.FAM , new Mode(Gedcom.FAM , new String[]{"FAM" ,"FAM:MARR:DATE","FAM:MARR:PLAC", "FAM:HUSB", "FAM:WIFE", "FAM:CHIL" }));
@@ -222,11 +222,9 @@ public class TableView extends View {
     registry.put("mode", currentMode.getTag());
     
     // save modes
-    Iterator it = modes.values().iterator();
-    while (it.hasNext()) {
-      Mode mode = (Mode)it.next();
+    for (Mode mode : modes.values())
       mode.save(registry);
-    }
+    
     // Done
   }  
   
@@ -280,18 +278,14 @@ public class TableView extends View {
     private Mode mode;
     
     /** our cached rows */
-    private List rows;
+    private List<Entity> rows;
     
     /** constructor */
-    private Model(Mode set) {
+    private Model(Gedcom gedcom, Mode set) {
+      super(gedcom);
       mode = set;
     }
     
-    /** gedcom */
-    public Gedcom getGedcom() {
-      return gedcom;
-    }
-
     /** # columns */
     public int getNumCols() {
       return mode.getPaths().length;
@@ -301,7 +295,7 @@ public class TableView extends View {
     public int getNumRows() {
       // cache entities if not there yet
       if (rows==null) 
-        rows = new ArrayList(gedcom.getEntities(mode.getTag()));
+        rows = new ArrayList<Entity>(getGedcom().getEntities(mode.getTag()));
       // ready 
       return rows.size();
     }
