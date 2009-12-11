@@ -55,25 +55,28 @@ public class Context {
     this.gedcom = gedcom;
 
     // grab ents
-    for (Entity e : entities) {
-      if (e.getGedcom()!=gedcom)
-        throw new IllegalArgumentException("gedcom must be same");
-      if (!entities.contains(e))
-        this.entities.add(e);
-    }
-
-    // grab props
-    for (Property p : properties) {
-      if (!this.properties.contains(p)) {
-        Entity e = p.getEntity();
+    if (entities!=null)
+      for (Entity e : entities) {
         if (e.getGedcom()!=gedcom)
           throw new IllegalArgumentException("gedcom must be same");
-        this.properties.add(p);
         if (!entities.contains(e))
           this.entities.add(e);
       }
-    }
-      
+
+    // grab props
+    if (properties!=null)
+      for (Property p : properties) {
+        if (!this.properties.contains(p)) {
+          Entity e = p.getEntity();
+          if (e.getGedcom()!=gedcom)
+            throw new IllegalArgumentException("gedcom must be same");
+          this.properties.add(p);
+          if (!this.entities.contains(e))
+            this.entities.add(e);
+        }
+      }
+
+    // done
   }
 
   /**
@@ -136,34 +139,62 @@ public class Context {
     return properties;
   }
 
-  private List<Property> getProperties(Entity entity) {
-    if (entity.getGedcom()!=gedcom)
-      throw new IllegalArgumentException("entity.gedcom!=gedcom");
-    List<Property> result = new ArrayList<Property>();
-    for (Property prop : properties) {
-      if (prop.getEntity()==entity)
-        result.add(prop);
-    }
-    return result;
-  }
-  
   /** storage */
   public String toString() {
     StringBuffer result = new StringBuffer();
     result.append(gedcom.getName());
     for (Entity entity : entities) {
-      result.append("[");
+      result.append(";");
       result.append(entity.getId());
       
-      for (Property prop : getProperties(entity)) {
-        result.append("[");
-        result.append(prop.getPath());
-        result.append("]");
+      for (Property prop : properties) {
+        if (prop.getEntity()==entity) {
+          result.append(",");
+          result.append(prop.getPath());
+        }
       }
       
-      result.append("]");
     }
     return result.toString();
+  }
+  
+  public static Context fromString(Gedcom gedcom, String toString) throws GedcomException {
+
+    List<Entity> entities = new ArrayList<Entity>();
+    List<Property> properties = new ArrayList<Property>();
+
+    String[] es = toString.split(";");
+    
+    // first is gedcom name
+    if (!es[0].equals(gedcom.getName()))
+      throw new GedcomException(es[0]+" doesn't match "+gedcom.getName());
+    
+    // loop over entities
+    for (int e=1; e<es.length; e++) {
+      
+      String[] ps = es[e].split(",");
+
+      // first is entity id
+      Entity entity = gedcom.getEntity(ps[0]);
+      if (entity==null)
+        throw new GedcomException(ps[0]+" not in "+gedcom);
+      entities.add(entity);
+
+      // then props
+      for (int p=1; p<ps.length; p++) {
+        try {
+          Property property = entity.getPropertyByPath(ps[p]);
+          if (property==null)
+            throw new GedcomException(ps[p]+" not in "+ps[0]+" in "+gedcom);
+          properties.add(property);
+        } catch (IllegalArgumentException iae) {
+          throw new GedcomException(ps[p]+" not valid for "+es[e]);
+        }
+        
+      }
+    }
+    return new Context(gedcom, entities, properties);
+    
   }
   
 
