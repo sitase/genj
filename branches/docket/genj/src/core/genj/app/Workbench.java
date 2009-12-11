@@ -117,7 +117,7 @@ public class Workbench extends JPanel implements SelectionSink {
   public Workbench(Registry registry, Runnable onExit) {
 
     // Initialize data
-    this.registry = new Registry(registry, "cc");
+    this.registry = registry;
     windowManager = WindowManager.getInstance();
     runOnExit = onExit;
     
@@ -310,11 +310,17 @@ public class Workbench extends JPanel implements SelectionSink {
       throw new IllegalArgumentException("context!=null");
 
     // restore context
-    String ctx = registry.get(gedcom.getName(), (String)null);
+    try {
+      context = Context.fromString(gedcom, registry.get(gedcom.getName()+".context", gedcom.getName()));
+    } catch (GedcomException ge) {
+    } finally {
+      // fixup context if necessary - start with adam if available
+      Entity adam = gedcom.getFirstEntity(Gedcom.INDI);
+      if (context == null || context.getEntities().isEmpty())
+        context = new Context(gedcom, adam!=null ? Collections.singletonList(adam) : null, null);
+    }
     
-    context = new Context(gedcom);
-
-    GedcomDirectory.getInstance().registerGedcom(gedcom);
+     GedcomDirectory.getInstance().registerGedcom(gedcom);
 
     // enable actions
     for (Action a : gedcomActions) 
@@ -605,13 +611,14 @@ public class Workbench extends JPanel implements SelectionSink {
   public void fireSelection(Context context, boolean isActionPerformed) {
 
     // known?
-    if (this.context.equals(context))
+    if (this.context.equals(context) && !isActionPerformed)
       return;
     
-    LOG.fine("fireSelection("+context+")");
+    LOG.fine("fireSelection("+context+","+isActionPerformed+")");
     
     // remember 
     this.context = new Context(context);
+    registry.put(context.getGedcom().getName()+".context", context.toString());
     
     // notify
     for (WorkbenchListener listener : listeners) 
@@ -767,8 +774,15 @@ public class Workbench extends JPanel implements SelectionSink {
       // done
       return dockable.getView();
     }
-    dockable = new ViewDockable(Workbench.this, factory, context);
-
+    
+    // open it & signal current selection
+    try {
+      dockable = new ViewDockable(Workbench.this, factory, registry);
+      dockable.selectionChanged(context, false);
+    } catch (Throwable t) {
+      LOG.log(Level.WARNING, "cannot open view for "+factory.getClass().getName(), t);
+      return null;
+    }
     dockingPane.putDockable(factory.getClass(), dockable);
 
     return dockable.getView();

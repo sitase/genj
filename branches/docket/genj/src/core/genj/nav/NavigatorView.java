@@ -111,7 +111,7 @@ public class NavigatorView extends View {
   /**
    * Constructor
    */
-  public NavigatorView(String title, Context context, Registry registry) {
+  public NavigatorView(Registry registry) {
     
     // remember
     this.gedcom = context.getGedcom();

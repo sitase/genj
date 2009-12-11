@@ -46,6 +46,7 @@ import java.util.logging.Logger;
 
 import javax.swing.JComponent;
 import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 import javax.swing.table.TableModel;
 
 /**
@@ -58,20 +59,11 @@ public class TableView extends View {
   /** a static set of resources */
   private Resources resources = Resources.get(this);
   
-  /** the gedcom we're looking at */
-  /*package*/ Gedcom gedcom;
-  
   /** the registry we keep */
   private Registry registry;
   
-  /** the title we keep */
-  private String title;
-  
   /** the table we're using */
   /*package*/ PropertyTableWidget propertyTable;
-  
-  /** the gedcom listener we're using */
-  private GedcomListener listener;
   
   /** the modes we're offering */
   private Map modes = new HashMap();
@@ -91,12 +83,10 @@ public class TableView extends View {
   /**
    * Constructor
    */
-  public TableView(String titl, Context context, Registry registry) {
+  public TableView(Registry registry) {
     
     // keep some stuff
-    this.gedcom = context.getGedcom();
     this.registry = registry;
-    this.title = titl;
     
     // read properties
     loadProperties();

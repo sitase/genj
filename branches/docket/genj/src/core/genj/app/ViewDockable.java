@@ -78,7 +78,7 @@ import swingx.docking.Docked;
   /**
    * Constructor
    */
-  public ViewDockable(Workbench workbench, ViewFactory factory, Context context) {
+  public ViewDockable(Workbench workbench, ViewFactory factory, Registry registry) {
 
     this.workbench = workbench;
     this.factory = factory;
@@ -86,11 +86,8 @@ import swingx.docking.Docked;
     // title
     String title = factory.getTitle();
 
-    // get a registry
-    Registry registry = new Registry(Registry.lookup(context.getGedcom().getOrigin().getFileName(), context.getGedcom().getOrigin()), factory.getClass().getName() + ".1");
-
     // create new View
-    view = factory.createView(title, registry, context);
+    view = factory.createView(new Registry(registry, factory.getClass().getName()));
     
     // backlink
     view.putClientProperty(ViewDockable.class, this);

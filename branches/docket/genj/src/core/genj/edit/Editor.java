@@ -20,8 +20,6 @@
 package genj.edit;
 
 import genj.gedcom.Context;
-import genj.gedcom.Gedcom;
-import genj.util.Registry;
 import genj.view.ViewContext;
 
 import javax.swing.JPanel;
@@ -30,11 +28,6 @@ import javax.swing.JPanel;
  * The base class for our two editors basic and advanced
  */
 /*package*/ abstract class Editor extends JPanel {
-
-  /**
-   * Initializer (post constructor)
-   */
-  public abstract void init(Gedcom gedcom, EditView view, Registry registry);
 
   /** 
    * Accessor - current 

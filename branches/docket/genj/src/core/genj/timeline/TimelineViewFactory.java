@@ -19,7 +19,6 @@
  */
 package genj.timeline;
 
-import genj.gedcom.Context;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
@@ -35,8 +34,8 @@ public class TimelineViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
    */
-  public View createView(String title, Registry registry, Context context) {
-    return new TimelineView(title,context,registry);
+  public View createView(Registry registry) {
+    return new TimelineView(registry);
   }
   
   /**

@@ -19,9 +19,7 @@
  */
 package genj.edit;
 
-import genj.gedcom.Context;
 import genj.util.Registry;
-import genj.util.swing.Action2;
 import genj.util.swing.ImageIcon;
 import genj.view.View;
 import genj.view.ViewFactory;
@@ -36,8 +34,8 @@ public class EditViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(genj.gedcom.Gedcom, genj.util.Registry, java.awt.Frame)
    */
-  public View createView(String title, Registry registry, Context context) {
-    return new EditView(title, context, registry);
+  public View createView(Registry registry) {
+    return new EditView(registry);
   }
 
   /**

@@ -140,10 +140,10 @@ import javax.swing.tree.TreePath;
   /**
    * Initialize
    */
-  public void init(Gedcom ged, EditView view, Registry regty) {
+  public AdvancedEditor(Gedcom gedcom, EditView view, Registry regty) {
     
     // remember
-    gedcom = ged;
+    this.gedcom = gedcom;
     editView = view;
     registry = regty;
     

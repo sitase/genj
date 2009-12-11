@@ -19,7 +19,6 @@
  */
 package genj.search;
 
-import genj.gedcom.Context;
 import genj.util.Registry;
 import genj.util.swing.ImageIcon;
 import genj.view.View;
@@ -37,8 +36,8 @@ public class SearchViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(java.lang.String, genj.gedcom.Gedcom, genj.util.Registry, genj.view.ViewManager)
    */
-  public View createView(String title, Registry registry, Context context) {
-    return new SearchView(context, registry);
+  public View createView(Registry registry) {
+    return new SearchView(registry);
   }
 
   /**

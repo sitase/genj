@@ -97,9 +97,9 @@ public class EntityView extends View implements ContextProvider {
   /**
    * Constructor
    */
-  public EntityView(String title, Context context, Registry reg) {
+  public EntityView(Registry registry) {
     // save some stuff
-    registry = reg;
+    registry = registry;
     gedcom = context.getGedcom();
 
     // grab data from registry

@@ -143,11 +143,10 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   /**
    * Constructor
    */
-  public TreeView(String titl, Context context, Registry regIstry) {
+  public TreeView(Registry registry) {
     
     // remember
-    registry = regIstry;
-    title = titl;
+    this.registry = registry;
     DPI = Options.getInstance().getDPI();
     DPMM = new Point2D.Float(
       DPI.x / 2.54F / 10,

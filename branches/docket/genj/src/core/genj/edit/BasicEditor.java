@@ -104,9 +104,9 @@ import spin.Spin;
   private GedcomListener callback = new Callback();
 
   /**
-   * Callback - init for edit
+   * Constructor
    */
-  public void init(Gedcom gedcom, EditView edit, Registry registry) {
+  public BasicEditor(Gedcom gedcom, EditView edit, Registry registry) {
 
     // remember
     this.gedcom = gedcom;

@@ -19,7 +19,6 @@
  */
 package genj.view;
 
-import genj.gedcom.Context;
 import genj.util.Registry;
 import genj.util.swing.ImageIcon;
 
@@ -32,7 +31,7 @@ public interface ViewFactory {
   /**
    * Callback for creating a view 
    */
-  public View createView(String title, Registry registry, Context context);
+  public View createView(Registry registry);
   
   /**
    * Returns an image for this view

@@ -59,7 +59,7 @@ public class Context {
       for (Entity e : entities) {
         if (e.getGedcom()!=gedcom)
           throw new IllegalArgumentException("gedcom must be same");
-        if (!entities.contains(e))
+        if (!this.entities.contains(e))
           this.entities.add(e);
       }
 
@@ -94,6 +94,9 @@ public class Context {
   public Context(Property prop) {
     this(prop.getGedcom());
     properties.add(prop);
+    Entity entity = prop.getEntity();
+    if (!entities.contains(entity))
+      entities.add(entity);
   }
 
   /**

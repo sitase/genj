@@ -66,9 +66,6 @@ public class EditView extends View implements ContextProvider  {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.edit");
   
-  /** the gedcom we're looking at */
-  private Gedcom  gedcom;
-  
   /** the registry we use */
   private Registry registry;
   
@@ -89,6 +86,7 @@ public class EditView extends View implements ContextProvider  {
   private Callback callback = new Callback();
   private Undo undo;
   private Redo redo;
+  private boolean isAdvanced = false;
   
   /** whether we're sticky */
   private  boolean isSticky = false;
@@ -99,23 +97,23 @@ public class EditView extends View implements ContextProvider  {
   /**
    * Constructor
    */
-  public EditView(String setTitle, Context context, Registry setRegistry) {
+  public EditView(Registry registry) {
     
     super(new BorderLayout());
     
     // remember
-    gedcom   = context.getGedcom();
-    registry = setRegistry;
+    this.registry = registry;
     beanFactory = new BeanFactory(registry);
 
     // prepare action
     mode = new Mode();
-    undo = new Undo(gedcom);
-    redo = new Redo(gedcom);
-    
+    undo = new Undo();
+    redo = new Redo();
+
     // run mode switch if applicable
-    setAdvanced(registry.get("advanced", false));
+//    mode= registry.get("advanced", false);
     
+
     // add keybindings
     InputMap imap = getInputMap(WHEN_IN_FOCUSED_WINDOW);
     ActionMap amap = getActionMap();
@@ -123,16 +121,6 @@ public class EditView extends View implements ContextProvider  {
     amap.put(back, back);
     imap.put(KeyStroke.getKeyStroke("alt RIGHT"), forward);
     amap.put(forward, forward);
-
-    // Check if we were sticky
-    Entity entity = gedcom.getEntity(registry.get("entity", (String)null));
-    if (registry.get("sticky", false) && entity!=null) {
-      isSticky = true;
-    } else {
-      entity = context.getEntity();
-    }
-    if (entity!=null)
-      setContext(new ViewContext(entity));
 
     // Done
   }
@@ -145,43 +133,35 @@ public class EditView extends View implements ContextProvider  {
    */
   private void setEditor(Editor set) {
 
-    // preserve old context and reset current editor to force commit changes
-    ViewContext old = null;
+    // force commit
+    commit();
+
+    // preserve old context 
+    Context context = null;
     if (editor!=null) {
-      old = editor.getContext();
-      editor.setContext(new ViewContext(gedcom));
+      context = editor.getContext();
     }
     
     // remove old editor 
     removeAll();
       
     // keep new
-    editor = set;
-    editor.init(gedcom, this, registry);
-
-    // add to layout
-    add(editor, BorderLayout.CENTER);
-
-    // restore old context
-    if (old!=null)
-      editor.setContext(old);
+    if (set!=null) {
       
+      editor = set;
+  
+      // add to layout
+      add(editor, BorderLayout.CENTER);
+      
+      if (context!=null)
+        editor.setContext(context);
+  
+    }
+    
+    
     // show
     revalidate();
     repaint();
-  }
-
-  /**
-   * @see javax.swing.JComponent#addNotify()
-   */
-  public void addNotify() {
-    
-    // let super do its thing first
-    super.addNotify();    
-    
-    // listen to gedcom
-    callback.enable();
-    
   }
 
   /**
@@ -189,20 +169,21 @@ public class EditView extends View implements ContextProvider  {
    */
   public void removeNotify() {
     
-    // remember context
-    registry.put("sticky", isSticky);
-    Entity entity = editor.getContext().getEntity();
-    if (entity!=null)
-      registry.put("entity", entity.getId());
-
-    // remember mode
-    registry.put("advanced", mode.advanced);
-
-    // don't listen to gedcom
-    callback.disable();
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(undo));
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(redo));
+    select(null, false);
     
+//    // context we're working on?
+//    if (context!=null) {
+//      // remember sticky context
+//      registry.put("sticky", isSticky);
+//      Entity entity = editor.getContext().getEntity();
+//      if (entity!=null)
+//        registry.put("entity", entity.getId());
+//
+//    }
+    
+    // remember mode
+    registry.put("advanced", isAdvanced);
+
     // Continue
     super.removeNotify();
 
@@ -262,40 +243,71 @@ public class EditView extends View implements ContextProvider  {
   
   @Override
   public void commit() {
-    editor.commit();
+    if (editor!=null)
+      editor.commit();
   }
   
   public void select(Context context, boolean isActionPerformed) {
     
-    // ignore if no entity info in it
-    if (context.getEntity()==null)
-      return;
-    
-    // set context unless sticky
-    if (isSticky) 
-      return;
-    
-    if (isActionPerformed) {
+    // no editor?
+    if (editor==null) {
       
+      // nothing to do?
+      if (context==null)
+        return;
+      
+      // create editor
+      setEditor(isAdvanced ? new AdvancedEditor(context.getGedcom(), this, registry) : new BasicEditor(context.getGedcom(), this, registry));
+      
+    }
+ 
+    // switch following?
+    Context old = editor.getContext();
+    if (old!=null && (context==null||context.getGedcom()!=old.getGedcom())) {
+      callback.follow(null);
+      undo.follow(null);
+      redo.follow(null);
+
+    }
+    
+    // inop now?
+    if (context==null) {
+      setEditor(null);
+      return;
+    }
+    
+    // follow
+    callback.follow(context.getGedcom());
+    undo.follow(context.getGedcom());
+    redo.follow(context.getGedcom());
+
+    // follow hard
+    if (isActionPerformed) {
       if (context.getProperty() instanceof PropertyXRef) {
-        
         PropertyXRef xref = (PropertyXRef)context.getProperty();
         xref = xref.getTarget();
         if (xref!=null)
           context = new ViewContext(xref);
       }
-      
-      
     }
     
-    // follow
-    setContext(context);
-    
-    
-  }
-  
-  public void setAdvanced(boolean advanced) {
-    setEditor(advanced ? (Editor)new AdvancedEditor() : new BasicEditor());
+    // keep track of current editor's context
+    if (old.getEntity()!=null && old.getEntity()!=context.getEntity()) {
+
+      backs.push(new Context(old));
+      
+      // trim stack - arbitrarily chosen size
+      while (backs.size()>32)
+        backs.remove(0);
+      
+      back.setEnabled(true);
+      forwards.clear();
+      forward.setEnabled(false);
+    }
+
+    // tell to editors
+    editor.setContext(context);
+
   }
   
   public void back() {
@@ -340,32 +352,6 @@ public class EditView extends View implements ContextProvider  {
   }
 
   
-  public void setContext(Context context) {
-    
-    // keep track of current editor's context
-    ViewContext current = editor.getContext();
-    if (current.getEntity()!=null && current.getEntity()!=context.getEntity()) {
-
-      backs.push(new Context(current));
-      
-      // trim stack - arbitrarily chosen size
-      while (backs.size()>32)
-        backs.remove(0);
-      
-      back.setEnabled(true);
-      forwards.clear();
-      forward.setEnabled(false);
-    }
-
-    // tell to editors
-    editor.setContext(context);
-
-    // update title
-//    context = editor.getContext();
-//    manager.setTitle(this, context!=null&&context.getEntity()!=null?context.getEntity().toString():"");
-    
-  }
-  
   /**
    * @see genj.view.ToolBarSupport#populate(JToolBar)
    */
@@ -377,18 +363,15 @@ public class EditView extends View implements ContextProvider  {
     
     // toggle sticky
     ButtonHelper bh = new ButtonHelper();
-    toolbar.add(bh.create(sticky, Images.imgStickOn, isSticky));
+//    toolbar.add(bh.create(sticky, Images.imgStickOn, isSticky));
     
     // add undo/redo
     toolbar.add(undo);
     toolbar.add(redo);
     
-    // add actions
-    //bar.add(contextMenu);
-    
     // add basic/advanced
     toolbar.addSeparator();
-    toolbar.add(bh.create(mode, Images.imgAdvanced, mode.advanced));
+    toolbar.add(bh.create(mode, Images.imgAdvanced, isAdvanced));
     
     // done
   }
@@ -454,15 +437,13 @@ public class EditView extends View implements ContextProvider  {
    * Action - advanced or basic
    */
   private class Mode extends Action2 {
-    private boolean advanced = false;
     private Mode() {
       setImage(Images.imgView);
-      setEditor(new BasicEditor());
       setTip(resources, "action.mode");
     }
     public void actionPerformed(ActionEvent event) {
-      advanced = !advanced;
-      setAdvanced(advanced);
+      isAdvanced = !isAdvanced;
+      setEditor(isAdvanced ? new AdvancedEditor(getContext().getGedcom(), EditView.this, registry) : new BasicEditor(getContext().getGedcom(), EditView.this, registry));
     }
   } //Advanced
 
@@ -526,20 +507,26 @@ public class EditView extends View implements ContextProvider  {
    */  
   private class Callback extends GedcomListenerAdapter {
     
-    void enable() {
-      gedcom.addGedcomListener((GedcomListener)Spin.over(this));
-      backs.clear();
-      forwards.clear();
-      back.setEnabled(false);
-      forward.setEnabled(false);
-    }
+    private Gedcom gedcom;
     
-    void disable() {
-      gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
-      backs.clear();
-      forwards.clear();
-      back.setEnabled(false);
-      forward.setEnabled(false);
+    void follow(Gedcom newGedcom) {
+      
+      if (gedcom==newGedcom)
+        return;
+      
+      if (gedcom!=null) {
+        gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
+        backs.clear();
+        forwards.clear();
+        back.setEnabled(false);
+        forward.setEnabled(false);
+      }
+      
+      gedcom = newGedcom;
+        
+      if (gedcom!=null) {
+        gedcom.addGedcomListener((GedcomListener)Spin.over(this));
+      }
     }
     
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {

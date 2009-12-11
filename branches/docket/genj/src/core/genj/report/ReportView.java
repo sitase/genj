@@ -100,21 +100,18 @@ public class ReportView extends View {
   /** resources */
   /*package*/ static final Resources RESOURCES = Resources.get(ReportView.class);
 
-  /** title of this view */
-  private String title;
-  
   /** plugin */
   private ReportPlugin plugin = null;
 
   /**
    * Constructor
    */
-  public ReportView(String theTitle, Context context, Registry theRegistry) {
+  public ReportView(Registry registry) {
 
+    this.registry = registry;
+    
     // data
     gedcom   = context.getGedcom();
-    registry = theRegistry;
-    title    = theTitle;
 
     // Output
     output = new Output();
@@ -466,7 +463,7 @@ public class ReportView extends View {
 
       // .. exits ?
       if (file.exists()) {
-        int rc = WindowManager.getInstance().openDialog(null, title, WindowManager.WARNING_MESSAGE, "File exists. Overwrite?", Action2.yesNo(), ReportView.this);
+        int rc = WindowManager.getInstance().openDialog(null, RESOURCES.getString("title"), WindowManager.WARNING_MESSAGE, "File exists. Overwrite?", Action2.yesNo(), ReportView.this);
         if (rc!=0) {
           return;
         }
@@ -477,7 +474,7 @@ public class ReportView extends View {
       try {
         out = new OutputStreamWriter(new FileOutputStream(file), Charset.forName("UTF8"));
       } catch (IOException ex) {
-        WindowManager.getInstance().openDialog(null,title,WindowManager.ERROR_MESSAGE,"Error while saving to\n"+file.getAbsolutePath(),Action2.okOnly(),ReportView.this);
+        WindowManager.getInstance().openDialog(null,RESOURCES.getString("title"),WindowManager.ERROR_MESSAGE,"Error while saving to\n"+file.getAbsolutePath(),Action2.okOnly(),ReportView.this);
         return;
       }
 

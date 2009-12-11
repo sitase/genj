@@ -19,7 +19,6 @@
  */
 package genj.report;
 
-import genj.gedcom.Context;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
@@ -37,8 +36,8 @@ public class ReportViewFactory implements ViewFactory {
   /**
    * Factory method - create instance of view
    */
-  public View createView(String title, Registry registry, Context context) {
-    return new ReportView(title,context,registry);
+  public View createView(Registry registry) {
+    return new ReportView(registry);
   }
   
   /**

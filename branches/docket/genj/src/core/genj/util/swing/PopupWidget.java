@@ -30,6 +30,8 @@ import java.util.List;
 import javax.swing.DefaultButtonModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.JToolBar;
 import javax.swing.SwingUtilities;
@@ -165,11 +167,16 @@ public class PopupWidget extends JButton {
       return null;
 
     // .. create an populate        
-    MenuHelper mh = new MenuHelper();
-    JPopupMenu popup = mh.createPopup();
+    JPopupMenu popup = new JPopupMenu();
     if (as.size()>16) // NM 20051108 don't let this get too big
       popup.setLayout(new GridLayout(0,(int)Math.ceil(as.size()/16F)));
-    mh.createItems(as);
+    for (Object action : as) {
+      if (action instanceof Action2)
+        popup.add(new JMenuItem((Action2)action));
+      else if (action instanceof JComponent)
+        popup.add((JComponent)action);
+      else throw new IllegalArgumentException("popup doesn't support "+action);
+    }
     
     // done
     return popup;

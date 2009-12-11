@@ -21,6 +21,8 @@ package genj.edit.actions;
 
 import java.awt.event.ActionEvent;
 
+import spin.Spin;
+
 import genj.edit.Images;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
@@ -36,6 +38,13 @@ public class Undo extends Action2 implements GedcomMetaListener {
   /** the gedcom */
   private Gedcom gedcom;
   
+  /**
+   * Constructor
+   */
+  public Undo() {
+    this(null, false);
+  }
+
   /**
    * Constructor
    */
@@ -58,12 +67,29 @@ public class Undo extends Action2 implements GedcomMetaListener {
     this.gedcom = gedcom;
     
   }
+  
+  public void follow(Gedcom newGedcom) {
+    
+    if (gedcom==newGedcom)
+      return;
+    
+    if (gedcom!=null)
+      gedcom.removeGedcomListener((GedcomMetaListener)Spin.over(this));
+    
+    gedcom = newGedcom;
+    
+    if (gedcom!=null)
+      gedcom.addGedcomListener((GedcomMetaListener)Spin.over(this));
+    
+    
+    setEnabled(gedcom!=null && gedcom.canUndo());
+  }
 
   /**
    * Undo changes from last transaction
    */
   public void actionPerformed(ActionEvent event) {
-    if (gedcom.canUndo())
+    if (gedcom!=null&&gedcom.canUndo())
       gedcom.undoUnitOfWork();
   }
   
@@ -104,7 +130,8 @@ public class Undo extends Action2 implements GedcomMetaListener {
   }
 
   public void gedcomWriteLockReleased(Gedcom gedcom) {
-    setEnabled(gedcom.canUndo());
+    if (this.gedcom==gedcom)
+      setEnabled(gedcom.canUndo());
   }
 } //Undo
 

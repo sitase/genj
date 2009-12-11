@@ -19,7 +19,6 @@
  */
 package genj.entity;
 
-import genj.gedcom.Context;
 import genj.util.Registry;
 import genj.util.swing.ImageIcon;
 import genj.view.View;
@@ -34,8 +33,8 @@ public class EntityViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry)
    */
-  public View createView(String title, Registry registry, Context context) {
-    return new EntityView(title, context, registry);
+  public View createView(Registry registry) {
+    return new EntityView(registry);
   }
 
   /**

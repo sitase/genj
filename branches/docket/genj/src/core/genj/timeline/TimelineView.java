@@ -145,7 +145,7 @@ public class TimelineView extends View {
   /**
    * Constructor
    */
-  public TimelineView(String title, Context context, Registry registry) {
+  public TimelineView(Registry registry) {
     
     // remember
     DPI = Options.getInstance().getDPI();

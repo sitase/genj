@@ -70,6 +70,8 @@ public class SafeProxy {
         return method.invoke(impl, args);
       } catch (InvocationTargetException ite) {
         t = ite.getCause();
+      } catch (Throwable tt) {
+        t = tt;
       }
       logger.log(Level.WARNING, "Implementation "+impl.getClass().getName() + "." + method.getName()+" threw exception "+t.getClass().getName()+"("+t.getMessage()+")", t);
       return null;

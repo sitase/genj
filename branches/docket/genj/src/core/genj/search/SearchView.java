@@ -131,7 +131,7 @@ public class SearchView extends View {
   /**
    * Constructor
    */
-  public SearchView(Context context, Registry registry) {
+  public SearchView(Registry registry) {
     
     // remember
     gedcom = context.getGedcom();
