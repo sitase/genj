@@ -77,6 +77,14 @@ public class EnvironmentChecker {
     // o.k. this should be more flexible 8)
     return version.startsWith("1.5") || version.startsWith("1.6");
   }
+
+  /**
+   * Check for Java 1.6 and higher
+   */
+  public static boolean isJava16(Object receipient) {
+    String version = getProperty(receipient, "java.version", "", "Checking Java VM version");
+    return version.startsWith("1.6");
+  }
   
   /**
    * Check for Mac

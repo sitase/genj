@@ -17,13 +17,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.37 $ $Author: nmeier $ $Date: 2009-02-18 13:07:13 $
+ * $Revision: 1.37.2.1 $ $Author: nmeier $ $Date: 2009-12-12 19:08:31 $
  */
 package genj.util;
 
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Frame;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.geom.Point2D;
@@ -45,6 +46,8 @@ import java.util.Properties;
 import java.util.Vector;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.swing.JFrame;
 
 /**
  * Registry - improved java.util.Properties
@@ -809,6 +812,26 @@ public class Registry {
     }
 
     // Done
+  }
+
+  /**
+   * store JFrame characteristics
+   */
+  public void put(String key, JFrame frame) {
+    Rectangle bounds = frame.getBounds();
+    boolean maximized = frame.getExtendedState()==JFrame.MAXIMIZED_BOTH;
+    if (bounds!=null&&!maximized)
+      put(key, bounds);
+    put(key+".maximized", maximized);
+  }
+  
+  public JFrame get(String key, JFrame frame) {
+    
+    frame.setBounds(get(key, new Rectangle(0,0,640,480)));
+    if (get(key+".maximized", true))
+      frame.setExtendedState(Frame.MAXIMIZED_BOTH);
+    
+    return frame;
   }
 
 } //Registry

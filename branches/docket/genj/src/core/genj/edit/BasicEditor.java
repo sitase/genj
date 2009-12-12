@@ -141,8 +141,6 @@ import spin.Spin;
    * Intercepted remove notification
    */
   public void removeNotify() {
-    // clean up state
-    setEntity(null, null);
     // stop listening to gedcom events
     gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
     // let super continue
@@ -241,6 +239,7 @@ import spin.Spin;
     // remove all we've setup to this point
     if (beanPanel!=null) {
       removeAll();
+      beanPanel.clear();
       beanPanel=null;
     }
 
@@ -499,7 +498,7 @@ import spin.Spin;
     /**
      * destructor - call when panel isn't needed anymore 
      */
-    public void removeNotify() {
+    void clear() {
       
       // get rid of all beans
       removeAll();
@@ -517,9 +516,6 @@ import spin.Spin;
         }
       }
       beans.clear();
-      
-      // done
-      super.removeNotify();
       
     }
     

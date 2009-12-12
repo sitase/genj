@@ -329,7 +329,9 @@ public class Workbench extends JPanel implements SelectionSink {
     // connect dots
     stats.setGedcom(gedcom);
 
-    // tell plugins
+    // tell everone
+    fireSelection(context, true);
+    
     for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
         ((WorkbenchListener)plugin).gedcomOpened(gedcom);
     
@@ -516,9 +518,9 @@ public class Workbench extends JPanel implements SelectionSink {
 
     }
     
-    // close dockets
-    for (Object key : dockingPane.getDockableKeys())
-      dockingPane.removeDockable(key);
+    // tell plugins
+    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
+      ((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
     
     // disable gedcom buttons
     for (Action a : gedcomActions) 
@@ -527,19 +529,14 @@ public class Workbench extends JPanel implements SelectionSink {
     // clear stats
     stats.setGedcom(null);
     
-    // clear tools
-    uninstallTools();
-    
-    // tell plugins
-    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
-      ((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
-    
     // remember context
     registry.put(context.getGedcom().getName(), context.toString());
 
     // unregister
     GedcomDirectory.getInstance().unregisterGedcom(context.getGedcom());
-    context = null;
+
+    // let it fall through
+    fireSelection(null, true);
 
     // done
     return true;
@@ -611,14 +608,21 @@ public class Workbench extends JPanel implements SelectionSink {
   public void fireSelection(Context context, boolean isActionPerformed) {
 
     // known?
-    if (this.context.equals(context) && !isActionPerformed)
+    if (!isActionPerformed && this.context.equals(context))
       return;
     
     LOG.fine("fireSelection("+context+","+isActionPerformed+")");
     
+    // no tools
+    uninstallTools();    
+    
     // remember 
-    this.context = new Context(context);
-    registry.put(context.getGedcom().getName()+".context", context.toString());
+    if (context==null) {
+      this.context = null;
+    } else {
+      this.context = new Context(context);
+      registry.put(context.getGedcom().getName()+".context", context.toString());
+    }
     
     // notify
     for (WorkbenchListener listener : listeners) 
@@ -630,9 +634,8 @@ public class Workbench extends JPanel implements SelectionSink {
   
   private void uninstallTools() {
     
-    // can't be if context == null
     if (context==null)
-      throw new IllegalArgumentException("context==null");
+      return;
     
     // unhook up actions to gedcom
     removeGedcomListeners(menu.getTools());
@@ -645,9 +648,8 @@ public class Workbench extends JPanel implements SelectionSink {
   
   private void installTools() {
     
-    // can't be if context == null
     if (context==null)
-      throw new IllegalArgumentException("context==null");
+      return;
     
     // cleanup first
     uninstallTools();
@@ -701,14 +703,14 @@ public class Workbench extends JPanel implements SelectionSink {
         gedcom.removeGedcomListener((GedcomListener)action);
   }
   
-  /*package*/ void fireViewOpened(View view) {
+  private void fireViewOpened(View view) {
     // tell plugins
     for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
       ((WorkbenchListener)plugin).viewOpened(view);
     
   }
 
-  /*package*/ void fireViewClosed(View view) {
+  private void fireViewClosed(View view) {
     // tell plugins
     for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
       ((WorkbenchListener)plugin).viewClosed(view);
@@ -736,7 +738,16 @@ public class Workbench extends JPanel implements SelectionSink {
    * close a view
    */
   public void closeView(Class<? extends ViewFactory> factory) {
+    
+    View view = getView(factory);
+    if (view==null)
+      return;
+    
     dockingPane.removeDockable(factory);
+
+    // tell others
+    fireViewClosed(view);
+
   }
   
   /**
@@ -762,10 +773,6 @@ public class Workbench extends JPanel implements SelectionSink {
   
   private View openViewImpl(ViewFactory factory, Context context) {
     
-    // grab current Gedcom
-    if (this.context == null || context.getGedcom()!=this.context.getGedcom())
-      throw new IllegalArgumentException("Invalid context");
-
     // already open or new
     ViewDockable dockable = (ViewDockable)dockingPane.getDockable(factory.getClass());
     if (dockable != null) {
@@ -778,12 +785,14 @@ public class Workbench extends JPanel implements SelectionSink {
     // open it & signal current selection
     try {
       dockable = new ViewDockable(Workbench.this, factory, registry);
-      dockable.selectionChanged(context, false);
     } catch (Throwable t) {
       LOG.log(Level.WARNING, "cannot open view for "+factory.getClass().getName(), t);
       return null;
     }
     dockingPane.putDockable(factory.getClass(), dockable);
+
+    // tell others
+    fireViewOpened(dockable.getView());
 
     return dockable.getView();
   }
@@ -981,18 +990,10 @@ public class Workbench extends JPanel implements SelectionSink {
       setText(factory.getTitle());
       setTip(RES.getString("cc.tip.open_view", factory.getTitle()));
       setImage(factory.getImage());
-      setEnabled(false);
     }
 
     /** run */
     public void actionPerformed(ActionEvent event) {
-      if (context==null)
-        return;
-      if (context.getEntity()==null) {
-        Entity adam = context.getGedcom().getFirstEntity(Gedcom.INDI);
-        if (adam!=null)
-          context = new Context(adam);
-      }
       openViewImpl(factory, context);
     }
   } // ActionOpenView
@@ -1160,7 +1161,6 @@ public class Workbench extends JPanel implements SelectionSink {
   
       for (ViewFactory factory : viewFactories) {
         ActionOpenView action = new ActionOpenView(factory);
-        gedcomActions.add(action);
         mh.createItem(action);
       }
       mh.createSeparator();

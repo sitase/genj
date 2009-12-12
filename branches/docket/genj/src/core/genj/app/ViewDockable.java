@@ -110,9 +110,9 @@ import swingx.docking.Docked;
     // listen to workbench
     workbench.addWorkbenchListener(this);
     
-    // tell others
-    workbench.fireViewOpened(view);
-
+    // set context
+    view.select(workbench.getContext(), true);
+    
     // only if ToolBarSupport and no bar installed
     final AtomicBoolean toolbar = new AtomicBoolean(false);
     
@@ -171,9 +171,9 @@ import swingx.docking.Docked;
 
     // don't listen to workbench
     workbench.removeWorkbenchListener(this);
-    
-    // tell others
-    workbench.fireViewClosed(view);
+
+    // clear context for cleanup
+    view.select(null, true);
 
     // continue
     super.undocked();

@@ -159,18 +159,18 @@ public class PropertyRenderer {
    * @param preference rendering preference
    * @param dpi resolution or null  
    */
-  public final void render(Graphics2D g, Rectangle bounds, Property prop, Map attributes, Point dpi) {
+  public final void render(Graphics2D g, Rectangle bounds, Property prop, Map<String,String> attributes, Point dpi) {
     renderImpl(g,bounds,prop,attributes,dpi);
   }
   
-  protected void renderImpl(Graphics2D g, Rectangle bounds, Property prop, Map attributes, Point dpi) {
+  protected void renderImpl(Graphics2D g, Rectangle bounds, Property prop, Map<String,String> attributes, Point dpi) {
     renderImpl(g,bounds,prop,prop.getDisplayValue(),attributes,dpi);
   }
   
   /**
    * Implementation for rendering img/txt 
    */
-  protected void renderImpl(Graphics2D g, Rectangle bounds, Property prop, String txt, Map attributes, Point dpi) {
+  protected void renderImpl(Graphics2D g, Rectangle bounds, Property prop, String txt, Map<String,String> attributes, Point dpi) {
     // image?
     if ("yes".equals(attributes.get("img"))) 
       renderImpl(g, bounds, prop.getImage(false), dpi);

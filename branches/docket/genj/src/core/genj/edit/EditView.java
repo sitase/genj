@@ -55,6 +55,7 @@ import javax.swing.InputMap;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JToggleButton;
 import javax.swing.KeyStroke;
 
 import spin.Spin;
@@ -79,18 +80,14 @@ public class EditView extends View implements ContextProvider  {
   static final Resources resources = Resources.get(EditView.class);
 
   /** actions we offer */
-  private Sticky   sticky = new Sticky();
   private Back     back = new Back();
   private Forward  forward = new Forward();
-  private Mode     mode;
+  private Mode     mode = new Mode();
   private Callback callback = new Callback();
-  private Undo undo;
-  private Redo redo;
-  private boolean isAdvanced = false;
+  private Undo undo = new Undo();
+  private Redo redo = new Redo();
+  private Sticky sticky = new Sticky();
   
-  /** whether we're sticky */
-  private  boolean isSticky = false;
-
   /** current editor */
   private Editor editor;
   
@@ -104,11 +101,6 @@ public class EditView extends View implements ContextProvider  {
     // remember
     this.registry = registry;
     beanFactory = new BeanFactory(registry);
-
-    // prepare action
-    mode = new Mode();
-    undo = new Undo();
-    redo = new Redo();
 
     // run mode switch if applicable
 //    mode= registry.get("advanced", false);
@@ -133,61 +125,34 @@ public class EditView extends View implements ContextProvider  {
    */
   private void setEditor(Editor set) {
 
-    // force commit
-    commit();
-
-    // preserve old context 
-    Context context = null;
-    if (editor!=null) {
-      context = editor.getContext();
+    Context old = null;
+    if (set!=null) {
+      
+      // force commit
+      commit();
+  
+      // preserve old context 
+      old = editor!=null ? editor.getContext() : null;
     }
     
     // remove old editor 
     removeAll();
       
     // keep new
-    if (set!=null) {
-      
-      editor = set;
+    editor = set;
+    if (editor!=null) {
   
       // add to layout
       add(editor, BorderLayout.CENTER);
       
-      if (context!=null)
-        editor.setContext(context);
+      if (old!=null)
+        editor.setContext(old);
   
     }
-    
     
     // show
     revalidate();
     repaint();
-  }
-
-  /**
-   * Notification when component is not used any more
-   */
-  public void removeNotify() {
-    
-    select(null, false);
-    
-//    // context we're working on?
-//    if (context!=null) {
-//      // remember sticky context
-//      registry.put("sticky", isSticky);
-//      Entity entity = editor.getContext().getEntity();
-//      if (entity!=null)
-//        registry.put("entity", entity.getId());
-//
-//    }
-    
-    // remember mode
-    registry.put("advanced", isAdvanced);
-
-    // Continue
-    super.removeNotify();
-
-    // Done
   }
   
   /**
@@ -238,7 +203,7 @@ public class EditView extends View implements ContextProvider  {
    * ContextProvider callback
    */
   public ViewContext getContext() {
-    return editor.getContext();
+    return editor!=null ? editor.getContext() : null;
   }
   
   @Override
@@ -257,10 +222,11 @@ public class EditView extends View implements ContextProvider  {
         return;
       
       // create editor
-      setEditor(isAdvanced ? new AdvancedEditor(context.getGedcom(), this, registry) : new BasicEditor(context.getGedcom(), this, registry));
-      
+      setEditor(mode.isSelected() ? new AdvancedEditor(context.getGedcom(), this, registry) : new BasicEditor(context.getGedcom(), this, registry));
+
+      sticky.setSelected(false);
     }
- 
+      
     // switch following?
     Context old = editor.getContext();
     if (old!=null && (context==null||context.getGedcom()!=old.getGedcom())) {
@@ -268,6 +234,10 @@ public class EditView extends View implements ContextProvider  {
       undo.follow(null);
       redo.follow(null);
 
+    } else {
+      // sticky?
+      if (sticky.isSelected())
+        return;
     }
     
     // inop now?
@@ -289,6 +259,7 @@ public class EditView extends View implements ContextProvider  {
         if (xref!=null)
           context = new ViewContext(xref);
       }
+
     }
     
     // keep track of current editor's context
@@ -361,17 +332,14 @@ public class EditView extends View implements ContextProvider  {
     toolbar.add(back);
     toolbar.add(forward);
     
-    // toggle sticky
-    ButtonHelper bh = new ButtonHelper();
-//    toolbar.add(bh.create(sticky, Images.imgStickOn, isSticky));
-    
-    // add undo/redo
+    // add undo/redo/sticky
+    toolbar.add(new JToggleButton(sticky));
     toolbar.add(undo);
     toolbar.add(redo);
     
     // add basic/advanced
     toolbar.addSeparator();
-    toolbar.add(bh.create(mode, Images.imgAdvanced, isAdvanced));
+    toolbar.add(new JToggleButton(mode));
     
     // done
   }
@@ -381,13 +349,6 @@ public class EditView extends View implements ContextProvider  {
    */
   public Dimension getPreferredSize() {
     return new Dimension(256,480);
-  }
-  
-  /**
-   * whether we're sticky
-   */
-  public boolean isSticky() {
-    return isSticky;
   }
   
   /**
@@ -426,10 +387,16 @@ public class EditView extends View implements ContextProvider  {
     protected Sticky() {
       super.setImage(Images.imgStickOff);
       super.setTip(resources, "action.stick.tip");
+      super.setSelected(false);
     }
     /** run */
     public void actionPerformed(ActionEvent event) {
-      isSticky = !isSticky;
+      setSelected(isSelected());
+    }
+    @Override
+    public void setSelected(boolean selected) {
+      super.setSelected(selected);
+      super.setImage(isSelected() ? Images.imgStickOn : Images.imgStickOff);
     }
   } //Sticky
   
@@ -440,10 +407,12 @@ public class EditView extends View implements ContextProvider  {
     private Mode() {
       setImage(Images.imgView);
       setTip(resources, "action.mode");
+      super.setSelected(false);
     }
     public void actionPerformed(ActionEvent event) {
-      isAdvanced = !isAdvanced;
-      setEditor(isAdvanced ? new AdvancedEditor(getContext().getGedcom(), EditView.this, registry) : new BasicEditor(getContext().getGedcom(), EditView.this, registry));
+      registry.put("advanced", isSelected());
+      if (getContext()!=null)
+        setEditor(isSelected() ? new AdvancedEditor(getContext().getGedcom(), EditView.this, registry) : new BasicEditor(getContext().getGedcom(), EditView.this, registry));
     }
   } //Advanced
 
@@ -460,6 +429,7 @@ public class EditView extends View implements ContextProvider  {
       // patch looks
       setImage(Images.imgForward);
       setTip(Resources.get(this).getString("action.forward.tip"));
+      setEnabled(false);
       
     }
     

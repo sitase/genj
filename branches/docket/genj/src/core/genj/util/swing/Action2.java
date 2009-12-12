@@ -50,7 +50,8 @@ public class Action2 extends AbstractAction {
     KEY_TIP = Action.SHORT_DESCRIPTION,
     KEY_ENABLED = "enabled",
     KEY_MNEMONIC = Action.MNEMONIC_KEY,
-    KEY_ICON = Action.SMALL_ICON;
+    KEY_ICON = Action.SMALL_ICON,
+    KEY_SELECTED = Action.SELECTED_KEY;
     
   private final static Logger LOG = Logger.getLogger("genj.actions");
   
@@ -264,6 +265,13 @@ public class Action2 extends AbstractAction {
     component.getActionMap().put(this, this);
   }
 
+  public boolean isSelected() {
+    return Boolean.TRUE.equals((Boolean)getValue(KEY_SELECTED));
+  }
+  
+  public void setSelected(boolean selected) {
+    putValue(KEY_SELECTED, selected ? Boolean.TRUE : Boolean.FALSE);
+  }
   
   /**
    * An action group

@@ -177,6 +177,10 @@ import javax.swing.tree.TreePath;
     setFocusTraversalPolicy(new FocusPolicy());
     setFocusCycleRoot(true);
     
+    // shortcuts
+    new Cut().install(this, ACC_CUT, JComponent.WHEN_FOCUSED);
+    new Copy().install(this, ACC_COPY, JComponent.WHEN_FOCUSED);
+    new Paste().install(this, ACC_PASTE, JComponent.WHEN_FOCUSED);
     // done    
   }
   
@@ -187,17 +191,6 @@ import javax.swing.tree.TreePath;
     return tree.getContext();
   }
 
-  @Override
-  public void addNotify() {
-    // continue
-    super.addNotify();
-    // shortcuts
-    new Cut().install(this, ACC_CUT, JComponent.WHEN_FOCUSED);
-    new Copy().install(this, ACC_COPY, JComponent.WHEN_FOCUSED);
-    new Paste().install(this, ACC_PASTE, JComponent.WHEN_FOCUSED);
-    
-  }
-  
   /**
    * Component callback event in case removed from parent. Used
    * for storing current state.

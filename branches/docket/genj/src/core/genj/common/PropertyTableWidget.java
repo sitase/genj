@@ -34,6 +34,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.HeadlessLabel;
 import genj.util.swing.LinkWidget;
 import genj.util.swing.SortableTableModel;
+import genj.util.swing.SortableTableModel.Directive;
 import genj.view.ContextProvider;
 import genj.view.SelectionSink;
 import genj.view.ViewContext;
@@ -128,20 +129,17 @@ public class PropertyTableWidget extends JPanel  {
   }
   
   /**
-   * Component lifecycle callback - removed
-   */
-  public void removeNotify() {
-    super.removeNotify();
-    // clear table's current model - lifecycle destructor
-    // so to say that will disconnect listeners recursively
-    table.setPropertyModel(null);
-  }
-  
-  /**
    * Setter for current model
    */
   public void setModel(PropertyTableModel set) {
-    table.setPropertyModel(set);
+    table.setPropertyTableModel(set);
+  }
+  
+  /**
+   * Getter for current model
+   */
+  public PropertyTableModel getModel() {
+    return table.getPropertyTableModel();
   }
   
   /**
@@ -162,6 +160,9 @@ public class PropertyTableWidget extends JPanel  {
    * Select a cell
    */
   public void select(Context context) {
+    
+    if (context.getGedcom()!=getModel().getGedcom())
+      throw new IllegalArgumentException("select on wrong gedcom");
     
     // set selection
     try {
@@ -231,7 +232,7 @@ public class PropertyTableWidget extends JPanel  {
     
     SortableTableModel model = (SortableTableModel)table.getModel();
     TableColumnModel columns = table.getColumnModel();
-    List directives = model.getDirectives();
+    List<Directive> directives = model.getDirectives();
 
     WordBuffer result = new WordBuffer(",");
     result.append(columns.getColumnCount());
@@ -317,7 +318,7 @@ public class PropertyTableWidget extends JPanel  {
      */
     Table() {
 
-      setPropertyModel(null);
+      setPropertyTableModel(null);
       setDefaultRenderer(Object.class, new Renderer());
       getSelectionModel().setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
       getColumnModel().setColumnSelectionAllowed(true);
@@ -483,12 +484,19 @@ public class PropertyTableWidget extends JPanel  {
     /**
      * setting a property model
      */
-    void setPropertyModel(PropertyTableModel propertyModel) {
+    void setPropertyTableModel(PropertyTableModel propertyModel) {
       // remember
       this.propertyModel = propertyModel;
       // pass through 
       sortableModel.setTableModel(new Model(propertyModel));
 
+    }
+    
+    /**
+     * accessing property model
+     */
+    PropertyTableModel getPropertyTableModel() {
+      return propertyModel;
     }
     
     /** 
@@ -764,7 +772,7 @@ public class PropertyTableWidget extends JPanel  {
       public Dimension getPreferredSize() {
         if (curProp==null)
           return new Dimension(0,0);
-        return Dimension2d.getDimension(PropertyRenderer.get(curProp).getSize(getFont(), new FontRenderContext(null, false, false), curProp, new HashMap(), Options.getInstance().getDPI()));
+        return Dimension2d.getDimension(PropertyRenderer.get(curProp).getSize(getFont(), new FontRenderContext(null, false, false), curProp, new HashMap<String,String>(), Options.getInstance().getDPI()));
       }
       
       /**
@@ -794,7 +802,7 @@ public class PropertyTableWidget extends JPanel  {
         bounds.x += 1;
         bounds.width -= 2;
         // let it render
-        proxy.render(graphics, bounds, curProp, new HashMap(), Options.getInstance().getDPI());
+        proxy.render(graphics, bounds, curProp, new HashMap<String,String>(), Options.getInstance().getDPI());
         // done
       }
       

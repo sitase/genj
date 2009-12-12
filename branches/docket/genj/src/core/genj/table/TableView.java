@@ -20,11 +20,11 @@
 package genj.table;
 
 import genj.common.AbstractPropertyTableModel;
+import genj.common.PropertyTableModel;
 import genj.common.PropertyTableWidget;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomListener;
 import genj.gedcom.Property;
 import genj.gedcom.TagPath;
 import genj.util.Registry;
@@ -36,17 +36,12 @@ import genj.view.View;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
-import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
-import javax.swing.JComponent;
-import javax.swing.KeyStroke;
-import javax.swing.SwingUtilities;
 import javax.swing.table.TableModel;
 
 /**
@@ -78,7 +73,7 @@ public class TableView extends View {
     };
   
   /** current type we're showing */
-  private Mode currentMode = getMode(Gedcom.INDI);
+  private Mode currentMode;
   
   /**
    * Constructor
@@ -88,9 +83,10 @@ public class TableView extends View {
     // keep some stuff
     this.registry = registry;
     
-    // read properties
-    loadProperties();
-    
+    // get modes
+    for (Mode mode : modes.values())
+      mode.load(registry);
+
     // create our table
     propertyTable = new PropertyTableWidget(null);
     propertyTable.setAutoResize(false);
@@ -98,6 +94,12 @@ public class TableView extends View {
     // lay it out
     setLayout(new BorderLayout());
     add(propertyTable, BorderLayout.CENTER);
+    
+    // get current mode
+    currentMode = getMode(Gedcom.INDI);
+    String tag = registry.get("mode", "");
+    if (modes.containsKey(tag))
+      currentMode = getMode(tag);
     
     // shortcuts KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, KeyEvent.CTRL_DOWN_MASK)
     new NextMode(true).install(this, "ctrl pressed LEFT");
@@ -115,30 +117,6 @@ public class TableView extends View {
    */
   public Dimension getPreferredSize() {
     return new Dimension(480,320);
-  }
-  
-  /**
-   * callback - chance to hook-up on add
-   */  
-  public void addNotify() {
-    // continue
-    super.addNotify();
-    // hook on
-    Mode set = currentMode;
-    currentMode = null;
-    setMode(set);
-  }
-
-  /**
-   * callback - chance to hook-off on remove
-   */
-  public void removeNotify() {
-    // save state
-    saveProperties();
-    // delegate
-    super.removeNotify();
-    // make sure the swing model is disconnected from gedcom model
-    propertyTable.setModel(null);
   }
   
   /**
@@ -165,19 +143,41 @@ public class TableView extends View {
    * Sets the type of entities to look at
    */
   /*package*/ void setMode(Mode set) {
+    PropertyTableModel currentModel = propertyTable.getModel();
+    
     // give mode a change to grab what it wants to preserve
-    if (currentMode!=null)
+    if (currentModel!=null&&currentMode!=null)
       currentMode.save(registry);
+    
     // remember current mode
     currentMode = set;
+    
     // tell to table
-    propertyTable.setModel(new Model(currentMode));
-    // update its layout
-    propertyTable.setColumnLayout(currentMode.layout);
+    if (currentModel!=null) {
+      propertyTable.setModel(new Model(currentModel.getGedcom(),currentMode));
+      propertyTable.setColumnLayout(currentMode.layout);
+    }
   }
   
   @Override
   public void select(Context context, boolean isActionPerformed) {
+
+    PropertyTableModel old = propertyTable.getModel();
+    
+    // clear?
+    if (context==null) {
+      if (old!=null)
+        propertyTable.setModel(null);
+      return;
+    }
+    
+    // new gedcom?
+    if (old==null||old.getGedcom()!=context.getGedcom()) {
+      propertyTable.setModel(new Model(context.getGedcom(), currentMode));
+      propertyTable.setColumnLayout(currentMode.layout);
+    }
+
+    // select
     propertyTable.select(context);
   }
   
@@ -194,39 +194,16 @@ public class TableView extends View {
   }
   
   /**
-   * Read properties from registry
+   * Write table settings before going
    */
-  private void loadProperties() {
-
-    // get modes
-    Iterator it = modes.values().iterator();
-    while (it.hasNext()) {
-      Mode mode = (Mode)it.next();
-      mode.load(registry);
-    }
-
-    // get current mode
-    String tag = registry.get("mode", "");
-    if (modes.containsKey(tag))
-      currentMode = getMode(tag);
-    
-    // Done
-  }
-  
-  /**
-   * Write properties from registry
-   */
-  private void saveProperties() {
-    
-    // save current type
-    registry.put("mode", currentMode.getTag());
-    
+  @Override
+  public void removeNotify() {
     // save modes
     for (Mode mode : modes.values())
       mode.save(registry);
-    
-    // Done
-  }  
+    // continue
+    super.removeNotify();
+  }
   
   /**
    * Action - go to next mode
@@ -266,6 +243,9 @@ public class TableView extends View {
     /** run */
     public void actionPerformed(ActionEvent event) {
       setMode(mode);
+      
+      // save current type
+      registry.put("mode", mode.getTag());
     }
   } //ActionMode
   
@@ -439,7 +419,7 @@ public class TableView extends View {
     private void save(Registry r) {
       
       // grab current column widths & sort column
-      if (currentMode==this) 
+      if (currentMode==this && propertyTable.getModel()!=null) 
         layout = propertyTable.getColumnLayout();
 
 	    registry.put(tag+".paths" , paths);
