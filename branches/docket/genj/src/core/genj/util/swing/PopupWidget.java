@@ -192,7 +192,7 @@ public class PopupWidget extends JButton {
   /**
    * Accessor - the actions in the popup
    */
-  public void setActions(List actions) {
+  public void setActions(List<?> actions) {
     items = actions;
   }
 

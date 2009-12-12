@@ -99,8 +99,9 @@ public class ContextListWidget extends JList implements ContextProvider {
   }
   
   /**
-   * @see JComponent#addNotify()
+   * Component added is listening to gedcom
    */
+  @Override
   public void addNotify() {
     // let super do its thing
     super.addNotify();
@@ -109,8 +110,9 @@ public class ContextListWidget extends JList implements ContextProvider {
   }
   
   /**
-   * @see JComponent#removeNotify()
+   * Component removed is not listening to gedcom
    */
+  @Override
   public void removeNotify() {
     // disconnect from gedcom
     ged.removeGedcomListener((GedcomListener)Spin.over(getModel()));
@@ -144,7 +146,7 @@ public class ContextListWidget extends JList implements ContextProvider {
   /**
    * @see JList#setListData(java.util.Vector)
    */
-  public void setListData(Vector listData) {
+  public void setListData(Vector<?> listData) {
     throw new IllegalArgumentException("setListData() n/a");
   }
   
@@ -155,7 +157,7 @@ public class ContextListWidget extends JList implements ContextProvider {
     
     private List<ViewContext> list = new ArrayList<ViewContext>();
     
-    private void setContextList(List set) {
+    private void setContextList(List<ViewContext> set) {
       // clear old
       int n = list.size();
       list.clear();

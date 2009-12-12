@@ -53,15 +53,14 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.logging.Level;
 
 import javax.swing.Action;
@@ -168,6 +167,12 @@ import javax.swing.tree.TreePath;
     // SplitPane with tree/edit
     splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, treePane, editScroll);
     splitPane.setDividerLocation(registry.get("divider",-1));
+    splitPane.addPropertyChangeListener(new PropertyChangeListener() {
+      public void propertyChange(PropertyChangeEvent evt) {
+        if (JSplitPane.DIVIDER_LOCATION_PROPERTY.equals(evt.getPropertyName()))
+          registry.put("divider",splitPane.getDividerLocation());
+      }
+    });
 
     // layout
     setLayout(new BorderLayout());
@@ -189,18 +194,6 @@ import javax.swing.tree.TreePath;
    */
   public ViewContext getContext() {
     return tree.getContext();
-  }
-
-  /**
-   * Component callback event in case removed from parent. Used
-   * for storing current state.
-   */
-  public void removeNotify() {
-    // remember
-    registry.put("divider",splitPane.getDividerLocation());
-    
-    // continue
-    super.removeNotify();
   }
 
   /**
@@ -261,11 +254,11 @@ import javax.swing.tree.TreePath;
   private class Propagate extends Action2 {
     /** selection to propagate */
     private Entity entity;
-    private List properties;
+    private List<Property> properties;
     private String what;
     
     /** constructor */
-    private Propagate(List selection) {
+    private Propagate(List<Property> selection) {
       // remember
       this.entity = (Entity)tree.getRoot();
       properties = Property.normalize(selection);
@@ -318,9 +311,8 @@ import javax.swing.tree.TreePath;
       try {
         gedcom.doUnitOfWork(new UnitOfWork() {        
           public void perform(Gedcom gedcom) throws GedcomException {
-            Collection to = selection!=null ? Collections.singletonList(selection) : gedcom.getEntities(entity.getTag());
-            for (Iterator it = to.iterator(); it.hasNext(); ) 
-              Propagate.this.copy(properties, entity, (Entity)it.next(), check.isSelected());
+            for (Entity to : selection!=null ? Collections.singletonList(selection) : gedcom.getEntities(entity.getTag())) 
+              Propagate.this.copy(properties, entity, to, check.isSelected());
           }
         });
       } catch (GedcomException e) {
@@ -330,13 +322,12 @@ import javax.swing.tree.TreePath;
       // done
     }
     
-    private void copy(List selection, Entity from, Entity to, boolean values)  throws GedcomException {
+    private void copy(List<Property> selection, Entity from, Entity to, boolean values)  throws GedcomException {
       // make sure we're not propagating to self
       if (from==to)
         return;
       // loop over selection
-      for (int i=0;i<selection.size();i++) {
-        Property property = (Property)selection.get(i);
+      for (Property property : selection) {
         TagPath path = property.getParent().getPath();
         Property root = to.getProperty(path);
         if (root==null)
@@ -353,10 +344,10 @@ import javax.swing.tree.TreePath;
   private class Cut extends Action2 {
 
     /** selection */
-    protected List presetSelection; 
+    protected List<Property> presetSelection; 
     
     /** constructor */
-    private Cut(List preset) {
+    private Cut(List<Property> preset) {
       presetSelection = Property.normalize(preset);
       super.setImage(Images.imgCut);
       super.setText(resources.getString("action.cut"));
@@ -370,7 +361,7 @@ import javax.swing.tree.TreePath;
     public void actionPerformed(ActionEvent event) {
       
       // available
-      final List selection = presetSelection!=null ? presetSelection : Property.normalize(tree.getSelection());
+      final List<Property> selection = presetSelection!=null ? presetSelection : Property.normalize(tree.getSelection());
       if (selection.isEmpty())
         return;
       
@@ -399,22 +390,19 @@ import javax.swing.tree.TreePath;
       // now cut
       gedcom.doMuteUnitOfWork(new UnitOfWork() {
         public void perform(Gedcom gedcom) {
-          for (ListIterator props = selection.listIterator(); props.hasNext(); )  {
-            Property p = (Property)props.next();
+          for (Property p : selection)  
             p.getParent().delProperty(p);
-          }
         }
       });
       // done
     }
     
     /** assemble a list of vetos for cutting properties */
-    private String getVeto(List properties) {
+    private String getVeto(List<Property> properties) {
       
       StringBuffer result = new StringBuffer();
-      for (ListIterator checks=properties.listIterator(); checks.hasNext(); ) {
+      for (Property p : properties) {
         
-        Property p = (Property)checks.next();
         String veto = p.getDeleteVeto();
         if (veto!=null) {
           // Removing property {0} from {1} leads to:\n{2}
@@ -434,10 +422,10 @@ import javax.swing.tree.TreePath;
   private class Copy extends Action2 {
   	
     /** selection */
-    protected List presetSelection; 
+    protected List<Property> presetSelection; 
     
     /** constructor */
-    protected Copy(List preset) {
+    protected Copy(List<Property> preset) {
       presetSelection = Property.normalize(preset);
       setText(resources.getString("action.copy"));
       setImage(Images.imgCopy);
@@ -449,7 +437,7 @@ import javax.swing.tree.TreePath;
     public void actionPerformed(ActionEvent event) {
       
       // check selection
-      List selection = presetSelection;
+      List<Property> selection = presetSelection;
       if (selection==null) 
         selection = Property.normalize(tree.getSelection());
       
@@ -574,7 +562,7 @@ import javax.swing.tree.TreePath;
       tree.clearSelection();
   
       // .. add properties
-      final List newProps = new ArrayList();
+      final List<Property> newProps = new ArrayList<Property>();
       gedcom.doMuteUnitOfWork(new UnitOfWork() {
         public void perform(Gedcom gedcom) {
           for (int i=0;i<tags.length;i++) {
@@ -637,7 +625,7 @@ import javax.swing.tree.TreePath;
       ok.setEnabled(false);
       cancel.setEnabled(false);
       // simulate a selection change
-      List selection = tree.getSelection();
+      List<Property> selection = tree.getSelection();
       tree.clearSelection();
       tree.setSelection(selection);
     }

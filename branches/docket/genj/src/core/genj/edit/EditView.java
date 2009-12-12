@@ -102,9 +102,8 @@ public class EditView extends View implements ContextProvider  {
     this.registry = registry;
     beanFactory = new BeanFactory(registry);
 
-    // run mode switch if applicable
-//    mode= registry.get("advanced", false);
-    
+    // check for current mode
+    mode.setSelected(registry.get("advanced", false));
 
     // add keybindings
     InputMap imap = getInputMap(WHEN_IN_FOCUSED_WINDOW);
@@ -410,9 +409,14 @@ public class EditView extends View implements ContextProvider  {
       super.setSelected(false);
     }
     public void actionPerformed(ActionEvent event) {
-      registry.put("advanced", isSelected());
+      setSelected(isSelected());
+    }
+    @Override
+    public void setSelected(boolean selected) {
+      super.setSelected(selected);
+      registry.put("advanced", selected);
       if (getContext()!=null)
-        setEditor(isSelected() ? new AdvancedEditor(getContext().getGedcom(), EditView.this, registry) : new BasicEditor(getContext().getGedcom(), EditView.this, registry));
+        setEditor(selected ? new AdvancedEditor(getContext().getGedcom(), EditView.this, registry) : new BasicEditor(getContext().getGedcom(), EditView.this, registry));
     }
   } //Advanced
 

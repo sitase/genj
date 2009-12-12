@@ -129,6 +129,7 @@ import spin.Spin;
   /**
    * Intercepted add notification
    */
+  @Override
   public void addNotify() {
     // let super continue
     super.addNotify();
@@ -140,6 +141,7 @@ import spin.Spin;
   /**
    * Intercepted remove notification
    */
+  @Override
   public void removeNotify() {
     // stop listening to gedcom events
     gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
@@ -385,7 +387,7 @@ import spin.Spin;
       setBorder(null);
       
       // prepare 'actions'
-      List actions = new ArrayList();
+      List<JComponent> actions = new ArrayList<JComponent>();
       actions.add(new JLabel(prop.getPropertyName()));
       actions.add(wrapped);
       setActions(actions);
@@ -478,10 +480,10 @@ import spin.Spin;
   private class BeanPanel extends JPanel implements ChangeListener {
 
     /** top level tags */
-    private Set topLevelTags = new HashSet();
+    private Set<String> topLevelTags = new HashSet<String>();
     
     /** beans */
-    private List beans = new ArrayList(32);
+    private List<PropertyBean> beans = new ArrayList<PropertyBean>(32);
     
     /** tabs */
     private JTabbedPane tabsPane;
@@ -505,8 +507,7 @@ import spin.Spin;
       
       // recycle beans
       BeanFactory factory = view.getBeanFactory();
-      for (Iterator it=beans.iterator(); it.hasNext(); ) {
-        PropertyBean bean = (PropertyBean)it.next();
+      for (PropertyBean bean : beans) {
         bean.removeChangeListener(this);
         bean.setProperty(null);
         try {
@@ -526,12 +527,11 @@ import spin.Spin;
       
       // loop over beans 
       try{
-        for (Iterator it = beans.iterator(); it.hasNext();) {
+        for (PropertyBean bean : beans) {
           // check next
-          PropertyBean bean = (PropertyBean)it.next();
           if (bean.hasChanged()&&bean.getProperty()!=null) {
             Property prop = bean.getProperty();
-            // proxied?
+            // proxied?:
             PropertyProxy proxy = (PropertyProxy)prop.getContaining(PropertyProxy.class);
             if (proxy!=null) 
               prop = proxy.getProxied().setValue(prop.getPathToContaining(proxy), "");
@@ -577,16 +577,15 @@ import spin.Spin;
     private JComponent find(Property prop) {
       if (prop==null||beans.isEmpty())
         return null;
+      
       // look for appropriate bean showing prop
-      for (Iterator it=beans.iterator(); it.hasNext(); ) {
-        PropertyBean bean = (PropertyBean)it.next();
+      for (PropertyBean bean : beans) {
         if (bean.getProperty()==prop) 
           return bean;
       }
       
       // check if one of the beans' properties is contained in prop
-      for (Iterator it=beans.iterator(); it.hasNext(); ) {
-        PropertyBean bean = (PropertyBean)it.next();
+      for (PropertyBean bean : beans) {
         if (bean.isDisplayable() && bean.getProperty()!=null && bean.getProperty().isContained(prop)) 
           return bean;
       }
@@ -623,8 +622,7 @@ import spin.Spin;
       panel.setLayout(descriptor);
       
       // fill cells with beans
-      for (Iterator cells = descriptor.getCells().iterator(); cells.hasNext(); ) {
-        NestedBlockLayout.Cell cell = (NestedBlockLayout.Cell)cells.next();
+      for (NestedBlockLayout.Cell cell : (List<NestedBlockLayout.Cell>)descriptor.getCells()) {
         JComponent comp = createComponent(root, cell);
         if (comp!=null) 
           panel.add(comp, cell);
@@ -744,7 +742,7 @@ import spin.Spin;
     private void createTabs(JTabbedPane tabs) {
       
       // create all tabs
-      Set skippedTags = new HashSet();
+      Set<String> skippedTags = new HashSet<String>();
       for (int i=0, j=currentEntity.getNoOfProperties(); i<j; i++) {
         Property prop = currentEntity.getProperty(i);
         // check tag - skipped or covered already?
