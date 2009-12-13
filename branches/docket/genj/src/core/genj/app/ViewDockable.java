@@ -24,6 +24,7 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.util.Registry;
+import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
 import genj.view.ActionProvider;
@@ -412,6 +413,7 @@ import swingx.docking.Docked;
     /** constructor */
     protected ActionCloseView() {
       setImage(Images.imgClose);
+      setTip(Resources.get(this).getString("cc.tip.close_view", factory.getTitle()));
     }
 
     /** run */
