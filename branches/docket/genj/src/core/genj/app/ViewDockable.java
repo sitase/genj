@@ -112,7 +112,7 @@ import swingx.docking.Docked;
     workbench.addWorkbenchListener(this);
     
     // set context
-    view.select(workbench.getContext(), true);
+    view.setContext(workbench.getContext(), true);
     
     // only if ToolBarSupport and no bar installed
     final AtomicBoolean toolbar = new AtomicBoolean(false);
@@ -174,7 +174,7 @@ import swingx.docking.Docked;
     workbench.removeWorkbenchListener(this);
 
     // clear context for cleanup
-    view.select(null, true);
+    view.setContext(null, true);
 
     // continue
     super.undocked();
@@ -185,7 +185,7 @@ import swingx.docking.Docked;
    */
   public void selectionChanged(Context context, boolean isActionPerformed) {
     if (!ignoreSelectionChanged || isActionPerformed)
-      view.select(context, isActionPerformed);
+      view.setContext(context, isActionPerformed);
   }
   
   /**

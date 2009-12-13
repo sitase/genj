@@ -212,7 +212,7 @@ public class EditView extends View implements ContextProvider  {
       editor.commit();
   }
   
-  public void select(Context context, boolean isActionPerformed) {
+  public void setContext(Context context, boolean isActionPerformed) {
     
     // no editor?
     if (editor==null) {

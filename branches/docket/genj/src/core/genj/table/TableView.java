@@ -160,7 +160,7 @@ public class TableView extends View {
   }
   
   @Override
-  public void select(Context context, boolean isActionPerformed) {
+  public void setContext(Context context, boolean isActionPerformed) {
 
     PropertyTableModel old = propertyTable.getModel();
     

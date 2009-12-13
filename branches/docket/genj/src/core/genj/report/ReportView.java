@@ -110,9 +110,6 @@ public class ReportView extends View {
 
     this.registry = registry;
     
-    // data
-    gedcom   = context.getGedcom();
-
     // Output
     output = new Output();
 
@@ -202,7 +199,7 @@ public class ReportView extends View {
       LOG.fine("Result of report "+report.getName()+" = "+result);
       
       // let report happend again
-      actionStart.setEnabled(true);
+      actionStart.setEnabled(gedcom!=null);
       actionStop.setEnabled(false);
       if (plugin!=null)
         plugin.setEnabled(true);
@@ -244,6 +241,17 @@ public class ReportView extends View {
    */
   public void stopReport() {
     // FIXME docket stopReport()
+  }
+  
+  @Override
+  public void setContext(Context context, boolean isActionPerformed) {
+    
+    // keep
+    gedcom = context!=null ? context.getGedcom() : null;
+    
+    // enable if none running and data available
+    actionStart.setEnabled(!actionStop.isEnabled() && gedcom!=null);
+
   }
   
   /**
@@ -531,7 +539,7 @@ public class ReportView extends View {
      * Check if user clicks on marked ID
      */
     public void mouseClicked(MouseEvent e) {
-      if (id!=null) {
+      if (id!=null&&gedcom!=null) {
         Entity entity = gedcom.getEntity(id);
         if (entity!=null)
         	SelectionSink.Dispatcher.fireSelection(e, new Context(entity), e.getClickCount()>1);
@@ -584,15 +592,15 @@ public class ReportView extends View {
         if (len<2)
           return null;
         String id = doc.getText(pos, len);
-        if (gedcom.getEntity(id)==null)
+        if (gedcom==null||gedcom.getEntity(id)==null)
           return null;
 
         // mark it
-        requestFocusInWindow();
+        //requestFocusInWindow();
         setCaretPosition(pos);
         moveCaretPosition(pos+len);
 
-        // return in betwee
+        // return in between
         return id;
 
         // done

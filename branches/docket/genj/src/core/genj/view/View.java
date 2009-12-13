@@ -79,9 +79,9 @@ public abstract class View extends JPanel implements SelectionListener {
   }
 
   /**
-   * follow selection
+   * set current context
    */
-  public void select(Context context, boolean isActionPerformed) {
+  public void setContext(Context context, boolean isActionPerformed) {
     // noop
   }
 
