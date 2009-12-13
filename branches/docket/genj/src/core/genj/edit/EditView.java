@@ -124,6 +124,7 @@ public class EditView extends View implements ContextProvider  {
    */
   private void setEditor(Editor set) {
 
+    // commit old editor unless set==null
     Context old = null;
     if (set!=null) {
       
@@ -134,19 +135,19 @@ public class EditView extends View implements ContextProvider  {
       old = editor!=null ? editor.getContext() : null;
     }
     
-    // remove old editor 
-    removeAll();
+    // clear old editor
+    if (editor!=null) {
+      editor.setContext(null);
+      editor = null;
+      removeAll();
+    }
       
-    // keep new
+    // set new and restore context
     editor = set;
     if (editor!=null) {
-  
-      // add to layout
       add(editor, BorderLayout.CENTER);
-      
       if (old!=null)
         editor.setContext(old);
-  
     }
     
     // show
@@ -293,7 +294,7 @@ public class EditView extends View implements ContextProvider  {
     }
     
     // return to last
-    editor.setContext((Context)backs.pop());
+    editor.setContext(backs.pop());
     
     // reflect state
     back.setEnabled(backs.size()>0);

@@ -86,7 +86,8 @@ public class FamiliesBean extends PropertyBean {
   boolean accepts(Property prop) {
     return prop instanceof Indi;
   }
-  public void setPropertyImpl(Property prop) {
+  
+  protected void setPropertyImpl(Property prop) {
 
     Indi indi = (Indi)prop;
     

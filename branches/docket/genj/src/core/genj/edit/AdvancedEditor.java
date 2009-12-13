@@ -202,6 +202,12 @@ import javax.swing.tree.TreePath;
    */
   public void setContext(Context context) {
     
+    // clear?
+    if (context==null) {
+      tree.setRoot(null);
+      return;
+    }
+    
     // ignore?
     if (ignoreSelection||context.getEntities().isEmpty())
       return;

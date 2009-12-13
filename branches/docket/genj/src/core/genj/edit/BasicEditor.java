@@ -169,6 +169,12 @@ import spin.Spin;
    */
   public void setContext(Context context) {
     
+    // clear?
+    if (context==null) {
+      setEntity(null, null);
+      return;
+    }
+    
     // a different entity to look at?
     if (currentEntity != context.getEntity()) {
       
@@ -240,7 +246,6 @@ import spin.Spin;
     
     // remove all we've setup to this point
     if (beanPanel!=null) {
-      removeAll();
       beanPanel.clear();
       beanPanel=null;
     }
