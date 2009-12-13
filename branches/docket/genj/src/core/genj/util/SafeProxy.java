@@ -22,7 +22,10 @@ package genj.util;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -47,10 +50,23 @@ public class SafeProxy {
    */
   @SuppressWarnings("unchecked")
   public static<T> T harden(final T implementation, Logger logger) {
+    
+    // checks
     if (logger==null||implementation==null)
       throw new IllegalArgumentException("implementation|logger==null");
-    
-    return (T)Proxy.newProxyInstance(implementation.getClass().getClassLoader(), implementation.getClass().getInterfaces(), new SafeHandler<T>(implementation, logger));
+
+    // interfaces 
+    List<Class<?>> interfaces = new ArrayList<Class<?>>();
+    Class c = implementation.getClass();
+    while (c!=null) {
+      for (Class<?> i : c.getInterfaces()) 
+        if (Modifier.isPublic(i.getModifiers())&&!interfaces.contains(i)) 
+          interfaces.add(i);
+      c = c.getSuperclass();
+    }
+
+    // create
+    return (T)Proxy.newProxyInstance(implementation.getClass().getClassLoader(), interfaces.toArray(new Class<?>[interfaces.size()]), new SafeHandler<T>(implementation, logger));
   }
   
   /** the proxy handler */
