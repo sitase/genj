@@ -83,6 +83,7 @@ import javax.swing.JPanel;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 
+import spin.Spin;
 import swingx.docking.Dockable;
 import swingx.docking.DockingPane;
 
@@ -98,18 +99,17 @@ public class Workbench extends JPanel implements SelectionSink {
   private final static Resources RES = Resources.get(Workbench.class);
 
   /** members */
+  private List<WorkbenchListener> listeners = new CopyOnWriteArrayList<WorkbenchListener>();
+  private List<Object> plugins = new ArrayList<Object>();
   private List<ViewFactory> viewFactories = ServiceLookup.lookup(ViewFactory.class);
   private Registry registry;
   private WindowManager windowManager;
-  private List<Action> gedcomActions = new ArrayList<Action>();
   private Menu menu = new Menu();
   private Toolbar toolbar = new Toolbar();
   private StatusBar stats = new StatusBar();
   private DockingPane dockingPane = new DockingPane();
   private Context context= null;
   private Runnable runOnExit;
-  private List<WorkbenchListener> listeners = new CopyOnWriteArrayList<WorkbenchListener>();
-  private List<Object> plugins = new ArrayList<Object>();
 
   /**
    * Constructor
@@ -124,7 +124,8 @@ public class Workbench extends JPanel implements SelectionSink {
     // plugins
     for (PluginFactory pf : ServiceLookup.lookup(PluginFactory.class)) {
       LOG.info("Loading plugin "+pf.getClass());
-      plugins.add(SafeProxy.harden(pf.createPlugin(this), LOG));
+      Object plugin = SafeProxy.harden(pf.createPlugin(this), LOG);
+      plugins.add(plugin);
     }
 
     // Layout
@@ -132,10 +133,6 @@ public class Workbench extends JPanel implements SelectionSink {
     add(toolbar, BorderLayout.NORTH);
     add(dockingPane, BorderLayout.CENTER);
     add(stats, BorderLayout.SOUTH);
-
-    // start clean
-    for (Action a : gedcomActions) 
-      a.setEnabled(false);
 
     // install some accelerators
     new ActionSave(false).install(this, ACC_SAVE, JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -322,19 +319,12 @@ public class Workbench extends JPanel implements SelectionSink {
     
      GedcomDirectory.getInstance().registerGedcom(gedcom);
 
-    // enable actions
-    for (Action a : gedcomActions) 
-      a.setEnabled(true);
-
-    // connect dots
-    stats.setGedcom(gedcom);
-
     // tell everone
     fireSelection(context, true);
     
-    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
-        ((WorkbenchListener)plugin).gedcomOpened(gedcom);
-    
+    for (WorkbenchListener listener: listeners)
+      listener.gedcomOpened(gedcom);
+  
     // re-install tools
     installTools();
     
@@ -484,6 +474,10 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   public void exit() {
     
+    // close
+    if (!closeGedcom())
+      return;
+    
     // remember current context for exit
     registry.put("restore.url", context!=null ? context.getGedcom().getOrigin().toString() : "");
     
@@ -518,16 +512,9 @@ public class Workbench extends JPanel implements SelectionSink {
 
     }
     
-    // tell plugins
-    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
-      ((WorkbenchListener)plugin).gedcomClosed(context.getGedcom());
-    
-    // disable gedcom buttons
-    for (Action a : gedcomActions) 
-      a.setEnabled(false);
-    
-    // clear stats
-    stats.setGedcom(null);
+    // tell 
+    for (WorkbenchListener listener: listeners)
+      listener.gedcomClosed(context.getGedcom());
     
     // remember context
     registry.put(context.getGedcom().getName(), context.toString());
@@ -535,9 +522,14 @@ public class Workbench extends JPanel implements SelectionSink {
     // unregister
     GedcomDirectory.getInstance().unregisterGedcom(context.getGedcom());
 
-    // let it fall through
-    fireSelection(null, true);
-
+    // no tools
+    uninstallTools();    
+    
+    // remember and tell
+    context = null;
+    for (WorkbenchListener listener : listeners) 
+      listener.selectionChanged(context, true);
+    
     // done
     return true;
   }
@@ -606,8 +598,12 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   public void fireSelection(Context context, boolean isActionPerformed) {
+    
+    // allowed?
+    if (context.getGedcom() != this.context.getGedcom())
+      throw new IllegalArgumentException("context selection on unknown gedcom");
 
-    // known?
+    // already known?
     if (!isActionPerformed && this.context.equals(context))
       return;
     
@@ -704,25 +700,23 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   private void fireViewOpened(View view) {
-    // tell plugins
-    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
-      ((WorkbenchListener)plugin).viewOpened(view);
-    
+    // tell 
+    for (WorkbenchListener listener : listeners)
+      listener.viewOpened(view);
   }
 
   private void fireViewClosed(View view) {
     // tell plugins
-    for (Object plugin : plugins) if (plugin instanceof WorkbenchListener)
-      ((WorkbenchListener)plugin).viewClosed(view);
-    
+    for (WorkbenchListener listener : listeners)
+      listener.viewClosed(view);
   }
   
   public void addWorkbenchListener(WorkbenchListener listener) {
-    listeners.add(listener);
+    listeners.add(SafeProxy.harden(listener));
   }
 
   public void removeWorkbenchListener(WorkbenchListener listener) {
-    listeners.remove(listener);
+    listeners.remove(SafeProxy.harden(listener));
   }
 
   /**
@@ -816,6 +810,40 @@ public class Workbench extends JPanel implements SelectionSink {
     // done
     return file;
   }
+  
+  /**
+   * Action - a gedcom action
+   */
+  private class GedcomAction extends Action2 implements WorkbenchListener {
+    
+    public GedcomAction() {
+      addWorkbenchListener(this);
+    }
+
+    public void commitRequested() {
+    }
+
+    public void gedcomClosed(Gedcom gedcom) {
+      setEnabled(false);
+    }
+
+    public void gedcomOpened(Gedcom gedcom) {
+      setEnabled(true);
+    }
+
+    public void selectionChanged(Context context, boolean isActionPerformed) {
+    }
+    
+    public void viewClosed(View view) {
+    }
+
+    public void viewOpened(View view) {
+    }
+
+    public boolean workbenchClosing() {
+      return true;
+    }
+  }
 
   /**
    * Action - about
@@ -875,7 +903,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Action - close and exit
    */
-  private class ActionClose extends Action2 {
+  private class ActionClose extends GedcomAction {
     
     /** constructor */
     protected ActionClose() {
@@ -931,7 +959,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Action - Save
    */
-  private class ActionSave extends Action2 {
+  private class ActionSave extends GedcomAction {
     /** whether to ask user */
     private boolean saveAs;
     /** gedcom */
@@ -1022,7 +1050,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * a little status tracker
    */
-  private class StatusBar extends JPanel implements GedcomMetaListener {
+  private class StatusBar extends JPanel implements GedcomMetaListener, WorkbenchListener {
 
     private Gedcom gedcom;
     private int commits;
@@ -1044,20 +1072,10 @@ public class Workbench extends JPanel implements SelectionSink {
       add(changes);
       add(new HeapStatusWidget());
 
+      addWorkbenchListener(this);
     }
     
-    void setGedcom(Gedcom gedcom) {
-      if (this.gedcom!=null)
-        this.gedcom.removeGedcomListener(this);
-      this.gedcom = gedcom;
-      if (this.gedcom!=null)
-        this.gedcom.addGedcomListener(this);
-      commits = 0;
-      read = 0;
-      written = 0;
-      update();
-    }
-
+    
     public void gedcomWriteLockReleased(Gedcom gedcom) {
       commits++;
       update();
@@ -1120,6 +1138,39 @@ public class Workbench extends JPanel implements SelectionSink {
     public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property removed) {
     }
 
+    public void commitRequested() {
+    }
+
+    public void gedcomClosed(Gedcom gedcom) {
+      gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
+      commits = 0;
+      read = 0;
+      written = 0;
+      update();
+    }
+
+
+    public void gedcomOpened(Gedcom gedcom) {
+      gedcom.addGedcomListener((GedcomListener)Spin.over(this));
+      commits = 0;
+      read = 0;
+      written = 0;
+      update();
+    }
+
+    public void selectionChanged(Context context, boolean isActionPerformed) {
+    }
+
+    public void viewClosed(View view) {
+    }
+
+    public void viewOpened(View view) {
+    }
+
+    public boolean workbenchClosing() {
+      return true;
+    }
+
   } // Stats
 
   /**
@@ -1141,8 +1192,6 @@ public class Workbench extends JPanel implements SelectionSink {
   
       Action2 save = new ActionSave(false);
       Action2 saveAs = new ActionSave(true);
-      gedcomActions.add(save);
-      gedcomActions.add(saveAs);
       mh.createItem(save);
       mh.createItem(saveAs);
   
@@ -1246,9 +1295,7 @@ public class Workbench extends JPanel implements SelectionSink {
       // defaults
       add(new ActionNew());
       add(new ActionOpen());
-      ActionSave save = new ActionSave(false);
-      add(save);
-      gedcomActions.add(save);
+      add(new ActionSave(false));
       
       addSeparator();
       
