@@ -197,6 +197,18 @@ public class App {
         });
         registry.get("frame", frame);
         frame.setVisible(true);
+        
+        // connect
+        workbench.addWorkbenchListener(new WorkbenchAdapter() {
+          @Override
+        	public void gedcomClosed(Gedcom gedcom) {
+            frame.setTitle(RESOURCES.getString("app.title"));
+        	}
+        	@Override
+        	public void gedcomOpened(Gedcom gedcom) {
+            frame.setTitle(gedcom.getName()+" - "+RESOURCES.getString("app.title"));
+        	}
+        });
 
         // load
         if (args.length==0)
