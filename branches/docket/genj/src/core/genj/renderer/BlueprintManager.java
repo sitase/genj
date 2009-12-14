@@ -57,7 +57,7 @@ public class BlueprintManager {
   /*package*/ final static Logger LOG = Logger.getLogger("genj.renderer");
 
   /** blueprints per entity */
-  private Map tag2blueprints = new HashMap();
+  private Map<String, List<Blueprint>> tag2blueprints = new HashMap<String, List<Blueprint>>();
 
   /** singleton */
   private static BlueprintManager instance;
@@ -215,7 +215,6 @@ public class BlueprintManager {
   
   /**
    * Load one blueprint from inputstream
-   *
    */
   private Blueprint loadBlueprint(InputStream in, String tag, String name, boolean readOnly) throws IOException {
     
@@ -249,24 +248,17 @@ public class BlueprintManager {
    * @param origin an optional context that blueprints are loaded from if necessary
    * @param tag the entity tag the blueprint is supposed to be for
    * @param the name of the blueprint   */
-  public Blueprint getBlueprint(Origin origin, String tag, String name) {
+  public Blueprint getBlueprint(String tag, String name) {
     // patch name if default
     if (name.length()==0)
       name = "Default";
     // look through global blueprints for that type
-    List bps = getBlueprints(tag);
+    List<Blueprint> bps = getBlueprints(tag);
     for (int i=0; i<bps.size(); i++) {
       Blueprint bp = (Blueprint)bps.get(i);
       // .. found! return
       if (bp.getName().equals(name)) 
         return bp;   	
-    }
-    // not found - try origin
-    String local = "blueprints/"+tag+"/"+name+SUFFIX;
-    try {
-      return loadBlueprint(origin.open(local), tag, name, true);
-    } catch (IOException e) {
-      LOG.log(Level.FINE, "Failed to load blueprint "+local+" from "+origin+" ("+e.getMessage()+")");
     }
     // fallback try first
     return (Blueprint)bps.get(0);
@@ -274,12 +266,12 @@ public class BlueprintManager {
   
   /**
    * Blueprints for a given type   */
-  public List getBlueprints(String tag) {
+  public List<Blueprint> getBlueprints(String tag) {
     return Collections.unmodifiableList(getBlueprintsInternal(tag));
   }
   
-  private List getBlueprintsInternal(String tag) {
-    List result = (List)tag2blueprints.get(tag);
+  private List<Blueprint> getBlueprintsInternal(String tag) {
+    List<Blueprint> result = tag2blueprints.get(tag);
     if (result==null) {
       result = new ArrayList();
       tag2blueprints.put(tag, result);

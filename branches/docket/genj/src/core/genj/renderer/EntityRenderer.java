@@ -685,8 +685,8 @@ public class EntityRenderer {
      */
     private Property getProperty() {
       // still looking for property?
-      if (!isValid) {
-        cachedProperty = path!=null ? entity.getProperty(path) : null;
+      if (!isValid&&entity!=null&path!=null) {
+        cachedProperty = entity.getProperty(path);
         // valid now
         isValid = true;
       }      
