@@ -30,14 +30,12 @@ import genj.view.ContextProvider;
 import genj.view.ViewContext;
 
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeListener;
 
@@ -208,7 +206,7 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
     protected void setEntity(Entity ent) {
       entity = ent;
       if (entity!=null)
-        renderer = new EntityRenderer(BlueprintManager.getInstance().getBlueprint(entity.getGedcom().getOrigin(), entity.getTag(), "Edit"));
+        renderer = new EntityRenderer(BlueprintManager.getInstance().getBlueprint(entity.getTag(), "Edit"));
       repaint();
     }
   } //Preview

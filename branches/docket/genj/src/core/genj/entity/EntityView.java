@@ -63,27 +63,22 @@ public class EntityView extends View implements ContextProvider {
   /** the renderer we're using */      
   private EntityRenderer renderer = null;
   
-  /** the Gedcom we're for */
-  /*package*/ Gedcom gedcom = null;
-  
-  /** the current entity */
-  private Entity entity = null;
+  /** our current context */
+  /*package*/ Context context = null;
   
   /** the blueprints we're using */
-  private Map type2blueprint = new HashMap();
+  private Map<String, Blueprint> type2blueprint = new HashMap<String, Blueprint>();
   
   /** whether we do antialiasing */
   private boolean isAntialiasing = false;
   
   private GedcomListener callback = new GedcomListenerAdapter() {
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      if (EntityView.this.entity == entity) {
-        setEntity(gedcom.getFirstEntity(Gedcom.INDI));
-      }
-      repaint();
+      if (context.getEntity()==entity)
+        setContext(new Context(context.getGedcom()), true);
     }
     public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      if (property.getEntity()==EntityView.this.entity)
+      if (context.getEntity() == property.getEntity())
         repaint();
     }
     public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
@@ -98,22 +93,17 @@ public class EntityView extends View implements ContextProvider {
    * Constructor
    */
   public EntityView(Registry registry) {
+    
     // save some stuff
-    registry = registry;
-    gedcom = context.getGedcom();
-
+    this.registry = registry;
+    
     // grab data from registry
     BlueprintManager bpm = BlueprintManager.getInstance();
     for (int t=0;t<Gedcom.ENTITIES.length;t++) {
       String tag = Gedcom.ENTITIES[t];
-      type2blueprint.put(tag, bpm.getBlueprint(gedcom.getOrigin(), tag, registry.get("blueprint."+tag, "")));
+      type2blueprint.put(tag, bpm.getBlueprint(tag, registry.get("blueprint."+tag, "")));
     }
     isAntialiasing  = registry.get("antial"  , false);
-    
-    // Check if we can preset something to show
-    Entity entity = context.getEntity();
-    if (entity!=null)
-      setEntity(entity);
     
     // done    
   }
@@ -122,9 +112,39 @@ public class EntityView extends View implements ContextProvider {
    * ContextProvider - callback
    */
   public ViewContext getContext() {
-    return entity==null ? new ViewContext(gedcom) : new ViewContext(entity);
+    return context!=null ? new ViewContext(context) : null;
   }
 
+  /**
+   * our context setter
+   */
+  @Override
+  public void setContext(Context newContext, boolean isActionPerformed) {
+    
+    // disconnect from old
+    if (context!=null) 
+      context.getGedcom().removeGedcomListener((GedcomListener)Spin.over(callback));
+    renderer = null;
+    
+    // keep new
+    context = newContext;
+    
+    // hook-up
+    if (context!=null) {
+      context.getGedcom().addGedcomListener((GedcomListener)Spin.over(callback));
+
+      // resolve blueprint & renderer
+      Entity e = context.getEntity();
+      Blueprint blueprint;
+      if (e==null) blueprint = BLUEPRINT_SELECT;
+      else blueprint = getBlueprint(e.getTag()); 
+      renderer = new EntityRenderer(blueprint);
+      
+    }
+    
+    repaint();
+  }
+  
   /**
    * @see javax.swing.JComponent#getPreferredSize()
    */
@@ -132,35 +152,12 @@ public class EntityView extends View implements ContextProvider {
     return new Dimension(256,160);
   }
   
-  public void addNotify() {
-    // cont
-    super.addNotify();
-    // listen to gedcom
-    gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
-  }
-
-  /**
-   * @see javax.swing.JComponent#removeNotify()
-   */
-  public void removeNotify() {
-    
-    super.removeNotify();
-
-    // stop listening to Gedcom    
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
-    
-    // store settings in registry
-    for (int t=0;t<Gedcom.ENTITIES.length;t++) {
-      String tag = Gedcom.ENTITIES[t];
-      registry.put("blueprint."+tag, getBlueprint(tag).getName()); 
-    }
-    registry.put("antial"  , isAntialiasing );
-    if (entity!=null)
-      registry.put("entity", entity.getId());
-    
-    // done
-  }
-
+//    // store settings in registry
+//    for (int t=0;t<Gedcom.ENTITIES.length;t++) {
+//      String tag = Gedcom.ENTITIES[t];
+//      registry.put("blueprint."+tag, getBlueprint(tag).getName()); 
+//    }
+//    registry.put("antial", isAntialiasing );
 
   /**
    * @see javax.swing.JComponent#paintComponent(Graphics)
@@ -172,7 +169,7 @@ public class EntityView extends View implements ContextProvider {
     g.fillRect(0,0,bounds.width,bounds.height);
     g.setColor(Color.black);
 
-    if (renderer==null)
+    if (context==null||renderer==null)
       return;
     
       ((Graphics2D)g).setRenderingHint(
@@ -180,7 +177,7 @@ public class EntityView extends View implements ContextProvider {
         isAntialiasing ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF
       );
 
-    renderer.render(g, entity, new Rectangle(0,0,bounds.width,bounds.height));
+    renderer.render(g, context!=null ? context.getEntity() : null, new Rectangle(0,0,bounds.width,bounds.height));
   }
 
   /** 
@@ -189,7 +186,7 @@ public class EntityView extends View implements ContextProvider {
   /*package*/ Blueprint getBlueprint(String tag) {
     Blueprint result = (Blueprint)type2blueprint.get(tag);
     if (result==null) {
-      result = BlueprintManager.getInstance().getBlueprint(gedcom.getOrigin(),tag, "");
+      result = BlueprintManager.getInstance().getBlueprint(tag, "");
       type2blueprint.put(tag, result);
     }
     return result;
@@ -198,42 +195,17 @@ public class EntityView extends View implements ContextProvider {
   /**
    * Set the blueprints used (map tag to blueprint)
    */
-  /*package*/ void setBlueprints(Map setType2Blueprints) {
+  /*package*/ void setBlueprints(Map<String,Blueprint> setType2Blueprints) {
     type2blueprint = setType2Blueprints;
     // show
-    setEntity(entity);
+    repaint();
   }
   
   /**
    * Gets the blueprints used (map tag to blueprint)
    */
-  /*package*/ Map getBlueprints() {
+  /*package*/ Map<String,Blueprint> getBlueprints() {
     return type2blueprint;
-  }
-  
-  /**
-   * view callback
-   */
-  public void select(Context context, boolean isActionPerformed) {
-    Entity e = context.getEntity();
-    if (e!=null)
-      setEntity(e);
-  }
-  
-  /**
-   * Sets the entity to show
-   */
-  public void setEntity(Entity e) {
-    // resolve blueprint & renderer
-    Blueprint blueprint;
-    if (e==null) blueprint = BLUEPRINT_SELECT;
-    else blueprint = getBlueprint(e.getTag()); 
-    renderer=new EntityRenderer(blueprint);
-    // remember    
-    entity = e;
-    // repaint
-    repaint();
-    // done
   }
   
   /**
