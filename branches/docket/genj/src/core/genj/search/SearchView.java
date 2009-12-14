@@ -97,8 +97,8 @@ public class SearchView extends View {
   /** resources */
   /*package*/ static Resources resources = Resources.get(SearchView.class);
   
-  /** gedcom */
-  private Gedcom gedcom;
+  /** current context */
+  private Context context;
   
   /** registry */
   private Registry registry;
@@ -134,7 +134,6 @@ public class SearchView extends View {
   public SearchView(Registry registry) {
     
     // remember
-    gedcom = context.getGedcom();
     this.registry = registry;
     
     // setup worker
@@ -177,14 +176,16 @@ public class SearchView extends View {
     choiceValue = new ChoiceWidget(oldValues);
     choiceValue.addActionListener(aclick);
 
-    PopupWidget popupPatterns = new PopupWidget("...", null, createPatternActions());
+    PopupWidget popupPatterns = new PopupWidget("...", null);
+    popupPatterns.addItems(createPatternActions());
     popupPatterns.setMargin(new Insets(0,0,0,0));
 
     JLabel labelPath = new JLabel(resources.getString("label.path"));    
     choicePath = new ChoiceWidget(oldPaths);
     choicePath.addActionListener(aclick);
     
-    PopupWidget popupPaths = new PopupWidget("...", null, createPathActions());
+    PopupWidget popupPaths = new PopupWidget("...", null);
+    popupPaths.addItems(createPathActions());
     popupPaths.setMargin(new Insets(0,0,0,0));
     
     labelCount = new JLabel();
@@ -219,6 +220,10 @@ public class SearchView extends View {
   }
   
   public void start() {
+    
+    // if context
+    if (context==null)
+      return;
 
     // stop worker
     worker.stop();
@@ -238,7 +243,7 @@ public class SearchView extends View {
       return;
     }
     
-    worker.start(gedcom, p, value, checkRegExp.isSelected());
+    worker.start(context.getGedcom(), p, value, checkRegExp.isSelected());
     
     // done
   }
@@ -250,23 +255,9 @@ public class SearchView extends View {
   }
   
   /**
-   * @see javax.swing.JComponent#addNotify()
-   */
-  public void addNotify() {
-    // start listening
-    gedcom.addGedcomListener((GedcomListener)Spin.over(results));
-    // continue
-    super.addNotify();
-    // set focus
-    choiceValue.requestFocusInWindow();
-  }
-  
-  /**
    * @see javax.swing.JComponent#removeNotify()
    */
   public void removeNotify() {
-    // stop listening
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(results));
     // keep old
     registry.put("regexp"    , checkRegExp.isSelected());
     registry.put("old.values", oldValues);
@@ -275,6 +266,28 @@ public class SearchView extends View {
     super.removeNotify();
   }
 
+  @Override
+  public void setContext(Context newContext, boolean isActionPerformed) {
+
+    // disconnect old
+    if (context!=null && (newContext==null || newContext.getGedcom()!=context.getGedcom())) {
+      
+      stop();
+      results.clear();
+      actionStart.setEnabled(false);
+      
+      context.getGedcom().removeGedcomListener((GedcomListener)Spin.over(results));
+      context = null;
+    }
+    
+    // keep new
+    if (context==null && newContext!=null) {
+      context = new Context(newContext.getGedcom());
+      context.getGedcom().addGedcomListener((GedcomListener)Spin.over(results));
+      actionStart.setEnabled(true);
+    }
+    
+  }
   
   /**
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
@@ -589,15 +602,19 @@ public class SearchView extends View {
      */
     public ViewContext getContext() {
       
+      if (context==null)
+        return null;
+      
       List<Property> properties = new ArrayList<Property>();
       Object[] selection = getSelectedValues();
       for (int i = 0; i < selection.length; i++) {
         Hit hit = (Hit)selection[i];
         properties.add(hit.getProperty());
       }
-      return new ViewContext(gedcom, new ArrayList<Entity>(), properties);
+      return new ViewContext(context.getGedcom(), null, properties);
     }
 
+    
     /**
      * we know about action delegates and will use that here if applicable
      */

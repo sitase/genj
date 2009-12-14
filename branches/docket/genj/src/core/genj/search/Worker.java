@@ -57,15 +57,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
   
   /*package*/ Worker(WorkerListener listener) {
     this.listener = listener;
-    
-    thread = new Thread(new Runnable() {
-      public void run() {
-        work();
-      }
-    });
-    thread.setDaemon(true);
-    thread.start();
-    
   }
   
   /** cancel current ongoing search */
@@ -100,50 +91,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
       this.hits.clear();
       this.entities.clear();
       this.hitCount = 0;
+      
+      lock.set(true);
 
-      // go
-      lock.notify();
-    
+      thread = new Thread(new Runnable() {
+        public void run() {
+          try {
+            Worker.this.listener.started();
+            search(Worker.this.gedcom);
+          } catch (Throwable t) {
+          } finally {
+            lock.set(false);
+            synchronized (lock) {
+              lock.notifyAll();
+            }
+            Worker.this.listener.stopped();
+          }
+        }
+      });
+      thread.setDaemon(true);
+      thread.start();
     }
     
     // done
   }
   
-  /** our worker routine */
-  private void work() {
-    
-    while (true) {
-
-      try {
-        
-        // wait for job
-        synchronized (lock) {
-          lock.wait();
-          lock.set(true);
-        }
-
-        // notify state
-        listener.started();
-
-        // search
-        search(gedcom);
-        
-        
-      } catch (Throwable t) {
-      } finally {
-        listener.stopped();
-        lock.set(false);
-        synchronized (lock) {
-          lock.notifyAll();
-        }
-      }
-      
-      // keep waiting
-    }
-    
-    // never
-  }
-
   /** search in gedcom (not on EDT) */
   private void search(Gedcom gedcom) {
     for (int t=0; t<Gedcom.ENTITIES.length && hitCount<MAX_HITS; t++) {
