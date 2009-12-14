@@ -32,6 +32,7 @@ import java.awt.event.ActionEvent;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import javax.swing.Action;
 import javax.swing.JPanel;
@@ -79,13 +80,13 @@ public class DateWidget extends JPanel {
     calendar = pit.getCalendar();
         
     // create calendar switches
-    ArrayList switches = new ArrayList(PointInTime.CALENDARS.length+1);
+    List<SwitchCalendar> switches = new ArrayList<SwitchCalendar>(PointInTime.CALENDARS.length+1);
     for (int s=0;s<PointInTime.CALENDARS.length;s++)
       switches.add(new SwitchCalendar(PointInTime.CALENDARS[s]));
     
     // initialize Sub-components
     widgetCalendar = new PopupWidget(); 
-    widgetCalendar.setActions(switches);
+    widgetCalendar.addItems(switches);
     
     widgetYear  = new TextFieldWidget("",5+1);
     widgetYear.setSelectAllOnFocus(true);

@@ -137,7 +137,8 @@ public class SelectEntityWidget extends JPanel {
 
     // prepare sorting widget
     sortWidget = new PopupWidget();
-    sortWidget.setActions(sorts);
+    for (TagPath sort : sorts)
+      sortWidget.addItem(new Sort(sort));
     
     // prepare list widget    
     listWidget = new JComboBox();

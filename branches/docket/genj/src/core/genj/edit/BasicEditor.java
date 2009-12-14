@@ -392,10 +392,8 @@ import spin.Spin;
       setBorder(null);
       
       // prepare 'actions'
-      List<JComponent> actions = new ArrayList<JComponent>();
-      actions.add(new JLabel(prop.getPropertyName()));
-      actions.add(wrapped);
-      setActions(actions);
+      addItem(new JLabel(prop.getPropertyName()));
+      addItem(wrapped);
 
       // done
     }

@@ -275,8 +275,8 @@ public class FileAssociation {
   /**
    * Gets all
    */
-  public static List getAll() {
-    return new ArrayList(associations);
+  public static List<FileAssociation> getAll() {
+    return new ArrayList<FileAssociation>(associations);
   }
 
   /**

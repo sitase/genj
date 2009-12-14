@@ -37,12 +37,12 @@ import genj.view.View;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -81,31 +81,22 @@ public class NavigatorView extends View {
     imgFPartner  = Indi.IMG_FEMALE;
 
 
-  private GedcomListener callback = new GedcomListenerAdapter() {
+  private GedcomListener callback = (GedcomListener)Spin.over(new GedcomListenerAdapter() {
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      if (current == entity) {
-        setCurrentEntity(gedcom.getFirstEntity(Gedcom.INDI));
-      } else {
-        setCurrentEntity(current);
-      }
+      if (context!=null&&context.getEntity()==entity)
+        setContext(null, true);
     }
-  };
+  });
   
-  /** the label holding information about the current individual */
+  /** components */
   private JLabel labelCurrent, labelSelf;
+  private Map<String, PopupWidget> key2popup = new HashMap<String, PopupWidget>();
+  private JPanel popupPanel = createPopupPanel();
   
-  /** the current individual */
-  private Indi current;
-  
-  /** jumps per key */
-  private Map key2jumps = new HashMap();
-  
-  /** popups per key */
-  private Map key2popup = new HashMap();
-  
-  /** the gedcom */
-  private Gedcom gedcom;
-  
+  /** the current context */
+  private Context context;
+
+  /** where we store stuff */
   private Registry registry;
   
   /**
@@ -114,7 +105,6 @@ public class NavigatorView extends View {
   public NavigatorView(Registry registry) {
     
     // remember
-    this.gedcom = context.getGedcom();
     this.registry = registry;
     
     // layout    
@@ -123,12 +113,7 @@ public class NavigatorView extends View {
     labelCurrent = new JLabel();
     labelCurrent.setBorder(BorderFactory.createTitledBorder(Gedcom.getName(Gedcom.INDI,false)));
     add(labelCurrent,BorderLayout.NORTH);
-    add(new JScrollPane(createPopupPanel()),BorderLayout.CENTER);
-    
-    // Check if we can preset something to show
-    Entity entity = context.getEntity();
-    if (entity!=null) 
-      setCurrentEntity(entity);
+    add(new JScrollPane(popupPanel),BorderLayout.CENTER);
     
 //    // setup key bindings
 //    new Shortcut(FATHER  );
@@ -170,27 +155,6 @@ public class NavigatorView extends View {
 //    }
 //  } //Shortcut
 
-  public void addNotify() {
-    // continue
-    super.addNotify();
-    // listen
-    gedcom.addGedcomListener((GedcomListener)Spin.over(callback));
-  }
-  
-  /**
-   * @see javax.swing.JComponent#removeNotify()
-   */
-  public void removeNotify() {
-    // stop listening
-    gedcom.removeGedcomListener((GedcomListener)Spin.over(callback));
-    // remember
-    if (current!=null)
-      registry.put("entity", current.getId());
-    
-    // continue
-    super.removeNotify();
-  }
-
   /**
    * @see javax.swing.JComponent#getPreferredSize()
    */
@@ -198,39 +162,25 @@ public class NavigatorView extends View {
     return new Dimension(140,200);
   }
 
-  public void select(Context context, boolean isActionPerformed) {
-    setCurrentEntity(context.getEntity());
-  }
-  
   /**
-   * Set the current entity
+   * context changer
    */
-  public void setCurrentEntity(Entity e) {
+  @Override
+  public void setContext(Context newContext, boolean isActionPerformed) {
     
-    // only individuals - and not already current
-    if (e==current || (e!=null&&!(e instanceof Indi)) ) 
-      return;
-    
-    // forget jumps
-    key2jumps.clear();
-    
-    // and current
-    current = (Indi)e;
+    // disconnect from old
+    if (context!=null) {
+      context.getGedcom().removeGedcomListener(callback);
+      context = null;
+    }
 
-    // nothing?
-    if (current == null) {
-      // no jumps
-      setJump(FATHER  , null);
-      setJump(MOTHER  , null);
-      setJump(OSIBLING, null);
-      setJumps(PARTNER , null);
-      setJump(YSIBLING, null);
-      setJumps(CHILD   , null);
-      // update label
-      labelCurrent.setText("n/a");
-      labelCurrent.setIcon(null);
-    } else {
+    // keep
+    if (newContext!=null && newContext.getEntity() instanceof Indi) {
+      context = new Context(newContext.getEntity());
+      for (Component c : popupPanel.getComponents())
+        c.setEnabled(true);
       // jumps
+      Indi current = (Indi)context.getEntity();
       setJump (FATHER  , current.getBiologicalFather());
       setJump (MOTHER  , current.getBiologicalMother());
       setJumps(OSIBLING, current.getOlderSiblings());
@@ -253,9 +203,23 @@ public class NavigatorView extends View {
           partner.setIcon(imgFPartner);
           break;
       }
-
+      
+    } else {
+      context = context!=null ? new Context(newContext.getGedcom()) : null;
+      for (Component c : popupPanel.getComponents())
+        c.setEnabled(false);
+      // no jumps
+      setJump(FATHER  , null);
+      setJump(MOTHER  , null);
+      setJump(OSIBLING, null);
+      setJumps(PARTNER , null);
+      setJump(YSIBLING, null);
+      setJumps(CHILD   , null);
+      // update label
+      labelCurrent.setText("n/a");
+      labelCurrent.setIcon(null);
     }
-          
+
     // done
   }
   
@@ -279,17 +243,17 @@ public class NavigatorView extends View {
   private void setJumps(String key, Indi[] is) {
     // lookup popup
     PopupWidget popup = getPopup(key);
-    ArrayList jumps = new ArrayList();
+    popup.removeItems();
     // no jumps?
     if (is==null||is.length==0) {
       popup.setEnabled(false);
     } else {
       popup.setEnabled(true);
-      for (int i=0;i<is.length;i++) 
-        jumps.add(new Jump(is[i]));
+      for (int i=0;i<is.length;i++) {
+        popup.addItem(new Jump(is[i]));
+      }
     }
     // done
-    popup.setActions(jumps);
   }
     
   /**
@@ -319,8 +283,7 @@ public class NavigatorView extends View {
    */
   private JPanel createPopupPanel() {    
     
-    final String title = resources.getString("nav.navigate.title");
-    final TitledBorder border = BorderFactory.createTitledBorder(title);
+    final TitledBorder border = BorderFactory.createTitledBorder(resources.getString("nav.navigate.title"));
     final JPanel result = new PopupPanel();
     result.setBorder(border);
     GridBagHelper gh = new GridBagHelper(result);
@@ -410,10 +373,10 @@ public class NavigatorView extends View {
     }
     /** do it */
     public void actionPerformed(ActionEvent event) {
-      // follow immediately
-      setCurrentEntity(target);
-      // propagate to others
+      // propagate to others (do this before event.getSource() gets disconnected)
       SelectionSink.Dispatcher.fireSelection(event, new Context(target), true);
+      // follow immediately
+      setContext(new Context(target),true);
     }
   } //Jump
 

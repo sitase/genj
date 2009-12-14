@@ -31,6 +31,7 @@ import genj.util.swing.TextFieldWidget;
 
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.JLabel;
 
@@ -57,12 +58,13 @@ public class DateBean extends PropertyBean {
     setLayout(LAYOUT.copy());
     
     // prepare format change actions
-    ArrayList actions = new ArrayList(10);
+    List<ChangeFormat> actions = new ArrayList<ChangeFormat>(10);
     for (int i=0;i<PropertyDate.FORMATS.length;i++)
       actions.add(new ChangeFormat(PropertyDate.FORMATS[i]));
 
     // .. the chooser (making sure the preferred size is pre-computed to fit-it-all)
-    choose = new PopupWidget(null, null, actions);
+    choose = new PopupWidget();
+    choose.addItems(actions);
     add(choose);
     
     // .. first date

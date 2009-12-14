@@ -20,13 +20,14 @@
 package genj.util.swing;
 
 
-import java.awt.Dimension;
-import java.awt.GridLayout;
+import java.awt.Component;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.AbstractButton;
+import javax.swing.Action;
 import javax.swing.DefaultButtonModel;
 import javax.swing.Icon;
 import javax.swing.JButton;
@@ -42,7 +43,7 @@ import javax.swing.SwingUtilities;
 public class PopupWidget extends JButton {
   
   /** list of actions */
-  private List items = new ArrayList();
+  private List<JComponent> items = new ArrayList<JComponent>();
 
   /** whether we fire the first of the available actions on popup click */
   private boolean isFireOnClick = false;
@@ -75,54 +76,36 @@ public class PopupWidget extends JButton {
    * Constructor  
    */
   public PopupWidget(String text, Icon icon) {
-    this(text, icon, null);
-  }
-
-  /**
-   * Constructor
-   */
-  public PopupWidget(String text, Icon icon, List actions) {
     // delegate
     super(text, icon);
     // our own model
     setModel(new Model());
-    // keep actions
-    if (actions!=null) setActions(actions);
     // make non-focusable
     setFocusable(false);
     // small guy
     setMargin(new Insets(2,2,2,2));
+    // popup
+    popup = new JPopupMenu();
     // done
   }
   
-  /**
-   * intercept add
-   */
-  public void addNotify() {
-    // continue
-    super.addNotify();
-    // check container - don't mind resizing in toolbar
-    if (getParent() instanceof JToolBar) 
-      setMaximumSize(new Dimension(128,128));
-  }
+//  /**
+//   * intercept add
+//   */
+//  public void addNotify() {
+//    // continue
+//    super.addNotify();
+//    // check container - don't mind resizing in toolbar
+//    if (getParent() instanceof JToolBar) 
+//      setMaximumSize(new Dimension(128,128));
+//  }
 
-  
-  /**
-   * Gets the toolbar we're in (might be null)
-   */
-  protected JToolBar getToolBar() {
-    if (!(getParent() instanceof JToolBar)) return null;
-    return (JToolBar)getParent();
-  }
   
   /**
    * Cancel pending popup
    */
   public void cancelPopup() {
-    if (popup!=null) {
-      popup.setVisible(false);
-      popup=null;
-    }
+    popup.setVisible(false);
   }
   
   /**
@@ -134,16 +117,17 @@ public class PopupWidget extends JButton {
     cancelPopup();
 
     // create it
-    popup = createPopup();
+    popup = getPopup();
     if (popup==null)
       return;
   
     // calc position
     int x=0, y=0;
-    JToolBar bar = getToolBar();
-    if (bar==null) {
+    
+    if (!(getParent() instanceof JToolBar)) {
       x += getWidth();
     } else {
+      JToolBar bar = (JToolBar)getParent();
       if (JToolBar.VERTICAL==bar.getOrientation()) {
         x += bar.getLocation().x==0 ? getWidth() : -popup.getPreferredSize().width;
       } else {
@@ -159,55 +143,30 @@ public class PopupWidget extends JButton {
   /**
    * implementation for popup generation
    */
-  protected JPopupMenu createPopup() {
-    
-    // no actions no popup
-    List as = getActions(); //give chance to override
-    if (as.isEmpty()) 
-      return null;
-
-    // .. create an populate        
-    JPopupMenu popup = new JPopupMenu();
-    if (as.size()>16) // NM 20051108 don't let this get too big
-      popup.setLayout(new GridLayout(0,(int)Math.ceil(as.size()/16F)));
-    for (Object action : as) {
-      if (action instanceof Action2)
-        popup.add(new JMenuItem((Action2)action));
-      else if (action instanceof JComponent)
-        popup.add((JComponent)action);
-      else throw new IllegalArgumentException("popup doesn't support "+action);
-    }
-    
-    // done
+  protected JPopupMenu getPopup() {
     return popup;
   }
   
   /**
-   * Accessor - the actions in the popup
+   * add an action to a popup
    */
-  public List getActions() {
-    return items;
-  }
-  
-  /**
-   * Accessor - the actions in the popup
-   */
-  public void setActions(List<?> actions) {
-    items = actions;
+  public void addItem(Component c) {
+    popup.add(c);
   }
 
-  /**
-   * Part of 1.4 we override for usage under 1.3
-   */
-  public void setFocusable(boolean focusable) {
-    try {
-      super.setFocusable(focusable);
-    } catch (Throwable t) {
-      // try pre 1.4 instead
-      super.setRequestFocusEnabled(false);
-    }
+  public void addItems(List<? extends Action> actions) {
+    for (Action action : actions)
+      addItem(action);
+  }
+
+  public void addItem(Action action) {
+    popup.add(new JMenuItem(action));
   }
   
+  public void removeItems() {
+    popup.removeAll();
+  }
+
   /**
    * Setting this to true will fire first available action
    * on popup button click (default off) 
@@ -243,13 +202,17 @@ public class PopupWidget extends JButton {
       // fire action on popup button press?
       if (isFireOnClick) { 
         
-        // cancel popu
+        if (popup.getComponentCount()>0) {
+          Component c = popup.getComponent(0);
+          if (c instanceof AbstractButton)
+            ((AbstractButton)c).doClick();
+
+        }
+        
+        // cancel popup
         popupTriggered = false;
         cancelPopup();
         
-        List as = getActions();
-        if (!as.isEmpty())
-          ((Action2)as.get(0)).actionPerformed(e);
       }
     }
   } //Model

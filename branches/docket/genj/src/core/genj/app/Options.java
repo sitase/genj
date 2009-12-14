@@ -395,7 +395,7 @@ public class Options extends OptionProvider {
     public JComponent getComponentRepresentation() {
       // prepare popup widget
       popup = new PopupWidget("...");
-      popup.setActions(getActions());
+      popup.addItems(getActions());
       // done
       return popup;
     }
@@ -403,12 +403,12 @@ public class Options extends OptionProvider {
     /**
      * calculate actions for popup
      */
-    private List getActions() {
+    private List<Action2> getActions() {
       // create action for each association
-      List result = new ArrayList(10);
-      Iterator it = FileAssociation.getAll().iterator();
-      for (int i=1;it.hasNext();i++)
-        result.add(new Edit(i, (FileAssociation)it.next()));
+      List<Action2> result = new ArrayList<Action2>(10);
+      int i=1;
+      for (FileAssociation fa : FileAssociation.getAll())
+        result.add(new Edit(i++, fa));
       result.add(new Edit(0, null));
       // done
       return result;
@@ -496,7 +496,8 @@ public class Options extends OptionProvider {
         }
 
         // update actions
-        popup.setActions(getActions());
+        popup.removeItems();
+        popup.addItems(getActions());
       }
     } // Action
 
