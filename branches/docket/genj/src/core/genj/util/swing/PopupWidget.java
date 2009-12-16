@@ -188,6 +188,8 @@ public class PopupWidget extends JButton {
       if (b) {
         popupTriggered = true;
         SwingUtilities.invokeLater(this);
+      } else {
+        cancelPopup();
       }
     }
     /** EDT callback */
