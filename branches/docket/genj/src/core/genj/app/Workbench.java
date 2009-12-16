@@ -1095,10 +1095,17 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Our MenuBar
    */
-  private class Menu extends JMenuBar {
+  private class Menu extends JMenuBar implements SelectionSink {
     
     private int toolStart, toolEnd;
     private List<Action2> tools = new ArrayList<Action2>();
+    
+    // we need to play delegate for selectionsink since the menu is not a child 
+    // of Workbench but the window's root-pane - selections bubbling up the
+    // window hierarchy are otherwise running into null-ness
+    public void fireSelection(Context context, boolean isActionPerformed) {
+      Workbench.this.fireSelection(context, isActionPerformed);
+    }
     
     private Menu() {
       
