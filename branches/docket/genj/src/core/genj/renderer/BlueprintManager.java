@@ -53,6 +53,7 @@ public class BlueprintManager {
   
   private final static String SUFFIX = ".html";
   private final static Registry REGISTRY = Registry.get(BlueprintManager.class);
+  private final static Resources RESOURCES = Resources.get(BlueprintManager.class);
 
   /*package*/ final static Logger LOG = Logger.getLogger("genj.renderer");
 
@@ -61,9 +62,6 @@ public class BlueprintManager {
 
   /** singleton */
   private static BlueprintManager instance;
-  
-  /** resources */
-  private Resources resources = Resources.get(BlueprintManager.class);
   
   /**
    * Singleton access
@@ -84,10 +82,10 @@ public class BlueprintManager {
       
       String tag = Gedcom.ENTITIES[t];
       
-      StringTokenizer names = new StringTokenizer(resources.getString("blueprints."+tag,""));
+      StringTokenizer names = new StringTokenizer(RESOURCES.getString("blueprints."+tag,""));
       while (names.hasMoreTokens()) {
         String name = names.nextToken();
-        String html =  resources.getString("blueprints."+tag+"."+name);
+        String html =  RESOURCES.getString("blueprints."+tag+"."+name);
         try {
           addBlueprint(new Blueprint(tag, name, html.toString(), true));
         } catch (IOException e) {
@@ -96,22 +94,6 @@ public class BlueprintManager {
       }
       
     }
-    
-    // try to load old style blueprints from registry
-    for (int t=0;t<Gedcom.ENTITIES.length;t++) {
-      String tag = Gedcom.ENTITIES[t];
-      StringTokenizer names = new StringTokenizer(REGISTRY.get("options.blueprints."+tag,""));
-      while (names.hasMoreTokens()) {
-        String name = names.nextToken();
-        String html = REGISTRY.get("options.blueprints."+tag+"."+name, (String)null);
-        if (html!=null&&html.length()>0) try {
-          addBlueprint(new Blueprint(tag, name, html, false));
-        } catch (IOException e) {
-          LOG.log(Level.WARNING, "converting old-style blueprint '"+name+"' failed",e);
-        }
-      }
-    }
-    REGISTRY.remove("options.blueprints");
     
     // load user defined blueprints from disk
     loadBlueprints();
