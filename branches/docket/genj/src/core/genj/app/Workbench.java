@@ -44,7 +44,6 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.SafeProxy;
 import genj.util.ServiceLookup;
-import genj.util.WordBuffer;
 import genj.util.swing.Action2;
 import genj.util.swing.FileChooser;
 import genj.util.swing.HeapStatusWidget;
@@ -102,7 +101,6 @@ public class Workbench extends JPanel implements SelectionSink {
   private WindowManager windowManager;
   private Menu menu = new Menu();
   private Toolbar toolbar = new Toolbar();
-  private StatusBar stats = new StatusBar();
   private DockingPane dockingPane = new DockingPane();
   private Context context = new Context();
   private Runnable runOnExit;
@@ -127,7 +125,7 @@ public class Workbench extends JPanel implements SelectionSink {
     setLayout(new BorderLayout());
     add(toolbar, BorderLayout.NORTH);
     add(dockingPane, BorderLayout.CENTER);
-    add(stats, BorderLayout.SOUTH);
+    add(new StatusBar(), BorderLayout.SOUTH);
 
     // install some accelerators
     new ActionSave(false).install(this, ACC_SAVE, JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -270,8 +268,6 @@ public class Workbench extends JPanel implements SelectionSink {
         // abort
         return false;
       } finally {
-        stats.handleRead(reader.getLines());
-        
         // close progress
         //windowManager.close(progress);
       }
@@ -414,9 +410,6 @@ public class Workbench extends JPanel implements SelectionSink {
 
       // .. write it
       writer.write();
-      
-      // track what we read
-      stats.handleWrite(writer.getLines());
       
       // .. make backup
       if (file.exists()) {
@@ -1003,9 +996,7 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   private class StatusBar extends JPanel implements GedcomMetaListener, WorkbenchListener {
 
-    private Gedcom gedcom;
     private int commits;
-    private int read, written;
 
     private JLabel[] ents = new JLabel[Gedcom.ENTITIES.length];
     private JLabel changes;
@@ -1026,40 +1017,20 @@ public class Workbench extends JPanel implements SelectionSink {
       addWorkbenchListener(this);
     }
     
+    private void update(Gedcom gedcom) {
+      for (int i=0;i<Gedcom.ENTITIES.length;i++) 
+        ents[i].setText(count(gedcom, i));
+      
+      changes.setText(commits>0?RES.getString("stat.commits", new Integer(commits)):"");
+    }
     
     public void gedcomWriteLockReleased(Gedcom gedcom) {
       commits++;
-      update();
+      update(gedcom);
     }
 
-    public synchronized void handleRead(int lines) {
-      read += lines;
-      update();
-    }
-
-    public synchronized void handleWrite(int lines) {
-      written += lines;
-      update();
-    }
-    
-    private String count(int type) {
-      return gedcom==null ? "-" : ""+gedcom.getEntities(Gedcom.ENTITIES[type]).size();
-    }
-
-    private void update() {
-
-      for (int i=0;i<Gedcom.ENTITIES.length;i++) {
-        ents[i].setText(count(i));
-      }
-
-      WordBuffer buf = new WordBuffer(", ");
-      if (commits > 0)
-        buf.append(RES.getString("stat.commits", new Integer(commits)));
-      if (read > 0)
-        buf.append(RES.getString("stat.lines.read", new Integer(read)));
-      if (written > 0)
-        buf.append(RES.getString("stat.lines.written", new Integer(written)));
-      changes.setText(buf.toString());
+    private String count(Gedcom gedcom, int type) {
+      return ""+gedcom.getEntities(Gedcom.ENTITIES[type]).size();
     }
 
     public void gedcomHeaderChanged(Gedcom gedcom) {
@@ -1095,18 +1066,15 @@ public class Workbench extends JPanel implements SelectionSink {
     public void gedcomClosed(Gedcom gedcom) {
       gedcom.removeGedcomListener((GedcomListener)Spin.over(this));
       commits = 0;
-      read = 0;
-      written = 0;
-      update();
+      for (int i=0;i<Gedcom.ENTITIES.length;i++) 
+        ents[i].setText("-");
+      changes.setText("");
     }
 
 
     public void gedcomOpened(Gedcom gedcom) {
       gedcom.addGedcomListener((GedcomListener)Spin.over(this));
-      commits = 0;
-      read = 0;
-      written = 0;
-      update();
+      update(gedcom);
     }
 
     public void selectionChanged(Context context, boolean isActionPerformed) {
