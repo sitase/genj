@@ -55,6 +55,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
@@ -198,6 +199,8 @@ public class WindowManager {
 		    	  source = ((JPopupMenu)source).getInvoker();
 		      else if (source instanceof JMenu)
 		    	  source = ((JMenu)source).getParent();
+          else if (source instanceof JMenuItem)
+            source = ((JMenuItem)source).getParent();
 		      else if (source instanceof Component)
 		    	  return (Component)source;
 		      else
