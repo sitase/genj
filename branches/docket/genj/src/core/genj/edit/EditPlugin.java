@@ -45,7 +45,6 @@ import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomDirectory;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Indi;
 import genj.gedcom.MetaProperty;
@@ -358,11 +357,6 @@ public class EditPlugin implements ActionProvider {
     group.add(new CreateEntity(gedcom, Gedcom.REPO));
     group.add(new CreateEntity(gedcom, Gedcom.SOUR));
     group.add(new CreateEntity(gedcom, Gedcom.SUBM));
-  
-    for (Gedcom other : GedcomDirectory.getInstance().getGedcoms()) {
-      if (other!=gedcom && other.getEntities(Gedcom.INDI).size()>0)
-        group.add(new CopyIndividual(gedcom, other));
-    }
   
     // done
   }

@@ -88,7 +88,7 @@ import swingx.docking.Docked;
     String title = factory.getTitle();
 
     // create new View
-    view = factory.createView(new Registry(registry, factory.getClass().getName()));
+    view = factory.createView();
     
     // backlink
     view.putClientProperty(ViewDockable.class, this);
@@ -174,7 +174,7 @@ import swingx.docking.Docked;
     workbench.removeWorkbenchListener(this);
 
     // clear context for cleanup
-    view.setContext(null, true);
+    view.setContext(new Context(), true);
 
     // continue
     super.undocked();

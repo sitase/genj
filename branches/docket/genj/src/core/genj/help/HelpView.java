@@ -1,7 +1,7 @@
 /**
  * GenJ - GenealogyJ
  *
- * Copyright (C) 1997 - 2002 Nils Meier <nils@meiers.net>
+ * Copyright (C) 1997 - 2009 Nils Meier <nils@meiers.net>
  *
  * This piece of code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -17,40 +17,22 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.report;
+package genj.help;
 
-import genj.util.Resources;
 import genj.util.swing.ImageIcon;
 import genj.view.View;
-import genj.view.ViewFactory;
 
+import java.awt.BorderLayout;
 
 /**
- * The factory for the TableView
+ * help in workbench
  */
-public class ReportViewFactory implements ViewFactory {
-
-  /*package*/ final static ImageIcon IMG = new ImageIcon(ReportViewFactory.class, "View");
-
-  /**
-   * Factory method - create instance of view
-   */
-  public View createView() {
-    return new ReportView();
-  }
+public class HelpView extends View {
   
-  /**
-   * @see genj.view.ViewFactory#getImage()
-   */
-  public ImageIcon getImage() {
-    return IMG;
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getTitle(boolean)
-   */
-  public String getTitle() {
-    return Resources.get(this).getString("title");
-  }
+  public final static ImageIcon IMG = new ImageIcon(HelpView.class,"Help.png");
 
-} //ReportViewFactory
+  public HelpView() {
+    super(new BorderLayout());
+    add(new HelpWidget(), BorderLayout.CENTER);
+  }
+}

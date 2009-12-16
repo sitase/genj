@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.app;
+package genj.help;
 
 import genj.util.EnvironmentChecker;
 import genj.util.Resources;
@@ -28,6 +28,7 @@ import java.io.File;
 import java.net.URL;
 import java.util.Locale;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.help.HelpSet;
 import javax.help.JHelp;
@@ -41,7 +42,8 @@ import javax.swing.border.EmptyBorder;
  * A bridge to javax Help System
  */
 class HelpWidget extends JPanel {
-  
+
+  private final static Logger LOG = Logger.getLogger("genj.help");
   private final static Resources RESOURCES = Resources.get(HelpWidget.class);
 
   /**
@@ -55,7 +57,7 @@ class HelpWidget extends JPanel {
     // create center component
     JComponent pCenter = getContent();
     if (pCenter==null) {
-      pCenter = new JLabel(RESOURCES.getString("cc.help.help_file_missing", Locale.getDefault().getLanguage().toLowerCase()), SwingConstants.CENTER);
+      pCenter = new JLabel(RESOURCES.getString("help.missing", Locale.getDefault().getLanguage().toLowerCase()), SwingConstants.CENTER);
       pCenter.setBorder(new EmptyBorder(16,16,16,16));
     }
     
@@ -79,10 +81,11 @@ class HelpWidget extends JPanel {
     
     // Open the Help Set        
     String file = calcHelpBase() + "/helpset.xml";
-    App.LOG.info("Trying to use help in " + file );
+    LOG.info("Trying to use help in " + file );
+    
     // safety check
     if (!new File(file).exists()) {
-      App.LOG.log(Level.WARNING, "No help found in "+file);
+      LOG.log(Level.WARNING, "No help found in "+file);
       return null;
     }
 
@@ -94,7 +97,7 @@ class HelpWidget extends JPanel {
         .newInstance(new Object[]{null,new URL("file","", file)});
       return (JComponent)JHelp.class.getConstructor(new Class[]{set.getClass()}).newInstance(new Object[]{set});
     } catch (Throwable t) {
-      App.LOG.log(Level.WARNING, "Problem reading help", t);
+      LOG.log(Level.WARNING, "Problem reading help", t);
     }
     
     // default - none

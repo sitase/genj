@@ -203,7 +203,7 @@ import javax.swing.tree.TreePath;
   public void setContext(Context context) {
     
     // clear?
-    if (context==null) {
+    if (context.getGedcom()==null) {
       tree.setRoot(null);
       return;
     }

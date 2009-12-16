@@ -64,6 +64,23 @@ public interface ActionProvider {
   /**
    * an action group for tools
    */
+  public final class HelpActionGroup extends Action2.Group {
+    public HelpActionGroup() {
+      super(Resources.get(HelpActionGroup.class).getString("group.help"));
+    }
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof HelpActionGroup;
+    }
+    @Override
+    public int hashCode() {
+      return HelpActionGroup.class.hashCode();
+    }
+  }
+  
+  /**
+   * an action group for tools
+   */
   public final class ToolsActionGroup extends Action2.Group {
     public ToolsActionGroup() {
       super(Resources.get(ToolsActionGroup.class).getString("group.tools"));

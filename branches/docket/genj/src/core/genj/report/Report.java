@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.7 $ $Author: nmeier $ $Date: 2009-12-11 00:17:18 $
+ * $Revision: 1.136.2.8 $ $Author: nmeier $ $Date: 2009-12-16 01:37:19 $
  */
 package genj.report;
 
@@ -110,7 +110,7 @@ public abstract class Report implements Cloneable {
     ALIGN_RIGHT  = 2;
 
   /** one report for all reports */
-  protected final static Registry registry = new Registry("genj-reports");
+  protected Registry registry;
 
   /** language we're trying to use */
   private final static String lang = Locale.getDefault().getLanguage();
@@ -125,7 +125,7 @@ public abstract class Report implements Cloneable {
   private final static WindowManager windowManager = WindowManager.getInstance();
 
   /** options */
-  private List<? extends Option> options;
+  private List<PropertyOption> options;
 
   /** image */
   private ImageIcon image;
@@ -142,7 +142,7 @@ public abstract class Report implements Cloneable {
    * Constructor
    */
   protected Report() {
-
+    registry = new Registry(Registry.get(Report.class), getClass().getName());
   }
 
   /**
@@ -182,7 +182,7 @@ public abstract class Report implements Cloneable {
     if (options==null)
       return;
     // save 'em
-    for (Option option : options)
+    for (PropertyOption option : options)
       option.persist(registry);
     // done
   }
@@ -201,7 +201,7 @@ public abstract class Report implements Cloneable {
     options = PropertyOption.introspect(this, true);
 
     // restore options values
-    for (Option option : options) {
+    for (PropertyOption option : options) {
       // restore old value
       option.restore(registry);
       // options do try to localize the name and tool tip based on a properties file
@@ -365,10 +365,8 @@ public abstract class Report implements Cloneable {
    */
   public File getFileFromUser(String title, String button, boolean askForOverwrite, String extension) {
 
-    String key = getClass().getName()+".file";
-
     // show filechooser
-    String dir = registry.get(key, EnvironmentChecker.getProperty(this, "user.home", ".", "looking for report dir to let the user choose from"));
+    String dir = registry.get("file", EnvironmentChecker.getProperty(this, "user.home", ".", "looking for report dir to let the user choose from"));
     JFileChooser chooser = new JFileChooser(dir);
     chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
     chooser.setDialogTitle(title);
@@ -390,7 +388,7 @@ public abstract class Report implements Cloneable {
     }
 
     // keep it
-    registry.put(key, result.getParent().toString());
+    registry.put("file", result.getParent().toString());
     return result;
   }
 
@@ -399,10 +397,8 @@ public abstract class Report implements Cloneable {
    */
   public File getDirectoryFromUser(String title, String button) {
 
-    String key = getClass().getName()+".dir";
-
     // show directory chooser
-    String dir = registry.get(key, EnvironmentChecker.getProperty(this, "user.home", ".", "looking for report dir to let the user choose from"));
+    String dir = registry.get("dir", EnvironmentChecker.getProperty(this, "user.home", ".", "looking for report dir to let the user choose from"));
     JFileChooser chooser = new JFileChooser(dir);
     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
     chooser.setDialogTitle(title);
@@ -414,7 +410,7 @@ public abstract class Report implements Cloneable {
       return null;
 
     // keep it
-    registry.put(key, result.toString());
+    registry.put(dir, result.toString());
     return result;
   }
 
@@ -487,7 +483,6 @@ public abstract class Report implements Cloneable {
 
     // try to find previously entered choices
     if (key!=null) {
-      key = getClass().getName()+"."+key;
       String[] presets = registry.get(key, (String[])null);
       if (presets != null)
         defaultChoices = presets;
@@ -518,7 +513,7 @@ public abstract class Report implements Cloneable {
   public final boolean getOptionsFromUser(String title, Object options) {
 
     // grab options by introspection
-    List<? extends Option> os = PropertyOption.introspect(options);
+    List<PropertyOption> os = PropertyOption.introspect(options);
 
     // calculate a logical prefix for this options object (strip packages and enclosing type info)
     String prefix = options.getClass().getName();
@@ -530,10 +525,9 @@ public abstract class Report implements Cloneable {
     if (i>0) prefix = prefix.substring(i+1);
 
     // restore parameters
-    Registry r = new Registry(registry, prefix);
-    for (Option option : os) {
+    for (PropertyOption option : os) {
       
-      option.restore(r);
+      option.restore(registry);
 
       // translate the options as a courtesy now - while options do try
       // to localize the name they base that on a properties file in the
@@ -553,8 +547,8 @@ public abstract class Report implements Cloneable {
 
     // save parameters
     widget.stopEditing();
-    for (Option option : os)
-      option.persist(r);
+    for (PropertyOption option : os)
+      option.persist(registry);
 
     // done
     return true;

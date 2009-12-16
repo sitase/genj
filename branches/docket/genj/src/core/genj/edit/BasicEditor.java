@@ -170,7 +170,7 @@ import spin.Spin;
   public void setContext(Context context) {
     
     // clear?
-    if (context==null) {
+    if (context.getGedcom()==null) {
       setEntity(null, null);
       return;
     }

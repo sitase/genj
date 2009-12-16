@@ -57,6 +57,7 @@ import javax.swing.JPanel;
 public class SelectEntityWidget extends JPanel {
   
   private final static Resources RESOURCES = Resources.get(SelectEntityWidget.class);
+  private final static Registry REGISTRY = Registry.get(SelectEntityWidget.class);
 
   /** type of entities to choose from */
   private String type = Gedcom.INDI;
@@ -68,9 +69,6 @@ public class SelectEntityWidget extends JPanel {
   /** widgets */
   private PopupWidget sortWidget;
   private JComboBox listWidget;
-  
-  /** registry */
-  private Registry registry = Registry.lookup("genj", null);
   
   /** sorts */
   private TagPath sort;
@@ -132,7 +130,7 @@ public class SelectEntityWidget extends JPanel {
         continue;
       TagPath p = new TagPath(path);
       sorts.add(p);
-      if (sort==null||path.equals(registry.get("select.sort."+type, ""))) sort = p;
+      if (sort==null||path.equals(REGISTRY.get("select.sort."+type, ""))) sort = p;
     }
 
     // prepare sorting widget
@@ -164,7 +162,7 @@ public class SelectEntityWidget extends JPanel {
   public void sort(TagPath path) {
     // remember
     sort = path;
-    registry.put("select.sort."+type, path.toString());
+    REGISTRY.put("select.sort."+type, path.toString());
     // Sort
     PropertyComparator comparator = new PropertyComparator(path);
     Arrays.sort(list, none!=null ? 1 : 0, list.length, comparator);

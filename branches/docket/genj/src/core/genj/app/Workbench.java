@@ -22,7 +22,6 @@ package genj.app;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomDirectory;
 import genj.gedcom.GedcomException;
 import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomMetaListener;
@@ -74,7 +73,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.Action;
-import javax.swing.Box;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -93,31 +91,28 @@ import swingx.docking.DockingPane;
 public class Workbench extends JPanel implements SelectionSink {
 
   private final static Logger LOG = Logger.getLogger("genj.app");
-  
   private final static String ACC_SAVE = "ctrl S", ACC_EXIT = "ctrl X", ACC_NEW = "ctrl N", ACC_OPEN = "ctrl O";
-
   private final static Resources RES = Resources.get(Workbench.class);
+  private final static Registry REGISTRY = Registry.get(Workbench.class);
 
   /** members */
   private List<WorkbenchListener> listeners = new CopyOnWriteArrayList<WorkbenchListener>();
   private List<Object> plugins = new ArrayList<Object>();
   private List<ViewFactory> viewFactories = ServiceLookup.lookup(ViewFactory.class);
-  private Registry registry;
   private WindowManager windowManager;
   private Menu menu = new Menu();
   private Toolbar toolbar = new Toolbar();
   private StatusBar stats = new StatusBar();
   private DockingPane dockingPane = new DockingPane();
-  private Context context= null;
+  private Context context = new Context();
   private Runnable runOnExit;
 
   /**
    * Constructor
    */
-  public Workbench(Registry registry, Runnable onExit) {
+  public Workbench(Runnable onExit) {
 
     // Initialize data
-    this.registry = registry;
     windowManager = WindowManager.getInstance();
     runOnExit = onExit;
     
@@ -147,7 +142,7 @@ public class Workbench extends JPanel implements SelectionSink {
    * @return null or context
    */
   public Context getContext() {
-    return context!=null ? new Context(context) : null;
+    return context;
   }
   
   /**
@@ -203,7 +198,7 @@ public class Workbench extends JPanel implements SelectionSink {
     File file = chooseFile(RES.getString("cc.open.title"), RES.getString("cc.open.action"), null);
     if (file == null)
       return false;
-    registry.put("last.dir", file.getParentFile().getAbsolutePath());
+    REGISTRY.put("last.dir", file.getParentFile().getAbsolutePath());
     
     // close what we have
     if (!closeGedcom())
@@ -231,18 +226,6 @@ public class Workbench extends JPanel implements SelectionSink {
     // open connection
     Origin origin = Origin.create(url);
 
-//    try {
-//    } catch (MalformedURLException e) {
-//      windowManager.openDialog(null, RES.getString("cc.open.invalid_url"), WindowManager.ERROR_MESSAGE, url.toString(), Action2.okOnly(), Workbench.this);
-//      return;
-//    }
-
-    // Check if already open
-    if (GedcomDirectory.getInstance().getGedcom(origin.getName()) != null) {
-      windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.open.already_open", origin.getName()), Action2.okOnly(), Workbench.this);
-      return false;
-    }
-    
     // FIXME docket read async
     // Read it - we might try multiple times
     Gedcom gedcom = null;
@@ -303,22 +286,20 @@ public class Workbench extends JPanel implements SelectionSink {
   private void setGedcom(Gedcom gedcom) {
     
     // catch anyone trying this without close
-    if (context!=null)
-      throw new IllegalArgumentException("context!=null");
+    if (context.getGedcom()!=null)
+      throw new IllegalArgumentException("context.gedcom!=null");
 
     // restore context
     try {
-      context = Context.fromString(gedcom, registry.get(gedcom.getName()+".context", gedcom.getName()));
+      context = Context.fromString(gedcom, REGISTRY.get(gedcom.getName()+".context", gedcom.getName()));
     } catch (GedcomException ge) {
     } finally {
       // fixup context if necessary - start with adam if available
       Entity adam = gedcom.getFirstEntity(Gedcom.INDI);
-      if (context == null || context.getEntities().isEmpty())
+      if (context.getEntities().isEmpty())
         context = new Context(gedcom, adam!=null ? Collections.singletonList(adam) : null, null);
     }
     
-     GedcomDirectory.getInstance().registerGedcom(gedcom);
-
     // tell everone
     fireSelection(context, true);
     
@@ -336,7 +317,7 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   public boolean saveAsGedcom() {
     
-    if (context == null)
+    if (context.getGedcom() == null)
       return false;
     
     // ask everyone to commit their data
@@ -387,7 +368,7 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   public boolean saveGedcom() {
 
-    if (context == null)
+    if (context.getGedcom() == null)
       return false;
     
     // ask everyone to commit their data
@@ -474,12 +455,13 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   public void exit() {
     
+    // remember current context for exit
+    if (context.getGedcom()!=null)
+      REGISTRY.put("restore.url", context.getGedcom().getOrigin().toString());
+    
     // close
     if (!closeGedcom())
       return;
-    
-    // remember current context for exit
-    registry.put("restore.url", context!=null ? context.getGedcom().getOrigin().toString() : "");
     
     // Shutdown
     runOnExit.run();
@@ -491,7 +473,7 @@ public class Workbench extends JPanel implements SelectionSink {
   public boolean closeGedcom() {
 
     // noop?
-    if (context==null)
+    if (context.getGedcom()==null)
       return true;
     
     // commit changes
@@ -517,16 +499,13 @@ public class Workbench extends JPanel implements SelectionSink {
       listener.gedcomClosed(context.getGedcom());
     
     // remember context
-    registry.put(context.getGedcom().getName(), context.toString());
-
-    // unregister
-    GedcomDirectory.getInstance().unregisterGedcom(context.getGedcom());
+    REGISTRY.put(context.getGedcom().getName(), context.toString());
 
     // no tools
     uninstallTools();    
     
     // remember and tell
-    context = null;
+    context = new Context();
     for (WorkbenchListener listener : listeners) 
       listener.selectionChanged(context, true);
     
@@ -539,7 +518,7 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   public void restoreGedcom() {
 
-    String restore = registry.get("restore.url", (String)null);
+    String restore = REGISTRY.get("restore.url", (String)null);
     try {
       // no known key means load default
       if (restore==null)
@@ -600,7 +579,7 @@ public class Workbench extends JPanel implements SelectionSink {
   public void fireSelection(Context context, boolean isActionPerformed) {
     
     // allowed?
-    if (context.getGedcom() != this.context.getGedcom())
+    if (context.getGedcom()!= this.context.getGedcom())
       throw new IllegalArgumentException("context selection on unknown gedcom");
 
     // already known?
@@ -613,12 +592,10 @@ public class Workbench extends JPanel implements SelectionSink {
     uninstallTools();    
     
     // remember 
-    if (context==null) {
-      this.context = null;
-    } else {
-      this.context = new Context(context);
-      registry.put(context.getGedcom().getName()+".context", context.toString());
-    }
+    this.context = context;
+    
+    if (context.getGedcom()!=null) 
+      REGISTRY.put(context.getGedcom().getName()+".context", context.toString());
     
     // notify
     for (WorkbenchListener listener : listeners) 
@@ -682,21 +659,19 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   private void addGedcomListeners(List<Action2> actions) {
-    if (context==null)
-      throw new IllegalArgumentException("context==null");
-    Gedcom gedcom = context.getGedcom();
+    if (context.getGedcom()==null)
+      throw new IllegalArgumentException("context.gedcom==null");
     for (Action action : actions)
       if (action instanceof GedcomListener)
-        gedcom.addGedcomListener((GedcomListener)action);
+        context.getGedcom().addGedcomListener((GedcomListener)action);
   }
   
   private void removeGedcomListeners(List<Action2> actions) {
-    if (context==null)
-      throw new IllegalArgumentException("context==null");
-    Gedcom gedcom = context.getGedcom();
+    if (context.getGedcom()==null)
+      throw new IllegalArgumentException("context.gedcom==null");
     for (Action action : actions)
       if (action instanceof GedcomListener)
-        gedcom.removeGedcomListener((GedcomListener)action);
+        context.getGedcom().removeGedcomListener((GedcomListener)action);
   }
   
   private void fireViewOpened(View view) {
@@ -748,10 +723,7 @@ public class Workbench extends JPanel implements SelectionSink {
    * (re)open a view
    */
   public View openView(Class<? extends ViewFactory> factory) {
-    // grab current Gedcom
-    if (this.context == null)
-      throw new IllegalArgumentException("no context");
-    return openView(factory, new Context(context));
+    return openView(factory, context);
   }
   
   /**
@@ -778,7 +750,7 @@ public class Workbench extends JPanel implements SelectionSink {
     
     // open it & signal current selection
     try {
-      dockable = new ViewDockable(Workbench.this, factory, registry);
+      dockable = new ViewDockable(Workbench.this, factory, REGISTRY);
     } catch (Throwable t) {
       LOG.log(Level.WARNING, "cannot open view for "+factory.getClass().getName(), t);
       return null;
@@ -796,7 +768,7 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   private File chooseFile(String title, String action, JComponent accessory) {
     FileChooser chooser = new FileChooser(Workbench.this, title, action, "ged", EnvironmentChecker.getProperty(Workbench.this, new String[] { "genj.gedcom.dir", "user.home" }, ".", "choose gedcom file"));
-    chooser.setCurrentDirectory(new File(registry.get("last.dir", "user.home")));
+    chooser.setCurrentDirectory(new File(REGISTRY.get("last.dir", "user.home")));
     if (accessory != null)
       chooser.setAccessory(accessory);
     if (JFileChooser.APPROVE_OPTION != chooser.showDialog())
@@ -806,7 +778,7 @@ public class Workbench extends JPanel implements SelectionSink {
     if (file == null)
       return null;
     // remember last directory
-    registry.put("last.dir", file.getParentFile().getAbsolutePath());
+    REGISTRY.put("last.dir", file.getParentFile().getAbsolutePath());
     // done
     return file;
   }
@@ -857,31 +829,10 @@ public class Workbench extends JPanel implements SelectionSink {
 
     /** run */
     public void actionPerformed(ActionEvent event) {
-      if (windowManager.show("about"))
-        return;
       windowManager.openDialog("about", RES.getString("cc.menu.about"), WindowManager.INFORMATION_MESSAGE, new AboutWidget(), Action2.okOnly(), Workbench.this);
       // done
     }
   } // ActionAbout
-
-  /**
-   * Action - help
-   */
-  private class ActionHelp extends Action2 {
-    /** constructor */
-    protected ActionHelp() {
-      setText(RES, "cc.menu.contents");
-      setImage(Images.imgHelp);
-    }
-
-    /** run */
-    public void actionPerformed(ActionEvent event) {
-      if (windowManager.show("help"))
-        return;
-      windowManager.openWindow("help", RES.getString("cc.menu.help"), Images.imgHelp, new HelpWidget(), null, null);
-      // done
-    }
-  } // ActionHelp
 
   /**
    * Action - exit
@@ -1202,7 +1153,10 @@ public class Workbench extends JPanel implements SelectionSink {
                                          // application menus apparently
         mh.createItem(new ActionExit());
       }
-  
+
+      mh.createSeparator();
+      mh.createItem(new ActionAbout());
+
       mh.popMenu();
       
       // Views
@@ -1244,12 +1198,6 @@ public class Workbench extends JPanel implements SelectionSink {
       toolStart = getMenuCount();
       toolEnd = toolStart;
 
-      // Help
-      add(Box.createGlue());
-      mh.createMenu(RES.getString("cc.menu.help"));
-      mh.createItem(new ActionHelp());
-      mh.createItem(new ActionAbout());
-  
       // Done
     }
     

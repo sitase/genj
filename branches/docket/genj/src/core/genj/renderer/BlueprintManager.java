@@ -21,7 +21,6 @@ package genj.renderer;
 
 import genj.gedcom.Gedcom;
 import genj.util.EnvironmentChecker;
-import genj.util.Origin;
 import genj.util.Registry;
 import genj.util.Resources;
 
@@ -53,7 +52,8 @@ import java.util.logging.Logger;
 public class BlueprintManager {
   
   private final static String SUFFIX = ".html";
-  
+  private final static Registry REGISTRY = Registry.get(BlueprintManager.class);
+
   /*package*/ final static Logger LOG = Logger.getLogger("genj.renderer");
 
   /** blueprints per entity */
@@ -98,13 +98,12 @@ public class BlueprintManager {
     }
     
     // try to load old style blueprints from registry
-    Registry registry = Registry.lookup("genj", null);
     for (int t=0;t<Gedcom.ENTITIES.length;t++) {
       String tag = Gedcom.ENTITIES[t];
-      StringTokenizer names = new StringTokenizer(registry.get("options.blueprints."+tag,""));
+      StringTokenizer names = new StringTokenizer(REGISTRY.get("options.blueprints."+tag,""));
       while (names.hasMoreTokens()) {
         String name = names.nextToken();
-        String html = registry.get("options.blueprints."+tag+"."+name, (String)null);
+        String html = REGISTRY.get("options.blueprints."+tag+"."+name, (String)null);
         if (html!=null&&html.length()>0) try {
           addBlueprint(new Blueprint(tag, name, html, false));
         } catch (IOException e) {
@@ -112,7 +111,7 @@ public class BlueprintManager {
         }
       }
     }
-    registry.remove("options.blueprints");
+    REGISTRY.remove("options.blueprints");
     
     // load user defined blueprints from disk
     loadBlueprints();

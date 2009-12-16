@@ -308,11 +308,11 @@ public class Options extends OptionProvider {
       return this;
     }
 
-    public void persist(Registry registry) {
+    public void persist() {
       // we're not storing anything
     }
 
-    public void restore(Registry registry) {
+    public void restore() {
       // no state to restore
     }
 
@@ -369,13 +369,13 @@ public class Options extends OptionProvider {
     }
 
     /** callback - persist */
-    public void persist(Registry registry) {
-      registry.put("associations", FileAssociation.getAll());
+    public void persist() {
+      Registry.get(this).put("associations", FileAssociation.getAll());
     }
 
     /** callback - restore */
-    public void restore(Registry registry) {
-      String[] associations = registry.get("associations", new String[0]);
+    public void restore() {
+      String[] associations = Registry.get(this).get("associations", new String[0]);
       for (int i = 0; i < associations.length; i++)
         FileAssociation.add(new FileAssociation(associations[i]));
     }

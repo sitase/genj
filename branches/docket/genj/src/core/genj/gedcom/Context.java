@@ -42,6 +42,12 @@ public class Context {
   /**
    * Constructor
    */
+  public Context() {
+  }
+  
+  /**
+   * Constructor
+   */
   public Context(Context context) {
     this.gedcom = context.gedcom;
     this.entities.addAll(context.entities);
@@ -51,7 +57,15 @@ public class Context {
   /**
    * Constructor
    */
+  public Context(Gedcom gedcom, List<? extends Entity> entities) {
+    this(gedcom, entities, null);
+  }
+  
+  /**
+   * Constructor
+   */
   public Context(Gedcom gedcom, List<? extends Entity> entities, List<? extends Property> properties) {
+    
     this.gedcom = gedcom;
 
     // grab ents
@@ -83,8 +97,6 @@ public class Context {
    * Constructor
    */
   public Context(Gedcom ged) {
-    if (ged==null)
-      throw new IllegalArgumentException("gedcom for context can't be null");
     gedcom = ged;
   }
 
@@ -144,6 +156,10 @@ public class Context {
 
   /** storage */
   public String toString() {
+    
+    if (gedcom==null)
+      return "";
+    
     StringBuffer result = new StringBuffer();
     result.append(gedcom.getName());
     for (Entity entity : entities) {

@@ -160,6 +160,16 @@ public abstract class PropertyOption extends Option {
     this.instance = instance;
     this.property = property;
   }
+  
+  /**
+   * Persist
+   */
+  public abstract void persist(Registry registry);
+
+  /**
+   * Persist
+   */
+  public abstract void restore(Registry registry);
 
   /**
    * Accessor - option value
@@ -410,8 +420,11 @@ public abstract class PropertyOption extends Option {
     /**
      * Restore option values from registry
      */
+    public void restore() {
+      restore(Registry.get(instance));
+    }
     public void restore(Registry registry) {
-      String value = registry.get(instance.getClass().getName() + '.' + getProperty(), (String)null);
+      String value = registry.get(getProperty(), (String)null);
       if (value!=null)
         setValue(value);
     }
@@ -419,10 +432,13 @@ public abstract class PropertyOption extends Option {
     /**
      * Persist option values to registry
      */
+    public void persist() {
+      persist(Registry.get(instance));
+    }
     public void persist(Registry registry) {
       Object value = getValue();
       if (value!=null)
-        registry.put(instance.getClass().getName() + '.' + getProperty(), value.toString());
+        registry.put(getProperty(), value.toString());
     }
 
     /**

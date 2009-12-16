@@ -21,7 +21,7 @@ package genj.timeline;
 
 import genj.almanac.Almanac;
 import genj.gedcom.Context;
-import genj.gedcom.Entity;
+import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
 import genj.gedcom.time.PointInTime;
@@ -88,7 +88,7 @@ public class TimelineView extends View {
   private Content content;
   
   /** our current selection */
-  private Set selectedEvents = new HashSet();
+  private Set<Model.Event> selection = new HashSet<Model.Event>();
   
   /** our ruler */
   private Ruler ruler;
@@ -138,14 +138,14 @@ public class TimelineView extends View {
     isPaintTags = true;
 
   /** registry we keep */
-  private Registry regstry;
+  private final static Registry REGISTRY = Registry.get(TimelineView.class);
   
   private ModelListener callback = new ModelListener();
     
   /**
    * Constructor
    */
-  public TimelineView(Registry registry) {
+  public TimelineView() {
     
     // remember
     DPI = Options.getInstance().getDPI();
@@ -155,13 +155,12 @@ public class TimelineView extends View {
     );
 
     // read some stuff from registry
-    regstry = registry;
-    cmPerYear = Math.max(MIN_CM_PER_YEAR, Math.min(MAX_CM_PER_YEAR, regstry.get("cmperyear", (float)DEF_CM_PER_YEAR)));
-    cmBefEvent = Math.max(MIN_CM_BEF_EVENT, Math.min(MAX_CM_BEF_EVENT, regstry.get("cmbefevent", (float)DEF_CM_BEF_EVENT)));
-    cmAftEvent = Math.max(MIN_CM_AFT_EVENT, Math.min(MAX_CM_AFT_EVENT, regstry.get("cmaftevent", (float)DEF_CM_AFT_EVENT)));
-    isPaintDates = regstry.get("paintdates", true);
-    isPaintGrid  = regstry.get("paintgrid" , false);
-    isPaintTags  = regstry.get("painttags" , false);
+    cmPerYear = Math.max(MIN_CM_PER_YEAR, Math.min(MAX_CM_PER_YEAR, REGISTRY.get("cmperyear", (float)DEF_CM_PER_YEAR)));
+    cmBefEvent = Math.max(MIN_CM_BEF_EVENT, Math.min(MAX_CM_BEF_EVENT, REGISTRY.get("cmbefevent", (float)DEF_CM_BEF_EVENT)));
+    cmAftEvent = Math.max(MIN_CM_AFT_EVENT, Math.min(MAX_CM_AFT_EVENT, REGISTRY.get("cmaftevent", (float)DEF_CM_AFT_EVENT)));
+    isPaintDates = REGISTRY.get("paintdates", true);
+    isPaintGrid  = REGISTRY.get("paintgrid" , false);
+    isPaintTags  = REGISTRY.get("painttags" , false);
 
     colors.put("background", Color.WHITE);
     colors.put("text"      , Color.BLACK);
@@ -170,14 +169,14 @@ public class TimelineView extends View {
     colors.put("timespan"  , Color.BLUE );
     colors.put("grid"      , Color.LIGHT_GRAY);
     colors.put("selected"  , Color.RED  );
-    colors = regstry.get("color", colors);
+    colors = REGISTRY.get("color", colors);
    
-    String[] ignored= regstry.get("almanac.ignore", new String[0]);
+    String[] ignored= REGISTRY.get("almanac.ignore", new String[0]);
     for (int i=0;i<ignored.length;i++)
       ignoredAlmanacCategories.add(ignored[i]);
     
     // create/keep our sub-parts
-    model = new Model(context.getGedcom(), regstry.get("filter", (String[])null));
+    model = new Model();
     model.setTimePerEvent(cmBefEvent/cmPerYear, cmAftEvent/cmPerYear);
     content = new Content();
     ruler = new Ruler();
@@ -194,7 +193,7 @@ public class TimelineView extends View {
     // scroll to last centered year
     javax.swing.SwingUtilities.invokeLater(new Runnable() {
       public void run() {
-        centeredYear = regstry.get("centeryear", 0F);
+        centeredYear = REGISTRY.get("centeryear", 0F);
         scroll2year(centeredYear);
       }
     });
@@ -213,23 +212,25 @@ public class TimelineView extends View {
    * @see javax.swing.JComponent#removeNotify()
    */
   public void removeNotify() {
+    
     // disconnect from model
     model.removeListener(callback);
+    
     // store stuff in registry
-    regstry.put("cmperyear"  , (float)Math.rint(cmPerYear*10)/10);
-    regstry.put("cmbefevent" , (float)cmBefEvent);
-    regstry.put("cmaftevent" , (float)cmAftEvent);
-    regstry.put("paintdates" , isPaintDates);
-    regstry.put("paintgrid"  , isPaintGrid);
-    regstry.put("painttags"  , isPaintTags);
-    regstry.put("filter"     , model.getPaths());
-    regstry.put("centeryear" , (float)centeredYear);
-    regstry.put("color", colors);
+    REGISTRY.put("cmperyear"  , (float)Math.rint(cmPerYear*10)/10);
+    REGISTRY.put("cmbefevent" , (float)cmBefEvent);
+    REGISTRY.put("cmaftevent" , (float)cmAftEvent);
+    REGISTRY.put("paintdates" , isPaintDates);
+    REGISTRY.put("paintgrid"  , isPaintGrid);
+    REGISTRY.put("painttags"  , isPaintTags);
+    REGISTRY.put("filter"     , model.getPaths());
+    REGISTRY.put("centeryear" , (float)centeredYear);
+    REGISTRY.put("color", colors);
     
     String[] ignored = new String[ignoredAlmanacCategories.size()];
     for (int i=0;i<ignored.length;i++)
       ignored[i] = ignoredAlmanacCategories.get(i).toString();
-    regstry.put("almanac.ignore", ignored);
+    REGISTRY.put("almanac.ignore", ignored);
 
     // done
     super.removeNotify();
@@ -360,10 +361,15 @@ public class TimelineView extends View {
   /**
    * callback - context event
    */
-  public void select(Context context, boolean isActionPerformed) {
-    
-    // assemble selection
-    selectedEvents = model.getEvents(context);
+  public void setContext(Context context, boolean isActionPerformed) {
+
+    if (context==null) {
+      model.setGedcom(null);
+      selection.clear();
+    } else {
+      model.setGedcom(context.getGedcom());
+      selection = model.getEvents(context);
+    }
     
     // do a repaint, too
     content.repaint();
@@ -533,13 +539,17 @@ public class TimelineView extends View {
      * ContextProvider - callback
      */
     public ViewContext getContext() {
+      
+      // context?
+      Gedcom gedcom = model.getGedcom();
+      if (gedcom==null)
+        return null;
+      
       List<Property> props = new ArrayList<Property>();
-      for (Iterator events = selectedEvents.iterator(); events.hasNext();) {
-        Model.Event event = (Model.Event) events.next();
+      for (Model.Event event : selection) 
         props.add(event.pe);
-        //props.add(event.pd);
-      }
-      return new ViewContext(model.gedcom, new ArrayList<Entity>(), props);
+      
+      return new ViewContext(gedcom, null, props);
     }
     
     /**
@@ -558,7 +568,7 @@ public class TimelineView extends View {
     protected void paintComponent(Graphics g) {
       
       // let the renderer do its work
-      contentRenderer.selection = selectedEvents;
+      contentRenderer.selection = selection;
       contentRenderer.cBackground = (Color)colors.get("background" );
       contentRenderer.cText       = (Color)colors.get("text"    );
       contentRenderer.cDate       = (Color)colors.get("date"    );
@@ -591,12 +601,12 @@ public class TimelineView extends View {
         return;
       
       if (!e.isShiftDown())
-        selectedEvents.clear();
+        selection.clear();
       
       // find context click to select and tell about
       Model.Event hit = getEventAt(e.getPoint());
       if (hit!=null) {
-        selectedEvents.add(hit);
+        selection.add(hit);
         
         // tell about it
         SelectionSink.Dispatcher.fireSelection(e, getContext(), false);
@@ -622,7 +632,7 @@ public class TimelineView extends View {
     /** @see java.awt.event.AdjustmentListener#adjustmentValueChanged(AdjustmentEvent) */
     public void adjustmentValueChanged(AdjustmentEvent e) {
       // swing's scrollbar doesn't distinguish between user-input
-      // scrolling and propagated changes in its model (e.g. because of resize)\
+      // scrolling and propagated changes in its model (e.g. because of resize)
       // we only update the centeredYear if getValueIsAdjusting()==true
       if (scrollContent.getHorizontalScrollBar().getValueIsAdjusting()) {
         // easy : translation and remember

@@ -95,7 +95,7 @@ public class ReportView extends View {
   private ActionConsole actionConsole = new ActionConsole();
   
   /** registry for settings */
-  private Registry registry;
+  private final static Registry REGISTRY = Registry.get(ReportView.class);
 
   /** resources */
   /*package*/ static final Resources RESOURCES = Resources.get(ReportView.class);
@@ -106,10 +106,8 @@ public class ReportView extends View {
   /**
    * Constructor
    */
-  public ReportView(Registry registry) {
+  public ReportView() {
 
-    this.registry = registry;
-    
     // Output
     output = new Output();
 
@@ -218,7 +216,7 @@ public class ReportView extends View {
     
     ReportSelector selector = new ReportSelector();
     try {
-      selector.select(ReportLoader.getInstance().getReportByName(registry.get("lastreport", (String)null)));
+      selector.select(ReportLoader.getInstance().getReportByName(REGISTRY.get("lastreport", (String)null)));
     } catch (Throwable t) {
     }
     
@@ -230,7 +228,7 @@ public class ReportView extends View {
     if (report==null)
       return;
     
-    registry.put("lastreport", report.getClass().getName());
+    REGISTRY.put("lastreport", report.getClass().getName());
     
     startReport(report, gedcom);
 
@@ -247,7 +245,7 @@ public class ReportView extends View {
   public void setContext(Context context, boolean isActionPerformed) {
     
     // keep
-    gedcom = context!=null ? context.getGedcom() : null;
+    gedcom = context.getGedcom();
     
     // enable if none running and data available
     actionStart.setEnabled(!actionStop.isEnabled() && gedcom!=null);
@@ -333,7 +331,7 @@ public class ReportView extends View {
       genj.fo.Document doc = (genj.fo.Document)result;
       String title = "Document "+doc.getTitle();
 
-      Registry foRegistry = new Registry(registry, getClass().getName()+".fo");
+      Registry foRegistry = Registry.get(getClass());
 
       Action[] actions = Action2.okCancel();
       FormatOptionsWidget options = new FormatOptionsWidget(doc, foRegistry);

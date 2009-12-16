@@ -63,13 +63,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
   /*package*/ void stop() {
 
     synchronized (lock) {
-      while (lock.get()) {
-        try {
-          lock.set(false);
-          thread.interrupt();
-          lock.wait();
-        } catch (Throwable t) {
-        }
+      try {
+        lock.set(false);
+        thread.interrupt();
+      } catch (Throwable t) {
       }
     }
     

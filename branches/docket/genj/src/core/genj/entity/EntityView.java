@@ -58,13 +58,13 @@ public class EntityView extends View implements ContextProvider {
   private final static Blueprint BLUEPRINT_SELECT = new Blueprint(resources.getString("html.select"));
   
   /** a registry we keep */
-  private Registry registry;
+  private final static Registry REGISTRY = Registry.get(EntityView.class);
   
   /** the renderer we're using */      
   private EntityRenderer renderer = null;
   
   /** our current context */
-  /*package*/ Context context = null;
+  /*package*/ Context context = new Context();
   
   /** the blueprints we're using */
   private Map<String, Blueprint> type2blueprint = new HashMap<String, Blueprint>();
@@ -92,18 +92,15 @@ public class EntityView extends View implements ContextProvider {
   /**
    * Constructor
    */
-  public EntityView(Registry registry) {
-    
-    // save some stuff
-    this.registry = registry;
+  public EntityView() {
     
     // grab data from registry
     BlueprintManager bpm = BlueprintManager.getInstance();
     for (int t=0;t<Gedcom.ENTITIES.length;t++) {
       String tag = Gedcom.ENTITIES[t];
-      type2blueprint.put(tag, bpm.getBlueprint(tag, registry.get("blueprint."+tag, "")));
+      type2blueprint.put(tag, bpm.getBlueprint(tag, REGISTRY.get("blueprint."+tag, "")));
     }
-    isAntialiasing  = registry.get("antial"  , false);
+    isAntialiasing  = REGISTRY.get("antial"  , false);
     
     // done    
   }
@@ -122,7 +119,7 @@ public class EntityView extends View implements ContextProvider {
   public void setContext(Context newContext, boolean isActionPerformed) {
     
     // disconnect from old
-    if (context!=null) 
+    if (context.getGedcom()!=null) 
       context.getGedcom().removeGedcomListener((GedcomListener)Spin.over(callback));
     renderer = null;
     
@@ -130,7 +127,7 @@ public class EntityView extends View implements ContextProvider {
     context = newContext;
     
     // hook-up
-    if (context!=null) {
+    if (context.getGedcom()!=null) {
       context.getGedcom().addGedcomListener((GedcomListener)Spin.over(callback));
 
       // resolve blueprint & renderer

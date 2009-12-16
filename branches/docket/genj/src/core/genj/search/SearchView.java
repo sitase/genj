@@ -98,10 +98,10 @@ public class SearchView extends View {
   /*package*/ static Resources resources = Resources.get(SearchView.class);
   
   /** current context */
-  private Context context;
+  private Context context = new Context();
   
   /** registry */
-  private Registry registry;
+  private final static Registry REGISTRY = Registry.get(SearchView.class);
   
   /** shown results */
   private Results results = new Results();
@@ -131,10 +131,7 @@ public class SearchView extends View {
   /**
    * Constructor
    */
-  public SearchView(Registry registry) {
-    
-    // remember
-    this.registry = registry;
+  public SearchView() {
     
     // setup worker
     worker = new Worker((WorkerListener)Spin.over(new WorkerListener() {
@@ -151,14 +148,14 @@ public class SearchView extends View {
       }
       public void stopped() {
         actionStop.setEnabled(false);
-        actionStart.setEnabled(true);
+        actionStart.setEnabled(context.getGedcom()!=null);
       }
     }));
     
     // lookup old search values & settings
-    oldPaths = new LinkedList<String>(Arrays.asList(registry.get("old.paths" , DEFAULT_PATHS)));
-    oldValues= new LinkedList<String>(Arrays.asList(registry.get("old.values", DEFAULT_VALUES)));
-    boolean useRegEx = registry.get("regexp", false);
+    oldPaths = new LinkedList<String>(Arrays.asList(REGISTRY.get("old.paths" , DEFAULT_PATHS)));
+    oldValues= new LinkedList<String>(Arrays.asList(REGISTRY.get("old.values", DEFAULT_VALUES)));
+    boolean useRegEx = REGISTRY.get("regexp", false);
 
     // prepare an action listener connecting to click
     ActionListener aclick = new ActionListener() {
@@ -259,9 +256,9 @@ public class SearchView extends View {
    */
   public void removeNotify() {
     // keep old
-    registry.put("regexp"    , checkRegExp.isSelected());
-    registry.put("old.values", oldValues);
-    registry.put("old.paths" , oldPaths );
+    REGISTRY.put("regexp"    , checkRegExp.isSelected());
+    REGISTRY.put("old.values", oldValues);
+    REGISTRY.put("old.paths" , oldPaths );
     // continue
     super.removeNotify();
   }
@@ -270,7 +267,7 @@ public class SearchView extends View {
   public void setContext(Context newContext, boolean isActionPerformed) {
 
     // disconnect old
-    if (context!=null && (newContext==null || newContext.getGedcom()!=context.getGedcom())) {
+    if (context.getGedcom()!=null && context.getGedcom()!=newContext.getGedcom()) {
       
       stop();
       results.clear();

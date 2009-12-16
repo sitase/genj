@@ -422,8 +422,8 @@ public class PrintTask extends Action2 implements Printable, Trackable {
    * @see genj.util.swing.Action2#postExecute(boolean)
    */
   protected boolean postExecute(boolean preExecuteResult) {
-    // close progress
-    WindowManager.getInstance().close(progress);
+//    // close progress
+//    WindowManager.getInstance().close(progress);
     // something we should know about?
     if (throwable != null) {
       LOG.log(Level.WARNING, "print() threw error", throwable);

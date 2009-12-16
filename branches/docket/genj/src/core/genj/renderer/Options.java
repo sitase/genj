@@ -20,6 +20,7 @@
 package genj.renderer;
 
 import genj.option.CustomOption;
+import genj.option.Option;
 import genj.option.OptionProvider;
 import genj.option.PropertyOption;
 import genj.util.Registry;
@@ -31,6 +32,7 @@ import genj.window.WindowManager;
 import java.awt.Font;
 import java.awt.Point;
 import java.awt.Toolkit;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -76,8 +78,8 @@ public class Options extends OptionProvider {
   /**
    * Access to our options (one)
    */
-  public List getOptions() {
-    List result = PropertyOption.introspect(getInstance());
+  public List<? extends Option> getOptions() {
+    List<Option> result = new ArrayList<Option>(PropertyOption.introspect(getInstance()));
     result.add(new ScreenResolutionOption());
     return result;
   }
@@ -105,13 +107,13 @@ public class Options extends OptionProvider {
     }
 
     /** callback - persist */
-    public void persist(Registry registry) {
-      registry.put("dpi", dpi);
+    public void persist() {
+      Registry.get(this).put("dpi", dpi);
     }
 
     /** callback - restore */
-    public void restore(Registry registry) {
-      Point set = registry.get("dpi", (Point)null);
+    public void restore() {
+      Point set = Registry.get(this).get("dpi", (Point)null);
       if (set!=null)
         dpi = set;
     }

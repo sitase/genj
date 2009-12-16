@@ -94,7 +94,7 @@ public class NavigatorView extends View {
   private JPanel popupPanel = createPopupPanel();
   
   /** the current context */
-  private Context context;
+  private Context context = new Context();
 
   /** where we store stuff */
   private Registry registry;
@@ -102,7 +102,7 @@ public class NavigatorView extends View {
   /**
    * Constructor
    */
-  public NavigatorView(Registry registry) {
+  public NavigatorView() {
     
     // remember
     this.registry = registry;
@@ -169,16 +169,25 @@ public class NavigatorView extends View {
   public void setContext(Context newContext, boolean isActionPerformed) {
     
     // disconnect from old
-    if (context!=null) {
+    if (context.getGedcom()!=null) 
       context.getGedcom().removeGedcomListener(callback);
-      context = null;
-    }
 
-    // keep
-    if (newContext!=null && newContext.getEntity() instanceof Indi) {
+    // keep new
+    context = new Context(newContext.getGedcom());
+    
+    // connect to new
+    if (context.getGedcom()!=null)
+      context.getGedcom().addGedcomListener(callback);
+    
+    
+    // entity to take?
+    if (newContext.getEntity() instanceof Indi) {
+      
       context = new Context(newContext.getEntity());
+
       for (Component c : popupPanel.getComponents())
         c.setEnabled(true);
+      
       // jumps
       Indi current = (Indi)context.getEntity();
       setJump (FATHER  , current.getBiologicalFather());
@@ -205,9 +214,10 @@ public class NavigatorView extends View {
       }
       
     } else {
-      context = context!=null ? new Context(newContext.getGedcom()) : null;
+      
       for (Component c : popupPanel.getComponents())
         c.setEnabled(false);
+      
       // no jumps
       setJump(FATHER  , null);
       setJump(MOTHER  , null);
@@ -215,6 +225,7 @@ public class NavigatorView extends View {
       setJumps(PARTNER , null);
       setJump(YSIBLING, null);
       setJumps(CHILD   , null);
+      
       // update label
       labelCurrent.setText("n/a");
       labelCurrent.setIcon(null);

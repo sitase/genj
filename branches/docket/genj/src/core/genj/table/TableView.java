@@ -50,12 +50,10 @@ import javax.swing.table.TableModel;
 public class TableView extends View {
   
   private final static Logger LOG = Logger.getLogger("genj.table");
-
+  private final static Registry REGISTRY = Registry.get(TableView.class);
+  
   /** a static set of resources */
   private Resources resources = Resources.get(this);
-  
-  /** the registry we keep */
-  private Registry registry;
   
   /** the table we're using */
   /*package*/ PropertyTableWidget propertyTable;
@@ -78,14 +76,11 @@ public class TableView extends View {
   /**
    * Constructor
    */
-  public TableView(Registry registry) {
-    
-    // keep some stuff
-    this.registry = registry;
+  public TableView() {
     
     // get modes
     for (Mode mode : modes.values())
-      mode.load(registry);
+      mode.load();
 
     // create our table
     propertyTable = new PropertyTableWidget(null);
@@ -97,7 +92,7 @@ public class TableView extends View {
     
     // get current mode
     currentMode = getMode(Gedcom.INDI);
-    String tag = registry.get("mode", "");
+    String tag = REGISTRY.get("mode", "");
     if (modes.containsKey(tag))
       currentMode = getMode(tag);
     
@@ -147,7 +142,7 @@ public class TableView extends View {
     
     // give mode a change to grab what it wants to preserve
     if (currentModel!=null&&currentMode!=null)
-      currentMode.save(registry);
+      currentMode.save();
     
     // remember current mode
     currentMode = set;
@@ -165,7 +160,7 @@ public class TableView extends View {
     PropertyTableModel old = propertyTable.getModel();
     
     // clear?
-    if (context==null) {
+    if (context.getGedcom()==null) {
       if (old!=null)
         propertyTable.setModel(null);
       return;
@@ -200,7 +195,7 @@ public class TableView extends View {
   public void removeNotify() {
     // save modes
     for (Mode mode : modes.values())
-      mode.save(registry);
+      mode.save();
     // continue
     super.removeNotify();
   }
@@ -245,7 +240,7 @@ public class TableView extends View {
       setMode(mode);
       
       // save current type
-      registry.put("mode", mode.getTag());
+      REGISTRY.put("mode", mode.getTag());
     }
   } //ActionMode
   
@@ -393,13 +388,13 @@ public class TableView extends View {
     }
     
     /** load properties from registry */
-    private void load(Registry r) {
+    private void load() {
       
-      String[] ps = r.get(tag+".paths" , (String[])null);
+      String[] ps = REGISTRY.get(tag+".paths" , (String[])null);
       if (ps!=null) 
         paths = TagPath.toArray(ps);
 
-      layout = r.get(tag+".layout", (String)null);
+      layout = REGISTRY.get(tag+".layout", (String)null);
       
     }
     
@@ -416,14 +411,14 @@ public class TableView extends View {
     }
     
     /** save properties from registry */
-    private void save(Registry r) {
+    private void save() {
       
       // grab current column widths & sort column
       if (currentMode==this && propertyTable.getModel()!=null) 
         layout = propertyTable.getColumnLayout();
 
-	    registry.put(tag+".paths" , paths);
-	    registry.put(tag+".layout", layout);
+	    REGISTRY.put(tag+".paths" , paths);
+	    REGISTRY.put(tag+".layout", layout);
     }
     
     /** tag */

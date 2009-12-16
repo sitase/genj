@@ -60,9 +60,10 @@ public class App {
   /*package*/ static Logger LOG;
   /*package*/ static File LOGFILE; 
   private final static Resources RESOURCES = Resources.get(App.class);
+  private final static Registry REGISTRY = Registry.get(App.class);
+  
   private static Workbench workbench;
   private static JFrame frame;
-  private static Registry registry;
   
   /**
    * GenJ Main Method
@@ -96,11 +97,8 @@ public class App {
   
       LOG.info("Main");
       
-      // prepare registry
-      registry = new Registry("genj");
-      
       // initialize options first
-      OptionProvider.getAllOptions(registry);
+      OptionProvider.getAllOptions();
       
       // create our home directory
       File home = new File(EnvironmentChecker.getProperty(App.class, "user.home.genj", null, "determining home directory"));
@@ -167,21 +165,21 @@ public class App {
         
         // Disclaimer - check version and registry value
         String version = Version.getInstance().getVersionString();
-        if (!version.equals(registry.get("disclaimer",""))) {
+        if (!version.equals(REGISTRY.get("disclaimer",""))) {
           // keep it      
-          registry.put("disclaimer", version);
+          REGISTRY.put("disclaimer", version);
           // show disclaimer
           WindowManager.getInstance().openDialog("disclaimer", "Disclaimer", WindowManager.INFORMATION_MESSAGE, RESOURCES.getString("app.disclaimer"), Action2.okOnly(), null);    
         }
         
         // setup control center
-        workbench = new Workbench(registry, new Shutdown());
+        workbench = new Workbench(new Shutdown());
   
         // show it
         frame = new JFrame() {
           @Override
           public void dispose() {
-            registry.put("frame", this);
+            REGISTRY.put("frame", this);
             super.dispose();
           }
         };
@@ -195,7 +193,7 @@ public class App {
             workbench.exit();
           }
         });
-        registry.get("frame", frame);
+        REGISTRY.get("frame", frame);
         frame.setVisible(true);
         
         // connect
@@ -238,7 +236,7 @@ public class App {
       // close window
       frame.dispose();
 	  // persist options
-	  OptionProvider.persistAll(registry);
+	  OptionProvider.persistAll();
 	  // Store registry 
 	  Registry.persist();      
 	  // done

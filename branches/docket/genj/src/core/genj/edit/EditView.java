@@ -32,7 +32,6 @@ import genj.gedcom.PropertyXRef;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.ButtonHelper;
 import genj.view.ContextProvider;
 import genj.view.ToolBar;
 import genj.view.View;
@@ -66,9 +65,8 @@ import spin.Spin;
 public class EditView extends View implements ContextProvider  {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.edit");
+  private final static Registry REGISTRY = Registry.get(EditView.class);
   
-  /** the registry we use */
-  private Registry registry;
   
   /** stack */
   private Stack<Context> backs = new Stack<Context>(), forwards = new Stack<Context>();
@@ -94,16 +92,15 @@ public class EditView extends View implements ContextProvider  {
   /**
    * Constructor
    */
-  public EditView(Registry registry) {
+  public EditView() {
     
     super(new BorderLayout());
     
     // remember
-    this.registry = registry;
-    beanFactory = new BeanFactory(registry);
+    beanFactory = new BeanFactory(REGISTRY);
 
     // check for current mode
-    mode.setSelected(registry.get("advanced", false));
+    mode.setSelected(REGISTRY.get("advanced", false));
 
     // add keybindings
     InputMap imap = getInputMap(WHEN_IN_FOCUSED_WINDOW);
@@ -137,7 +134,7 @@ public class EditView extends View implements ContextProvider  {
     
     // clear old editor
     if (editor!=null) {
-      editor.setContext(null);
+      editor.setContext(new Context());
       editor = null;
       removeAll();
     }
@@ -218,11 +215,11 @@ public class EditView extends View implements ContextProvider  {
     if (editor==null) {
       
       // nothing to do?
-      if (context==null)
+      if (context.getGedcom()==null)
         return;
       
       // create editor
-      setEditor(mode.isSelected() ? new AdvancedEditor(context.getGedcom(), this, registry) : new BasicEditor(context.getGedcom(), this, registry));
+      setEditor(mode.isSelected() ? new AdvancedEditor(context.getGedcom(), this, REGISTRY) : new BasicEditor(context.getGedcom(), this, REGISTRY));
 
       sticky.setSelected(false);
     }
@@ -241,7 +238,7 @@ public class EditView extends View implements ContextProvider  {
     }
     
     // inop now?
-    if (context==null) {
+    if (context.getGedcom()==null) {
       setEditor(null);
       return;
     }
@@ -415,9 +412,9 @@ public class EditView extends View implements ContextProvider  {
     @Override
     public void setSelected(boolean selected) {
       super.setSelected(selected);
-      registry.put("advanced", selected);
+      REGISTRY.put("advanced", selected);
       if (getContext()!=null)
-        setEditor(selected ? new AdvancedEditor(getContext().getGedcom(), EditView.this, registry) : new BasicEditor(getContext().getGedcom(), EditView.this, registry));
+        setEditor(selected ? new AdvancedEditor(getContext().getGedcom(), EditView.this, REGISTRY) : new BasicEditor(getContext().getGedcom(), EditView.this, REGISTRY));
     }
   } //Advanced
 
