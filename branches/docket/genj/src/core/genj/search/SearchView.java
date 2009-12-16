@@ -274,11 +274,13 @@ public class SearchView extends View {
       actionStart.setEnabled(false);
       
       context.getGedcom().removeGedcomListener((GedcomListener)Spin.over(results));
-      context = null;
     }
     
     // keep new
-    if (context==null && newContext!=null) {
+    context = newContext;
+    
+    // connect new
+    if (context.getGedcom()!=null) {
       context = new Context(newContext.getGedcom());
       context.getGedcom().addGedcomListener((GedcomListener)Spin.over(results));
       actionStart.setEnabled(true);

@@ -30,6 +30,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Background search worker
@@ -76,10 +78,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
   /** start search */
   /*package*/ void start(Gedcom gedcom, TagPath path, String value, boolean regexp) {
     
-    stop();
-
     // sync up
     synchronized (lock) {
+      
+      // bail if already running
+      if (thread!=null)
+        throw new IllegalStateException("can't start while running");
+
       
       // prepare matcher & path
       this.gedcom = gedcom;
@@ -96,10 +101,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
           try {
             Worker.this.listener.started();
             search(Worker.this.gedcom);
+            flush();
           } catch (Throwable t) {
+            Logger.getLogger("genj.search").log(Level.FINE, "worker bailed", t);
           } finally {
-            lock.set(false);
             synchronized (lock) {
+              thread = null;
+              lock.set(false);
               lock.notifyAll();
             }
             Worker.this.listener.stopped();
@@ -116,10 +124,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
   /** search in gedcom (not on EDT) */
   private void search(Gedcom gedcom) {
     for (int t=0; t<Gedcom.ENTITIES.length && hitCount<MAX_HITS; t++) {
-      for (Entity entity : gedcom.getEntities(Gedcom.ENTITIES[t])) 
+      for (Entity entity : gedcom.getEntities(Gedcom.ENTITIES[t])) {
+        
+        // next
         search(entity, entity, 0);
+
+        // still going?
+        if (!lock.get())
+          return;
+      }
     }
-    flush();
   }
 
   private void flush() {
@@ -132,9 +146,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
   
   /** search property (not on EDT) */
   private void search(Entity entity, Property prop, int pathIndex) {
-    // still going?
-    if (!lock.get())
-        return;
     // got a path?
     boolean searchThis = true;
     if (tagPath!=null) {
