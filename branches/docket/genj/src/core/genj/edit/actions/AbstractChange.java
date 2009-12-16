@@ -136,7 +136,7 @@ public abstract class AbstractChange extends Action2 {
     
     // propagate selection
     if (selection!=null)
-    	SelectionSink.Dispatcher.fireSelection(event,selection, true);
+    	SelectionSink.Dispatcher.fireSelection(event, selection);
       
     // done
   }

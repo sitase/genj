@@ -101,7 +101,7 @@ public class Bookmark extends Action2 {
     // Either scroll to or change root
     TreeNode node = tree.getModel().getNode(entity);
     if (node!=null)
-      tree.setCurrent(entity);
+      tree.show(entity);
     else
       tree.setRoot(entity);
   }

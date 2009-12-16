@@ -19,7 +19,6 @@
  */
 package genj.tree;
 
-import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.ImageIcon;
 import genj.view.View;
@@ -34,8 +33,8 @@ public class TreeViewFactory implements ViewFactory {
   /**
    * @see genj.view.ViewFactory#createView(String, Gedcom, Registry)
    */
-  public View createView(Registry registry) {
-    return new TreeView(registry);
+  public View createView() {
+    return new TreeView();
   }
 
   /**

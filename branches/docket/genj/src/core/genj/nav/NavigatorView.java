@@ -385,7 +385,7 @@ public class NavigatorView extends View {
     /** do it */
     public void actionPerformed(ActionEvent event) {
       // propagate to others (do this before event.getSource() gets disconnected)
-      SelectionSink.Dispatcher.fireSelection(event, new Context(target), true);
+      SelectionSink.Dispatcher.fireSelection(event, new Context(target));
       // follow immediately
       setContext(new Context(target),true);
     }

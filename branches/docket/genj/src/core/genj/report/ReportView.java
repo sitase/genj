@@ -71,34 +71,28 @@ import spin.Spin;
  */
 public class ReportView extends View {
 
-  /*package*/ static Logger LOG = Logger.getLogger("genj.report");
+  /* package */static Logger LOG = Logger.getLogger("genj.report");
 
   /** time between flush of output writer to output text area */
-  private final static String EOL= System.getProperty("line.separator");
+  private final static String EOL = System.getProperty("line.separator");
 
   /** statics */
-  private final static ImageIcon
-    imgStart = new ImageIcon(ReportView.class,"Start"),
-    imgStop  = new ImageIcon(ReportView.class,"Stop"),
-    imgSave  = new ImageIcon(ReportView.class,"Save"),
-    imgConsole = new ImageIcon(ReportView.class,"ReportShell"),
-    imgGui = new ImageIcon(ReportView.class,"ReportGui");
-
+  private final static ImageIcon imgStart = new ImageIcon(ReportView.class, "Start"), imgStop = new ImageIcon(ReportView.class, "Stop"), imgSave = new ImageIcon(ReportView.class, "Save"), imgConsole = new ImageIcon(ReportView.class, "ReportShell"), imgGui = new ImageIcon(ReportView.class, "ReportGui");
 
   /** gedcom this view is for */
-  private Gedcom      gedcom;
+  private Gedcom gedcom;
 
   /** components to show report info */
-  private Output      output;
+  private Output output;
   private ActionStart actionStart = new ActionStart();
-  private ActionStop  actionStop = new ActionStop(actionStart);
+  private ActionStop actionStop = new ActionStop(actionStart);
   private ActionConsole actionConsole = new ActionConsole();
-  
+
   /** registry for settings */
   private final static Registry REGISTRY = Registry.get(ReportView.class);
 
   /** resources */
-  /*package*/ static final Resources RESOURCES = Resources.get(ReportView.class);
+  /* package */static final Resources RESOURCES = Resources.get(ReportView.class);
 
   /** plugin */
   private ReportPlugin plugin = null;
@@ -127,33 +121,33 @@ public class ReportView extends View {
     // save report options
     ReportLoader.getInstance().saveOptions();
   }
-  
-  /*package*/ void setPlugin(ReportPlugin plugin) {
+
+  /* package */void setPlugin(ReportPlugin plugin) {
     this.plugin = plugin;
   }
-  
+
   /**
    * start a report
    */
   public void startReport(final Report report, Object context) {
-    
+
     if (!actionStart.isEnabled())
       return;
-    
-    if (report.getStartMethod(gedcom)==null) {
-      for (int i=0;i<Gedcom.ENTITIES.length;i++) {
+
+    if (report.getStartMethod(gedcom) == null) {
+      for (int i = 0; i < Gedcom.ENTITIES.length; i++) {
         String tag = Gedcom.ENTITIES[i];
         Entity sample = gedcom.getFirstEntity(tag);
-        if (sample!=null && report.accepts(sample)!=null) {
+        if (sample != null && report.accepts(sample) != null) {
 
           // give the report a chance to name our dialog
           String txt = report.accepts(sample.getClass());
-          if (txt==null) 
+          if (txt == null)
             Gedcom.getName(tag);
-          
+
           // ask user for context now
           context = report.getEntityFromUser(txt, gedcom, tag);
-          if (context==null) 
+          if (context == null)
             return;
           break;
         }
@@ -161,25 +155,25 @@ public class ReportView extends View {
     }
 
     // check if appropriate
-    if (context==null||report.accepts(context)==null) {
-      WindowManager.getInstance().openDialog(null,report.getName(),WindowManager.ERROR_MESSAGE,RESOURCES.getString("report.noaccept"),Action2.okOnly(),ReportView.this);
+    if (context == null || report.accepts(context) == null) {
+      WindowManager.getInstance().openDialog(null, report.getName(), WindowManager.ERROR_MESSAGE, RESOURCES.getString("report.noaccept"), Action2.okOnly(), ReportView.this);
       return;
     }
-    
+
     // clear the current output
     output.clear();
-    while (getComponentCount()>1)
+    while (getComponentCount() > 1)
       remove(1);
     showConsole(true);
-    
+
     // set running
     actionStart.setEnabled(false);
     actionStop.setEnabled(true);
-    if (plugin!=null)
+    if (plugin != null)
       plugin.setEnabled(false);
-    
+
     // kick it off
-    new Thread(new Runner(gedcom, context, report, (Runner.Callback)Spin.over(new RunnerCallback()))).start();
+    new Thread(new Runner(gedcom, context, report, (Runner.Callback) Spin.over(new RunnerCallback()))).start();
 
   }
 
@@ -187,49 +181,48 @@ public class ReportView extends View {
    * callback for runner
    */
   private class RunnerCallback implements Runner.Callback {
-    
+
     public void handleOutput(Report report, String s) {
       output.add(s);
     }
 
     public void handleResult(Report report, Object result) {
 
-      LOG.fine("Result of report "+report.getName()+" = "+result);
-      
+      LOG.fine("Result of report " + report.getName() + " = " + result);
+
       // let report happend again
-      actionStart.setEnabled(gedcom!=null);
+      actionStart.setEnabled(gedcom != null);
       actionStop.setEnabled(false);
-      if (plugin!=null)
+      if (plugin != null)
         plugin.setEnabled(true);
-      
+
       // handle result
       showResult(result);
 
     }
 
   }
-  
+
   /**
    * Start a report after selection
    */
   public void startReport() {
-    
+
     ReportSelector selector = new ReportSelector();
     try {
-      selector.select(ReportLoader.getInstance().getReportByName(REGISTRY.get("lastreport", (String)null)));
+      selector.select(ReportLoader.getInstance().getReportByName(REGISTRY.get("lastreport", (String) null)));
     } catch (Throwable t) {
     }
-    
-    if (0!=WindowManager.getInstance().openDialog("report", RESOURCES.getString("report.reports"),
-        WindowManager.QUESTION_MESSAGE, selector, Action2.okCancel(), ReportView.this))
+
+    if (0 != WindowManager.getInstance().openDialog("report", RESOURCES.getString("report.reports"), WindowManager.QUESTION_MESSAGE, selector, Action2.okCancel(), ReportView.this))
       return;
-    
+
     Report report = selector.getReport();
-    if (report==null)
+    if (report == null)
       return;
-    
+
     REGISTRY.put("lastreport", report.getClass().getName());
-    
+
     startReport(report, gedcom);
 
   }
@@ -240,40 +233,40 @@ public class ReportView extends View {
   public void stopReport() {
     // FIXME docket stopReport()
   }
-  
+
   @Override
   public void setContext(Context context, boolean isActionPerformed) {
-    
+
     // keep
     gedcom = context.getGedcom();
-    
+
     // enable if none running and data available
-    actionStart.setEnabled(!actionStop.isEnabled() && gedcom!=null);
+    actionStart.setEnabled(!actionStop.isEnabled() && gedcom != null);
 
   }
-  
+
   /**
    * show console instead of result of a report run
    */
-  /*package*/ void showConsole(boolean show) {
+  /* package */void showConsole(boolean show) {
     if (show) {
-      ((CardLayout)getLayout()).first(this);
-      actionConsole.setEnabled(getComponentCount()>1);
+      ((CardLayout) getLayout()).first(this);
+      actionConsole.setEnabled(getComponentCount() > 1);
       actionConsole.setImage(imgGui);
     } else {
-      ((CardLayout)getLayout()).last(this);
+      ((CardLayout) getLayout()).last(this);
       actionConsole.setEnabled(true);
       actionConsole.setImage(imgConsole);
     }
   }
-  
+
   /**
    * show result of a report run
    */
-  /*package*/ void showResult(Object result) {
-    
+  /* package */void showResult(Object result) {
+
     // none?
-    if (result==null)
+    if (result == null)
       return;
 
     // Exception?
@@ -281,17 +274,17 @@ public class ReportView extends View {
       output.add("*** cancelled");
       return;
     }
-    
+
     if (result instanceof Throwable) {
       CharArrayWriter buf = new CharArrayWriter(256);
-      ((Throwable)result).printStackTrace(new PrintWriter(buf));
+      ((Throwable) result).printStackTrace(new PrintWriter(buf));
       output.add("*** exception caught" + '\n' + buf);
       return;
     }
-    
+
     // File?
     if (result instanceof File) {
-      File file = (File)result;
+      File file = (File) result;
       if (file.getName().endsWith(".htm") || file.getName().endsWith(".html")) {
         try {
           result = file.toURI().toURL();
@@ -299,55 +292,55 @@ public class ReportView extends View {
           // can't happen
         }
       } else {
-          FileAssociation association = FileAssociation.get(file, (String)null, this);
-          if (association != null)
-              association.execute(file);
-          return;
+        FileAssociation association = FileAssociation.get(file, (String) null, this);
+        if (association != null)
+          association.execute(file);
+        return;
       }
     }
-    
+
     // URL?
     if (result instanceof URL) {
       try {
-        output.setPage((URL)result);
+        output.setPage((URL) result);
       } catch (IOException e) {
-        output.add("*** can't open URL "+result+": "+e.getMessage());
+        output.add("*** can't open URL " + result + ": " + e.getMessage());
       }
       return;
     }
-    
+
     // component?
     if (result instanceof JComponent) {
-      JComponent c = (JComponent)result;
-      c.setMinimumSize(new Dimension(0,0));
-      add((JComponent)result, "result");
+      JComponent c = (JComponent) result;
+      c.setMinimumSize(new Dimension(0, 0));
+      add((JComponent) result, "result");
       showConsole(false);
       return;
     }
-    
+
     // document
     if (result instanceof genj.fo.Document) {
-      
-      genj.fo.Document doc = (genj.fo.Document)result;
-      String title = "Document "+doc.getTitle();
+
+      genj.fo.Document doc = (genj.fo.Document) result;
+      String title = "Document " + doc.getTitle();
 
       Registry foRegistry = Registry.get(getClass());
 
       Action[] actions = Action2.okCancel();
       FormatOptionsWidget options = new FormatOptionsWidget(doc, foRegistry);
       options.connect(actions[0]);
-      if (0!=WindowManager.getInstance().openDialog("reportdoc", title, WindowManager.QUESTION_MESSAGE, options, actions, this))
+      if (0 != WindowManager.getInstance().openDialog("reportdoc", title, WindowManager.QUESTION_MESSAGE, options, actions, this))
         return;
 
       // grab formatter and output file
       Format formatter = options.getFormat();
       File file = null;
       String progress = null;
-      if (formatter.getFileExtension()==null) 
+      if (formatter.getFileExtension() == null)
         return;
 
       file = options.getFile();
-      if (file==null)
+      if (file == null)
         return;
       file.getParentFile().mkdirs();
 
@@ -358,8 +351,8 @@ public class ReportView extends View {
       try {
         formatter.format(doc, file);
       } catch (Throwable t) {
-        LOG.log(Level.WARNING, "formatting "+doc+" failed", t);
-        output.add("*** formatting "+doc+" failed");
+        LOG.log(Level.WARNING, "formatting " + doc + " failed", t);
+        output.add("*** formatting " + doc + " failed");
         return;
       }
 
@@ -370,9 +363,9 @@ public class ReportView extends View {
     }
 
     // unknown
-    output.add("*** report returned unknown result "+result);
+    output.add("*** report returned unknown result " + result);
   }
-  
+
   /**
    * @see genj.view.ToolBarSupport#populate(javax.swing.JToolBar)
    */
@@ -391,16 +384,18 @@ public class ReportView extends View {
    */
   private class ActionStop extends Action2 {
     private Action2 start;
+
     protected ActionStop(Action2 start) {
       setImage(imgStop);
       setTip(RESOURCES, "report.stop.tip");
       setEnabled(false);
-      this.start=start;
+      this.start = start;
     }
+
     public void actionPerformed(ActionEvent event) {
       stopReport();
     }
-  } //ActionStop
+  } // ActionStop
 
   /**
    * Action: START
@@ -422,6 +417,7 @@ public class ReportView extends View {
       setImage(imgStart);
       setTip(RESOURCES, "report.start.tip");
     }
+
     /**
      * execute
      */
@@ -429,8 +425,8 @@ public class ReportView extends View {
       startReport();
     }
 
-  } //ActionStart
-  
+  } // ActionStart
+
   /**
    * Action: Console
    */
@@ -440,6 +436,7 @@ public class ReportView extends View {
       setTip(RESOURCES, "report.output");
       setEnabled(false);
     }
+
     public void actionPerformed(ActionEvent event) {
       showConsole(!output.isVisible());
     }
@@ -453,24 +450,25 @@ public class ReportView extends View {
       setImage(imgSave);
       setTip(RESOURCES, "report.save.tip");
     }
+
     public void actionPerformed(ActionEvent event) {
-      
+
       // .. choose file
       JFileChooser chooser = new JFileChooser(".");
       chooser.setDialogTitle("Save Output");
 
-      if (JFileChooser.APPROVE_OPTION != chooser.showDialog(ReportView.this,"Save")) {
+      if (JFileChooser.APPROVE_OPTION != chooser.showDialog(ReportView.this, "Save")) {
         return;
       }
       File file = chooser.getSelectedFile();
-      if (file==null) {
+      if (file == null) {
         return;
       }
 
       // .. exits ?
       if (file.exists()) {
         int rc = WindowManager.getInstance().openDialog(null, RESOURCES.getString("title"), WindowManager.WARNING_MESSAGE, "File exists. Overwrite?", Action2.yesNo(), ReportView.this);
-        if (rc!=0) {
+        if (rc != 0) {
           return;
         }
       }
@@ -480,7 +478,7 @@ public class ReportView extends View {
       try {
         out = new OutputStreamWriter(new FileOutputStream(file), Charset.forName("UTF8"));
       } catch (IOException ex) {
-        WindowManager.getInstance().openDialog(null,RESOURCES.getString("title"),WindowManager.ERROR_MESSAGE,"Error while saving to\n"+file.getAbsolutePath(),Action2.okOnly(),ReportView.this);
+        WindowManager.getInstance().openDialog(null, RESOURCES.getString("title"), WindowManager.ERROR_MESSAGE, "Error while saving to\n" + file.getAbsolutePath(), Action2.okOnly(), ReportView.this);
         return;
       }
 
@@ -489,7 +487,8 @@ public class ReportView extends View {
         BufferedReader in = new BufferedReader(new StringReader(output.getText()));
         while (true) {
           String line = in.readLine();
-          if (line==null) break;
+          if (line == null)
+            break;
           out.write(line);
           out.write("\n");
         }
@@ -502,7 +501,7 @@ public class ReportView extends View {
       // .. done
     }
 
-  } //ActionSave
+  } // ActionSave
 
   /**
    * output
@@ -521,7 +520,7 @@ public class ReportView extends View {
       addMouseMotionListener(this);
       addMouseListener(this);
     }
-    
+
     /**
      * Check if user moves mouse above something recognizeable in output
      */
@@ -537,10 +536,10 @@ public class ReportView extends View {
      * Check if user clicks on marked ID
      */
     public void mouseClicked(MouseEvent e) {
-      if (id!=null&&gedcom!=null) {
+      if (id != null && gedcom != null) {
         Entity entity = gedcom.getEntity(id);
-        if (entity!=null)
-        	SelectionSink.Dispatcher.fireSelection(e, new Context(entity), e.getClickCount()>1);
+        if (entity != null)
+          SelectionSink.Dispatcher.fireSelection(e, new Context(entity));
       }
     }
 
@@ -552,19 +551,19 @@ public class ReportView extends View {
       try {
         // do we get a position in the model?
         int pos = viewToModel(loc);
-        if (pos<0)
+        if (pos < 0)
           return null;
 
         // scan doc
         Document doc = getDocument();
 
         // find ' ' to the left
-        for (int i=0;;i++) {
+        for (int i = 0;; i++) {
           // stop looking after 10
-          if (i==10)
+          if (i == 10)
             return null;
           // check for starting line or non digit/character
-          if (pos==0 || !Character.isLetterOrDigit(doc.getText(pos-1, 1).charAt(0)) )
+          if (pos == 0 || !Character.isLetterOrDigit(doc.getText(pos - 1, 1).charAt(0)))
             break;
           // continue
           pos--;
@@ -574,29 +573,29 @@ public class ReportView extends View {
         int len = 0;
         while (true) {
           // stop looking after 10
-          if (len==10)
+          if (len == 10)
             return null;
           // stop at end of doc
-          if (pos+len==doc.getLength())
+          if (pos + len == doc.getLength())
             break;
           // or non digit/character
-          if (!Character.isLetterOrDigit(doc.getText(pos+len, 1).charAt(0)))
+          if (!Character.isLetterOrDigit(doc.getText(pos + len, 1).charAt(0)))
             break;
           // continue
           len++;
         }
 
         // check if it's an ID
-        if (len<2)
+        if (len < 2)
           return null;
         String id = doc.getText(pos, len);
-        if (gedcom==null||gedcom.getEntity(id)==null)
+        if (gedcom == null || gedcom.getEntity(id) == null)
           return null;
 
         // mark it
-        //requestFocusInWindow();
+        // requestFocusInWindow();
         setCaretPosition(pos);
-        moveCaretPosition(pos+len);
+        moveCaretPosition(pos + len);
 
         // return in between
         return id;
@@ -611,17 +610,18 @@ public class ReportView extends View {
 
     /**
      * have to implement MouseMotionListener.mouseDragger()
+     * 
      * @see java.awt.event.MouseMotionListener#mouseDragged(java.awt.event.MouseEvent)
      */
     public void mouseDragged(MouseEvent e) {
       // ignored
     }
-    
+
     void clear() {
       setContentType("text/plain");
       setText("");
     }
-    
+
     void add(String txt) {
       Document doc = getDocument();
       try {
@@ -629,7 +629,7 @@ public class ReportView extends View {
       } catch (Throwable t) {
       }
     }
-    
+
     public void mouseEntered(MouseEvent e) {
     }
 
@@ -642,8 +642,7 @@ public class ReportView extends View {
     public void mouseReleased(MouseEvent e) {
     }
 
-  } //Output
+  } // Output
 
-
-} //ReportView
+} // ReportView
 

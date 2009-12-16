@@ -22,7 +22,6 @@ package genj.tree;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomListener;
 import genj.gedcom.GedcomListenerAdapter;
 import genj.gedcom.GedcomMetaListener;
 import genj.gedcom.Indi;
@@ -45,8 +44,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
-
-import spin.Spin;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Model of our tree
@@ -57,14 +55,14 @@ import spin.Spin;
   private Callback callback = new Callback();
   
   /** listeners */
-  private List listeners = new ArrayList(3);
+  private List<ModelListener> listeners = new CopyOnWriteArrayList<ModelListener>();
 
   /** arcs */
-  private Collection arcs = new ArrayList(100);
+  private Collection<TreeArc> arcs = new ArrayList<TreeArc>(100);
 
   /** nodes */
-  private Map entities2nodes = new HashMap(100);
-  private Collection nodes = new ArrayList(100);
+  private Map<Entity,TreeNode> entities2nodes = new HashMap<Entity, TreeNode>(100);
+  private Collection<TreeNode> nodes = new ArrayList<TreeNode>(100);
 
   /** bounds */
   private Rectangle bounds = new Rectangle();
@@ -88,17 +86,14 @@ import spin.Spin;
   private boolean isFoldSymbols = true;
   
   /** individuals whose ancestors we're not interested in */
-  private Set hideAncestors = new HashSet();
+  private Set<String> hideAncestors = new HashSet<String>();
 
   /** individuals whose descendants we're not interested in */
-  private Set hideDescendants = new HashSet();
+  private Set<String> hideDescendants = new HashSet<String>();
   
   /** individuals' family */
-  private Map indi2fam = new HashMap();
+  private Map<Indi,Fam> indi2fam = new HashMap<Indi, Fam>();
 
-  /** gedcom we're looking at */
-  private Gedcom gedcom;
-  
   /** the root we've used */
   private Entity root;
 
@@ -106,19 +101,12 @@ import spin.Spin;
   private TreeMetrics metrics = new TreeMetrics( 60, 30, 30, 15, 10 );
   
   /** bookmarks */
-  private LinkedList bookmarks = new LinkedList();
+  private LinkedList<Bookmark> bookmarks = new LinkedList<Bookmark>();
   
   /**
    * Constructor
    */
-  public Model(Gedcom ged) {
-    gedcom = ged;
-  }
-  
-  /**
-   * Accessor - gedcom   */
-  public Gedcom getGedcom() {
-    return gedcom;
+  public Model() {
   }
   
   /**
@@ -244,10 +232,6 @@ import spin.Spin;
    */
   public void addListener(ModelListener l) {
     listeners.add(l);
-    
-    // first?
-    if (listeners.size()==1)
-      gedcom.addGedcomListener((GedcomListener)Spin.over((GedcomListener)callback));
   }
   
   /**
@@ -255,17 +239,14 @@ import spin.Spin;
    */
   public void removeListener(ModelListener l) {
     listeners.remove(l);
-    
-    // last?
-    if (listeners.isEmpty())
-      gedcom.removeGedcomListener((GedcomListener)Spin.over((GedcomListener)callback));
  }
   
   /**
    * Nodes by range
    */
-  public Collection getNodesIn(Rectangle range) {
-    if (cache==null) return new HashSet();
+  public Collection<? extends TreeNode> getNodesIn(Rectangle range) {
+    if (cache==null) 
+      return new HashSet<TreeNode>();
     return cache.get(range);
   }
 
@@ -362,9 +343,9 @@ import spin.Spin;
   /**
    * Accessor - id's of entities hiding ancestors
    */
-  public void setHideAncestorsIDs(Collection ids) {
+  public void setHideAncestorsIDs(Collection<String> ids) {
     hideAncestors.clear();
-    hideAncestors.addAll(getEntities(ids));
+    hideAncestors.addAll(ids);
   }
 
   /**
@@ -377,9 +358,9 @@ import spin.Spin;
   /**
    * Accessor - id's of entities hiding descendants
    */
-  public void setHideDescendantsIDs(Collection ids) {
+  public void setHideDescendantsIDs(Collection<String> ids) {
     hideDescendants.clear();
-    hideDescendants.addAll(getEntities(ids));
+    hideDescendants.addAll(ids);
   }
 
   /**
@@ -393,18 +374,6 @@ import spin.Spin;
       result.add(e.getId());
     }
     return result;    
-  }
-  
-  /**
-   * Helper - get entities from collection of ids
-   */  
-  private Collection getEntities(Collection ids) {
-    List result = new ArrayList();
-    for (Iterator it = ids.iterator(); it.hasNext(); ) {
-      Entity e = gedcom.getEntity(it.next().toString());
-      if (e!=null) result.add(e);
-    }
-    return result;
   }
   
   /**
@@ -447,7 +416,7 @@ import spin.Spin;
     // check content
     Object content = node.getContent();
     if (content instanceof Entity) {
-      entities2nodes.put(content, node);
+      entities2nodes.put((Entity)content, node);
     }
     nodes.add(node);
     return node;

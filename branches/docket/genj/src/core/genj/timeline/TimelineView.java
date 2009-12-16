@@ -609,7 +609,7 @@ public class TimelineView extends View {
         selection.add(hit);
         
         // tell about it
-        SelectionSink.Dispatcher.fireSelection(e, getContext(), false);
+        SelectionSink.Dispatcher.fireSelection(e, getContext());
       }
       
       // show
