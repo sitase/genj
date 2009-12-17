@@ -81,6 +81,8 @@ public class SelectEntityWidget extends JPanel {
     "INDI:DEAT:DATE",
     "FAM",
     "FAM:MARR:DATE",
+    "FAM:HUSB:*:..:NAME",
+    "FAM:WIFE:*:..:NAME",
     "OBJE", 
     "OBJE:TITL", 
     "NOTE", 
@@ -237,8 +239,8 @@ public class SelectEntityWidget extends JPanel {
   
   private MetaProperty getMeta(TagPath tagPath) {
     MetaProperty meta;
-    if (tagPath.length()>1&&tagPath.getLast().equals(PropertyDate.TAG))
-      meta = Grammar.V55.getMeta(new TagPath(tagPath, tagPath.length()-1));
+    if (tagPath.length()>1)
+      meta = Grammar.V55.getMeta(new TagPath(tagPath, 2));
     else
       meta = Grammar.V55.getMeta(tagPath);
     return meta;
