@@ -61,6 +61,7 @@ import genj.gedcom.PropertySubmitter;
 import genj.gedcom.Submitter;
 import genj.gedcom.TagPath;
 import genj.io.FileAssociation;
+import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
@@ -244,7 +245,7 @@ public class EditPlugin implements ActionProvider {
         if (context.getEntity()==null)
           createActions(context.getGedcom(), edit);
         else if (context.getEntities().size()==1 && context.getEntity() instanceof Indi)
-	      createActions((Indi)context.getEntity(), true, edit);
+          createActions((Indi)context.getEntity(), edit);
         result.add(edit);
           
         edit.add(new ActionProvider.SeparatorAction());
@@ -312,7 +313,7 @@ public class EditPlugin implements ActionProvider {
     
     // indi?
     if (entity instanceof Indi) 
-      createActions((Indi)entity, false, group);
+      createActions((Indi)entity, group);
       
     // fam?
     if (entity instanceof Fam) createActions(group, (Fam)entity);
@@ -364,15 +365,28 @@ public class EditPlugin implements ActionProvider {
   /**
    * Create actions for Individual
    */
-  private void createActions(Indi indi, boolean simple, Action2.Group group) {
-    group.add(new CreateParent(indi));
-    group.add(new CreateSpouse(indi));
+  private void createActions(Indi indi, Action2.Group group) {
+    
+    Action2.Group more = new Action2.Group(Resources.get(this).getString("add.more"));
+    
+    if (indi.getParents().size()<2)
+      group.add(new CreateParent(indi));
+    else
+      more.add(new CreateParent(indi));
+
+    if (indi.getPartners().length==0)
+      group.add(new CreateSpouse(indi));
+    else
+      more.add(new CreateSpouse(indi));
+
     group.add(new CreateChild(indi, true));
     group.add(new CreateChild(indi, false));
     group.add(new CreateSibling(indi, true));
     group.add(new CreateSibling(indi, false));
-    if (!simple)
-      group.add(new CreateAlias(indi));
+    
+    more.add(new CreateAlias(indi));
+    
+    group.add(more);
   }
 
   /**
