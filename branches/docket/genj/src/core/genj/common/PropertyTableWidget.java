@@ -71,8 +71,6 @@ import javax.swing.JViewport;
 import javax.swing.KeyStroke;
 import javax.swing.ListSelectionModel;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
@@ -93,6 +91,8 @@ public class PropertyTableWidget extends JPanel  {
   
   /** shortcuts panel */
   private JPanel panelShortcuts;
+  
+  private boolean ignoreSelection  = false;
   
   /**
    * Constructor
@@ -161,12 +161,15 @@ public class PropertyTableWidget extends JPanel  {
    */
   public void select(Context context) {
     
+    if (ignoreSelection)
+      return;
+    
     if (context.getGedcom()!=getModel().getGedcom())
       throw new IllegalArgumentException("select on wrong gedcom");
     
     // set selection
     try {
-      table.ignoreSelection = true;
+      ignoreSelection = true;
       
       // loop over selected properties
       List<? extends Property> props = context.getProperties();
@@ -217,7 +220,7 @@ public class PropertyTableWidget extends JPanel  {
       }
 
     } finally {
-      table.ignoreSelection = false;
+      ignoreSelection = false;
     }
     
   }
@@ -307,10 +310,9 @@ public class PropertyTableWidget extends JPanel  {
   /**
    * Table Content
    */
-  private class Table extends JTable implements ContextProvider, ListSelectionListener  {
+  private class Table extends JTable implements ContextProvider {
     
     private PropertyTableModel propertyModel;
-    private boolean ignoreSelection  = false;
     private SortableTableModel sortableModel = new SortableTableModel();
     
     /**
@@ -498,17 +500,18 @@ public class PropertyTableWidget extends JPanel  {
     PropertyTableModel getPropertyTableModel() {
       return propertyModel;
     }
-    
-    /** 
-     * ListSelectionListener - callback
-     */
-    public void valueChanged(ListSelectionEvent e) {
+
+    @Override
+    public void changeSelection(int rowIndex, int columnIndex, boolean toggle, boolean extend) {
       
-      // let super handle it (strange that JTable implements this as well)
-      super.valueChanged(e);
+      // grab before context
+      List<? extends Property> before = getContext().getProperties();
+      
+      // let table do its thing
+      super.changeSelection(rowIndex, columnIndex, toggle, extend);
       
       // propagate selection change?
-      if (ignoreSelection||e.getValueIsAdjusting())
+      if (ignoreSelection)
         return;
 
       List<Property> properties = new ArrayList<Property>();
@@ -528,14 +531,19 @@ public class PropertyTableWidget extends JPanel  {
           if (prop==null)
             prop = propertyModel.getProperty(model.modelIndex(r));
           // keep it
-          properties.add(prop);
+          if (before.contains(prop)) 
+            properties.add(prop);
+          else
+            properties.add(0, prop);
         }
       }
       
       // tell about it
-      if (!properties.isEmpty())
-    	  SelectionSink.Dispatcher.fireSelection(PropertyTableWidget.this, new Context(properties.get(0).getGedcom(), new ArrayList<Entity>(), properties), false);	
-
+      if (!properties.isEmpty()) {
+        ignoreSelection = true;
+        SelectionSink.Dispatcher.fireSelection(PropertyTableWidget.this, new Context(properties.get(0).getGedcom(), new ArrayList<Entity>(), properties), false);	
+        ignoreSelection = false;
+      }
       
       // done
     }
