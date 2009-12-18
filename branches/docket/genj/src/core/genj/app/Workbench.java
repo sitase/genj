@@ -35,6 +35,8 @@ import genj.io.GedcomEncodingException;
 import genj.io.GedcomEncryptionException;
 import genj.io.GedcomIOException;
 import genj.io.GedcomReader;
+import genj.io.GedcomReaderContext;
+import genj.io.GedcomReaderFactory;
 import genj.io.GedcomWriter;
 import genj.option.OptionProvider;
 import genj.option.OptionsWidget;
@@ -222,60 +224,44 @@ public class Workbench extends JPanel implements SelectionSink {
       return false;
     
     // open connection
-    Origin origin = Origin.create(url);
+    final Origin origin = Origin.create(url);
 
-    // FIXME docket read async
-    // Read it - we might try multiple times
-    Gedcom gedcom = null;
-    String password = Gedcom.PASSWORD_UNKNOWN;
-    while (gedcom==null) {
-      
-      // Open Connection and get input stream
-      GedcomReader reader;
-      try {
-  
-        // .. prepare our reader
-        reader = new GedcomReader(origin);
-  
-        // .. set password we're using
-        reader.setPassword(password);
-  
-      } catch (IOException ex) {
-        String txt = RES.getString("cc.open.no_connect_to", origin) + "\n[" + ex.getMessage() + "]";
-        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, txt, Action2.okOnly(), Workbench.this);
-        return false;
-      }
+    // Open Connection and get input stream
+    GedcomReader reader;
+    try {
 
-      // .. show progress dialog
-      //String progress = windowManager.openNonModalDialog(null, RES.getString("cc.open.loading", origin.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(reader, getThread()), Action2.cancelOnly(), Workbench.this);
+      // .. prepare our reader
+      reader = GedcomReaderFactory.createReader(origin, new GedcomReaderContext() {
+        public String getPassword() {
+          return windowManager.openDialog(null, origin.getName(), WindowManager.QUESTION_MESSAGE, RES.getString("cc.provide_password"), "", Workbench.this);
+        }
+        public void handleWarning(int line, String warning, Context context) {
+          // FIXME push warnings in Task docket
+        }
+      });
+
+    } catch (IOException ex) {
+      String txt = RES.getString("cc.open.no_connect_to", origin) + "\n[" + ex.getMessage() + "]";
+      windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, txt, Action2.okOnly(), Workbench.this);
+      return false;
+    }
+
+    // .. show progress dialog
+    //String progress = windowManager.openNonModalDialog(null, RES.getString("cc.open.loading", origin.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(reader, getThread()), Action2.cancelOnly(), Workbench.this);
     
-      try {
-        gedcom = reader.read();
-        
-        // grab warnings
-        // FIXME docket warnings in docket
-//        List warnings = reader.getWarnings();
-//        if (!warnings.isEmpty()) {
-//          windowManager.openNonModalDialog(null, RES.getString("cc.open.warnings", gedcom.getName()), WindowManager.WARNING_MESSAGE, new JScrollPane(new ContextListWidget(gedcom, warnings)), Action2.okOnly(), Workbench.this);
-//        }
-        
-      } catch (GedcomEncryptionException e) {
-        // retry with new password
-        password = windowManager.openDialog(null, origin.getName(), WindowManager.QUESTION_MESSAGE, RES.getString("cc.provide_password"), "", Workbench.this);
-      } catch (GedcomIOException ex) {
-        // tell the user about it
-        windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.open.read_error", "" + ex.getLine()) + ":\n" + ex.getMessage(), Action2.okOnly(), Workbench.this);
-        // abort
-        return false;
-      } finally {
-        // close progress
-        //windowManager.close(progress);
-      }
+    try {
+      setGedcom(reader.read());
+    } catch (GedcomIOException ex) {
+      // tell the user about it
+      windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.open.read_error", "" + ex.getLine()) + ":\n" + ex.getMessage(), Action2.okOnly(), Workbench.this);
+      // abort
+      return false;
+    } finally {
+      // close progress
+      //windowManager.close(progress);
     }
     
     // done
-    setGedcom(gedcom);
-    
     return true;
   }
   
@@ -339,15 +325,10 @@ public class Workbench extends JPanel implements SelectionSink {
       file = new File(file.getAbsolutePath() + ".ged");
     
     Filter[] filters = options.getFilters();
-    String password = Gedcom.PASSWORD_NOT_SET;
-    if (context.getGedcom().hasPassword())
-      password = options.getPassword();
-    String encoding = options.getEncoding();
-    
-    // swivel gedcom
     Gedcom gedcom = context.getGedcom();
-    gedcom.setPassword(password);
-    gedcom.setEncoding(encoding);
+    gedcom.setPassword(context.getGedcom().getPassword());
+    gedcom.setEncoding(options.getEncoding());
+    
     // .. create new origin
     try {
       gedcom.setOrigin(Origin.create(new URL("file", "", file.getAbsolutePath())));

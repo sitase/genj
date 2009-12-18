@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.135.2.3 $ $Author: nmeier $ $Date: 2009-12-02 03:39:07 $
+ * $Revision: 1.135.2.4 $ $Author: nmeier $ $Date: 2009-12-18 04:34:22 $
  */
 package genj.gedcom;
 
@@ -46,14 +46,14 @@ import java.util.logging.Logger;
 /**
  * The object-representation of a Gedom file
  */
-public class Gedcom implements Comparable {
+public class Gedcom {
   
-  /*package*/ final static Logger LOG = Logger.getLogger("genj.gedcom");
-  
-  /** static resourcs */
-  static private Random seed = new Random();
-  static /*package*/ Resources resources = Resources.get(Gedcom.class);
+  final static Logger LOG = Logger.getLogger("genj.gedcom");
+  final static private Random seed = new Random();
+  final static Resources resources = Resources.get(Gedcom.class);
 
+  public final static String PASSWORD_UNKNOWN = "unknown";
+  
   public static final String
    // standard Gedcom encodings 
     UNICODE  = "UNICODE", 
@@ -192,11 +192,7 @@ public class Gedcom implements Comparable {
   private String placeFormat = "";
 
   /** password for private information */
-  private String password = PASSWORD_NOT_SET;
-
-  public final static String
-    PASSWORD_NOT_SET = "PASSWORD_NOT_SET",
-    PASSWORD_UNKNOWN = "PASSWORD_UNKNOWN";
+  private String password = null;
 
   /**
    * Gedcom's Constructor
@@ -1340,8 +1336,6 @@ public class Gedcom implements Comparable {
    * Accessor - password
    */
   public void setPassword(String set) {
-    if (set==null)
-      throw new IllegalArgumentException("Password can't be null");
     password = set;
   }
   
@@ -1354,10 +1348,9 @@ public class Gedcom implements Comparable {
   
   /**
    * Accessor - password
-   * @return password!=PASSWORD_UNKNOWN!=PASSWORD_NOT_SET
    */
   public boolean hasPassword() {
-    return password!=PASSWORD_NOT_SET && password!=PASSWORD_UNKNOWN;
+    return password!=null;
   }
   
   /**
@@ -1418,14 +1411,6 @@ public class Gedcom implements Comparable {
     // done
     return cachedCollator;
   }
-  
-  /**
-   * can be compared by name
-   */
-  public int compareTo(Object other) {
-    Gedcom that = (Gedcom)other;
-    return getName().compareTo(that.getName());
-  };
   
   /**
    * Undo

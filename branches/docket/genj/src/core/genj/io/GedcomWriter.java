@@ -100,7 +100,7 @@ public class GedcomWriter implements Trackable {
       // Unicode
       if (Gedcom.UNICODE.equals(encoding)) {
         if (writeBOM) try {
-          out.write(GedcomReader.SniffedInputStream.BOM_UTF16BE);
+          out.write(GedcomEncodingSniffer.BOM_UTF16BE);
         } catch (Throwable t) {
           // ignored
         }
@@ -109,7 +109,7 @@ public class GedcomWriter implements Trackable {
       // UTF8
       if (Gedcom.UTF8.equals(encoding)) {
         if (writeBOM) try {
-          out.write(GedcomReader.SniffedInputStream.BOM_UTF8);
+          out.write(GedcomEncodingSniffer.BOM_UTF8);
         } catch (Throwable t) {
           // ignored
         }
@@ -328,8 +328,8 @@ public class GedcomWriter implements Trackable {
      */
     private String encrypt(String value) throws IOException {
       
-      // not necessary for empty values
-      if (value.length()==0)
+      // not necessary for gedcom without password or empty values
+      if (gedcom.getPassword()==null || value.length()==0)
         return value;
       
       // Make sure enigma is setup
@@ -339,12 +339,8 @@ public class GedcomWriter implements Trackable {
         if (gedcom.getPassword()==Gedcom.PASSWORD_UNKNOWN)
           return value;
           
-        // no need if password empty
-        if (gedcom.getPassword().length()==0)
-          return value;
-
         // error if password isn't set    
-        if (gedcom.getPassword()==Gedcom.PASSWORD_NOT_SET)
+        if (gedcom.getPassword()==null)
           throw new IOException("Password not set - needed for encryption");
           
         // error if can't encrypt

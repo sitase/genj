@@ -66,7 +66,7 @@ public class TogglePrivate extends AbstractChange {
     }
       
     // check gedcom
-    if (pwd==Gedcom.PASSWORD_NOT_SET) {
+    if (pwd==null) {
       
       pwd = WindowManager.getInstance().openDialog(
         (String)null,

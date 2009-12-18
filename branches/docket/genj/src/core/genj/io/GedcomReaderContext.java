@@ -19,14 +19,22 @@
  */
 package genj.io;
 
-import genj.gedcom.Gedcom;
-import genj.util.Trackable;
+import genj.gedcom.Context;
 
 /**
- * interface for reading gedcom info
+ * A listener for gedcom read operations
  */
-public interface GedcomReader extends Trackable {
+public interface GedcomReaderContext {
 
-  public Gedcom read() throws GedcomIOException, GedcomFormatException;
+  /**
+   * provide a password 
+   * @return null for use no password or text for password to use
+   */
+  public String getPassword();
+
+  /**
+   * handle a warning
+   */
+  public void handleWarning(int line, String warning, Context context);
   
 }
