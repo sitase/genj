@@ -3,10 +3,10 @@
   <col>
    <row><label path="INDI"/></row>
    <row><bean path="INDI:NAME" wx="0.1"/><bean path="INDI:SEX"/></row>
-   <row><label path="INDI:BIRT"/><bean path="INDI:BIRT:NOTE" popup="true"/></row>
+   <row><label path="INDI:BIRT"/><bean path="INDI:BIRT:NOTE" popup="true"/><bean path="INDI:BIRT:OBJE:FILE" popup="true"/></row>
    <row><bean path="INDI:BIRT:DATE"/></row>
    <row><bean path="INDI:BIRT:PLAC" wx="0.1"/></row>
-   <row><label path="INDI:DEAT"/><bean path="INDI:DEAT:NOTE" popup="true"/></row>
+   <row><label path="INDI:DEAT"/><bean path="INDI:DEAT:NOTE" popup="true"/><bean path="INDI:DEAT:OBJE:FILE" popup="true"/></row>
    <row><bean path="INDI:DEAT:DATE"/></row>
    <row><bean path="INDI:DEAT:PLAC" wx="0.1"/> </row>
   </col>
@@ -18,10 +18,12 @@
    <row><bean path="INDI:OBJE:*:..:FILE" wx="1" wy="0.5" if="INDI:OBJE:*:..:FILE"/></row>
   </col>
  </row>
+ <!-- 
  <row><label path="INDI:FAMS"/></row>
  <row><bean path="INDI" type="genj.edit.beans.FamiliesBean" wx="1" wy="0.1"/></row>
  <row><label path="INDI:FAMC" plural="1"/></row>
  <row><bean path="INDI" type="genj.edit.beans.ParentsBean" wx="1" wy="0.1"/></row>
+  -->
  <row>
   <tabs wx="1" wy="1">
    <col>
