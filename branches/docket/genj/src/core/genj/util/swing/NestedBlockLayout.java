@@ -110,8 +110,8 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
   /**
    * Accessor to cell definitions
    */
-  public Collection getCells() {
-    return root.getCells(new ArrayList(10));
+  public Collection<Cell> getCells() {
+    return root.getCells(new ArrayList<Cell>(10));
   }
   
   /**
@@ -205,7 +205,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     Point2D.Double weight;
     
     /** subs */
-    ArrayList subs = new ArrayList(16);
+    ArrayList<Block> subs = new ArrayList<Block>(16);
     
     /** constructor */
     Block(Attributes attributes) {
@@ -216,9 +216,9 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
       try {
         Block clone = (Block)super.clone();
         
-        clone.subs = new ArrayList(subs.size());
+        clone.subs = new ArrayList<Block>(subs.size());
         for (int i=0;i<subs.size();i++)
-          clone.subs.add( ((Block)subs.get(i)).clone() );
+          clone.subs.add( (Block)subs.get(i).clone() );
         return clone;
       } catch (CloneNotSupportedException cnse) {
         throw new Error();
@@ -272,7 +272,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     abstract void layout(Rectangle in);
     
     /** all cells */
-    Collection getCells(Collection collect) {
+    Collection<Cell> getCells(Collection<Cell> collect) {
       for (int i=0;i<subs.size();i++) 
         ((Block)subs.get(i)).getCells(collect);
       return collect;

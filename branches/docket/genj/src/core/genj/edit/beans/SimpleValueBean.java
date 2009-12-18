@@ -20,7 +20,6 @@
 package genj.edit.beans;
 
 import genj.gedcom.Property;
-import genj.util.Registry;
 import genj.util.swing.TextFieldWidget;
 
 import java.awt.BorderLayout;
@@ -34,8 +33,7 @@ public class SimpleValueBean extends PropertyBean {
   /** members */
   private TextFieldWidget tfield;
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public SimpleValueBean() {
     
     tfield = new TextFieldWidget("", 8);
     tfield.addChangeListener(changeSupport);
@@ -47,10 +45,8 @@ public class SimpleValueBean extends PropertyBean {
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    
-    super.commit(property);
-    
+  @Override
+  protected void commitImpl(Property property) {
     if (!property.isReadOnly())
       property.setValue(tfield.getText());
   }
@@ -62,13 +58,6 @@ public class SimpleValueBean extends PropertyBean {
     return tfield.isEditable();
   }
   
-  /**
-   * we accept anything
-   */
-  public boolean accepts(Property prop) {
-    return true;
-  }
-
   /**
    * Set context to edit
    */

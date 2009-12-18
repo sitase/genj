@@ -21,6 +21,17 @@ package genj.edit.beans;
 
 import genj.gedcom.Entity;
 import genj.gedcom.Property;
+import genj.gedcom.PropertyAge;
+import genj.gedcom.PropertyBlob;
+import genj.gedcom.PropertyChoiceValue;
+import genj.gedcom.PropertyDate;
+import genj.gedcom.PropertyEvent;
+import genj.gedcom.PropertyFile;
+import genj.gedcom.PropertyMultilineValue;
+import genj.gedcom.PropertyName;
+import genj.gedcom.PropertyPlace;
+import genj.gedcom.PropertySex;
+import genj.gedcom.PropertyXRef;
 import genj.renderer.BlueprintManager;
 import genj.renderer.EntityRenderer;
 import genj.util.ChangeSupport;
@@ -33,6 +44,7 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.JComponent;
@@ -41,21 +53,68 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeListener;
 
 /**
- * Beans allow the user to edit gedcom properties (a.k.a lines) - the lifecycle of a bean
- * looks like this:
- * <pre>
- * </pre>
+ * Beans allow the user to edit gedcom properties
  */
 public abstract class PropertyBean extends JPanel implements ContextProvider {
   
   protected final static Resources RESOURCES = Resources.get(PropertyBean.class); 
   protected final static Logger LOG = Logger.getLogger("genj.edit.beans");
+  protected final static Registry REGISTRY = Registry.get(PropertyBean.class); 
+
+  // TODO beans could be resolved dynamically to allow plugin overrides
+  private final static Class<?>[] PROPERTY2BEAN = {
+    Entity.class                , EntityBean.class,
+    PropertyPlace.class         , PlaceBean.class, // before choice!
+    PropertyAge.class           , AgeBean.class,
+    PropertyChoiceValue.class   , ChoiceBean.class,
+    PropertyDate.class          , DateBean.class,
+    PropertyEvent.class         , EventBean.class,
+    PropertyFile.class          , FileBean.class,
+    PropertyBlob.class          , FileBean.class,
+    PropertyMultilineValue.class, MLEBean.class,
+    PropertyName.class          , NameBean.class,
+    PropertySex.class           , SexBean.class,
+    PropertyXRef.class          , XRefBean.class,
+    Property.class              , SimpleValueBean.class // last!
+  };
+  
+
+  /**
+   * Lookup
+   */
+  public static PropertyBean getBean(Property property) {
+    
+    for (int i=0;i<PROPERTY2BEAN.length;i+=2) {
+      if (PROPERTY2BEAN[i].isAssignableFrom(property.getClass()))
+        return getBean((Class<? extends PropertyBean>)PROPERTY2BEAN[i+1], property);
+    }
+
+    LOG.warning("Can't find declared bean for property "+property.getTag()+" ("+property.getClass().getName()+")");
+    return new SimpleValueBean().setProperty(property);
+  }
+  
+  public static PropertyBean getBean(String clazz, Property property) {
+    try {
+      return getBean((Class<? extends PropertyBean>)Class.forName(clazz), property);
+    } catch (ClassNotFoundException e) {
+      LOG.warning("Can't find desired bean "+clazz+" for property "+property.getTag()+" ("+property.getClass().getName()+")");
+      return getBean(property);
+    }
+  }
+  
+  public static PropertyBean getBean(Class<? extends PropertyBean> clazz, Property property) {
+    try {
+      return ((PropertyBean)clazz.newInstance()).setProperty(property);
+    } catch (Throwable t) {
+      LOG.log(Level.FINE, "Problem with bean lookup for property "+property.getTag()+" ("+property.getClass().getName()+")", t);
+      return new SimpleValueBean().setProperty(property);
+    }
+  }
+  
+
   
   /** the property to edit */
   private Property property;
-  
-  /** current registry */
-  protected Registry registry;
   
   /** the default focus */
   protected JComponent defaultFocus = null;
@@ -64,27 +123,17 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   protected ChangeSupport changeSupport = new ChangeSupport(this);
   
   /**
-   * Initialize (happens once)
-   */
-  /*package*/ void initialize(Registry setRegistry) {
-    registry = setRegistry;
-  }
-  
-  /**
-   * test for setter
-   */
-  /*package*/ abstract boolean accepts(Property prop);
-  
-  /**
    * set property to look at
    */
-  public final void setProperty(Property prop) {
+  public final PropertyBean setProperty(Property prop) {
     
     property = prop;
 
     setPropertyImpl(prop);
     
     changeSupport.setChanged(false);
+    
+    return this;
   }
 
   protected abstract void setPropertyImpl(Property prop);
@@ -105,7 +154,7 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   /**
    * Current Property
    */
-  public Property getProperty() {
+  public final Property getProperty() {
     return property;
   }
   
@@ -133,20 +182,24 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   /**
    * Commit any changes made by the user
    */
-  public void commit() {
+  public final void commit() {
     commit(property);
   }
   
   /**
    * Commit any changes made by the user switching target property
    */
-  public void commit(Property property) {
+  public final void commit(Property property) {
     // remember property
     this.property = property;
+    // let impl do its thing
+    commitImpl(property);
     // clear changed
     changeSupport.setChanged(false);
     // nothing more
   }
+  
+  protected abstract void commitImpl(Property property);
   
   /**
    * Editable? default is yes

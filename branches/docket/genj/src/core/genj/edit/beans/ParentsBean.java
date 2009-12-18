@@ -27,7 +27,6 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertyHusband;
 import genj.gedcom.PropertyWife;
 import genj.gedcom.TagPath;
-import genj.util.Registry;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -41,8 +40,7 @@ public class ParentsBean extends PropertyBean {
   
   private PropertyTableWidget table;
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public ParentsBean() {
     
     // setup layout & table
     table = new PropertyTableWidget();
@@ -54,6 +52,11 @@ public class ParentsBean extends PropertyBean {
     // done
   }
   
+  @Override
+  protected void commitImpl(Property property) {
+    // noop
+  }
+  
   /**
    * on add - set column widths
    */
@@ -61,14 +64,14 @@ public class ParentsBean extends PropertyBean {
     // let super continue
     super.addNotify();
     // set widths
-    table.setColumnLayout(registry.get(COLS_KEY, (String)null));
+    table.setColumnLayout(REGISTRY.get(COLS_KEY, (String)null));
   }
   
   /**
    * on remove - keep column widths
    */
   public void removeNotify() {
-    registry.put(COLS_KEY, table.getColumnLayout());
+    REGISTRY.put(COLS_KEY, table.getColumnLayout());
     // let super continue
     super.removeNotify();
   }
@@ -76,17 +79,8 @@ public class ParentsBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  boolean accepts(Property prop) {
-    return prop instanceof Indi;
-  }
-  
   public void setPropertyImpl(Property indi) {
     table.setModel(indi!=null ? new ParentsOfChild((Indi)indi) : null);
-  }
-  
-  public Property getProperty() {
-    // we're not really looking at any property to be focussed or committed
-    return null;
   }
   
   private static class ParentsOfChild extends AbstractPropertyTableModel {

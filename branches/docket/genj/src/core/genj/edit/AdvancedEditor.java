@@ -658,10 +658,8 @@ import javax.swing.tree.TreePath;
       }
 
       // Clean up
-      if (bean!=null) {
+      if (bean!=null) 
         bean.removeChangeListener(this);
-        editView.getBeanFactory().recycle(bean);
-      }
       bean = null;
       editPane.removeAll();
       editPane.revalidate();
@@ -674,7 +672,7 @@ import javax.swing.tree.TreePath;
         try {
   
           // get a bean for property
-          bean = editView.getBeanFactory().get(prop);
+          bean = PropertyBean.getBean(prop);
           
           // add bean to center of editPane 
           editPane.add(bean, BorderLayout.CENTER);

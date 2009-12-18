@@ -269,8 +269,10 @@ public class Action2 extends AbstractAction {
     return Boolean.TRUE.equals((Boolean)getValue(KEY_SELECTED));
   }
   
-  public void setSelected(boolean selected) {
+  public boolean setSelected(boolean selected) {
+    boolean old = isSelected();
     putValue(KEY_SELECTED, selected ? Boolean.TRUE : Boolean.FALSE);
+    return old;
   }
   
   /**

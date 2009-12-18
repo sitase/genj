@@ -24,7 +24,6 @@ import java.awt.event.ActionListener;
 
 import genj.gedcom.Property;
 import genj.gedcom.PropertyName;
-import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.NestedBlockLayout;
@@ -63,8 +62,7 @@ public class NameBean extends PropertyBean {
     return RESOURCES.getString("choice.global.confirm", new String[]{ ""+sameLastNames.length, ((PropertyName)getProperty()).getLastName(), cLast.getText()});
   }
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public NameBean() {
     
     setLayout(LAYOUT.copy());
 
@@ -122,10 +120,9 @@ public class NameBean extends PropertyBean {
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
+  @Override
+  protected void commitImpl(Property property) {
 
-    super.commit(property);
-    
     // ... calc texts
     String first = cFirst.getText().trim();
     String last  = cLast .getText().trim();
@@ -141,9 +138,6 @@ public class NameBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  boolean accepts(Property prop) {
-    return prop instanceof PropertyName;
-  }
   public void setPropertyImpl(Property prop) {
     PropertyName name = (PropertyName)prop;
     if (name==null)

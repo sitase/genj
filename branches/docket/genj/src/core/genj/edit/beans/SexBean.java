@@ -23,7 +23,6 @@ import java.awt.event.ActionEvent;
 
 import genj.gedcom.Property;
 import genj.gedcom.PropertySex;
-import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
 
@@ -43,16 +42,13 @@ public class SexBean extends PropertyBean {
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    
-    super.commit(property);
-    
+  @Override
+  protected void commitImpl(Property property) {
     PropertySex sex = (PropertySex)property; 
     sex.setSex(getSex());
   }
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public SexBean() {
     
     // use our layout
     setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
@@ -86,9 +82,6 @@ public class SexBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  boolean accepts(Property prop) {
-    return prop instanceof PropertySex;
-  }
   public void setPropertyImpl(Property prop) {
     PropertySex sex = (PropertySex)prop;
     if (sex==null)

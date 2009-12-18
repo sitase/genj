@@ -22,7 +22,6 @@ package genj.edit.beans;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyAge;
 import genj.gedcom.time.Delta;
-import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
 import genj.util.swing.NestedBlockLayout;
@@ -48,13 +47,12 @@ public class AgeBean extends PropertyBean {
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    super.commit(property);
+  @Override
+  protected void commitImpl(Property property) {
     property.setValue(choice.getText());
   }
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public AgeBean() {
     
     choice = new ChoiceWidget(Arrays.asList(PropertyAge.PHRASES));
     choice.addChangeListener(changeSupport);
@@ -66,10 +64,6 @@ public class AgeBean extends PropertyBean {
     update =  new ActionUpdate();
     add(new JButton(update));
     
-  }
-  
-  boolean accepts(Property prop) {
-    return prop instanceof PropertyAge;
   }
   
   /**

@@ -21,7 +21,6 @@ package genj.edit;
 
 import genj.edit.actions.Redo;
 import genj.edit.actions.Undo;
-import genj.edit.beans.BeanFactory;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
@@ -33,6 +32,7 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.view.ContextProvider;
+import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
@@ -62,7 +62,7 @@ import spin.Spin;
 /**
  * Component for editing genealogic entity properties
  */
-public class EditView extends View implements ContextProvider  {
+public class EditView extends View implements ContextProvider, SelectionSink  {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.edit");
   private final static Registry REGISTRY = Registry.get(EditView.class);
@@ -71,9 +71,6 @@ public class EditView extends View implements ContextProvider  {
   /** stack */
   private Stack<Context> backs = new Stack<Context>(), forwards = new Stack<Context>();
   
-  /** bean factory */
-  private BeanFactory beanFactory;
-
   /** the resources we use */
   static final Resources resources = Resources.get(EditView.class);
 
@@ -96,9 +93,6 @@ public class EditView extends View implements ContextProvider  {
     
     super(new BorderLayout());
     
-    // remember
-    beanFactory = new BeanFactory(REGISTRY);
-
     // check for current mode
     mode.setSelected(REGISTRY.get("advanced", false));
 
@@ -113,8 +107,18 @@ public class EditView extends View implements ContextProvider  {
     // Done
   }
   
-  
 
+  /**
+   * we're a sink for our contained components
+   */
+  public void fireSelection(Context context, boolean isActionPerformed) {
+    boolean wasSelected = sticky.setSelected(true);
+    try {
+      SelectionSink.Dispatcher.fireSelection(getParent(), context, isActionPerformed);
+    } finally {
+      sticky.setSelected(wasSelected);
+    }
+  }
   
   /**
    * Set editor to use
@@ -150,13 +154,6 @@ public class EditView extends View implements ContextProvider  {
     // show
     revalidate();
     repaint();
-  }
-  
-  /**
-   * BeanFactory
-   */
-  /*package*/ BeanFactory getBeanFactory() {
-    return beanFactory;
   }
   
   /**
@@ -209,60 +206,43 @@ public class EditView extends View implements ContextProvider  {
       editor.commit();
   }
   
-  public void setContext(Context context, boolean isActionPerformed) {
+  public void setContext(Context newContext, boolean isActionPerformed) {
     
-    // no editor?
-    if (editor==null) {
+    // new gedcom?
+    Context oldContext = editor!=null ? editor.getContext() : new Context();
+    if (newContext.getGedcom()!=newContext.getGedcom()) {
       
-      // nothing to do?
-      if (context.getGedcom()==null)
-        return;
-      
-      // create editor
-      setEditor(mode.isSelected() ? new AdvancedEditor(context.getGedcom(), this, REGISTRY) : new BasicEditor(context.getGedcom(), this, REGISTRY));
+      callback.follow(newContext.getGedcom());
+      undo.follow(newContext.getGedcom());
+      redo.follow(newContext.getGedcom());
 
       sticky.setSelected(false);
-    }
       
-    // switch following?
-    Context old = editor.getContext();
-    if (old!=null && (context==null||context.getGedcom()!=old.getGedcom())) {
-      callback.follow(null);
-      undo.follow(null);
-      redo.follow(null);
-
-    } else {
-      // sticky?
-      if (sticky.isSelected())
-        return;
-    }
-    
-    // inop now?
-    if (context.getGedcom()==null) {
       setEditor(null);
-      return;
     }
     
-    // follow
-    callback.follow(context.getGedcom());
-    undo.follow(context.getGedcom());
-    redo.follow(context.getGedcom());
+    // new editor?
+    if (newContext.getEntity()!=null && editor==null) {
 
-    // follow hard
-    if (isActionPerformed) {
-      if (context.getProperty() instanceof PropertyXRef) {
-        PropertyXRef xref = (PropertyXRef)context.getProperty();
-        xref = xref.getTarget();
-        if (xref!=null)
-          context = new ViewContext(xref);
-      }
-
+      sticky.setSelected(false);
+      if (mode.isSelected())
+        setEditor(new AdvancedEditor(newContext.getGedcom(), this, REGISTRY));
+      else
+        setEditor(new BasicEditor(newContext.getGedcom(), this, REGISTRY));
+        
     }
-    
-    // keep track of current editor's context
-    if (old.getEntity()!=null && old.getEntity()!=context.getEntity()) {
 
-      backs.push(new Context(old));
+    if (newContext.getProperty() instanceof PropertyXRef) {
+      PropertyXRef xref = (PropertyXRef)newContext.getProperty();
+      xref = xref.getTarget();
+      if (xref!=null)
+        newContext = new Context(xref);
+    }
+
+    // refocus?
+    if (editor!=null && newContext.getEntity()!=editor.getContext().getEntity() && (!sticky.isSelected()||isActionPerformed)) {
+
+      backs.push(editor.getContext());
       
       // trim stack - arbitrarily chosen size
       while (backs.size()>32)
@@ -271,11 +251,13 @@ public class EditView extends View implements ContextProvider  {
       back.setEnabled(true);
       forwards.clear();
       forward.setEnabled(false);
+
+      // tell it
+      editor.setContext(newContext);
+
     }
-
-    // tell to editors
-    editor.setContext(context);
-
+  
+    // done
   }
   
   public void back() {
@@ -391,9 +373,9 @@ public class EditView extends View implements ContextProvider  {
       setSelected(isSelected());
     }
     @Override
-    public void setSelected(boolean selected) {
-      super.setSelected(selected);
-      super.setImage(isSelected() ? Images.imgStickOn : Images.imgStickOff);
+    public boolean setSelected(boolean selected) {
+      super.setImage(selected ? Images.imgStickOn : Images.imgStickOff);
+      return super.setSelected(selected);
     }
   } //Sticky
   
@@ -410,11 +392,11 @@ public class EditView extends View implements ContextProvider  {
       setSelected(isSelected());
     }
     @Override
-    public void setSelected(boolean selected) {
-      super.setSelected(selected);
+    public boolean setSelected(boolean selected) {
       REGISTRY.put("advanced", selected);
       if (getContext()!=null)
         setEditor(selected ? new AdvancedEditor(getContext().getGedcom(), EditView.this, REGISTRY) : new BasicEditor(getContext().getGedcom(), EditView.this, REGISTRY));
+      return super.setSelected(selected);
     }
   } //Advanced
 
@@ -544,5 +526,5 @@ public class EditView extends View implements ContextProvider  {
     }
 
   } //Back
-  
+
 } //EditView

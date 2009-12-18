@@ -23,7 +23,6 @@ import genj.edit.Options;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyPlace;
 import genj.util.GridBagHelper;
-import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
 import genj.window.WindowManager;
@@ -51,8 +50,8 @@ public class PlaceBean extends PropertyBean {
   private Property[] sameChoices = new Property[0];
 
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public PlaceBean() {
+    
     // nothing much we can do - hook up to change events and show changeAll on change 
     changeSupport.addChangeListener(new ChangeListener() {
       public void stateChanged(ChangeEvent e) {
@@ -108,9 +107,8 @@ public class PlaceBean extends PropertyBean {
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    
-    super.commit(property);
+  @Override
+  protected void commitImpl(Property property) {
     
     // propagate change
     ((PropertyPlace)property).setValue(getCommitValue(), global.isSelected());
@@ -124,9 +122,6 @@ public class PlaceBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  boolean accepts(Property prop) {
-    return prop instanceof PropertyPlace;
-  }
   public void setPropertyImpl(Property prop) {
     PropertyPlace place = (PropertyPlace)prop;
     if (place==null)

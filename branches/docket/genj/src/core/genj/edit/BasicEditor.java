@@ -19,7 +19,6 @@
  */
 package genj.edit;
 
-import genj.edit.beans.BeanFactory;
 import genj.edit.beans.PropertyBean;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
@@ -245,10 +244,8 @@ import spin.Spin;
     }
     
     // remove all we've setup to this point
-    if (beanPanel!=null) {
-      beanPanel.clear();
-      beanPanel=null;
-    }
+    removeAll();
+    beanPanel = null;
 
     // set it up anew
     if (currentEntity!=null) {
@@ -500,28 +497,28 @@ import spin.Spin;
       // done
     }
     
-    /**
-     * destructor - call when panel isn't needed anymore 
-     */
-    void clear() {
-      
-      // get rid of all beans
-      removeAll();
-      
-      // recycle beans
-      BeanFactory factory = view.getBeanFactory();
-      for (PropertyBean bean : beans) {
-        bean.removeChangeListener(this);
-        bean.setProperty(null);
-        try {
-          factory.recycle(bean);
-        } catch (Throwable t) {
-          EditView.LOG.log(Level.WARNING, "Problem cleaning up bean "+bean, t);
-        }
-      }
-      beans.clear();
-      
-    }
+//    /**
+//     * destructor - call when panel isn't needed anymore 
+//     */
+//    void clear() {
+//      
+//      // get rid of all beans
+//      removeAll();
+//      
+//      // recycle beans
+//      BeanFactory factory = view.getBeanFactory();
+//      for (PropertyBean bean : beans) {
+//        bean.removeChangeListener(this);
+//        bean.setProperty(null);
+//        try {
+//          factory.recycle(bean);
+//        } catch (Throwable t) {
+//          EditView.LOG.log(Level.WARNING, "Problem cleaning up bean "+bean, t);
+//        }
+//      }
+//      beans.clear();
+//      
+//    }
     
     /**
      * commit beans - transaction has to be running already
@@ -625,7 +622,7 @@ import spin.Spin;
       panel.setLayout(descriptor);
       
       // fill cells with beans
-      for (NestedBlockLayout.Cell cell : (List<NestedBlockLayout.Cell>)descriptor.getCells()) {
+      for (NestedBlockLayout.Cell cell : descriptor.getCells()) {
         JComponent comp = createComponent(root, cell);
         if (comp!=null) 
           panel.add(comp, cell);
@@ -653,8 +650,9 @@ import spin.Spin;
         for (Iterator tabs=cell.getNestedLayouts().iterator(); tabs.hasNext();) {
           NestedBlockLayout tabLayout = (NestedBlockLayout)tabs.next();
           JPanel tab = new JPanel();
+          int watermark = beans.size();
           parse(tab, root, tabLayout);
-          tabsPane.addTab("", root.getImage(false), tab);
+          tabsPane.addTab("", beans.size()>watermark ? beans.get(watermark).getProperty().getImage(false) : root.getImage(false), tab);
         }
         
         createTabs(tabsPane);
@@ -730,8 +728,7 @@ import spin.Spin;
         prop = new PropertyProxy(root).setValue(path, "");
 
       // create bean for property
-      BeanFactory factory = view.getBeanFactory();
-      PropertyBean bean = beanOverride==null ? factory.get(prop) : factory.get(beanOverride, prop);
+      PropertyBean bean = beanOverride==null ? PropertyBean.getBean(prop) : PropertyBean.getBean(beanOverride, prop);
       bean.addChangeListener(this);
       beans.add(bean);
       
@@ -799,7 +796,7 @@ import spin.Spin;
          return;
        }
        // add a tab for anything else
-       tabs.insertTab(prop.getPropertyName(), prop.getImage(false), view.getBeanFactory().get(prop), prop.getPropertyInfo(), 0);
+       tabs.insertTab(prop.getPropertyName(), prop.getImage(false), PropertyBean.getBean(prop), prop.getPropertyInfo(), 0);
        return;
      }
      
@@ -814,7 +811,7 @@ import spin.Spin;
      tab.putClientProperty(Property.class, prop);
 
      parse(tab, prop, descriptor.copy());
-     tabs.insertTab(meta.getName() + prop.format("{ $y}"), prop.getImage(false), tab, meta.getInfo(), 0);
+     tabs.addTab(meta.getName() + prop.format("{ $y}"), prop.getImage(false), tab, meta.getInfo());
 
      // done
    }

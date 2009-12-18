@@ -22,7 +22,6 @@ package genj.edit.beans;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyChoiceValue;
 import genj.util.GridBagHelper;
-import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
 import genj.window.WindowManager;
@@ -59,8 +58,7 @@ public class ChoiceBean extends PropertyBean {
     return RESOURCES.getString("choice.global.confirm", new String[]{ ""+sameChoices.length, sameChoices[0].getDisplayValue(), choices.getText()});
   }
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public ChoiceBean() {
     
     // prepare a choice for the user
     choices = new ChoiceWidget();
@@ -109,9 +107,8 @@ public class ChoiceBean extends PropertyBean {
   /**
    * Finish editing a property through proxy
    */
-  public void commit(Property property) {
-    
-    super.commit(property);
+  @Override
+  protected void commitImpl(Property property) {
     
     PropertyChoiceValue choice = (PropertyChoiceValue)property;
 
@@ -131,10 +128,6 @@ public class ChoiceBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  boolean accepts(Property prop) {
-    return prop instanceof PropertyChoiceValue;
-  }
-  
   public void setPropertyImpl(Property prop) {
     
     if (prop==null)

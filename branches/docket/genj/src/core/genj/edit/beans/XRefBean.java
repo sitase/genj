@@ -27,7 +27,6 @@ import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.UnitOfWork;
-import genj.util.Registry;
 import genj.util.swing.Action2;
 import genj.view.SelectionSink;
 import genj.view.ViewContext;
@@ -102,8 +101,7 @@ public class XRefBean extends PropertyBean {
     }
   }
   
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public XRefBean() {
     
     preview = new Preview();
     
@@ -124,7 +122,10 @@ public class XRefBean extends PropertyBean {
     });
   }
   
-  
+  @Override
+  protected void commitImpl(Property property) {
+    //noop
+  }
   
   /**
    * Nothing to edit
@@ -136,9 +137,6 @@ public class XRefBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  boolean accepts(Property prop) {
-    return prop instanceof PropertyXRef;
-  }
   public void setPropertyImpl(Property prop) {
     
     PropertyXRef xref = (PropertyXRef)prop;

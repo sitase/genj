@@ -25,7 +25,6 @@ import genj.gedcom.Entity;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
-import genj.util.Registry;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -42,8 +41,7 @@ public class LinkedByBean extends PropertyBean {
   
   private final static String COLS_KEY = "bean.linkedby.cols";
 
-  void initialize(Registry setRegistry) {
-    super.initialize(setRegistry);
+  public LinkedByBean() {
     
     // prepare a simple table
     table = new PropertyTableWidget();
@@ -53,6 +51,11 @@ public class LinkedByBean extends PropertyBean {
     add(BorderLayout.CENTER, table);
     
   }
+  
+  @Override
+  protected void commitImpl(Property property) {
+    // noop
+  }
 
   /**
    * on add - set column widths
@@ -61,14 +64,14 @@ public class LinkedByBean extends PropertyBean {
     // let super continue
     super.addNotify();
     // set widths
-    table.setColumnLayout(registry.get(COLS_KEY, (String)null));
+    table.setColumnLayout(REGISTRY.get(COLS_KEY, (String)null));
   }
   
   /**
    * on remove - keep column widths
    */
   public void removeNotify() {
-    registry.put(COLS_KEY, table.getColumnLayout());
+    REGISTRY.put(COLS_KEY, table.getColumnLayout());
     // let super continue
     super.removeNotify();
   }
@@ -76,9 +79,6 @@ public class LinkedByBean extends PropertyBean {
   /**
    * Set context to edit
    */
-  boolean accepts(Property prop) {
-    return prop instanceof Entity;
-  }
   public void setPropertyImpl(Property property) {
 
     //  don't propagate property since we're technically not looking at it
