@@ -101,7 +101,7 @@ public class AgeBean extends PropertyBean {
      */
     private ActionUpdate() {
       setImage(PropertyAge.IMG);
-      setTip(resources.getString("age.tip"));
+      setTip(RESOURCES.getString("age.tip"));
     }
     /**
      * @see genj.util.swing.Action2#execute()

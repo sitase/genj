@@ -56,7 +56,7 @@ public class ChoiceBean extends PropertyBean {
     // we're using getDisplayValue() here
     // because like in PropertyRelationship's case there might be more
     // in the gedcom value than what we want to display (witness@INDI:BIRT)
-    return resources.getString("choice.global.confirm", new String[]{ ""+sameChoices.length, sameChoices[0].getDisplayValue(), choices.getText()});
+    return RESOURCES.getString("choice.global.confirm", new String[]{ ""+sameChoices.length, sameChoices[0].getDisplayValue(), choices.getText()});
   }
   
   void initialize(Registry setRegistry) {
@@ -90,7 +90,7 @@ public class ChoiceBean extends PropertyBean {
         String msg = getGlobalReplaceMsg();
         WindowManager wm = WindowManager.getInstance();
         if (wm!=null&&msg!=null&&global.isSelected()) {
-          int rc = wm.openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), ChoiceBean.this);
+          int rc = wm.openDialog(null, RESOURCES.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), ChoiceBean.this);
           global.setSelected(rc==0);
         }        
       }

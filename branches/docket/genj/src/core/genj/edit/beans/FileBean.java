@@ -54,7 +54,7 @@ public class FileBean extends PropertyBean {
   private ImageWidget preview = new ImageWidget();
   
   /** a checkbox as accessory */
-  private JCheckBox updateMeta = new JCheckBox(resources.getString("file.update"), true);
+  private JCheckBox updateMeta = new JCheckBox(RESOURCES.getString("file.update"), true);
   
   /** file chooser  */
   private FileChooserWidget chooser = new FileChooserWidget();
@@ -225,7 +225,7 @@ public class FileBean extends PropertyBean {
      */
     protected ActionZoom(int zOOm) {
       zoom = zOOm;
-      setText(zoom==0?resources.getString("file.zoom.fit"):zoom+"%");
+      setText(zoom==0?RESOURCES.getString("file.zoom.fit"):zoom+"%");
       setEnabled(zoom != (int)(preview.getZoom()*100));
     }
     /**

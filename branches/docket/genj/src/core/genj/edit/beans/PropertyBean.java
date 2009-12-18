@@ -33,6 +33,7 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.util.logging.Logger;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
@@ -47,8 +48,8 @@ import javax.swing.event.ChangeListener;
  */
 public abstract class PropertyBean extends JPanel implements ContextProvider {
   
-  /** the resources */
-  protected final static Resources resources = Resources.get(PropertyBean.class); 
+  protected final static Resources RESOURCES = Resources.get(PropertyBean.class); 
+  protected final static Logger LOG = Logger.getLogger("genj.edit.beans");
   
   /** the property to edit */
   private Property property;

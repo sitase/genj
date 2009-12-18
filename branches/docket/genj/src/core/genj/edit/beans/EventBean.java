@@ -57,7 +57,7 @@ public class EventBean extends PropertyBean {
     tAge.setEditable(false);
     tAge.setFocusable(false);
 
-    cKnown = new JCheckBox(resources.getString("even.known"));
+    cKnown = new JCheckBox(RESOURCES.getString("even.known"));
     cKnown.addActionListener(changeSupport);
     
     add(lAgeAt);
@@ -113,10 +113,10 @@ public class EventBean extends PropertyBean {
             age = delta.toString();
         }
       } else {
-        age = date!=null ? indi.getAgeString(date.getStart()) : resources.getString("even.age.?");
+        age = date!=null ? indi.getAgeString(date.getStart()) : RESOURCES.getString("even.age.?");
       }
       
-      lAgeAt.setText(resources.getString(ageat));
+      lAgeAt.setText(RESOURCES.getString(ageat));
       tAge.setText(age);
       
       lAgeAt.setVisible(true);

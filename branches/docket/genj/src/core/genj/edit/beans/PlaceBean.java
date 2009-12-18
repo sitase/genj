@@ -66,7 +66,7 @@ public class PlaceBean extends PropertyBean {
       public void actionPerformed(ActionEvent e) {
         WindowManager wm = WindowManager.getInstance();
         if (wm!=null&&global.isSelected()) {
-          int rc = wm.openDialog(null, resources.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, getGlobalConfirmMessage(),Action2.yesNo(), PlaceBean.this);
+          int rc = wm.openDialog(null, RESOURCES.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, getGlobalConfirmMessage(),Action2.yesNo(), PlaceBean.this);
           global.setSelected(rc==0);
         }        
       }
@@ -199,7 +199,7 @@ public class PlaceBean extends PropertyBean {
     // we're using getDisplayValue() here
     // because like in PropertyRelationship's case there might be more
     // in the gedcom value than what we want to display (witness@INDI:BIRT)
-    return resources.getString("choice.global.confirm", new String[]{ ""+sameChoices.length, sameChoices[0].getDisplayValue(), getCommitValue() });
+    return RESOURCES.getString("choice.global.confirm", new String[]{ ""+sameChoices.length, sameChoices[0].getDisplayValue(), getCommitValue() });
   }
   
 } //PlaceBean

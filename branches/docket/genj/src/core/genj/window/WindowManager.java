@@ -22,7 +22,6 @@ package genj.window;
 import genj.gedcom.Gedcom;
 import genj.util.Registry;
 import genj.util.swing.Action2;
-import genj.util.swing.ImageIcon;
 import genj.util.swing.TextAreaWidget;
 import genj.util.swing.TextFieldWidget;
 
@@ -39,11 +38,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
 import java.util.EventObject;
 import java.util.StringTokenizer;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.Action;
@@ -54,7 +50,6 @@ import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
-import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -105,86 +100,6 @@ public class WindowManager {
   public static WindowManager getInstance() {
     return INSTANCE;
   }
-  
-  /**
-   * Setup a new independant window
-   */
-  public final String openWindow(String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Runnable onClose) {
-    // create a key?
-    if (key==null) 
-      key = getTemporaryKey();
-    // grab parameters
-    Rectangle bounds = REGISTRY.get(key, (Rectangle)null);
-    boolean maximized = REGISTRY.get(key+".maximized", true);
-    // deal with it in impl
-    Component window = openWindowImpl(key, title, image, content, menu, bounds, maximized, onClose);
-    // done
-    return key;
-  }
-  
-  /**
-   * Implementation for handling an independant window
-   */
-  private Component openWindowImpl(final String key, String title, ImageIcon image, JComponent content, JMenuBar menu, Rectangle bounds, boolean maximized, final Runnable onClosing) {
-    
-    // Create a frame
-    final JFrame frame = new JFrame() {
-      /**
-       * dispose is our onClose hook because
-       * WindowListener.windowClosed is too 
-       * late (one frame) after dispose()
-       */
-      public void dispose() {
-        // forget about key but keep bounds
-        closeNotify(key, getBounds(), getExtendedState()==MAXIMIZED_BOTH);
-        // continue
-        super.dispose();
-      }
-    };
-
-    // setup looks
-    if (title!=null) frame.setTitle(title);
-    if (image!=null) frame.setIconImage(image.getImage());
-    if (menu !=null) frame.setJMenuBar(menu);
-
-    // add content
-    frame.getContentPane().add(content);
-
-    // DISPOSE_ON_CLOSE?
-    if (onClosing==null) {
-      frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-    } else {
-      // responsibility to dispose passed to onClosing?
-      frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-      frame.addWindowListener(new WindowAdapter() {
-        public void windowClosing(WindowEvent e) {
-          onClosing.run();
-        }
-      });
-    }
-
-    // place
-    if (bounds==null) {
-      // since docket - windows should have a reasonable default size
-      // packing them like dialogs is not right anymore
-      //frame.pack();
-      //Dimension dim = frame.getSize();
-      Dimension dim = new Dimension(640,480);
-      bounds = new Rectangle(screen.width/2-dim.width/2, screen.height/2-dim.height/2,dim.width,dim.height);
-      LOG.log(Level.FINE, "Sizing window "+key+" to "+bounds+" after pack()");
-    }
-    frame.setBounds(bounds.intersection(screen));
-    
-    if (maximized)
-      frame.setExtendedState(Frame.MAXIMIZED_BOTH);
-
-    // show
-    frame.setVisible(true);
-    
-    // done
-    return frame;
-  }
-  
   
   /**
    * Find a component for given source
@@ -283,11 +198,8 @@ public class WindowManager {
     // check options - default to OK
     if (actions==null) 
       actions = Action2.okOnly();
-    // key is necessary
-    if (key==null) 
-      key = getTemporaryKey();
     // grab parameters
-    Rectangle bounds = REGISTRY.get(key, (Rectangle)null);
+    Rectangle bounds = key!=null ? REGISTRY.get(key, (Rectangle)null) : null;
     // do it
     Object rc = openDialogImpl(key, title, messageType, content, actions, source, bounds);
     // analyze - check which action was responsible for close
@@ -327,7 +239,12 @@ public class WindowManager {
     // hook up to the dialog being hidden by the optionpane - that's what is being called after the user selected a button (setValue())
     dlg.addComponentListener(new ComponentAdapter() {
       public void componentHidden(ComponentEvent e) {
-        closeNotify(key, dlg.getBounds(), false);
+        // key -> remember
+        if (key!=null) {
+          // keep bounds
+          if (dlg.getBounds()!=null)
+            REGISTRY.put(key, dlg.getBounds());
+        }
         dlg.dispose();
       }
     });
@@ -339,30 +256,6 @@ public class WindowManager {
     return optionPane.getValue();
   }
 
-  /**
-   * Create a temporary key
-   */
-  protected String getTemporaryKey() {
-    return "_"+temporaryKeyCounter++;
-  }
-
-  /**
-   * Forget about frame/dialog, stash away bounds
-   */
-  protected void closeNotify(String key, Rectangle bounds, boolean maximized) {
-    // no key - no action
-    if (key==null) 
-      return;
-    // temporary key? nothing to stash away
-    if (key.startsWith("_")) 
-      return;
-    // keep bounds
-    if (bounds!=null&&!maximized)
-      REGISTRY.put(key, bounds);
-    REGISTRY.put(key+".maximized", maximized);
-    // done
-  }
-  
   /**
    * Get the window for given owner component
    */  
