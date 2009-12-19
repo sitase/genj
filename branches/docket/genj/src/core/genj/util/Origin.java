@@ -457,21 +457,22 @@ public abstract class Origin {
     /** wrapped input stream */
     private InputStream in;
     
-    /** length of data */
-    private int len;
+    /** available data */
+    private int available;
 
     /**
      * Constructor
      */
     protected InputStreamImpl(InputStream in, int len) {
       this.in=in;
-      this.len=len;
+      this.available=len;
     }
 
     /**
      * @see java.io.InputStream#read()
      */
     public int read() throws IOException {
+      if (available>0) available--;
       return in.read();
     }
     
@@ -479,6 +480,7 @@ public abstract class Origin {
      * @see java.io.InputStream#read(byte[], int, int)
      */
     public int read(byte[] b, int off, int len) throws IOException {
+      available = Math.max(0, available-len);
       return in.read(b, off, len);
     }
 
@@ -486,7 +488,7 @@ public abstract class Origin {
      * @see java.io.InputStream#available()
      */
     public int available() throws IOException {
-      return len;
+      return available;
     }
     
     /**
