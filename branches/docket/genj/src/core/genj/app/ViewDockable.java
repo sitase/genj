@@ -23,7 +23,6 @@ import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
-import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
@@ -79,7 +78,7 @@ import swingx.docking.Docked;
   /**
    * Constructor
    */
-  public ViewDockable(Workbench workbench, ViewFactory factory, Registry registry) {
+  public ViewDockable(Workbench workbench, ViewFactory factory) {
 
     this.workbench = workbench;
     this.factory = factory;

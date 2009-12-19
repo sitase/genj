@@ -63,6 +63,11 @@ import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -82,9 +87,13 @@ import javax.swing.JPanel;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+
 import spin.Spin;
 import swingx.docking.Dockable;
 import swingx.docking.DockingPane;
+import swingx.docking.persistence.XMLPersister;
 
 /**
  * The central component of the GenJ application
@@ -134,6 +143,14 @@ public class Workbench extends JPanel implements SelectionSink {
     new ActionSave(false).install(this, ACC_SAVE, JComponent.WHEN_IN_FOCUSED_WINDOW);
     new ActionExit().install(this, ACC_EXIT, JComponent.WHEN_IN_FOCUSED_WINDOW);
     new ActionOpen().install(this, ACC_OPEN, JComponent.WHEN_IN_FOCUSED_WINDOW);
+    
+    // restore layout
+    String layout = REGISTRY.get("restore.layout", (String)null);
+    if (layout!=null)
+      new LayoutPersister(dockingPane, new StringReader(layout)).load();
+    else
+      new LayoutPersister(dockingPane, new InputStreamReader(getClass().getResourceAsStream("layout.xml"))).load();
+
     
     // Done
   }
@@ -428,13 +445,19 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   public void exit() {
     
+    // close
+    if (!closeGedcom())
+      return;
+    
     // remember current context for exit
     if (context.getGedcom()!=null)
       REGISTRY.put("restore.url", context.getGedcom().getOrigin().toString());
     
-    // close
-    if (!closeGedcom())
-      return;
+    // store layout
+    StringWriter layout = new StringWriter();
+    new LayoutPersister(dockingPane, layout).save();
+    LOG.fine("Storing layout "+layout);
+    REGISTRY.put("restore.layout", layout.toString());
     
     // Shutdown
     runOnExit.run();
@@ -723,7 +746,7 @@ public class Workbench extends JPanel implements SelectionSink {
     
     // open it & signal current selection
     try {
-      dockable = new ViewDockable(Workbench.this, factory, REGISTRY);
+      dockable = new ViewDockable(Workbench.this, factory);
     } catch (Throwable t) {
       LOG.log(Level.WARNING, "cannot open view for "+factory.getClass().getName(), t);
       return null;
@@ -1233,6 +1256,64 @@ public class Workbench extends JPanel implements SelectionSink {
       tools.add(action);
       // do it
       super.add(action);
+    }
+  }
+
+  /**
+   * layout persist/restore
+   */
+  private class LayoutPersister extends XMLPersister {
+    
+    LayoutPersister(DockingPane dockingPane, Reader layout) {
+      super(dockingPane, layout, "1");
+    }
+    
+    LayoutPersister(DockingPane dockingPane, Writer layout) {
+      super(dockingPane, layout, "1");
+    }
+    
+    @Override
+    protected Object parseKey(String key) throws SAXParseException {
+      try {
+        return Class.forName(key);
+      } catch (ClassNotFoundException e) {
+        LOG.log(Level.WARNING, "can't parse docking key", e);
+        return null;
+      }
+    }
+    
+    @Override
+    protected Dockable resolveDockable(Object key) {
+      for (ViewFactory vf : viewFactories) {
+        if (vf.getClass().equals(key))
+          return new ViewDockable(Workbench.this, vf);
+      }
+      LOG.log(Level.WARNING, "can't find view factory for docking key", key);
+      return null;
+    }
+    
+    @SuppressWarnings("unchecked")
+    @Override
+    protected String formatKey(Object key) throws SAXException {
+      return ((Class<? extends ViewFactory>)key).getName();
+    }
+    
+    @Override
+    public void load() {
+      try {
+        super.load();
+      } catch (Exception ex) {
+        LOG.log(Level.WARNING, "unable to load layout", ex);
+      }
+    }
+
+    @Override
+    public void save() {
+      try {
+        super.save();
+      } catch (Exception ex) {
+        LOG.log(Level.WARNING, "unable to save layout", ex);
+      }
     }
   }
 
