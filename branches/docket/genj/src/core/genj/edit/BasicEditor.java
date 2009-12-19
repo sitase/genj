@@ -52,7 +52,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -300,25 +299,31 @@ import spin.Spin;
    */
   private static NestedBlockLayout getSharedDescriptor(MetaProperty meta) {
     
-    // got a cached one already?
-    NestedBlockLayout descriptor  = (NestedBlockLayout)META2DESCRIPTOR.get(meta);
-    if (descriptor!=null) 
-      return descriptor;
-
-    // hmm, already determined we don't have one?
+    // already determined we don't have one?
     if (META2DESCRIPTOR.containsKey(meta))
-      return null;
+      return META2DESCRIPTOR.get(meta);
     
     // try to read a descriptor (looking up the inheritance chain)
-    for (MetaProperty cursor = meta; descriptor==null && cursor!=null ; cursor = cursor.getSuper() ) {
+    NestedBlockLayout result = null;
+    for (MetaProperty cursor = meta; result==null && cursor!=null ; cursor = cursor.getSuper() ) {
       
+      // got a cached one already?
+      result = (NestedBlockLayout)META2DESCRIPTOR.get(cursor);
+      if (result!=null) 
+        break;
+
       String file  = "descriptors/" + (cursor.isEntity() ? "entities" : "properties") + "/" + cursor.getTag()+".xml";
       
       try {
+        // read
         InputStream in = BasicEditor.class.getResourceAsStream(file);
         if (in==null) continue;
-        descriptor = new NestedBlockLayout(in);
+        result = new NestedBlockLayout(in);
         in.close();
+        
+        // read only once ever
+        META2DESCRIPTOR.put(cursor, result);
+        
       } catch (IOException e) {
         EditView.LOG.log(Level.WARNING, "problem reading descriptor "+file+" ("+e.getMessage()+")");
       } catch (Throwable t) {
@@ -328,11 +333,8 @@ import spin.Spin;
     }
       
       
-    // cache it
-    META2DESCRIPTOR.put(meta, descriptor);
-
     // done
-    return descriptor;
+    return result;
   }
   
   /**
@@ -647,8 +649,7 @@ import spin.Spin;
       if ("tabs".equals(element)) {
         tabsPane = new ContextTabbedPane();
         
-        for (Iterator tabs=cell.getNestedLayouts().iterator(); tabs.hasNext();) {
-          NestedBlockLayout tabLayout = (NestedBlockLayout)tabs.next();
+        for (NestedBlockLayout tabLayout : cell.getNestedLayouts()) {
           JPanel tab = new JPanel();
           int watermark = beans.size();
           parse(tab, root, tabLayout);

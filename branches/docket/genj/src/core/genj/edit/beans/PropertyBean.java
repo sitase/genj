@@ -44,6 +44,12 @@ import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -57,12 +63,14 @@ import javax.swing.event.ChangeListener;
  */
 public abstract class PropertyBean extends JPanel implements ContextProvider {
   
+  private final static int CACHE_PRELOAD = 10;
+  
   protected final static Resources RESOURCES = Resources.get(PropertyBean.class); 
   protected final static Logger LOG = Logger.getLogger("genj.edit.beans");
   protected final static Registry REGISTRY = Registry.get(PropertyBean.class); 
 
   // TODO beans could be resolved dynamically to allow plugin overrides
-  private final static Class<?>[] PROPERTY2BEAN = {
+  private final static Class<?>[] PROPERTY2BEANTYPE = {
     Entity.class                , EntityBean.class,
     PropertyPlace.class         , PlaceBean.class, // before choice!
     PropertyAge.class           , AgeBean.class,
@@ -75,18 +83,40 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
     PropertyName.class          , NameBean.class,
     PropertySex.class           , SexBean.class,
     PropertyXRef.class          , XRefBean.class,
-    Property.class              , SimpleValueBean.class // last!
+    Property.class              , SimpleValueBean.class, // last!
+
+    null,ParentsBean.class,
+    null,FamiliesBean.class,
+    null,SpousesBean.class,
+    null,ChildrenBean.class
   };
   
+  private final static Map<Class<? extends PropertyBean>,List<PropertyBean>> BEANCACHE = createBeanCache();
+  
+  private static Map<Class<? extends PropertyBean>,List<PropertyBean>> createBeanCache() {
+    LOG.fine("Initializing bean cache");
+    Map<Class<? extends PropertyBean>,List<PropertyBean>> result = new HashMap<Class<? extends PropertyBean>,List<PropertyBean>>();
+    for (int i=0;i<PROPERTY2BEANTYPE.length;i+=2) {
+        try {
+          List<PropertyBean> cache = new ArrayList<PropertyBean>(CACHE_PRELOAD);
+          for (int j=0;j<CACHE_PRELOAD;j++)
+            cache.add((PropertyBean)PROPERTY2BEANTYPE[i+1].newInstance());
+          result.put((Class<? extends PropertyBean>)PROPERTY2BEANTYPE[i+1], cache);
+        } catch (Throwable t) {
+          LOG.log(Level.WARNING, "can't instantiate bean "+PROPERTY2BEANTYPE[i+1], t);
+        }
+    }
+    return result;
+  }
 
   /**
    * Lookup
    */
   public static PropertyBean getBean(Property property) {
     
-    for (int i=0;i<PROPERTY2BEAN.length;i+=2) {
-      if (PROPERTY2BEAN[i].isAssignableFrom(property.getClass()))
-        return getBean((Class<? extends PropertyBean>)PROPERTY2BEAN[i+1], property);
+    for (int i=0;i<PROPERTY2BEANTYPE.length;i+=2) {
+      if (PROPERTY2BEANTYPE[i]!=null&&PROPERTY2BEANTYPE[i].isAssignableFrom(property.getClass()))
+        return getBean((Class<? extends PropertyBean>)PROPERTY2BEANTYPE[i+1], property);
     }
 
     LOG.warning("Can't find declared bean for property "+property.getTag()+" ("+property.getClass().getName()+")");
@@ -104,13 +134,27 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   
   public static PropertyBean getBean(Class<? extends PropertyBean> clazz, Property property) {
     try {
+      // grab from cache if we can
+      List<PropertyBean> cache = BEANCACHE.get(clazz);
+      if (cache!=null&&!cache.isEmpty())
+        return cache.remove(cache.size()-1).setProperty(property);
       return ((PropertyBean)clazz.newInstance()).setProperty(property);
     } catch (Throwable t) {
       LOG.log(Level.FINE, "Problem with bean lookup for property "+property.getTag()+" ("+property.getClass().getName()+")", t);
       return new SimpleValueBean().setProperty(property);
     }
   }
-  
+
+  /**
+   * Available beans
+   */
+  public static Set<Class<? extends PropertyBean>> getAvailableBeans() {
+    Set<Class<? extends PropertyBean>> result = new HashSet<Class<? extends PropertyBean>>();
+    for (int i=0;i<PROPERTY2BEANTYPE.length;i+=2) {
+      result.add((Class<? extends PropertyBean>)PROPERTY2BEANTYPE[i+1]);
+    }
+    return result;
+  }
 
   
   /** the property to edit */

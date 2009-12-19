@@ -44,6 +44,7 @@ import genj.edit.actions.TogglePrivate;
 import genj.edit.actions.Undo;
 import genj.edit.beans.DateBean;
 import genj.edit.beans.NameBean;
+import genj.edit.beans.PropertyBean;
 import genj.edit.beans.SexBean;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
@@ -98,6 +99,10 @@ public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
   /*package*/ EditPlugin(Workbench workbench) {
     this.workbench = workbench;
     workbench.addWorkbenchListener(this);
+    
+    // prime bean cache
+    PropertyBean.getAvailableBeans();
+
   }
   
   public int getPriority() {
