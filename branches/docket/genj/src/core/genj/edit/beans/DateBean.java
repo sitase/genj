@@ -60,16 +60,16 @@ public class DateBean extends PropertyBean {
     for (int i=0;i<PropertyDate.FORMATS.length;i++)
       actions.add(new ChangeFormat(PropertyDate.FORMATS[i]));
 
-    // .. the chooser (making sure the preferred size is pre-computed to fit-it-all)
-    choose = new PopupWidget();
-    choose.addItems(actions);
-    add(choose);
-    
     // .. first date
     date1 = new DateWidget();
     date1.addChangeListener(changeSupport);
     add(date1);
 
+    // .. the chooser (making sure the preferred size is pre-computed to fit-it-all)
+    choose = new PopupWidget();
+    choose.addItems(actions);
+    add(choose);
+    
     // .. second date
     label2 = new JLabel();
     add(label2);

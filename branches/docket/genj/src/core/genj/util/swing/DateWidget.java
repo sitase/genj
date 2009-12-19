@@ -104,8 +104,6 @@ public class DateWidget extends JPanel {
     // Setup Layout
     setLayout(LAYOUT.copy()); // reuse a copy of layout 
     
-    add(widgetCalendar);
-    
     String format;
     switch (new SimpleDateFormat().toPattern().charAt(0)) {
 	    case 'm': case 'M':
@@ -127,6 +125,8 @@ public class DateWidget extends JPanel {
 	      add(widgetDay) ; 
 	      break;
     }
+    
+    add(widgetCalendar);
     
     widgetDay.setToolTipText(format);
     widgetMonth.setToolTipText(format);
