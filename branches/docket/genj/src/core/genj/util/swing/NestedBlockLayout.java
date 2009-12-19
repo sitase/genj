@@ -37,6 +37,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.xml.parsers.SAXParser;
@@ -63,6 +64,16 @@ import org.xml.sax.helpers.DefaultHandler;
 public class NestedBlockLayout implements LayoutManager2, Cloneable {
   
   private final static SAXException DONE = new SAXException("");
+  private final static SAXParser PARSER = getSaxParser();
+  
+  private final static SAXParser getSaxParser() {
+    try {
+      return SAXParserFactory.newInstance().newSAXParser();
+    } catch (Throwable t) {
+      Logger.getLogger("genj.util.swing").log(Level.SEVERE, "Can't initialize SAX parser", t);
+      throw new Error("Can't initialize SAX parser", t);
+    }
+  }
   
   private final static Logger LOG = Logger.getLogger("genj.util");
 
@@ -121,8 +132,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     
     // parse descriptor
     try {
-	    SAXParser parser = SAXParserFactory.newInstance().newSAXParser();
-	    parser.parse(new InputSource(descriptor), new DescriptorHandler());
+	    PARSER.parse(new InputSource(descriptor), new DescriptorHandler());
     } catch (SAXException sax) {
       if (DONE==sax) {
         return;
@@ -534,8 +544,8 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     }
     
     /** returns nested block layout */
-    public Collection getNestedLayouts() {
-      ArrayList result = new ArrayList(subs.size());
+    public Collection<NestedBlockLayout> getNestedLayouts() {
+      ArrayList<NestedBlockLayout> result = new ArrayList<NestedBlockLayout>(subs.size());
       for (int i = 0; i < subs.size(); i++) {
         result.add(new NestedBlockLayout((Block)subs.get(i)));
       }
