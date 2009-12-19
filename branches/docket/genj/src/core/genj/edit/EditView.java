@@ -66,14 +66,11 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
   
   /*package*/ final static Logger LOG = Logger.getLogger("genj.edit");
   private final static Registry REGISTRY = Registry.get(EditView.class);
-  
+  static final Resources RESOURCES = Resources.get(EditView.class);
   
   /** stack */
   private Stack<Context> backs = new Stack<Context>(), forwards = new Stack<Context>();
   
-  /** the resources we use */
-  static final Resources resources = Resources.get(EditView.class);
-
   /** actions we offer */
   private Back     back = new Back();
   private Forward  forward = new Forward();
@@ -171,13 +168,13 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     if (Options.getInstance().isAutoCommit)
       return true;
     
-    JCheckBox auto = new JCheckBox(resources.getString("confirm.autocomit"));
+    JCheckBox auto = new JCheckBox(RESOURCES.getString("confirm.autocomit"));
     auto.setFocusable(false);
     
     int rc = WindowManager.getInstance().openDialog(null, 
-        resources.getString("confirm.keep.changes"), WindowManager.QUESTION_MESSAGE, 
+        RESOURCES.getString("confirm.keep.changes"), WindowManager.QUESTION_MESSAGE, 
         new JComponent[] {
-          new JLabel(resources.getString("confirm.keep.changes")),
+          new JLabel(RESOURCES.getString("confirm.keep.changes")),
           auto
         },
         Action2.yesNo(), 
@@ -209,8 +206,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
   public void setContext(Context newContext, boolean isActionPerformed) {
     
     // new gedcom?
-    Context oldContext = editor!=null ? editor.getContext() : new Context();
-    if (newContext.getGedcom()!=newContext.getGedcom()) {
+    if (newContext.getGedcom()==null||newContext.getGedcom()!=newContext.getGedcom()) {
       
       callback.follow(newContext.getGedcom());
       undo.follow(newContext.getGedcom());
@@ -365,7 +361,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     /** constructor */
     protected Sticky() {
       super.setImage(Images.imgStickOff);
-      super.setTip(resources, "action.stick.tip");
+      super.setTip(RESOURCES, "action.stick.tip");
       super.setSelected(false);
     }
     /** run */
@@ -385,7 +381,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
   private class Mode extends Action2 {
     private Mode() {
       setImage(Images.imgView);
-      setTip(resources, "action.mode");
+      setTip(RESOURCES, "action.mode");
       super.setSelected(false);
     }
     public void actionPerformed(ActionEvent event) {

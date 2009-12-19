@@ -24,6 +24,7 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.util.Resources;
+import genj.util.Trackable;
 import genj.util.swing.Action2;
 import genj.util.swing.MenuHelper;
 import genj.view.ActionProvider;
@@ -182,7 +183,7 @@ import swingx.docking.Docked;
   /**
    * WorkbenchListener callback - workbench signals selection change
    */
-  public void selectionChanged(Context context, boolean isActionPerformed) {
+  public void selectionChanged(Workbench workbench, Context context, boolean isActionPerformed) {
     if (!ignoreSelectionChanged || isActionPerformed)
       view.setContext(context, isActionPerformed);
   }
@@ -190,14 +191,14 @@ import swingx.docking.Docked;
   /**
    * WorkbenchListener callback - workbench signals request for commit of in-flight changes
    */
-  public void commitRequested() {
+  public void commitRequested(Workbench workbench) {
     view.commit();
   }
   
   /**
    * WorkbenchListener callback - workbench signals closing 
    */
-  public boolean workbenchClosing() {
+  public boolean workbenchClosing(Workbench workbench) {
     return view.closing();
   }
   
@@ -398,10 +399,10 @@ import swingx.docking.Docked;
     
   } //ContextHook
 
-  public void gedcomClosed(Gedcom gedcom) {
+  public void gedcomClosed(Workbench workbench, Gedcom gedcom) {
   }
 
-  public void gedcomOpened(Gedcom gedcom) {
+  public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
   }
   
   /**
@@ -421,10 +422,16 @@ import swingx.docking.Docked;
     }
   } // ActionCloseView
 
-  public void viewClosed(View view) {
+  public void viewClosed(Workbench workbench, View view) {
   }
 
-  public void viewOpened(View view) {
+  public void viewOpened(Workbench workbench, View view) {
   }
 
+  public void processStarted(Workbench workbench, Trackable process) {
+  }
+
+  public void processStopped(Workbench workbench, Trackable process) {
+  }
+  
 } //ViewDockable

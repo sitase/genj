@@ -48,7 +48,7 @@ public class EditViewFactory implements ViewFactory {
    * @see genj.view.ViewFactory#getName(boolean)
    */
   public String getTitle() {
-    return EditView.resources.getString("title");
+    return EditView.RESOURCES.getString("title");
   }
 
 } //EditViewFactory

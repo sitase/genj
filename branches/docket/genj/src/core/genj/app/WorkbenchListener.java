@@ -21,6 +21,7 @@ package genj.app;
 
 import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
+import genj.util.Trackable;
 import genj.view.View;
 
 /**
@@ -33,39 +34,53 @@ public interface WorkbenchListener {
    * @param context the new selection
    * @param isActionPerformed whether to perform action (normally double-click)
    */
-  public void selectionChanged(Context context, boolean isActionPerformed);
+  public void selectionChanged(Workbench workbench, Context context, boolean isActionPerformed);
+  
+  /**
+   * notificaton that a long running process has started
+   * @param workbench
+   * @param process
+   */
+  public void processStarted(Workbench workbench, Trackable process);
+
+  /**
+   * notificaton that a long running process has finished
+   * @param workbench
+   * @param process
+   */
+  public void processStopped(Workbench workbench, Trackable process);
 
   /**
    * notification that commit of edits is requested
    */
-  public void commitRequested();
+  public void commitRequested(Workbench workbench);
   
   /** 
    * notification that workbench is closing
    * @return whether to continue with close operation or not
    */
-  public boolean workbenchClosing();
+  public boolean workbenchClosing(Workbench workbench);
   
   /** 
    * notification that gedcom was closed
    * @return whether to continue with close operation or not
    */
-  public void gedcomClosed(Gedcom gedcom);
+  public void gedcomClosed(Workbench workbench, Gedcom gedcom);
   
   /** 
    * notification that gedcom was opened
    * @return whether to continue with close operation or not
    */
-  public void gedcomOpened(Gedcom gedcom);
+  public void gedcomOpened(Workbench workbench, Gedcom gedcom);
   
   /**
    * notification that a view has been opened
    */
-  public void viewOpened(View view);
+  public void viewOpened(Workbench workbench, View view);
 
   /**
    * notification that a view has been opened
    */
-  public void viewClosed(View view);
+  public void viewClosed(Workbench workbench, View view);
 
 }

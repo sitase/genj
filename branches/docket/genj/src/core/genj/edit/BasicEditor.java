@@ -887,7 +887,7 @@ import spin.Spin;
   private class DelTab extends Action2 {
     private Property prop;
     private DelTab(Property prop) {
-      setText(EditView.resources.getString("action.del", prop.getPropertyName()));
+      setText(EditView.RESOURCES.getString("action.del", prop.getPropertyName()));
       setImage(Images.imgCut);
       this.prop = prop;
     }

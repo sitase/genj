@@ -199,11 +199,11 @@ public class App {
         // connect
         workbench.addWorkbenchListener(new WorkbenchAdapter() {
           @Override
-        	public void gedcomClosed(Gedcom gedcom) {
+        	public void gedcomClosed(Workbench workbench, Gedcom gedcom) {
             frame.setTitle(RESOURCES.getString("app.title"));
         	}
         	@Override
-        	public void gedcomOpened(Gedcom gedcom) {
+        	public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
             frame.setTitle(gedcom.getName()+" - "+RESOURCES.getString("app.title"));
         	}
         });

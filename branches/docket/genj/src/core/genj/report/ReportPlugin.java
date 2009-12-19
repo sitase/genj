@@ -26,6 +26,7 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Property;
 import genj.report.Report.Category;
+import genj.util.Trackable;
 import genj.util.swing.Action2;
 import genj.view.ActionProvider;
 import genj.view.View;
@@ -54,20 +55,20 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
 
   }
     
-  public void commitRequested() {
+  public void commitRequested(Workbench workbench) {
   }
   
-  public void selectionChanged(Context context, boolean isActionPerformed) {
+  public void selectionChanged(Workbench workbench, Context context, boolean isActionPerformed) {
   }
   
-  public boolean workbenchClosing() {
+  public boolean workbenchClosing(Workbench workbench) {
     return true;
   }
   
-  public void gedcomClosed(Gedcom gedcom) {
+  public void gedcomClosed(Workbench workbench, Gedcom gedcom) {
   }
   
-  public void gedcomOpened(Gedcom gedcom) {
+  public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
   }
   
   public int getPriority() {
@@ -237,10 +238,10 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
     }
   } //ActionRun
 
-  public void viewClosed(View view) {
+  public void viewClosed(Workbench workbench, View view) {
   }
 
-  public void viewOpened(View view) {
+  public void viewOpened(Workbench workbench, View view) {
     if (view instanceof ReportView)
       ((ReportView)view).setPlugin(this);
   }
@@ -248,5 +249,11 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
   /*package*/ void setEnabled(boolean set) {
     if (workbenchActions!=null)
       workbenchActions.setEnabled(set);
+  }
+
+  public void processStarted(Workbench workbench, Trackable process) {
+  }
+
+  public void processStopped(Workbench workbench, Trackable process) {
   }
 }

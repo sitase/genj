@@ -20,6 +20,7 @@
 package genj.edit;
 
 import genj.app.Workbench;
+import genj.app.WorkbenchAdapter;
 import genj.common.SelectEntityWidget;
 import genj.crypto.Enigma;
 import genj.edit.actions.AbstractChange;
@@ -41,6 +42,9 @@ import genj.edit.actions.SetSubmitter;
 import genj.edit.actions.SwapSpouses;
 import genj.edit.actions.TogglePrivate;
 import genj.edit.actions.Undo;
+import genj.edit.beans.DateBean;
+import genj.edit.beans.NameBean;
+import genj.edit.beans.SexBean;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
@@ -60,11 +64,14 @@ import genj.gedcom.PropertySource;
 import genj.gedcom.PropertySubmitter;
 import genj.gedcom.Submitter;
 import genj.gedcom.TagPath;
+import genj.gedcom.UnitOfWork;
 import genj.io.FileAssociation;
+import genj.util.EnvironmentChecker;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
+import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -72,12 +79,16 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import javax.swing.BoxLayout;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
  * our editing plugin
  */
-public class EditPlugin implements ActionProvider {
+public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
+  
+  private final static Resources RESOURCES = Resources.get(EditPlugin.class);
   
   private Workbench workbench;
   
@@ -86,10 +97,45 @@ public class EditPlugin implements ActionProvider {
    */
   /*package*/ EditPlugin(Workbench workbench) {
     this.workbench = workbench;
+    workbench.addWorkbenchListener(this);
   }
   
   public int getPriority() {
     return HIGH;
+  }
+  
+  @Override
+  public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
+
+    // ask for root of tree
+    if (gedcom.getEntities(Gedcom.INDI).isEmpty()) {
+      
+      final NameBean name = new NameBean();
+      final SexBean sex = new SexBean();
+      final DateBean birth= new DateBean();
+      JPanel panel = new JPanel();
+      panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+      panel.add(new JLabel(RESOURCES.getString("newroot.text")));
+      panel.add(name);
+      panel.add(sex);
+      panel.add(birth);
+      
+      if (0==WindowManager.getInstance().openDialog(null, RESOURCES.getString("newroot.title", gedcom.getName()), WindowManager.QUESTION_MESSAGE, panel, Action2.okCancel(), workbench)) {
+        gedcom.doMuteUnitOfWork(new UnitOfWork() {
+          public void perform(Gedcom gedcom) throws GedcomException {
+            Indi adam = (Indi) gedcom.createEntity(Gedcom.INDI);
+            name.commit(adam.addProperty("NAME", ""));
+            sex.commit(adam.addProperty("SEX", ""));
+            birth.commit(adam.setValue(new TagPath("INDI:BIRT:DATE"), ""));
+            
+            Submitter submitter = (Submitter) gedcom.createEntity(Gedcom.SUBM);
+            submitter.setName(EnvironmentChecker.getProperty(this, "user.name", "?", "user name used as submitter in new gedcom"));
+          }
+        });
+      }
+      
+    }
+    
   }
 
   /** 
