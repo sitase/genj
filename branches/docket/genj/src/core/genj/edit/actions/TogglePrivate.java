@@ -83,7 +83,7 @@ public class TogglePrivate extends AbstractChange {
     }
 
     // check if the user wants to do it recursively
-    int recursive = WindowManager.getInstance().openDialog(null,getText(),WindowManager.QUESTION_MESSAGE,AbstractChange.resources.getString("recursive"), Action2.okCancel(),event);
+    int recursive = WindowManager.getInstance().openDialog(null,getText(),WindowManager.QUESTION_MESSAGE,AbstractChange.resources.getString("recursive"), Action2.yesNo(),event);
 
     // change it
     gedcom.setPassword(pwd); 
