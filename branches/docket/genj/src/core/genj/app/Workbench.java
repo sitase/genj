@@ -32,7 +32,6 @@ import genj.gedcom.Submitter;
 import genj.gedcom.UnitOfWork;
 import genj.io.Filter;
 import genj.io.GedcomEncodingException;
-import genj.io.GedcomEncryptionException;
 import genj.io.GedcomIOException;
 import genj.io.GedcomReader;
 import genj.io.GedcomReaderContext;
@@ -46,11 +45,12 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.SafeProxy;
 import genj.util.ServiceLookup;
+import genj.util.Trackable;
 import genj.util.swing.Action2;
 import genj.util.swing.FileChooser;
 import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
-import genj.util.swing.NestedBlockLayout;
+import genj.util.swing.ProgressWidget;
 import genj.view.ActionProvider;
 import genj.view.SelectionSink;
 import genj.view.View;
@@ -106,7 +106,8 @@ public class Workbench extends JPanel implements SelectionSink {
   private DockingPane dockingPane = new DockingPane();
   private Context context = new Context();
   private Runnable runOnExit;
-
+  private StatusBar statusBar = new StatusBar();
+  
   /**
    * Constructor
    */
@@ -127,7 +128,7 @@ public class Workbench extends JPanel implements SelectionSink {
     setLayout(new BorderLayout());
     add(toolbar, BorderLayout.NORTH);
     add(dockingPane, BorderLayout.CENTER);
-    add(new StatusBar(), BorderLayout.SOUTH);
+    add(statusBar, BorderLayout.SOUTH);
 
     // install some accelerators
     new ActionSave(false).install(this, ACC_SAVE, JComponent.WHEN_IN_FOCUSED_WINDOW);
@@ -231,14 +232,14 @@ public class Workbench extends JPanel implements SelectionSink {
     try {
 
       // .. prepare our reader
-      reader = GedcomReaderFactory.createReader(origin, new GedcomReaderContext() {
+      reader = (GedcomReader)Spin.off(GedcomReaderFactory.createReader(origin, (GedcomReaderContext)Spin.over(new GedcomReaderContext() {
         public String getPassword() {
           return windowManager.openDialog(null, origin.getName(), WindowManager.QUESTION_MESSAGE, RES.getString("cc.provide_password"), "", Workbench.this);
         }
         public void handleWarning(int line, String warning, Context context) {
           // FIXME push warnings in Task docket
         }
-      });
+      })));
 
     } catch (IOException ex) {
       String txt = RES.getString("cc.open.no_connect_to", origin) + "\n[" + ex.getMessage() + "]";
@@ -246,9 +247,8 @@ public class Workbench extends JPanel implements SelectionSink {
       return false;
     }
 
-    // .. show progress dialog
-    //String progress = windowManager.openNonModalDialog(null, RES.getString("cc.open.loading", origin.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(reader, getThread()), Action2.cancelOnly(), Workbench.this);
-    
+    // .. show progress and read
+    statusBar.setTrackable(reader);
     try {
       setGedcom(reader.read());
     } catch (GedcomIOException ex) {
@@ -257,8 +257,7 @@ public class Workbench extends JPanel implements SelectionSink {
       // abort
       return false;
     } finally {
-      // close progress
-      //windowManager.close(progress);
+      statusBar.setTrackable(null);
     }
     
     // done
@@ -326,7 +325,7 @@ public class Workbench extends JPanel implements SelectionSink {
     
     Filter[] filters = options.getFilters();
     Gedcom gedcom = context.getGedcom();
-    gedcom.setPassword(context.getGedcom().getPassword());
+    gedcom.setPassword(options.getPassword());
     gedcom.setEncoding(options.getEncoding());
     
     // .. create new origin
@@ -980,23 +979,33 @@ public class Workbench extends JPanel implements SelectionSink {
     private int commits;
 
     private JLabel[] ents = new JLabel[Gedcom.ENTITIES.length];
-    private JLabel changes;
-
+    private JLabel changes = new JLabel("", SwingConstants.RIGHT);
+    private HeapStatusWidget heap = new HeapStatusWidget();
+    
     StatusBar() {
 
-      super(new NestedBlockLayout("<row><i/><f/><m/><n/><s/><b/><r/><cs wx=\"1\" gx=\"1\"/><mem/></row>"));
+      super(new BorderLayout());
 
+      JPanel panel = new JPanel();
       for (int i = 0; i < Gedcom.ENTITIES.length; i++) {
         ents[i] = new JLabel("0", Gedcom.getEntityImage(Gedcom.ENTITIES[i]), SwingConstants.LEFT);
-        add(ents[i]);
+        panel.add(ents[i]);
       }
-      changes = new JLabel("", SwingConstants.RIGHT);
-      
-      add(changes);
-      add(new HeapStatusWidget());
+      add(panel, BorderLayout.WEST);
+      add(changes, BorderLayout.CENTER);
+      add(heap, BorderLayout.EAST);
 
       addWorkbenchListener(this);
     }
+
+    void setTrackable(Trackable trackable) {
+      remove(2);
+      if (trackable!=null)
+        add(new ProgressWidget(trackable),BorderLayout.EAST);
+      else
+        add(heap,BorderLayout.EAST);
+    }
+    
     
     private void update(Gedcom gedcom) {
       for (int i=0;i<Gedcom.ENTITIES.length;i++) 

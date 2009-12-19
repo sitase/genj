@@ -87,7 +87,6 @@ public class GedcomReaderFactory {
     private ArrayList<LazyLink> lazyLinks = new ArrayList<LazyLink>();
     private String tempSubmitter;
     private boolean cancel=false;
-    private Thread worker;
     private Object lock = new Object();
     private EntityReader reader;
     private MeteredInputStream meter;
@@ -131,14 +130,7 @@ public class GedcomReaderFactory {
      * Thread-safe cancel of read()
      */
     public void cancelTrackable() {
-  
-      // Stop it as soon as possible
       cancel=true;
-      synchronized (lock) {
-        if (worker!=null)
-          worker.interrupt();
-      }
-      // Done
     }
   
     /**
@@ -146,6 +138,7 @@ public class GedcomReaderFactory {
      * @return percent as 0 to 100
      */
     public int getProgress() {
+      
       // reading right now?
       if (state==READENTITIES&&length>0)
           progress = (int)Math.min(100, meter.getCount()*100/length);
@@ -187,11 +180,6 @@ public class GedcomReaderFactory {
       if (gedcom==null)
         throw new IllegalStateException("can't call read() twice");
   
-      // Remember working thread
-      synchronized (lock) {
-        worker=Thread.currentThread();
-      }
-  
       // try it
       try {
         readGedcom();
@@ -205,10 +193,6 @@ public class GedcomReaderFactory {
       } finally  {
         // close in
         try { reader.in.close(); } catch (Throwable t) {};
-        // forget working thread
-        synchronized (lock) {
-          worker=null;
-        }
         // allow gc to collect gedcom
         gedcom  = null;
         lazyLinks.clear();
@@ -231,8 +215,11 @@ public class GedcomReaderFactory {
       long header =System.currentTimeMillis();
   
       // Read records after the other
-      while (reader.readEntity()!=null);
-  
+      while (reader.readEntity()!=null) {
+        if (cancel)
+          throw new GedcomIOException("Cancelled", getLines());
+      }
+        
       long records = System.currentTimeMillis();
   
       // Next state
@@ -428,10 +415,10 @@ public class GedcomReaderFactory {
         }
   
         // the trailer?
-        if (tag.equals("TRLR"))
+        if (!tag.equals("TRLR"))
+          entity++;
   
         // Done
-        entity++;
         return result;
       }
   
@@ -484,6 +471,7 @@ public class GedcomReaderFactory {
           try {
             enigma = Enigma.getInstance(pwd);
             enigma.decrypt(value);
+            gedcom.setPassword(pwd);
           } catch (IOException e) {
             enigma = null;
           }
