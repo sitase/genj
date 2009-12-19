@@ -81,10 +81,13 @@ public class App {
       
       // allow command line override of debug level - set non-genj level a tad higher
       Logger root = Logger.getLogger("");
-      Level level = Level.parse(System.getProperty("genj.debug.level"));
-      LOG.setLevel(level);
-      if (Integer.MAX_VALUE!=level.intValue())
-        root.setLevel(new Level("genj.debug.level+1", level.intValue()+1) {} );
+      try {
+        Level level = Level.parse(EnvironmentChecker.getProperty(App.class, "genj.debug.level", "INFO", "log-level for GenJ"));
+        LOG.setLevel(level);
+        if (Integer.MAX_VALUE!=level.intValue())
+          root.setLevel(new Level("genj.debug.level+1", level.intValue()+1) {} );
+      } catch (Throwable t) {
+      }
 
       // prepare console logging
       Handler[] handlers = root.getHandlers();
