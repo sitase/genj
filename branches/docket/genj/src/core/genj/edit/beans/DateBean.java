@@ -85,6 +85,9 @@ public class DateBean extends PropertyBean {
     
     // setup default focus
     defaultFocus = date1;
+    
+    // default format
+    setFormat(PropertyDate.FORMATS[0]);
 
     // Done
   }

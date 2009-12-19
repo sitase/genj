@@ -394,7 +394,9 @@ public class PropertyTableWidget extends JPanel  {
     
     /** generate */
     void createShortcuts(int col, JComponent container) {
-      
+
+      if (propertyModel==null)
+        return;
       TableModel model = getModel();
       Collator collator = propertyModel.getGedcom().getCollator();
 

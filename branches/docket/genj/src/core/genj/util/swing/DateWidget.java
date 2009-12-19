@@ -85,9 +85,6 @@ public class DateWidget extends JPanel {
       switches.add(new SwitchCalendar(PointInTime.CALENDARS[s]));
     
     // initialize Sub-components
-    widgetCalendar = new PopupWidget(); 
-    widgetCalendar.addItems(switches);
-    
     widgetYear  = new TextFieldWidget("",5+1);
     widgetYear.setSelectAllOnFocus(true);
     widgetYear.addChangeListener(changeSupport);
@@ -100,6 +97,9 @@ public class DateWidget extends JPanel {
     widgetDay   = new TextFieldWidget("",2+1);
     widgetDay.setSelectAllOnFocus(true);
     widgetDay.addChangeListener(changeSupport);
+    
+    widgetCalendar = new PopupWidget(); 
+    widgetCalendar.addItems(switches);
     
     // Setup Layout
     setLayout(LAYOUT.copy()); // reuse a copy of layout 

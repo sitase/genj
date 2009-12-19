@@ -45,7 +45,7 @@ public class NameBean extends PropertyBean {
   private final static NestedBlockLayout LAYOUT = new NestedBlockLayout("<col><row><l/><v wx=\"1\"/></row><row><l/><v wx=\"1\"/><check/></row><row><l/><v wx=\"1\"/></row></col>");
   
   /** our components */
-  private Property[] sameLastNames;
+  private Property[] sameLastNames = new Property[0];
   private ChoiceWidget cLast, cFirst;
   private JCheckBox cAll;
   private TextFieldWidget tSuff;
