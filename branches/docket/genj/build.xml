@@ -312,11 +312,13 @@
      <delete file="./build/lib/run.jar"/>
      <jar jarfile="./build/lib/run.jar" update="True">
        <fileset dir="./build/classes/launcher" includes="**"/>
+       <fileset dir="./images" includes="splash.png"/>
        <manifest>
          <attribute name="Main-Class" value="launcher.Launcher"/>
       	 <attribute name="Launch-Classpath" value="lib, contrib, $${java.home}/lib/tools.jar, $${java.home}/../lib/tools.jar"/>
        	 <attribute name="Launch-Class" value="genj.app.App"/>
          <attribute name="Launch-Port" value="2505"/>
+         <attribute name="SplashScreen-Image" value="splash.png"/>
        </manifest>
      </jar>
      
