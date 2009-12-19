@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.135.2.4 $ $Author: nmeier $ $Date: 2009-12-18 04:34:22 $
+ * $Revision: 1.135.2.5 $ $Author: nmeier $ $Date: 2009-12-19 00:52:55 $
  */
 package genj.gedcom;
 
@@ -992,7 +992,7 @@ public class Gedcom {
   public void setUnchanged() {
     
     // is dirty?
-    if (!isDirty)
+    if (!hasChanged())
       return;
     
     // do it
