@@ -113,11 +113,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
    * Accessor - current root
    */
   public void setRoot(Entity entity) {
-    // Indi or Fam plz
-    if (!(entity instanceof Indi||entity instanceof Fam)) 
+    // null, Indi or Fam 
+    if (!(entity==null || entity instanceof Indi ||entity instanceof Fam)) 
       return;
     // no change?
-    if (root==entity) return;
+    if (root==entity) 
+      return;
     // keep as root
     root = entity;
     // parse the current information
@@ -447,7 +448,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
     bounds.setFrame(0,0,0,0);
     
     // nothing to do if no root set
-    if (root==null) return;
+    if (root==null) {
+      fireStructureChanged();
+      return;
+    }
 
     // parse and layout    
     try {

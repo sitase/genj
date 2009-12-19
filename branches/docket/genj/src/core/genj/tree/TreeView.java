@@ -405,10 +405,11 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     context = new Context(newContext.getGedcom(), newContext.getEntities());
     
     // propagate (last) entity
-    if (isActionPerformed)
+    if (isActionPerformed || context.getGedcom()==null)
       setRoot(context.getEntity());
     
     // make sure it's shown
+    invalidate();
     repaint();
     
 //    // context a link?
@@ -571,9 +572,8 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
    * Sets the root of this view
    */
   public void setRoot(Entity root) {
-    if (!(root instanceof Indi||root instanceof Fam)) 
-      return;
-    model.setRoot(root);
+    if (root==null || root instanceof Indi ||root instanceof Fam) 
+      model.setRoot(root);
   }
 
   /**
