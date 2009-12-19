@@ -183,7 +183,7 @@ public abstract class CreateRelationship extends AbstractChange {
 //    ViewManager.getRegistry(gedcom).put("select."+targetType, change.getId());
     
     // done
-    return new Context(focus);
+    return new Context(focus.getEntity());
   }
   
   /**
