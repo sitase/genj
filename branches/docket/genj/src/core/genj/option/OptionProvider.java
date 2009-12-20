@@ -72,13 +72,11 @@ public abstract class OptionProvider {
       // one provider at a time
       OptionProvider provider = providers.next();
       
-      // grab its options
-      options.addAll(provider.getOptions());
-      
-      // restore their value
-      for (Option option : options) {
+      // grab optirestore their value
+      for (Option option : provider.getOptions()) {
         try {
           option.restore();
+          options.add(option);
         } catch (Throwable t) {
           t.printStackTrace();
         }
