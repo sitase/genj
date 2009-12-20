@@ -825,7 +825,7 @@ import spin.Spin;
          return;
        }
        // add a tab for anything else
-       tabs.insertTab(prop.getPropertyName(), prop.getImage(false), PropertyBean.getBean(prop), prop.getPropertyInfo(), 0);
+       tabs.addTab(prop.getPropertyName(), prop.getImage(false), PropertyBean.getBean(prop), prop.getPropertyInfo());
        return;
      }
      
@@ -847,7 +847,7 @@ import spin.Spin;
    
    private class ContextTabbedPane extends JTabbedPane implements ContextProvider {
      private ContextTabbedPane() {
-       super(JTabbedPane.TOP, JTabbedPane.WRAP_TAB_LAYOUT);
+       super(JTabbedPane.TOP, JTabbedPane.SCROLL_TAB_LAYOUT);
      }
      public ViewContext getContext() {
        // check if tab for property
