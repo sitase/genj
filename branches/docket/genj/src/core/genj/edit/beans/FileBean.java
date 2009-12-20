@@ -19,9 +19,11 @@
  */
 package genj.edit.beans;
 
+import genj.edit.actions.RunExternal;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyBlob;
 import genj.gedcom.PropertyFile;
+import genj.io.FileAssociation;
 import genj.util.Origin;
 import genj.util.swing.Action2;
 import genj.util.swing.FileChooserWidget;
@@ -202,6 +204,22 @@ public class FileBean extends PropertyBean {
       result.addAction(new ActionZoom(150));
       result.addAction(new ActionZoom(200));
       result.addAction(new ActionZoom(  0));
+      
+      // find suffix
+      PropertyFile file = (PropertyFile)getProperty();
+      if (file!=null) {
+        String suffix = file.getSuffix();
+        // lookup associations
+        List<FileAssociation> assocs = FileAssociation.getAll(suffix);
+        if (assocs.isEmpty()) {
+          result.addAction(new RunExternal(file));
+        } else {
+          for (FileAssociation fa : assocs) {
+            result.addAction(new RunExternal(file,fa));
+          }
+        }
+      }
+      // done
     }
     // all done
     return result;
@@ -244,15 +262,14 @@ public class FileBean extends PropertyBean {
     }
      
     /** callback - dropped */
+    @SuppressWarnings("unchecked")
     public void drop(DropTargetDropEvent dtde) {
       try {
         dtde.acceptDrop(dtde.getDropAction());
         
-        List files = (List)dtde.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
-        File file = (File)files.get(0);
-        chooser.setFile(file);
-        
-        preview.setSource(new ImageWidget.FileSource(file));
+        List<File> files = (List<File>)dtde.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
+        chooser.setFile(files.get(0));
+        preview.setSource(new ImageWidget.FileSource(files.get(0)));
         
         dtde.dropComplete(true);
         
