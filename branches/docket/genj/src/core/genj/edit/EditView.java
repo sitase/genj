@@ -222,9 +222,9 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
 
       sticky.setSelected(false);
       if (mode.isSelected())
-        setEditor(new AdvancedEditor(newContext.getGedcom(), this, REGISTRY));
+        setEditor(new AdvancedEditor(newContext.getGedcom(), this));
       else
-        setEditor(new BasicEditor(newContext.getGedcom(), this, REGISTRY));
+        setEditor(new BasicEditor(newContext.getGedcom(), this));
         
     }
 
@@ -391,7 +391,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     public boolean setSelected(boolean selected) {
       REGISTRY.put("advanced", selected);
       if (getContext()!=null)
-        setEditor(selected ? new AdvancedEditor(getContext().getGedcom(), EditView.this, REGISTRY) : new BasicEditor(getContext().getGedcom(), EditView.this, REGISTRY));
+        setEditor(selected ? new AdvancedEditor(getContext().getGedcom(), EditView.this) : new BasicEditor(getContext().getGedcom(), EditView.this));
       return super.setSelected(selected);
     }
   } //Advanced

@@ -92,6 +92,8 @@ import javax.swing.tree.TreePath;
 
   private final static Clipboard clipboard = initClipboard();
   
+  private final static Registry REGISTRY = Registry.get(AdvancedEditor.class);
+  
   private boolean ignoreSelection = false;
 
   /**
@@ -130,21 +132,17 @@ import javax.swing.tree.TreePath;
     ok   = new OK(), 
     cancel = new Cancel();
 
-  /** registry */
-  private Registry registry;
-  
   /** interaction callback */
   private InteractionListener callback;
 
   /**
    * Initialize
    */
-  public AdvancedEditor(Gedcom gedcom, EditView view, Registry regty) {
+  public AdvancedEditor(Gedcom gedcom, EditView view) {
     
     // remember
     this.gedcom = gedcom;
     editView = view;
-    registry = regty;
     
     // TREE Component's 
     tree = new Tree();
@@ -166,11 +164,11 @@ import javax.swing.tree.TreePath;
 
     // SplitPane with tree/edit
     splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, treePane, editScroll);
-    splitPane.setDividerLocation(registry.get("divider",-1));
+    splitPane.setDividerLocation(REGISTRY.get("divider",-1));
     splitPane.addPropertyChangeListener(new PropertyChangeListener() {
       public void propertyChange(PropertyChangeEvent evt) {
         if (JSplitPane.DIVIDER_LOCATION_PROPERTY.equals(evt.getPropertyName()))
-          registry.put("divider",splitPane.getDividerLocation());
+          REGISTRY.put("divider",splitPane.getDividerLocation());
       }
     });
 
@@ -301,7 +299,7 @@ import javax.swing.tree.TreePath;
       panel.add(check);
       
       // preselect something?
-      select.setSelection(gedcom.getEntity(registry.get("select."+entity.getTag(), (String)null)));
+      select.setSelection(gedcom.getEntity(REGISTRY.get("select."+entity.getTag(), (String)null)));
 
       // show it
       boolean cancel = 0!=WindowManager.getInstance().openDialog("propagate", getText(), WindowManager.WARNING_MESSAGE, panel, Action2.okCancel(), AdvancedEditor.this);
@@ -311,7 +309,7 @@ import javax.swing.tree.TreePath;
       final Entity selection = select.getSelection();
       
       // remember selection
-      registry.put("select."+entity.getTag(), selection!=null ? selection.getId() : null);
+      REGISTRY.put("select."+entity.getTag(), selection!=null ? selection.getId() : null);
       
       // change it
       try {

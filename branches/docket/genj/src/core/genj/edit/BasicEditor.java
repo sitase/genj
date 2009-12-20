@@ -43,9 +43,12 @@ import genj.view.ViewContext;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.ContainerOrderFocusTraversalPolicy;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -67,6 +70,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.LayoutFocusTraversalPolicy;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.border.TitledBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
@@ -77,6 +81,8 @@ import spin.Spin;
  */
 /* package */class BasicEditor extends Editor implements ContextProvider {
 
+  private final static Registry REGISTRY = Registry.get(BasicEditor.class);
+  
   /** keep a cache of descriptors */
   private static Map<MetaProperty, NestedBlockLayout> META2DESCRIPTOR = new HashMap<MetaProperty, NestedBlockLayout>();
   
@@ -85,9 +91,6 @@ import spin.Spin;
 
   /** current entity */
   private Entity currentEntity = null;
-
-  /** registry */
-  private Registry registry;
 
   /** edit */
   private EditView view;
@@ -104,12 +107,11 @@ import spin.Spin;
   /**
    * Constructor
    */
-  public BasicEditor(Gedcom gedcom, EditView edit, Registry registry) {
+  public BasicEditor(Gedcom gedcom, EditView edit) {
 
     // remember
     this.gedcom = gedcom;
     this.view = edit;
-    this.registry = registry;
     
     // make user focus root
     setFocusTraversalPolicy(new FocusPolicy());
@@ -365,7 +367,7 @@ import spin.Spin;
   /**
    * A 'bean' we use for groups
    */
-  private class PopupBean extends PopupWidget {
+  private class PopupBean extends PopupWidget implements MouseMotionListener {
     
     private PropertyBean wrapped;
     
@@ -374,24 +376,26 @@ import spin.Spin;
      */
     private PopupBean(PropertyBean wrapped) {
       
-      // remember wrapped
-      this.wrapped = wrapped;
-      wrapped.setAlignmentX(0);
+      // fix button's looks
+      setFocusable(false);
+      setBorder(null);
       
-      // prepare image
+      // setup wrapped bean
+      this.wrapped = wrapped;
+      
       Property prop = wrapped.getProperty();
+      
       ImageIcon img = prop.getImage(false);
       if (prop.getValue().length()==0)
         img = img.getDisabled(50);
       setIcon(img);
       setToolTipText(prop.getPropertyName());
-      
-      // fix looks
-      setFocusable(false);
-      setBorder(null);
+
+      wrapped.setAlignmentX(0);
+      wrapped.setBorder(new TitledBorder(prop.getPropertyName()));
+      wrapped.addMouseMotionListener(this);
       
       // prepare 'actions'
-      addItem(new JLabel(prop.getPropertyName()));
       addItem(wrapped);
 
       // done
@@ -403,6 +407,12 @@ import spin.Spin;
     public void showPopup() {
       // let super do its thing
       super.showPopup();
+      // resize if available
+      Dimension d = REGISTRY.get("popup."+wrapped.getProperty().getTag(), (Dimension)null);
+      if (d!=null) {
+        getPopup().getParent().setSize(d);
+        getPopup().revalidate();
+      }
       // request focus
       SwingUtilities.getWindowAncestor(wrapped).setFocusableWindowState(true);
       wrapped.requestFocus();
@@ -410,7 +420,25 @@ import spin.Spin;
       setIcon(wrapped.getProperty().getImage(false));
     }
     
-      
+    public void mouseDragged(MouseEvent e) {
+      // allow to resize 
+      if (wrapped.getCursor()!=Cursor.getDefaultCursor()) {
+        Dimension d = new Dimension(e.getPoint().x, e.getPoint().y);
+        REGISTRY.put("popup."+wrapped.getProperty().getTag(), d);
+        getPopup().getParent().setSize(d);
+        getPopup().revalidate();
+      }
+    }
+
+    public void mouseMoved(MouseEvent e) {
+      // indicate resize cursor if applicable
+      if (e.getX()>wrapped.getWidth()-wrapped.getInsets().right
+        &&e.getY()>wrapped.getHeight()-wrapped.getInsets().bottom)
+        wrapped.setCursor(Cursor.getPredefinedCursor(Cursor.SE_RESIZE_CURSOR));
+      else
+        wrapped.setCursor(Cursor.getDefaultCursor());
+    }
+
   } //Label
   
   /**
