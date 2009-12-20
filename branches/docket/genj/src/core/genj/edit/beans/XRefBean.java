@@ -64,13 +64,19 @@ public class XRefBean extends PropertyBean {
       setImage(MetaProperty.IMG_LINK);
     }
     @Override
-    public void actionPerformed(ActionEvent e) {
+    public void actionPerformed(ActionEvent event) {
       
       if (xref==null)
         return;
       
       SelectEntityWidget select = new SelectEntityWidget(xref.getGedcom(), xref.getTargetType(), null);
-      if (0!=WindowManager.getInstance().openDialog(null, getText(), WindowManager.QUESTION_MESSAGE, select, Action2.okCancel(), e))
+      if (0!=WindowManager.getInstance().openDialog(
+          null, 
+          getText(), 
+          WindowManager.QUESTION_MESSAGE, 
+          select, 
+          Action2.okCancel(), 
+          WindowManager.getComponent(event)))
         return;
 
       final Entity newTarget = select.getSelection();
@@ -93,7 +99,13 @@ public class XRefBean extends PropertyBean {
           }
         });
       } catch (GedcomException ge) {
-        WindowManager.getInstance().openDialog(null, getText(), WindowManager.WARNING_MESSAGE, ge.getMessage(), Action2.okOnly(), e);
+        WindowManager.getInstance().openDialog(
+            null, 
+            getText(), 
+            WindowManager.WARNING_MESSAGE, 
+            ge.getMessage(), 
+            Action2.okOnly(), 
+            WindowManager.getComponent(event));
         LOG.log(Level.FINER, ge.getMessage(), ge);
       }
       

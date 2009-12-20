@@ -423,7 +423,7 @@ public class Workbench extends JPanel implements SelectionSink {
       });
 
     // .. done
-    return false;
+    return true;
   }
   
   /**

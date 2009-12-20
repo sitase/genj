@@ -118,7 +118,7 @@ public abstract class AbstractChange extends Action2 {
       };
       
       // Recheck with the user
-      int rc = WindowManager.getInstance().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, event );
+      int rc = WindowManager.getInstance().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, WindowManager.getComponent(event) );
       if (rc!=0)
         return;
     }
@@ -131,7 +131,7 @@ public abstract class AbstractChange extends Action2 {
         }
       });
     } catch (Throwable t) {
-      WindowManager.getInstance().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), event);
+      WindowManager.getInstance().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), WindowManager.getComponent(event));
     }
     
     // propagate selection

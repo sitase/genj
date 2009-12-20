@@ -101,33 +101,31 @@ public class WindowManager {
     return INSTANCE;
   }
   
-  /**
-   * Find a component for given source
-   */
-  public static Component getComponent(Object source) {
-	  
-	  if (source instanceof EventObject)
-		  source = ((EventObject)source).getSource();
-	  
-		do {
-		      if (source instanceof JPopupMenu) 
-		    	  source = ((JPopupMenu)source).getInvoker();
-		      else if (source instanceof JMenu)
-		    	  source = ((JMenu)source).getParent();
-          else if (source instanceof JMenuItem)
-            source = ((JMenuItem)source).getParent();
-		      else if (source instanceof Component)
-		    	  return (Component)source;
-		      else
-		  	    throw new IllegalArgumentException("Cannot find parent for source "+source);
-		    	  
-	    } while (source!=null);
-	    
-	    throw new IllegalArgumentException("Cannot find parent for source "+source);
-	}
-
-
-  public final int openDialog(String key, String title,  int messageType, String txt, Action[] actions, Object source) {
+//  /**
+//   * Find a component for given source
+//   */
+//  public static Component getComponent(Object source) {
+//	  
+//	  if (source instanceof EventObject)
+//		  source = ((EventObject)source).getSource();
+//	  
+//		do {
+//		      if (source instanceof JPopupMenu) 
+//		    	  source = ((JPopupMenu)source).getInvoker();
+//		      else if (source instanceof JMenu)
+//		    	  source = ((JMenu)source).getParent();
+//          else if (source instanceof JMenuItem)
+//            source = ((JMenuItem)source).getParent();
+//		      else if (source instanceof Component)
+//		    	  return (Component)source;
+//		      else
+//		  	    throw new IllegalArgumentException("Cannot find parent for source "+source);
+//		    	  
+//	    } while (source!=null);
+//	    
+//	    throw new IllegalArgumentException("Cannot find parent for source "+source);
+//	}
+  public final int openDialog(String key, String title,  int messageType, String txt, Action[] actions, Component source) {
     
     // analyze the text
     int maxLine = 40;
@@ -164,7 +162,7 @@ public class WindowManager {
   /**
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.awt.Dimension, javax.swing.JComponent[], java.lang.String[], javax.swing.JComponent)
    */
-  public final int openDialog(String key, String title,  int messageType, JComponent[] content, Action[] actions, Object source) {
+  public final int openDialog(String key, String title,  int messageType, JComponent[] content, Action[] actions, Component source) {
     // assemble content into Box (don't use Box here because
     // Box extends Container in pre JDK 1.4)
     JPanel box = new JPanel();
@@ -181,7 +179,7 @@ public class WindowManager {
   /**
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.lang.String, java.lang.String, javax.swing.JComponent)
    */
-  public final String openDialog(String key, String title,  int messageType, String txt, String value, Object source) {
+  public final String openDialog(String key, String title,  int messageType, String txt, String value, Component source) {
 
     // prepare text field and label
     TextFieldWidget tf = new TextFieldWidget(value, 24);
@@ -194,7 +192,7 @@ public class WindowManager {
     return rc==0?tf.getText().trim():null;
   }
 
-  public final int openDialog(String key, String title,  int messageType, JComponent content, Action[] actions, Object source) {
+  public final int openDialog(String key, String title,  int messageType, JComponent content, Action[] actions, Component source) {
     // check options - default to OK
     if (actions==null) 
       actions = Action2.okOnly();
@@ -211,28 +209,32 @@ public class WindowManager {
   /**
    * Dialog implementation
    */
-  private Object openDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Object source, Rectangle bounds) {
+  private Object openDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Component source, Rectangle bounds) {
+
+    // find window for source
+    source = visitContainers(source, new ContainerVisitor() {
+      public Component visit(Component parent, Component child) {
+        return parent ==null ? child : null;
+      }
+    });
 
     // create an option pane
     JOptionPane optionPane = new Content(messageType, content, actions);
     
-    // calc parent
-    Component parent = source != null ? getComponent(source) : null;
-    
     // let it create the dialog
-    final JDialog dlg = optionPane.createDialog(parent != null ? parent : defaultFrame, title);
+    final JDialog dlg = optionPane.createDialog(source != null ? source : defaultFrame, title);
     dlg.setResizable(true);
     dlg.setModal(true);
     if (bounds==null) {
       dlg.pack();
-      if (parent!=null)
-        dlg.setLocationRelativeTo(parent.getParent());
+      if (source!=null)
+        dlg.setLocationRelativeTo(source.getParent());
     } else {
-      if (parent==null) {
+      if (source==null) {
         dlg.setBounds(bounds.intersection(screen));
       } else {
         dlg.setBounds(new Rectangle(bounds.getSize()).intersection(screen));
-        dlg.setLocationRelativeTo(parent.getParent());
+        dlg.setLocationRelativeTo(source.getParent());
       }
     }
 
@@ -330,5 +332,59 @@ public class WindowManager {
     } //Action2Button
     
   } // Content 
+  
+  public static Component getComponent(EventObject event) {
+    Object source = event.getSource();
+    if (!(source instanceof Component))
+      throw new IllegalArgumentException("Can't find component for event "+event);
+    return (Component)source;
+  }
+  
+  /**
+   * Visit parents of a component recursively. This method takes (popup) menu containment
+   * into account so one can recursively go from a component in a menu up to the component
+   * showing the menu.
+   */
+  public static Component visitContainers(Component component, ContainerVisitor visitor) {
+    
+    do {
+      Component parent;
+      if (component instanceof JPopupMenu) 
+        parent = ((JPopupMenu)component).getInvoker();
+      else if (component instanceof JMenu)
+        parent = ((JMenu)component).getParent();
+      else if (component instanceof JMenuItem)
+        parent = ((JMenuItem)component).getParent();
+      else if (component instanceof Component)
+        parent = (Component)component.getParent();
+      else
+        throw new IllegalArgumentException("Cannot find parent for "+component);
+
+      Component result = visitor.visit(parent, component);
+      if (result!=null)
+        return result;
+      
+      component = parent;
+      
+    } while (component!=null);
+    
+    return null;
+  }
+    
+  public static Component visitContainers(EventObject event, ContainerVisitor visitor) {
+    return visitContainers((Component)event.getSource(), visitor);
+  }
+  
+  /**
+   * interface for visiting container hierarchy
+   */
+  public interface ContainerVisitor {
+    
+    /** 
+     * visit a parent and child 
+     * @return null to continue in the parent hierarchy, !null to abort otherwise
+     */
+    public Component visit(Component parent, Component child);
+  }
   
 } //AbstractWindowManager

@@ -2,6 +2,7 @@ package genj.view;
 
 import genj.gedcom.Context;
 import genj.window.WindowManager;
+import genj.window.WindowManager.ContainerVisitor;
 
 import java.awt.AWTEvent;
 import java.awt.Component;
@@ -28,19 +29,21 @@ public interface SelectionSink {
         isActionPerformed |= (((ActionEvent)event).getModifiers()&ActionEvent.CTRL_MASK)!=0;
       if (event instanceof MouseEvent)
         isActionPerformed |= (((MouseEvent)event).getModifiers()&MouseEvent.CTRL_DOWN_MASK)!=0;
-      fireSelection(WindowManager.getComponent(event), context, isActionPerformed);
+      fireSelection((Component)event.getSource(), context, isActionPerformed);
     }
 
     public static void fireSelection(Component source, Context context, boolean isActionPerformed) {
-      Component c = WindowManager.getComponent(source);
-      while (c != null) {
-        if (c instanceof SelectionSink) {
-          ((SelectionSink) c).fireSelection(context, isActionPerformed);
-          return;
+
+      SelectionSink sink = (SelectionSink)WindowManager.visitContainers(source, new ContainerVisitor() {
+        public Component visit(Component parent, Component child) {
+          return parent instanceof SelectionSink ? parent : null;
         }
-        c = c.getParent();
-      }
-      throw new IllegalArgumentException("No sink for source " + source);
+      });
+      
+      if (sink==null)
+        throw new IllegalArgumentException("Can't find sink for "+source);
+
+      sink.fireSelection(context, isActionPerformed);
     }
   }
 }
