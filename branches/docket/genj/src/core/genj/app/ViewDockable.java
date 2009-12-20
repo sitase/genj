@@ -231,6 +231,8 @@ import swingx.docking.Docked;
       
       Component result = WindowManager.visitContainers(component, new ContainerVisitor() {
         public Component visit(Component parent, Component child) {
+          if (parent instanceof Workbench)
+            return (Workbench)parent;
           if (parent instanceof View) {
             ViewDockable dockable = (ViewDockable) ((View)parent).getClientProperty(ViewDockable.class);
             return dockable.workbench;
@@ -240,10 +242,7 @@ import swingx.docking.Docked;
         }
       });
       
-      if (!(result instanceof Workbench))
-        throw new IllegalArgumentException("Can't find workbench for "+component);
-      
-      return (Workbench)result;
+      return result instanceof Workbench ? (Workbench)result : null;
     }
     
     /**
@@ -313,7 +312,7 @@ import swingx.docking.Docked;
       
       // find context at point
       final ViewContext context = getContext(SwingUtilities.getDeepestComponentAt(me.getComponent(), me.getX(), me.getY()));
-      if (context == null)
+      if (context==null||workbench==null)
         return;
 
       final Point point = SwingUtilities.convertPoint(me.getComponent(), me.getX(), me.getY(), workbench);
@@ -351,7 +350,7 @@ import swingx.docking.Docked;
     private JPopupMenu getContextMenu(ViewContext context, Workbench workbench) {
       
       // make sure context is valid 
-      if (context==null)
+      if (context==null||workbench==null)
         return null;
       
       List<? extends Property> properties = context.getProperties();
