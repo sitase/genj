@@ -25,6 +25,7 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
+import genj.gedcom.PropertyComparator;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
 import genj.gedcom.UnitOfWork;
@@ -409,8 +410,12 @@ public class BeanPanel extends JPanel {
     
     // create all tabs
     Set<String> skippedTags = new HashSet<String>();
-    for (int i=0, j=entity.getNoOfProperties(); i<j; i++) {
-      Property prop = entity.getProperty(i);
+    
+    Property[] props = entity.getProperties();
+    
+    Arrays.sort(props, new PropertyComparator(".:DATE"));
+    
+    for (Property prop : props) {
       // check tag - skipped or covered already?
       String tag = prop.getTag();
       if (skippedTags.add(tag)&&topLevelTags.contains(tag)) 
