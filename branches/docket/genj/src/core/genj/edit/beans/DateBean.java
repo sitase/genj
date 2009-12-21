@@ -21,6 +21,7 @@ package genj.edit.beans;
 
 import genj.gedcom.Property;
 import genj.gedcom.PropertyDate;
+import genj.gedcom.time.PointInTime;
 import genj.util.swing.Action2;
 import genj.util.swing.DateWidget;
 import genj.util.swing.ImageIcon;
@@ -198,16 +199,19 @@ public class DateBean extends PropertyBean {
    */
   public void setPropertyImpl(Property prop) {
 
-    if (prop==null)
-      return;
-    PropertyDate date = (PropertyDate)prop;
-    
-    // connect
-    date1.setValue(date.getStart());
-    date2.setValue(date.getEnd());
-    phrase.setText(date.getPhrase());
-    setFormat(date.getFormat());
-    
+    if (prop==null) {
+      PointInTime pit = new PointInTime();
+      date1.setValue(pit);
+      date2.setValue(pit);
+      phrase.setText("");
+      setFormat(PropertyDate.FORMATS[0]);
+    } else {
+      PropertyDate date = (PropertyDate)prop;
+      date1.setValue(date.getStart());
+      date2.setValue(date.getEnd());
+      phrase.setText(date.getPhrase());
+      setFormat(date.getFormat());
+    }    
     // done
   }
   
