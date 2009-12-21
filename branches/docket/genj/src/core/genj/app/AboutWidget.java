@@ -159,14 +159,14 @@ public class AboutWidget extends JPanel{
      */
     private JComponent getNorth() {
       
-      JTextArea text = new JTextArea(resources.getString("cc.about.tab3.text1"),3,DEFAULT_COLS);
+      JTextArea text = new JTextArea(resources.getString("app.disclaimer"),3,DEFAULT_COLS);
       text.setLineWrap(true);
       text.setWrapStyleWord(true);
       text.setEditable(false);
       
       JPanel panel = new JPanel(new BorderLayout());
       panel.setBorder(BorderFactory.createCompoundBorder(
-        BorderFactory.createTitledBorder(resources.getString("cc.about.tab3.text1.title")),
+        BorderFactory.createTitledBorder(resources.getString("cc.about.dialog.tab3.title")),
         new EmptyBorder(3, 3, 3, 3)
       ));
       panel.add(text, BorderLayout.CENTER);
