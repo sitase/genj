@@ -299,7 +299,7 @@ public class EnvironmentChecker {
       if (!isWindows() || dotgenj.isDirectory() || !appdata.isDirectory())
         user_home_genj = dotgenj;
       else
-        user_home_genj = new File(appdata, "GenJ");
+        user_home_genj = new File(appdata, "GenJ3");
       
       setProperty("user.home.genj", user_home_genj.getAbsolutePath());
 
