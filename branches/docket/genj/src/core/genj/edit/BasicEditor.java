@@ -387,7 +387,7 @@ import spin.Spin;
       
       ImageIcon img = prop.getImage(false);
       if (prop.getValue().length()==0)
-        img = img.getDisabled(50);
+        img = img.getGrayedOut();
       setIcon(img);
       setToolTipText(prop.getPropertyName());
 
