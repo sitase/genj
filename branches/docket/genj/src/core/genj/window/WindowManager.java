@@ -228,7 +228,7 @@ public class WindowManager {
     if (bounds==null) {
       dlg.pack();
       if (source!=null)
-        dlg.setLocationRelativeTo(source.getParent());
+        dlg.setLocationRelativeTo(source);
     } else {
       if (source==null) {
         dlg.setBounds(bounds.intersection(screen));
