@@ -719,6 +719,9 @@ import spin.Spin;
         PropertyBean bean = createBean(root, path, meta, cell.getAttribute("type"));
         if (bean==null)
           return null;
+        // patch it
+        if ("horizontal".equals(cell.getAttribute("dir")))
+          bean.setPreferHorizontal(true);
         // track it
         if (root==currentEntity&&path.length()>1)
           topLevelTags.add(path.get(1));
