@@ -358,7 +358,7 @@ public class WindowManager {
       else if (component instanceof Component)
         parent = (Component)component.getParent();
       else
-        throw new IllegalArgumentException("Cannot find parent for "+component);
+        return null;
 
       Component result = visitor.visit(parent, component);
       if (result!=null)
