@@ -58,6 +58,8 @@ import org.xml.sax.helpers.DefaultHandler;
  * <!ATTLIST * wy CDATA>
  * <!ATTLIST * gx CDATA>
  * <!ATTLIST * gy CDATA>
+ * <!ATTLIST * ax CDATA>
+ * <!ATTLIST * ay CDATA>
  * </pre>
  * wx,wy are weight arguments - gx,gy are grow arguments
  */
@@ -152,7 +154,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
    */
   private class DescriptorHandler extends DefaultHandler {
     
-    private Stack stack = new Stack();
+    private Stack<Block> stack = new Stack<Block>();
     
     public InputSource resolveEntity(String publicId, String systemId) {
       // 20060601 let's not try to resolve any external entities - in case of GenJ running as an applet and a 
@@ -486,19 +488,22 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     private String element;
     
     /** attributes */
-    private Map attrs = new HashMap();
+    private Map<String,String> attrs = new HashMap<String, String>();
     
     /** wrapped component */
     private Component component;
     
     /** grow constraints */
-    private Point grow = new Point();
+    private Point cellGrow = new Point();
     
     /** padding */
-    private int padding;
+    private int cellPadding;
     
     /** cached weight */
-    private Point2D.Double staticWeight = new Point2D.Double();
+    private Point2D.Double cellWeight = new Point2D.Double();
+    
+    /** cached alignment */
+    private Point2D.Double cellAlign = new Point2D.Double(0.5,0.5);
     
     /** constructor */
     private Cell(String element, Attributes attributes, int padding) {
@@ -507,7 +512,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
       
       // keep key
       this.element = element;
-      this.padding = padding;
+      this.cellPadding = padding;
       
       for (int i=0,j=attributes.getLength();i<j;i++) 
         attrs.put(attributes.getQName(i), attributes.getValue(i));
@@ -515,18 +520,26 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
       // look for weight info
       String wx = getAttribute("wx");
       if (wx!=null)
-        staticWeight.x = Float.parseFloat(wx);
+        cellWeight.x = Float.parseFloat(wx);
       String wy = getAttribute("wy");
       if (wy!=null)
-        staticWeight.y = Float.parseFloat(wy);
+        cellWeight.y = Float.parseFloat(wy);
+      
+      // look for alignment info
+      String ax = getAttribute("ax");
+      if (ax!=null)
+        cellAlign.x = Float.parseFloat(ax);
+      String ay = getAttribute("ay");
+      if (ay!=null)
+        cellAlign.y = Float.parseFloat(ay);
       
       // look for grow info
       String gx = getAttribute("gx");
       if (gx!=null)
-        grow.x = 1;
+        cellGrow.x = 1;
       String gy = getAttribute("gy");
       if (gy!=null)
-        grow.y = 1;
+        cellGrow.y = 1;
 
       // done
     }
@@ -587,15 +600,15 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
         preferred = new Dimension();
       else {
 	      preferred = new Dimension(component.getPreferredSize());
-	      preferred.width += padding*2;
-	      preferred.height += padding*2;
+	      preferred.width += cellPadding*2;
+	      preferred.height += cellPadding*2;
       }
 	    return preferred;
     }
     
     /** weight */
     Point2D weight() {
-      return component==null ? new Point2D.Double() : staticWeight;
+      return component==null ? new Point2D.Double() : cellWeight;
     }
     
     /** layout */
@@ -605,31 +618,31 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
         return;
       
       // calculate what's available
-      Rectangle avail = new Rectangle(in.x+padding, in.y+padding, in.width-padding*2, in.height-padding*2);
+      Rectangle avail = new Rectangle(in.x+cellPadding, in.y+cellPadding, in.width-cellPadding*2, in.height-cellPadding*2);
       
       // make sure it's not more than maximum
       Dimension pref = preferred();
       Dimension max = component.getMaximumSize();
-      if (grow.x!=0) 
+      if (cellGrow.x!=0) 
         max.width = avail.width;
-      else if (staticWeight.x==0) 
+      else if (cellWeight.x==0) 
         max.width = pref.width;
         
-      if (grow.y!=0) 
+      if (cellGrow.y!=0) 
         max.height = avail.height;
-      else if (staticWeight.y==0)
+      else if (cellWeight.y==0)
         max.height = pref.height;
       
       // share space
       int extraX = avail.width-max.width;
       if (extraX>0) {
-        avail.x += extraX/2;
+        avail.x += extraX * cellAlign.x;
         avail.width = max.width;
       }
       
       int extraY = avail.height-max.height;
       if (extraY>0) {
-        avail.y += extraY/2;
+        avail.y += extraY * cellAlign.y;
         avail.height = max.height;
       }
 
@@ -643,7 +656,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     }
     
     /** all cells */
-    Collection getCells(Collection collect) {
+    Collection<Cell> getCells(Collection<Cell> collect) {
       collect.add(this);
       return collect;
     }
