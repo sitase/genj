@@ -76,6 +76,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.Action;
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
@@ -107,10 +108,10 @@ public class Workbench extends JPanel implements SelectionSink {
   private List<Object> plugins = new ArrayList<Object>();
   private List<ViewFactory> viewFactories = ServiceLookup.lookup(ViewFactory.class);
   private WindowManager windowManager;
+  private Context context = new Context();
+  private DockingPane dockingPane = new DockingPane();
   private Menu menu = new Menu();
   private Toolbar toolbar = new Toolbar();
-  private DockingPane dockingPane = new DockingPane();
-  private Context context = new Context();
   private Runnable runOnExit;
   private StatusBar statusBar = new StatusBar();
   
@@ -290,9 +291,6 @@ public class Workbench extends JPanel implements SelectionSink {
     for (WorkbenchListener listener: listeners)
       listener.gedcomOpened(this, gedcom);
   
-    // re-install tools
-    installTools();
-    
     // done
   }
   
@@ -483,9 +481,6 @@ public class Workbench extends JPanel implements SelectionSink {
     // remember context
     REGISTRY.put(context.getGedcom().getName(), context.toString());
 
-    // no tools
-    uninstallTools();    
-    
     // remember and tell
     context = new Context();
     for (WorkbenchListener listener : listeners) 
@@ -570,9 +565,6 @@ public class Workbench extends JPanel implements SelectionSink {
     
     LOG.fine("fireSelection("+context+","+isActionPerformed+")");
     
-    // no tools
-    uninstallTools();    
-    
     // remember 
     this.context = context;
     
@@ -583,77 +575,24 @@ public class Workbench extends JPanel implements SelectionSink {
     for (WorkbenchListener listener : listeners) 
       listener.selectionChanged(this, context, isActionPerformed);
     
-    // update tools
-    installTools();
-  }
+  } 
   
-  private void uninstallTools() {
-    
-    if (context==null)
-      return;
-    
-    // unhook up actions to gedcom
-    removeGedcomListeners(menu.getTools());
-    removeGedcomListeners(toolbar.getTools());
-    
-    // clear 'em
-    menu.reset();
-    toolbar.reset();
-  }
-  
-  private void installTools() {
-    
-    if (context==null)
-      return;
-    
-    // cleanup first
-    uninstallTools();
-
-    // let providers speak
-    List<Action2> tools = new ArrayList<Action2>();
-    
-    for (ActionProvider provider : getActionProviders()) {
-      for (Action2 action : provider.createActions(context, Purpose.TOOLBAR)) {
-        if (action instanceof Action2.Group)
-          LOG.warning("ActionProvider "+provider+" returned a group for toolbar");
-        else {
-          if (action instanceof ActionProvider.SeparatorAction)
-            toolbar.addSeparator();
-          else {
-            toolbar.addTool(action);
-          }
-        }
-      }
-      for (Action2 action : provider.createActions(context, Purpose.MENU)) {
-        if (action instanceof Action2.Group) {
-          menu.addTool((Action2.Group)action);
-        } else {
-          LOG.warning("ActionProvider "+provider+" returned a non-group for menu");
-        }
-      }
+  private void connect(List<Action> actions) {
+    for (Action action : actions) {
+      if (context.getGedcom()!=null && action instanceof GedcomListener)
+        context.getGedcom().addGedcomListener((GedcomListener)Spin.over(action));
+      if (action instanceof WorkbenchListener)
+        addWorkbenchListener((WorkbenchListener)action);
     }
-    
-    // hook up actions to gedcom
-    addGedcomListeners(menu.getTools());
-    addGedcomListeners(toolbar.getTools());
-    
-    // done
   }
   
-  private void addGedcomListeners(List<Action2> actions) {
-    if (context.getGedcom()==null)
-      throw new IllegalArgumentException("context.gedcom==null");
-    for (Action action : actions)
-      if (action instanceof GedcomListener)
-        context.getGedcom().addGedcomListener((GedcomListener)action);
-  }
-  
-  private void removeGedcomListeners(List<Action2> actions) {
-    if (context.getGedcom()==null)
-      throw new IllegalArgumentException("context.gedcom==null");
-    for (Action action : actions)
-      if (action instanceof GedcomListener)
-        context.getGedcom().removeGedcomListener((GedcomListener)action);
+  private void disconnect(List<Action> actions) {
+    for (Action action : actions) {
+      if (context.getGedcom()!=null && action instanceof GedcomListener)
+        context.getGedcom().removeGedcomListener((GedcomListener)Spin.over(action));
+      if (action instanceof WorkbenchListener)
+        removeWorkbenchListener((WorkbenchListener)action);
+    }
   }
   
   private void fireViewOpened(View view) {
@@ -766,23 +705,17 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   /**
-   * Action - a gedcom action
+   * Action - a workbench action
    */
-  private class GedcomAction extends Action2 implements WorkbenchListener {
+  private class WorkbenchAction extends Action2 implements WorkbenchListener {
     
-    public GedcomAction() {
-      addWorkbenchListener(this);
-    }
-
     public void commitRequested(Workbench workbench) {
     }
 
     public void gedcomClosed(Workbench workbench, Gedcom gedcom) {
-      setEnabled(false);
     }
 
     public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
-      setEnabled(true);
     }
 
     public void selectionChanged(Workbench workbench, Context context, boolean isActionPerformed) {
@@ -799,9 +732,11 @@ public class Workbench extends JPanel implements SelectionSink {
     }
     
     public void processStarted(Workbench workbench, Trackable process) {
+      setEnabled(false);
     }
 
     public void processStopped(Workbench workbench, Trackable process) {
+      setEnabled(true);
     }
   }
 
@@ -825,7 +760,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Action - exit
    */
-  private class ActionExit extends Action2 {
+  private class ActionExit extends WorkbenchAction {
     
     /** constructor */
     protected ActionExit() {
@@ -842,7 +777,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Action - close and exit
    */
-  private class ActionClose extends GedcomAction {
+  private class ActionClose extends WorkbenchAction {
     
     /** constructor */
     protected ActionClose() {
@@ -859,7 +794,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Action - new
    */
-  private class ActionNew extends Action2 {
+  private class ActionNew extends WorkbenchAction {
 
     /** constructor */
     ActionNew() {
@@ -878,7 +813,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Action - open
    */
-  private class ActionOpen extends Action2 {
+  private class ActionOpen extends WorkbenchAction {
 
     /** constructor - good for button or menu item */
     protected ActionOpen() {
@@ -898,7 +833,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Action - Save
    */
-  private class ActionSave extends GedcomAction {
+  private class ActionSave extends WorkbenchAction {
     /** whether to ask user */
     private boolean saveAs;
     /** gedcom */
@@ -932,6 +867,7 @@ public class Workbench extends JPanel implements SelectionSink {
       setTip(RES, "cc.tip.save_file");
       // setup
       setImage(Images.imgSave);
+      setEnabled(context.getGedcom()!=null);
     }
 
     @Override
@@ -1101,10 +1037,9 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Our MenuBar
    */
-  private class Menu extends JMenuBar implements SelectionSink {
+  private class Menu extends JMenuBar implements SelectionSink, WorkbenchListener {
     
-    private int toolStart, toolEnd;
-    private List<Action2> tools = new ArrayList<Action2>();
+    private List<Action> actions = new ArrayList<Action>();
     
     // we need to play delegate for selectionsink since the menu is not a child 
     // of Workbench but the window's root-pane - selections bubbling up the
@@ -1115,34 +1050,40 @@ public class Workbench extends JPanel implements SelectionSink {
     
     private Menu() {
       
+      addWorkbenchListener(this);
+      setup();
+      
+    }
+    
+    private void setup() {
+
+      // remove old
+      disconnect(actions);
+      actions.clear();
+      removeAll();
+      revalidate();
+      repaint();
+
+      // Build menu
       MenuHelper mh = new MenuHelper().pushMenu(this);
 
+      // FIXME docket - need to merge workbench menus with those of action providers
       // File
       mh.createMenu(RES.getString("cc.menu.file"));
       mh.createItem(new ActionNew());
       mh.createItem(new ActionOpen());
-  
-      Action2 save = new ActionSave(false);
-      Action2 saveAs = new ActionSave(true);
-      mh.createItem(save);
-      mh.createItem(saveAs);
-  
+      mh.createItem(new ActionSave(false));
+      mh.createItem(new ActionSave(true));
       mh.createSeparator();
       mh.createItem(new ActionClose());
-  
-      if (!EnvironmentChecker.isMac()) { // Mac's don't need exit actions in
-                                         // application menus apparently
-        mh.createItem(new ActionExit());
-      }
-
+      if (!EnvironmentChecker.isMac())   // Mac's don't need exit actions in
+        mh.createItem(new ActionExit()); // application menus apparently
       mh.createSeparator();
       mh.createItem(new ActionAbout());
-
       mh.popMenu();
       
       // Views
       mh.createMenu(RES.getString("cc.menu.view"));
-  
       for (ViewFactory factory : viewFactories) {
         ActionOpenView action = new ActionOpenView(factory);
         mh.createItem(action);
@@ -1151,57 +1092,69 @@ public class Workbench extends JPanel implements SelectionSink {
       mh.createItem(new ActionOptions());
       mh.popMenu();
   
-      // 20060209
-      // Stephane reported a problem running GenJ on MacOS Tiger:
-      //
-      // java.lang.ArrayIndexOutOfBoundsException: 3 > 2::
-      // at java.util.Vector.insertElementAt(Vector.java:557)::
-      // at apple.laf.ScreenMenuBar.add(ScreenMenuBar.java:266)::
-      // at apple.laf.ScreenMenuBar.addSubmenu(ScreenMenuBar.java:207)::
-      // at apple.laf.ScreenMenuBar.addNotify(ScreenMenuBar.java:53)::
-      // at java.awt.Frame.addNotify(Frame.java:478)::
-      // at java.awt.Window.pack(Window.java:436)::
-      // atgenj.window.DefaultWindowManager.openFrameImpl(Unknown Source)::
-      // at genj.window.AbstractWindowManager.openFrame(Unknown Source)::
-      // at genj.app.App$Startup.run(Unknown Source)::
-      // 
-      // apparently something wrong with how the Mac parses the menu-bar
-      // According to this post
-      // http://lists.apple.com/archives/java-dev/2005/Aug/msg00060.html
-      // the offending thing might be a non-menu-item (glue) added to the menu
-      // as we did here previously - so let's remove that for Macs for now
-      // 20061116 remove the glue in all situations - we don't have to hide help
-      // on the right
-      // if (!EnvironmentChecker.isMac())
-      // result.add(Box.createHorizontalGlue());
-
-      // Tools
-      toolStart = getMenuCount();
-      toolEnd = toolStart;
-
+      // provider's actions
+      if (context.getGedcom()!=null) {
+        for (ActionProvider provider : getActionProviders()) {
+          for (Action2 action : provider.createActions(context, Purpose.MENU)) {
+            if (action instanceof Action2.Group) {
+              mh.createMenu((Action2.Group)action);
+              mh.popMenu();
+            } else {
+              LOG.warning("ActionProvider "+provider+" returned a non-group for menu");
+            }
+          }
+        }
+      }
+      
+      // remember actions
+      actions.addAll(mh.getActions());
+      
+      // connect
+      connect(actions);
+      
       // Done
     }
     
-    private void addTool(Action2.Group group) {
-      if (group.size()==0)
-        return;
-      MenuHelper mh = new MenuHelper();
-      add(mh.createMenu(group), toolEnd);
-      tools.addAll(mh.getActions());
-      toolEnd++;
-    }
+    // 20060209 don't use a glue component to move help all the way over to the right
+    // (Reminder: according to Stephane this doesn't work on MacOS Tiger)
+    // java.lang.ArrayIndexOutOfBoundsException: 3 > 2::
+    // at java.util.Vector.insertElementAt(Vector.java:557)::
+    // at apple.laf.ScreenMenuBar.add(ScreenMenuBar.java:266)::
+    // at apple.laf.ScreenMenuBar.addSubmenu(ScreenMenuBar.java:207)::
+    // at apple.laf.ScreenMenuBar.addNotify(ScreenMenuBar.java:53)::
+    // at java.awt.Frame.addNotify(Frame.java:478)::
+    // at java.awt.Window.pack(Window.java:436)::
+    // http://lists.apple.com/archives/java-dev/2005/Aug/msg00060.html
     
-    private List<Action2> getTools() {
-      return tools;
+    public void commitRequested(Workbench workbench) {
     }
-    
-    private void reset() {
-      
-      while (toolEnd>toolStart) {
-        remove(toolEnd-1);
-        toolEnd--;
-      }
-      tools.clear();
+
+    public void gedcomClosed(Workbench workbench, Gedcom gedcom) {
+      setup();
+    }
+
+    public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
+      setup();
+    }
+
+    public void processStarted(Workbench workbench, Trackable process) {
+    }
+
+    public void processStopped(Workbench workbench, Trackable process) {
+    }
+
+    public void selectionChanged(Workbench workbench, Context context, boolean isActionPerformed) {
+      setup();
+    }
+
+    public void viewClosed(Workbench workbench, View view) {
+    }
+
+    public void viewOpened(Workbench workbench, View view) {
+    }
+
+    public boolean workbenchClosing(Workbench workbench) {
+      return true;
     }
     
   } // Menu
@@ -1209,46 +1162,91 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * our toolbar
    */
-  private class Toolbar extends JToolBar {
+  private class Toolbar extends JToolBar implements WorkbenchListener {
 
-    private int toolIndex;
-    private List<Action2> tools = new ArrayList<Action2>();
+    private List<Action> actions = new ArrayList<Action>();
     
     /**
      * Constructor
      */
     private Toolbar() {
-
       setFloatable(false);
-
+      addWorkbenchListener(this);
+      setup();
+    }
+    
+    private void setup() {
+      
+      // cleanup
+      disconnect(actions);
+      actions.clear();
+      removeAll();
+        
       // defaults
       add(new ActionNew());
       add(new ActionOpen());
       add(new ActionSave(false));
       
-      addSeparator();
       
-      // remember position for tools
-      toolIndex = getComponentCount();
-
+      // let providers speak
+      if (context.getGedcom()!=null) {
+        addSeparator();
+        for (ActionProvider provider : getActionProviders()) {
+          for (Action2 action : provider.createActions(context, Purpose.TOOLBAR)) {
+            if (action instanceof Action2.Group)
+              LOG.warning("ActionProvider "+provider+" returned a group for toolbar");
+            else {
+              if (action instanceof ActionProvider.SeparatorAction)
+                toolbar.addSeparator();
+              else {
+                add(action);
+              }
+            }
+          }
+        }
+      }
+      
+      // connect actions
+      connect(actions);
+      
       // done
     }
     
-    private List<Action2> getTools() {
-      return tools;
+    @Override
+    public JButton add(Action action) {
+      actions.add(action);
+      return super.add(action);
     }
-    
-    private void reset() {
-      tools.clear();
-      while (toolIndex<getComponentCount()) {
-        remove(toolIndex);
-      }
+
+    public void commitRequested(Workbench workbench) {
     }
-    
-    public void addTool(Action2 action) {
-      tools.add(action);
-      // do it
-      super.add(action);
+
+    public void gedcomClosed(Workbench workbench, Gedcom gedcom) {
+      setup();
+    }
+
+    public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
+      setup();
+    }
+
+    public void processStarted(Workbench workbench, Trackable process) {
+    }
+
+    public void processStopped(Workbench workbench, Trackable process) {
+    }
+
+    public void selectionChanged(Workbench workbench, Context context, boolean isActionPerformed) {
+      setup();
+    }
+
+    public void viewClosed(Workbench workbench, View view) {
+    }
+
+    public void viewOpened(Workbench workbench, View view) {
+    }
+
+    public boolean workbenchClosing(Workbench workbench) {
+      return true;
     }
   }
 
