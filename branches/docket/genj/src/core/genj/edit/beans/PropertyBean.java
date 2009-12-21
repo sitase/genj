@@ -45,8 +45,8 @@ import java.awt.Graphics;
 import java.awt.Insets;
 import java.awt.Rectangle;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,6 +93,7 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   
   private final static Map<Class<? extends PropertyBean>,List<PropertyBean>> BEANCACHE = createBeanCache();
   
+  @SuppressWarnings("unchecked")
   private static Map<Class<? extends PropertyBean>,List<PropertyBean>> createBeanCache() {
     LOG.fine("Initializing bean cache");
     Map<Class<? extends PropertyBean>,List<PropertyBean>> result = new HashMap<Class<? extends PropertyBean>,List<PropertyBean>>();
@@ -112,6 +113,7 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
   /**
    * Lookup
    */
+  @SuppressWarnings("unchecked")
   public static PropertyBean getBean(Property property) {
     
     for (int i=0;i<PROPERTY2BEANTYPE.length;i+=2) {
@@ -123,6 +125,7 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
     return new SimpleValueBean().setProperty(property);
   }
   
+  @SuppressWarnings("unchecked")
   public static PropertyBean getBean(String clazz, Property property) {
     try {
       return getBean((Class<? extends PropertyBean>)Class.forName(clazz), property);
@@ -144,16 +147,24 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
       return new SimpleValueBean().setProperty(property);
     }
   }
+  
+  /**
+   * recycle an unused bean
+   */
+  public static void recycle(PropertyBean bean) {
+    List<PropertyBean> cache = BEANCACHE.get(bean.getClass());
+    if (cache==null) {
+      cache = new ArrayList<PropertyBean>();
+      BEANCACHE.put(bean.getClass(), cache);
+    }
+    cache.add(bean);
+  }
 
   /**
    * Available beans
    */
   public static Set<Class<? extends PropertyBean>> getAvailableBeans() {
-    Set<Class<? extends PropertyBean>> result = new HashSet<Class<? extends PropertyBean>>();
-    for (int i=0;i<PROPERTY2BEANTYPE.length;i+=2) {
-      result.add((Class<? extends PropertyBean>)PROPERTY2BEANTYPE[i+1]);
-    }
-    return result;
+    return Collections.unmodifiableSet(BEANCACHE.keySet());
   }
 
   
