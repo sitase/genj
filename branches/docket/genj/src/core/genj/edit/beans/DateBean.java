@@ -55,6 +55,7 @@ public class DateBean extends PropertyBean {
   public DateBean() {
 
     setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
+    setAlignmentX(0);
 
     // prepare format change actions
     List<ChangeFormat> actions = new ArrayList<ChangeFormat>(10);
