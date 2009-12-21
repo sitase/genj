@@ -106,6 +106,9 @@ public abstract class AbstractChange extends Action2 {
    * @see genj.util.swing.Action2#execute()
    */
   public void actionPerformed(final ActionEvent event) {
+    
+    // cleanup first
+    confirm = null;
 	  
     // prepare confirmation message for user
     String msg = getConfirmMessage();

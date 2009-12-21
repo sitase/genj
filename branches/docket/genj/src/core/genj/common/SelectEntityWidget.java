@@ -25,7 +25,6 @@ import genj.gedcom.Grammar;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyComparator;
-import genj.gedcom.PropertyDate;
 import genj.gedcom.TagPath;
 import genj.util.Registry;
 import genj.util.Resources;
@@ -42,10 +41,10 @@ import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 
-import javax.swing.DefaultComboBoxModel;
+import javax.swing.AbstractListModel;
+import javax.swing.ComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JComboBox;
 import javax.swing.JList;
@@ -63,7 +62,7 @@ public class SelectEntityWidget extends JPanel {
   private String type = Gedcom.INDI;
   
   /** entities to choose from */
-  private Object[] list;
+  private Entity[] list;
   private Object none;
   
   /** widgets */
@@ -107,21 +106,13 @@ public class SelectEntityWidget extends JPanel {
     this.type = type;
     this.none = none;
     
-    Collection entities = gedcom.getEntities(type);
-
-    // init list
-    if (none!=null) {
-      list = new Object[entities.size()+1];
-      list[0] = none;
-    } else {
-      list = new Object[entities.size()];
-    }
-    Iterator es=entities.iterator();
-    for (int e= none!=null ? 1 : 0;e<list.length;e++) {
-      Entity ent = (Entity)es.next();
-      if (!ent.getTag().equals(type))
+    Collection<? extends Entity> entities = gedcom.getEntities(type);
+    
+    list = new Entity[entities.size()];
+    int e=0; for (Entity entity : entities) {
+      if (!entity.getTag().equals(type))
         throw new IllegalArgumentException("Type of all entities has to be "+type);
-      list[e] = ent;
+      list[e++] = entity;
     }
 
     // assemble sorts
@@ -153,7 +144,7 @@ public class SelectEntityWidget extends JPanel {
 
     // init state
     sort(sort);
-    if (list.length>0) listWidget.setSelectedIndex(0);
+    if (none!=null||list.length>0) listWidget.setSelectedIndex(0);
     
     // done
   }
@@ -167,13 +158,37 @@ public class SelectEntityWidget extends JPanel {
     REGISTRY.put("select.sort."+type, path.toString());
     // Sort
     PropertyComparator comparator = new PropertyComparator(path);
-    Arrays.sort(list, none!=null ? 1 : 0, list.length, comparator);
+    Arrays.sort(list, comparator);
     // reset our data
     Entity selection = getSelection();
-    listWidget.setModel(new DefaultComboBoxModel(list));
+    listWidget.setModel(new Model());
     sortWidget.setIcon(getPathImage(path));
     sortWidget.setToolTipText(getPathText(path));
     setSelection(selection);
+  }
+  
+  private class Model extends AbstractListModel implements ComboBoxModel {
+    
+    private Object selection;
+
+    public Object getSelectedItem() {
+      return selection;
+    }
+
+    public void setSelectedItem(Object set) {
+      selection = set;
+    }
+
+    public Object getElementAt(int index) {
+      if (none!=null) 
+        return index==0 ? none : list[index-1];
+      return list[index];
+    }
+
+    public int getSize() {
+      return list.length + (none!=null?1:0);
+    }
+    
   }
   
   /**

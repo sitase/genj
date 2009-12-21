@@ -114,7 +114,8 @@ public abstract class CreateRelationship extends AbstractChange {
 
     // create selector
     final SelectEntityWidget select = new SelectEntityWidget(gedcom, targetType, resources.getString("select.new"));
- 
+    existing = select.getSelection();
+    
     // prepare id checkbox and textfield
     requestID = new JTextField(gedcom.getNextAvailableID(targetType), 8);
     requestID.setEditable(false);
