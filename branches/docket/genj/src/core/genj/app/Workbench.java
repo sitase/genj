@@ -443,6 +443,10 @@ public class Workbench extends JPanel implements SelectionSink {
     LOG.fine("Storing layout "+layout);
     REGISTRY.put("restore.layout", layout.toString());
     
+    // close all dockets
+    for (Object key : dockingPane.getDockableKeys()) 
+      dockingPane.removeDockable(key);
+    
     // Shutdown
     runOnExit.run();
   }

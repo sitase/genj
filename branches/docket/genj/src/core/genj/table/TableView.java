@@ -156,10 +156,12 @@ public class TableView extends View {
   
   @Override
   public void setContext(Context context, boolean isActionPerformed) {
-
-    PropertyTableModel old = propertyTable.getModel();
     
+    // save settings
+    currentMode.save();
+
     // clear?
+    PropertyTableModel old = propertyTable.getModel();
     if (context.getGedcom()==null) {
       if (old!=null)
         propertyTable.setModel(null);
