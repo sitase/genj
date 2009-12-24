@@ -164,7 +164,7 @@ public class TagPath {
    * @exception IllegalArgumentException in case format isn't o.k.
    * @return the path [a:b:c]
    */
-  /*package*/ TagPath(Stack path) throws IllegalArgumentException {
+  /*package*/ TagPath(Stack<String> path) throws IllegalArgumentException {
     // grab stack elements
     len = path.size();
     tags = new String[len];
@@ -288,9 +288,8 @@ public class TagPath {
       // as text
       name = Gedcom.getName(tag);
       
-      // date or place?
-      //if (i>1&&(tag.equals("DATE")||tag.equals("PLAC"))) 
-      if (i>1) 
+      // qualify 2nd level path element (e.g. date or place) if possible
+      if (i>1 && Character.isLetter(get(i-1).charAt(0))) 
         name = name + " - " + Gedcom.getName(get(i-1));
     }
     return name;
@@ -314,8 +313,8 @@ public class TagPath {
   /**
    * Get an array out of collection
    */
-  public static TagPath[] toArray(Collection c) {
-    return (TagPath[])c.toArray(new TagPath[c.size()]);
+  public static TagPath[] toArray(Collection<TagPath> c) {
+    return c.toArray(new TagPath[c.size()]);
   }
   
   /**

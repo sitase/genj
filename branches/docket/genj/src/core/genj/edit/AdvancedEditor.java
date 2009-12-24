@@ -670,7 +670,7 @@ import javax.swing.tree.TreePath;
         try {
   
           // get a bean for property
-          bean = PropertyBean.getBean(prop);
+          bean = PropertyBean.getBean(prop.getClass()).setProperty(prop);
           
           // add bean to center of editPane 
           editPane.add(bean, BorderLayout.CENTER);

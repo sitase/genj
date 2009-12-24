@@ -50,7 +50,7 @@ public class SimpleValueBean extends PropertyBean {
     if (!property.isReadOnly())
       property.setValue(tfield.getText());
   }
-
+  
   /**
    * Editable depends on property
    */  
@@ -63,18 +63,18 @@ public class SimpleValueBean extends PropertyBean {
    */
   public void setPropertyImpl(Property property) {
 
-    if (property==null)
-      return;
-    
-    // show value
-    String txt = property.getDisplayValue();
-    tfield.setText(txt);
-    tfield.setEditable(!property.isReadOnly());
-    tfield.setVisible(!property.isReadOnly()||txt.length()>0);
-    
-    defaultFocus = tfield.isEditable() ? tfield : null;
-    
-    // not change
+    if (property==null) {
+      tfield.setText("");
+      tfield.setEditable(true);
+      tfield.setVisible(true);
+    } else {
+      String txt = property.getDisplayValue();
+      tfield.setText(txt);
+      tfield.setEditable(!property.isReadOnly());
+      tfield.setVisible(!property.isReadOnly()||txt.length()>0);
+      defaultFocus = tfield.isEditable() ? tfield : null;
+    }    
+    // not changed
     changeSupport.setChanged(false);
   }
   

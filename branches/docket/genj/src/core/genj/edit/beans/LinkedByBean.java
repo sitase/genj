@@ -120,7 +120,7 @@ public class LinkedByBean extends PropertyBean {
       return DOT;
     }
     
-    public String getName(int col) {
+    public String getColumnHeader(int col) {
       return entity.getPropertyName();
     }
     

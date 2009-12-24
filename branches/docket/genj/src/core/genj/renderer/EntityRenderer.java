@@ -606,13 +606,13 @@ public class EntityRenderer {
       Rectangle r = (allocation instanceof Rectangle) ? (Rectangle)allocation : allocation.getBounds();
       g.setFont(getFont());
       g.setColor(getForeground());
-      PropertyRenderer.DEFAULT_RENDERER.renderImpl((Graphics2D)g,r,txt,Collections.EMPTY_MAP);
+      PropertyRenderer.DEFAULT.renderImpl((Graphics2D)g,r,txt,Collections.EMPTY_MAP);
     }
     /**
      * @see genj.renderer.EntityRenderer.MyView#getPreferredSpan()
      */
     protected Dimension2D getPreferredSpan() {
-      return PropertyRenderer.DEFAULT_RENDERER.getSizeImpl(getFont(), context, null, txt, Collections.EMPTY_MAP, dpi);
+      return PropertyRenderer.DEFAULT.getSizeImpl(getFont(), context, null, txt, Collections.EMPTY_MAP, dpi);
     }
   } //LocalizeView
 
@@ -705,7 +705,7 @@ public class EntityRenderer {
       // might resolve to a different proxy
       
       // derive from property?
-      PropertyRenderer result = PropertyRenderer.get(path, prop);
+      PropertyRenderer result = PropertyRendererFactory.DEFAULT.getRenderer(path, prop);
 
       // check renderer/prop compatibility
       if (prop==null&&!result.isNullRenderer()) 

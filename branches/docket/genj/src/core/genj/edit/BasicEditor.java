@@ -221,7 +221,7 @@ import spin.Spin;
     }
     
     // remove all we've setup to this point
-    beanPanel.setEntity(currentEntity);
+    beanPanel.setRoot(currentEntity);
 
     // start without ok and cancel
     ok.setEnabled(false);

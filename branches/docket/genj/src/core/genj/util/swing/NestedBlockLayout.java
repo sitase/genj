@@ -163,6 +163,27 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
       throw new IllegalArgumentException("Request for resolveEntity "+publicId+"/"+systemId+" not allowed in layout descriptor");
     }
     
+    @Override
+    public void characters(char[] ch, int start, int length) throws SAXException {
+      
+      boolean startsWithSpace = Character.isWhitespace(ch[start]);
+      boolean endsWithSpace = Character.isWhitespace(ch[start+length-1]);
+      
+      // trim
+      while (length>0 && Character.isWhitespace(ch[start])) { start++; length--; }
+      while (length>0 && Character.isWhitespace(ch[start+length-1])) length--;
+      if (length==0)
+        return;
+      
+      // add
+      if (startsWithSpace) { start--; length++; }
+      if (endsWithSpace) { length++; }
+      String s = new String(ch,start,length);
+            
+      Block parent = (Block)stack.peek();
+      parent.add(new Cell(s));
+    }
+    
     public void startElement(java.lang.String uri, java.lang.String localName, java.lang.String qName, Attributes attributes) throws org.xml.sax.SAXException {
       // new block!
       Block block = getBlock(qName, attributes);
@@ -181,10 +202,10 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     private Block getBlock(String element, Attributes attrs) {
       // row?
       if ("row".equals(element)) 
-        return new Row(attrs);
+        return new Row();
       // column?
       if ("col".equals(element))
-        return new Column(attrs);
+        return new Column();
       // a cell!
       return new Cell(element, attrs, padding);
     }
@@ -219,10 +240,6 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     /** subs */
     ArrayList<Block> subs = new ArrayList<Block>(16);
     
-    /** constructor */
-    Block(Attributes attributes) {
-    }
-
     /** copy */
     protected Object clone() {
       try {
@@ -312,11 +329,6 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
    */
   private static class Row extends Block {
 
-    /** constructor */
-    Row(Attributes attributes) {
-      super(attributes);
-    }
-
     /** add a sub */
     Block add(Block sub) {
       if (sub instanceof Row)
@@ -398,11 +410,6 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
    */
   private static class Column extends Block {
     
-    /** constructor */
-    Column(Attributes attributes) {
-      super(attributes);
-    }
-
     /** add a sub */
     Block add(Block sub) {
       if (sub instanceof Column)
@@ -504,11 +511,15 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     
     /** cached alignment */
     private Point2D.Double cellAlign = new Point2D.Double(0.5,0.5);
+
+    /** constructor */
+    private Cell(String text) {
+      this.element = "text";
+      attrs.put("value", text);
+    }
     
     /** constructor */
     private Cell(String element, Attributes attributes, int padding) {
-      
-      super(attributes);
       
       // keep key
       this.element = element;

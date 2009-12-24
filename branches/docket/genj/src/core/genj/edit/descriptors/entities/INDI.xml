@@ -1,7 +1,7 @@
 <col>
  <row>
   <col>
-   <row><label path="INDI"/></row>
+   <row><label path="INDI"/><bean path="INDI:NOTE" popup="true"/></row>
    <row><bean path="INDI:NAME" wx="0.1"/><bean path="INDI:SEX"/></row>
    <row><label path="INDI:BIRT"/><bean path="INDI:BIRT:NOTE" popup="true"/><bean path="INDI:BIRT:OBJE:FILE" popup="true"/></row>
    <row><bean path="INDI:BIRT:DATE"/></row>
@@ -12,10 +12,8 @@
   </col>
   <col>
    <row><label path="INDI:OBJE"/></row>
-   <row><label path="INDI:OBJE:TITL" ifnot="INDI:OBJE:*"/><bean path="INDI:OBJE:TITL" wx="1" ifnot="INDI:OBJE:*"/></row>
-   <row><bean path="INDI:OBJE:FILE" wx="1" wy="0.5" ifnot="INDI:OBJE:*"/></row>
-   <row><label path="INDI:OBJE:TITL" if ="INDI:OBJE:*:..:FILE:TITL"/><bean path="INDI:OBJE:*:..:FILE:TITL" wx="1" if="INDI:OBJE:*:..:FILE:TITL"/></row>
-   <row><bean path="INDI:OBJE:*:..:FILE" wx="1" wy="0.5" if="INDI:OBJE:*:..:FILE"/></row>
+   <row><label path="INDI:OBJE:TITL"/><bean path="INDI:OBJE:TITL" wx="1"/></row>
+   <row><bean path="INDI:OBJE:FILE" wx="1" wy="0.5"/></row>
   </col>
  </row>
 </col>

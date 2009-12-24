@@ -54,6 +54,8 @@ import java.util.Map;
  */
 public class PropertyRenderer {
 
+  public final static PropertyRenderer DEFAULT = new PropertyRenderer();
+
   private final static String STARS = "*****";
   
   private final static int IMAGE_GAP = 4;
@@ -65,21 +67,6 @@ public class PropertyRenderer {
   private final static ImageIcon broken = 
     new ImageIcon(PropertyRenderer.class, "Broken");
   
-  public final static PropertyRenderer DEFAULT_RENDERER = new PropertyRenderer();
-
-  /** cached renderer instances */
-  private static PropertyRenderer[] renderers = new PropertyRenderer[]{
-    new RenderSecret(),
-    new RenderFile(),
-    new RenderPlace(),
-    new RenderMLE(),
-    new RenderXRef(),
-    new RenderDate(),
-    new RenderSex(),
-    new RenderEntity(),
-    DEFAULT_RENDERER
-  };
-
   /**
    * acceptable check
    */
@@ -88,28 +75,6 @@ public class PropertyRenderer {
     return true;
   }
 
-  /** 
-   * static accessor  
-   */
-  public static PropertyRenderer get(Property prop) {
-    return get(null, prop);
-  }
-  /** 
-   * static accessor  
-   */
-  public static PropertyRenderer get(TagPath path, Property prop) {
-    
-    // loop over known renderers
-    for (int i=0;i<renderers.length;i++) {
-      PropertyRenderer renderer = renderers[i];
-      if (renderer.accepts(path, prop))
-        return renderer;
-    }
-
-    // this shouldn't happen since PropertyRenderer is in the list
-    return DEFAULT_RENDERER;
-  }  
-  
   /**
    * Calculates the preferred size with given metrics, prop and image/text preferrence
    * @param metrics current font metrics
@@ -117,15 +82,15 @@ public class PropertyRenderer {
    * @param preference rendering preference
    * @param dpi resolution or null  
    */
-  public final Dimension2D getSize(Font font, FontRenderContext context, Property prop, Map attributes, Point dpi) {
+  public final Dimension2D getSize(Font font, FontRenderContext context, Property prop, Map<String,String> attributes, Point dpi) {
     return getSizeImpl(font, context, prop, attributes, dpi);
   }
   
-  protected Dimension2D getSizeImpl(Font font, FontRenderContext context, Property prop, Map attributes, Point dpi) {
+  protected Dimension2D getSizeImpl(Font font, FontRenderContext context, Property prop, Map<String,String> attributes, Point dpi) {
     return getSizeImpl(font, context, prop, prop.getDisplayValue(), attributes, dpi);
 
   }
-  protected Dimension2D getSizeImpl(Font font, FontRenderContext context, Property prop, String txt, Map attributes, Point dpi) {
+  protected Dimension2D getSizeImpl(Font font, FontRenderContext context, Property prop, String txt, Map<String,String> attributes, Point dpi) {
     double 
       w = 0,
       h = 0;

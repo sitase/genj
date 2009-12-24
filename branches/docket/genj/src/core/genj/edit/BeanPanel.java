@@ -20,12 +20,16 @@
 package genj.edit;
 
 import genj.edit.beans.PropertyBean;
+import genj.edit.beans.ReferencesBean;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
+import genj.gedcom.PropertyChoiceValue;
 import genj.gedcom.PropertyComparator;
+import genj.gedcom.PropertyNumericValue;
+import genj.gedcom.PropertySimpleValue;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
 import genj.gedcom.UnitOfWork;
@@ -45,10 +49,10 @@ import java.awt.ContainerOrderFocusTraversalPolicy;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -81,28 +85,24 @@ public class BeanPanel extends JPanel {
   /** change support */
   protected ChangeSupport changeSupport = new ChangeSupport(this);
   
-  /** top level tags */
-  private Set<String> topLevelTags = new HashSet<String>();
-  
   /** beans */
   private List<PropertyBean> beans = new ArrayList<PropertyBean>(32);
   
   /** content */
-  private JPanel top = new JPanel();
-  private JTabbedPane bottom = new ContextTabbedPane();
+  private JPanel detail = new JPanel();
+  private JTabbedPane tabs = new ContextTabbedPane();
   
-  /** whether to show tabs or not */
-  private boolean isShowTabs = true;
-    
   /**
    * Find a descriptor 
    */
-  private static NestedBlockLayout getSharedDescriptor(String key) {
+  private static NestedBlockLayout getLayout(String key) {
     
-    // already determined we don't have one?
-    NestedBlockLayout result = DESCRIPTORCACHE.get(key); 
+    // already loaded?
+    NestedBlockLayout result = DESCRIPTORCACHE.get(key);
     if (result!=null)
-      return result;
+      return result.copy();
+    if (DESCRIPTORCACHE.containsKey(key))
+      return null;
     
     try {
       // read
@@ -112,97 +112,50 @@ public class BeanPanel extends JPanel {
       } finally {
         in.close();
       }
-    } catch (IOException e) {
-      EditView.LOG.log(Level.WARNING, "problem reading descriptor "+key+" ("+e.getMessage()+")");
     } catch (Throwable t) {
-      // 20060601 don't let iae go through - a custom server 404 might return an invalid in
-      EditView.LOG.log(Level.WARNING, "problem parsing descriptor "+key+" ("+t.getMessage()+")");
+      // 20060601 don't let IllegalArgumentException go through (cought IOExcption only previously)
+      // A web-server might return an invalid 404 input stream instead of null that we end up reading
+      EditView.LOG.log(Level.WARNING, "cannot read descriptor "+key+" ("+t.getMessage()+")");
     }
     
     // read only once ever
     DESCRIPTORCACHE.put(key, result);
 
-    return result;
+    return result!=null ? result.copy() : null;
   }
   
-  private static NestedBlockLayout getSharedDescriptor(Entity entity, int sub) {
-    return getSharedDescriptor("descriptors/entities/" + entity.getTag()+(sub==0?"":"."+sub)+".xml");
+  private static NestedBlockLayout getEntityLayout(MetaProperty entity) {
+    return getLayout("descriptors/entities/" + entity.getTag()+".xml");
   }
   
-  private static NestedBlockLayout getSharedDescriptor(MetaProperty meta) {
+  private static NestedBlockLayout getPropertyLayout(MetaProperty meta) {
+
+    String key = "descriptors/properties/" + meta.getTag() +".xml";
     
-    // try to read a descriptor (looking up the inheritance chain)
-    NestedBlockLayout result = null;
-    for (MetaProperty cursor = meta; result==null && cursor!=null ; cursor = cursor.getSuper() ) 
-      result = getSharedDescriptor("descriptors/properties/" + cursor.getTag() +".xml");
+    // try to read a descriptor by tag
+    NestedBlockLayout result = getLayout(key);
+    if (result!=null) 
+      return result;
+      
+    // fallback to property type
+    result = getLayout("descriptors/properties/" + meta.getType().getSimpleName() +".xml");
+    if (result!=null)
+      return result;
     
-    // remember for next time
-    DESCRIPTORCACHE.put("descriptors/properties/" + meta.getTag() +".xml", result);
-    
-    // done
-    return result;
+    // not found
+    return null;
   }
   
-  public BeanPanel(boolean showTabs) {
-    
-    isShowTabs = showTabs;
+  public BeanPanel() {
     
     // layout
     setLayout(new BorderLayout());
-    add(top, BorderLayout.CENTER);
-    add(bottom, BorderLayout.SOUTH);
+    add(detail, BorderLayout.CENTER);
+    add(tabs, BorderLayout.SOUTH);
     
     // make user focus root
     setFocusTraversalPolicy(new FocusPolicy());
     setFocusCycleRoot(true);
-  }
-  
-  public BeanPanel() {
-    this(true);
-  }
-  
-  /** set context */
-  public void setEntity(Entity entity) {
-    
-    // clean up first
-    for (PropertyBean bean : beans) {
-      bean.removeChangeListener(changeSupport);
-      PropertyBean.recycle(bean);
-    }
-    beans.clear();
-
-    top.removeAll();
-    bottom.removeAll();
-    
-    topLevelTags.clear();
-    
-    // something to layout?
-    if (entity!=null) {
-    
-      // layout main descriptor
-      NestedBlockLayout descriptor = getSharedDescriptor(entity, 0);
-      if (descriptor!=null) {
-
-        parse(top, entity, entity, descriptor.copy() );
-      
-        // add and layout sub-descriptors
-        for (int i=1;;i++) {
-          descriptor = getSharedDescriptor(entity, i);
-          if (descriptor==null) break;
-          JPanel tab = new JPanel();
-          int watermark = beans.size();
-          parse(tab, entity, entity, descriptor.copy());
-          bottom.addTab("", beans.size()>watermark ? beans.get(watermark).getProperty().getImage(false) : entity.getImage(false), tab);
-        }
-    
-        // add sub-descriptors for top-level properties in tabs
-        createTabs(entity);
-      }
-    }
-      
-    // done
-    revalidate();
-    repaint();
   }
   
   public void addChangeListener(ChangeListener listener) {
@@ -283,7 +236,7 @@ public class BeanPanel extends JPanel {
     }
     
     // check tabs specifically (there might be no properties yet)
-    for (Component c : bottom.getComponents()) {
+    for (Component c : tabs.getComponents()) {
       JComponent jc = (JComponent)c;
       if (jc.getClientProperty(Property.class)==prop) 
         return jc;
@@ -295,16 +248,88 @@ public class BeanPanel extends JPanel {
     // done
   }
 
+  /** set context */
+  public void setRoot(Property root) {
+    
+    // clean up first
+    for (PropertyBean bean : beans) {
+      bean.removeChangeListener(changeSupport);
+      bean.getParent().remove(bean);
+      PropertyBean.recycle(bean);
+    }
+    beans.clear();
+    detail.removeAll();
+    tabs.removeAll();
+
+    // something to layout?
+    if (root!=null) {
+    
+      // keep track of tags
+      Set<String> beanifiedTags = new HashSet<String>();
+      
+      // layout from descriptor
+      NestedBlockLayout descriptor = getEntityLayout(root.getMetaProperty());
+      if (descriptor!=null) 
+        parse(detail, root, root, descriptor, beanifiedTags);
+
+      // create tab for relationships of root
+      createReferencesTab(root);
+      
+      // create a tab for properties of root w/o descriptor
+      createPropertiesTab(root, beanifiedTags);
+  
+      // create tabs for properties of root w/descriptor
+      createPropertyTabs(root, beanifiedTags);
+
+      // create a tab for links to create new
+      createLinkTab(root, beanifiedTags);
+    }
+      
+    // done
+    revalidate();
+    repaint();
+  }
+
   /**
-   * Parse descriptor
+   * create a tab for (simple) properties that we don't have descriptors for
    */
-  private void parse(JPanel panel, Entity entity, Property root, NestedBlockLayout descriptor)  {
+  private void createPropertiesTab(Property root, Set<String> beanifiedTags) {
+    
+    JPanel tab = new JPanel(new GridLayout(0,2));
+    
+    MetaProperty[] nested = root.getNestedMetaProperties(MetaProperty.WHERE_NOT_HIDDEN);
+    Arrays.sort(nested);
+    for (MetaProperty meta : nested) {
+      // ignore if we have a layout for a property specific tab
+      if (getPropertyLayout(meta)!=null)
+        continue;
+      // ignore if not editable simple/choice value
+      if (meta.getType()!=PropertySimpleValue.class
+        &&meta.getType()!=PropertyChoiceValue.class
+        &&meta.getType()!=PropertyNumericValue.class)
+        continue;
+      // ignore if already beanified
+      if (!beanifiedTags.add(meta.getTag()))
+        continue;
+      tab.add(new JLabel(meta.getName(), meta.getImage(), SwingConstants.LEFT));
+      tab.add(createBean(root, new TagPath(root.getTag()+":"+meta.getTag()), meta, null));
+    }
+    
+    JPanel panel = new JPanel(new BorderLayout());
+    panel.add(tab, BorderLayout.NORTH);
+    tabs.addTab("", MetaProperty.IMG_CUSTOM, panel);
+  }
+  
+  /**
+   * Parse descriptor for beans into panel
+   */
+  private void parse(JPanel panel, Property root, Property property, NestedBlockLayout descriptor, Set<String> beanifiedTags)  {
 
     panel.setLayout(descriptor);
     
     // fill cells with beans
     for (NestedBlockLayout.Cell cell : descriptor.getCells()) {
-      JComponent comp = createComponent(entity, root, cell);
+      JComponent comp = createComponent(root, property, cell, beanifiedTags);
       if (comp!=null) 
         panel.add(comp, cell);
     }
@@ -315,33 +340,30 @@ public class BeanPanel extends JPanel {
   /**
    * Create a component for given cell
    */
-  private JComponent createComponent(Entity entity, Property root, NestedBlockLayout.Cell cell) {
+  private JComponent createComponent(Property root, Property property, NestedBlockLayout.Cell cell, Set<String> beanifiedTags) {
     
     String element = cell.getElement();
     
     // right gedcom version?
     String version = cell.getAttribute("gedcom");
-    if (version!=null & !root.getGedcom().getGrammar().getVersion().equals(version))
+    if (version!=null & !property.getGedcom().getGrammar().getVersion().equals(version))
       return null;
+    
+    // text?
+    if ("text".equals(element)) {
+      return new JLabel(cell.getAttribute("value"));
+    }
     
     // prepare some info and state
     TagPath path = new TagPath(cell.getAttribute("path"));
-    MetaProperty meta = root.getMetaProperty().getNestedRecursively(path, false);
-    
-    // conditional?
-    String iff = cell.getAttribute("if"); 
-    if (iff!=null&&root.getProperty(new TagPath(iff))==null)
-        return null;
-    String ifnot = cell.getAttribute("ifnot"); 
-    if (ifnot!=null&&root.getProperty(new TagPath(ifnot))!=null)
-        return null;
+    MetaProperty meta = property.getMetaProperty().getNestedRecursively(path, false);
     
     // a label?
     if ("label".equals(element)) {
 
       JLabel label;
-      if (path.length()==1&&path.getLast().equals(entity.getTag()))
-        label = new JLabel(meta.getName() + ' ' + entity.getId(), entity.getImage(false), SwingConstants.LEFT);
+      if (path.length()==1&&root instanceof Entity)
+        label = new JLabel(meta.getName() + ' ' + ((Entity)root).getId(), root.getImage(false), SwingConstants.LEFT);
       else
         label = new JLabel(meta.getName(cell.isAttribute("plural")), meta.getImage(), SwingConstants.LEFT);
 
@@ -351,15 +373,15 @@ public class BeanPanel extends JPanel {
     // a bean?
     if ("bean".equals(element)) {
       // create bean
-      PropertyBean bean = createBean(root, path, meta, cell.getAttribute("type"));
+      PropertyBean bean = createBean(property, path, meta, cell.getAttribute("type"));
       if (bean==null)
         return null;
       // patch it
       if ("horizontal".equals(cell.getAttribute("dir")))
         bean.setPreferHorizontal(true);
       // track it
-      if (root==entity&&path.length()>1)
-        topLevelTags.add(path.get(1));
+      if (beanifiedTags!=null&&property==root&&path.length()>1)
+        beanifiedTags.add(path.get(1));
       // finally wrap in popup if requested?
       return cell.getAttribute("popup")==null ? bean : (JComponent)new PopupBean(bean);
     }
@@ -395,7 +417,8 @@ public class BeanPanel extends JPanel {
       prop = new PropertyProxy(root).setValue(path, "");
 
     // create bean for property
-    PropertyBean bean = beanOverride==null ? PropertyBean.getBean(prop) : PropertyBean.getBean(beanOverride, prop);
+    PropertyBean bean = beanOverride==null ? PropertyBean.getBean(prop.getClass()) : PropertyBean.getBean(beanOverride);
+    bean.setProperty(prop);
     bean.addChangeListener(changeSupport);
     beans.add(bean);
     
@@ -403,77 +426,66 @@ public class BeanPanel extends JPanel {
     return bean;
   }
   
-  /**
-   * Create tabs from introspection
-   */
-  private void createTabs(Entity entity) {
+  private void createReferencesTab(Property root) {
+    tabs.addTab("", MetaProperty.IMG_LINK, new ReferencesBean().setProperty(root));
+  }
+
+  private void createLinkTab(Property root, Set<String> beanifiedTags) {
     
-    // create all tabs
-    Set<String> skippedTags = new HashSet<String>();
-    
-    Property[] props = entity.getProperties();
-    
-    Arrays.sort(props, new PropertyComparator(".:DATE"));
-    
-    for (Property prop : props) {
-      // check tag - skipped or covered already?
-      String tag = prop.getTag();
-      if (skippedTags.add(tag)&&topLevelTags.contains(tag)) 
-        continue;
-      topLevelTags.add(tag);
-      // create a tab for it
-      createTab(entity, prop);
-      // next
-    }
-    
-    // 'create' a tab for creating new properties
-    JPanel newTab = new JPanel(new FlowLayout(FlowLayout.LEFT));
-    newTab.setPreferredSize(new Dimension(64,64));
-    bottom.addTab("", Images.imgNew, newTab);
-    
-    // add buttons for creating sub-properties 
-    MetaProperty[] nested = entity.getNestedMetaProperties(MetaProperty.WHERE_NOT_HIDDEN);
+    // 'create' a tab with links to create sub-property that we have a descriptor for
+    JPanel linksTab = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    linksTab.setPreferredSize(new Dimension(64,64));
+    tabs.addTab("", Images.imgNew, linksTab);
+    MetaProperty[] nested = root.getNestedMetaProperties(MetaProperty.WHERE_NOT_HIDDEN);
     Arrays.sort(nested);
     for (int i=0;i<nested.length;i++) {
       MetaProperty meta = nested[i];
       // if there's a descriptor for it
-      NestedBlockLayout descriptor = getSharedDescriptor(meta);
+      NestedBlockLayout descriptor = getPropertyLayout(meta);
       if (descriptor==null||descriptor.getCells().isEmpty())
         continue;
       // .. and if there's no other already with isSingleton
-      if (topLevelTags.contains(meta.getTag())&&meta.isSingleton())
+      if (beanifiedTags.contains(meta.getTag())&&meta.isSingleton())
         continue;
       // create a button for it
-      newTab.add(new LinkWidget(new AddTab(entity, meta)));
+      linksTab.add(new LinkWidget(new AddTab(root, meta)));
     }
+  }
   
+  /**
+   * Create tabs for proeprties from introspection
+   */
+  private void createPropertyTabs(Property root, Set<String> beanifiedTags) {
+    
+    // don't create tabs for already visited tabs unless it's a secondary
+    Set<String> skippedOnceTags = new HashSet<String>();
+    Property[] props = root.getProperties();
+    Arrays.sort(props, new PropertyComparator(".:DATE"));
+    for (Property prop : props) {
+      // check tag - skipped or covered already?
+      String tag = prop.getTag();
+      if (skippedOnceTags.add(tag)&&beanifiedTags.contains(tag)) 
+        continue;
+      beanifiedTags.add(tag);
+      // create a tab for it
+      createPropertyTab(root, prop);
+      // next
+    }
     // done
   }
   
   /**
    * Create a tab
    */
-  private void createTab(Entity entity, Property prop) {
+  private void createPropertyTab(Property root, Property prop) {
      
-    // show simple xref bean for PropertyXRef
-    if (prop instanceof PropertyXRef) {
-      // don't create tabs for individuals and families
-      try {
-        String tt = ((PropertyXRef)prop).getTargetType();
-        if (tt.equals(Gedcom.INDI)||tt.equals(Gedcom.FAM))
-          return;
-      } catch (IllegalArgumentException e) {
-        // huh? non target type? (like in case of a foreign xref) ... ignore this prop
-        return;
-      }
-      // add a tab for anything else
-      bottom.addTab(prop.getPropertyName(), prop.getImage(false), PropertyBean.getBean(prop), prop.getPropertyInfo());
+    // don't do xrefs
+    if (prop instanceof PropertyXRef)
       return;
-    }
      
     // got a descriptor for it?
     MetaProperty meta = prop.getMetaProperty();
-    NestedBlockLayout descriptor = getSharedDescriptor(meta);
+    NestedBlockLayout descriptor = getPropertyLayout(meta);
     if (descriptor==null) 
       return;
      
@@ -481,8 +493,8 @@ public class BeanPanel extends JPanel {
     JPanel tab = new JPanel();
     tab.putClientProperty(Property.class, prop);
 
-    parse(tab, entity, prop, descriptor.copy());
-    bottom.addTab(meta.getName() + prop.format("{ $y}"), prop.getImage(false), tab, meta.getInfo());
+    parse(tab, root, prop, descriptor, null);
+    tabs.addTab(meta.getName() + prop.format("{ $y}"), prop.getImage(false), tab, meta.getInfo());
 
     // done
   }
@@ -493,7 +505,7 @@ public class BeanPanel extends JPanel {
     }
     public ViewContext getContext() {
       // check if tab for property
-      Component selection = bottom.getSelectedComponent();
+      Component selection = tabs.getSelectedComponent();
       Property prop = (Property)((JComponent)selection).getClientProperty(Property.class);
       if (prop==null)
         return null;
@@ -506,14 +518,14 @@ public class BeanPanel extends JPanel {
    private class AddTab extends Action2 {
      
      private MetaProperty meta;
-     private Entity entity;
+     private Property root;
      private Property property;
      
      /** constructor */
-     private AddTab(Entity entity, MetaProperty meta) {
+     private AddTab(Property root, MetaProperty meta) {
        // remember
        this.meta = meta;
-       this.entity = entity;
+       this.root = root;
        // looks
        setText(meta.getName());
        setImage(meta.getImage());
@@ -523,7 +535,7 @@ public class BeanPanel extends JPanel {
      /** callback initiate create */
      public void actionPerformed(ActionEvent event) {
        
-       entity.getGedcom().doMuteUnitOfWork(new UnitOfWork() {
+       root.getGedcom().doMuteUnitOfWork(new UnitOfWork() {
          public void perform(Gedcom gedcom) {
            
            // commit bean changes
@@ -531,7 +543,7 @@ public class BeanPanel extends JPanel {
              commit();
            
            // add property for tab
-           property = entity.addProperty(meta.getTag(), "");
+           property = root.addProperty(meta.getTag(), "");
          }
        });
        

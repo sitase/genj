@@ -83,7 +83,7 @@ public class TableView extends View {
       mode.load();
 
     // create our table
-    propertyTable = new PropertyTableWidget(null);
+    propertyTable = new PropertyTableWidget();
     propertyTable.setAutoResize(false);
 
     // lay it out

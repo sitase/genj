@@ -28,6 +28,7 @@ import genj.gedcom.PropertyName;
 import genj.gedcom.TagPath;
 import genj.renderer.Options;
 import genj.renderer.PropertyRenderer;
+import genj.renderer.PropertyRendererFactory;
 import genj.util.Dimension2d;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
@@ -94,6 +95,10 @@ public class PropertyTableWidget extends JPanel  {
   
   private boolean ignoreSelection  = false;
   
+  private PropertyRendererFactory renderers = PropertyRendererFactory.DEFAULT;
+
+  private int visibleRowCount = -1;
+  
   /**
    * Constructor
    */
@@ -133,6 +138,20 @@ public class PropertyTableWidget extends JPanel  {
    */
   public void setModel(PropertyTableModel set) {
     table.setPropertyTableModel(set);
+  }
+  
+  /**
+   * Setter for property renderer
+   */
+  public void setRendererFactory(PropertyRendererFactory factory) {
+    renderers = factory!=null ? factory : PropertyRendererFactory.DEFAULT;
+    repaint();
+  }
+  
+  public void setVisibleRowCount(int rows) {
+    visibleRowCount   = rows;
+    revalidate();
+    repaint();
   }
   
   /**
@@ -493,7 +512,6 @@ public class PropertyTableWidget extends JPanel  {
       this.propertyModel = propertyModel;
       // pass through 
       sortableModel.setTableModel(new Model(propertyModel));
-
     }
     
     /**
@@ -551,12 +569,16 @@ public class PropertyTableWidget extends JPanel  {
     }
     
     /** 
-     * The Scollpane we're using asks this JTable's preferred srollable viewport size (via ViewportLayout) which strangely is
-     * hardcoded to something around 400 - we want to use the preferred size though since it is caculated by JTable's
-     * tablelayout depending on the number of rows. We're restricting this to 128 pixels height though.
+     * 
      */ 
     public Dimension getPreferredScrollableViewportSize() {
-      return getPreferredSize();
+      Dimension d = super.getPreferredScrollableViewportSize();
+      if (visibleRowCount>0) {
+        d.height = 0; 
+        for(int row=0; row<visibleRowCount && row<getModel().getRowCount(); row++) 
+            d.height += getRowHeight(row); 
+      }
+      return d;
     }
     
     /**
@@ -782,7 +804,7 @@ public class PropertyTableWidget extends JPanel  {
       public Dimension getPreferredSize() {
         if (curProp==null)
           return new Dimension(0,0);
-        return Dimension2d.getDimension(PropertyRenderer.get(curProp).getSize(getFont(), new FontRenderContext(null, false, false), curProp, new HashMap<String,String>(), Options.getInstance().getDPI()));
+        return Dimension2d.getDimension(renderers.getRenderer(curProp).getSize(getFont(), new FontRenderContext(null, false, false), curProp, new HashMap<String,String>(), Options.getInstance().getDPI()));
       }
       
       /**
@@ -807,7 +829,7 @@ public class PropertyTableWidget extends JPanel  {
         // set font
         g.setFont(getFont());
         // get the proxy
-        PropertyRenderer proxy = PropertyRenderer.get(curProp);
+        PropertyRenderer proxy = renderers.getRenderer(curProp);
         // add some space left and right
         bounds.x += 1;
         bounds.width -= 2;

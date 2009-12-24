@@ -83,12 +83,7 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
     PropertyName.class          , NameBean.class,
     PropertySex.class           , SexBean.class,
     PropertyXRef.class          , XRefBean.class,
-    Property.class              , SimpleValueBean.class, // last!
-
-    null,ParentsBean.class,
-    null,FamiliesBean.class,
-    null,SpousesBean.class,
-    null,ChildrenBean.class
+    Property.class              , SimpleValueBean.class  // last!
   };
   
   private final static Map<Class<? extends PropertyBean>,List<PropertyBean>> BEANCACHE = createBeanCache();
@@ -114,37 +109,41 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
    * Lookup
    */
   @SuppressWarnings("unchecked")
-  public static PropertyBean getBean(Property property) {
+  public static PropertyBean getBean(Class<? extends Property> property) {
     
     for (int i=0;i<PROPERTY2BEANTYPE.length;i+=2) {
-      if (PROPERTY2BEANTYPE[i]!=null&&PROPERTY2BEANTYPE[i].isAssignableFrom(property.getClass()))
-        return getBean((Class<? extends PropertyBean>)PROPERTY2BEANTYPE[i+1], property);
+      if (PROPERTY2BEANTYPE[i]!=null&&PROPERTY2BEANTYPE[i].isAssignableFrom(property))
+        return getBeanImpl((Class<? extends PropertyBean>)PROPERTY2BEANTYPE[i+1]);
     }
 
-    LOG.warning("Can't find declared bean for property "+property.getTag()+" ("+property.getClass().getName()+")");
-    return new SimpleValueBean().setProperty(property);
+    LOG.warning("Can't find declared bean for property type "+property.getName()+")");
+    return getBeanImpl(SimpleValueBean.class);
   }
   
   @SuppressWarnings("unchecked")
-  public static PropertyBean getBean(String clazz, Property property) {
+  public static PropertyBean getBean(String bean) {
     try {
-      return getBean((Class<? extends PropertyBean>)Class.forName(clazz), property);
+      return getBeanImpl((Class<? extends PropertyBean>)Class.forName(bean));
     } catch (ClassNotFoundException e) {
-      LOG.warning("Can't find desired bean "+clazz+" for property "+property.getTag()+" ("+property.getClass().getName()+")");
-      return getBean(property);
+      LOG.log(Level.FINE, "Can't find desired bean "+bean, e);
+      return getBeanImpl(SimpleValueBean.class);
     }
   }
   
-  public static PropertyBean getBean(Class<? extends PropertyBean> clazz, Property property) {
+  private static PropertyBean getBeanImpl(Class<? extends PropertyBean> clazz) {
     try {
       // grab from cache if we can
       List<PropertyBean> cache = BEANCACHE.get(clazz);
-      if (cache!=null&&!cache.isEmpty())
-        return cache.remove(cache.size()-1).setProperty(property);
-      return ((PropertyBean)clazz.newInstance()).setProperty(property);
+      if (cache!=null&&!cache.isEmpty()) {
+        PropertyBean bean = cache.remove(cache.size()-1);
+        if (bean.getParent()==null)
+          return bean;
+        LOG.log(Level.FINE, "Bean has parent coming out of cache "+bean);
+      }
+      return ((PropertyBean)clazz.newInstance());
     } catch (Throwable t) {
-      LOG.log(Level.FINE, "Problem with bean lookup for property "+property.getTag()+" ("+property.getClass().getName()+")", t);
-      return new SimpleValueBean().setProperty(property);
+      LOG.log(Level.FINE, "Problem with bean lookup "+clazz.getName(), t);
+      return new SimpleValueBean();
     }
   }
   
@@ -152,6 +151,8 @@ public abstract class PropertyBean extends JPanel implements ContextProvider {
    * recycle an unused bean
    */
   public static void recycle(PropertyBean bean) {
+    if (bean.getParent()!=null)
+      throw new IllegalArgumentException("bean still has parent");
     List<PropertyBean> cache = BEANCACHE.get(bean.getClass());
     if (cache==null) {
       cache = new ArrayList<PropertyBean>();
