@@ -1,9 +1,0 @@
-<col>
- <row><label path="INDI:TITL"/><bean wx="1" path="INDI:TITL"/></row>
- <row><label path="INDI:EDUC"/><bean wx="1" path="INDI:EDUC"/></row>
- <row><label path="INDI:NATI"/><bean wx="1" path="INDI:NATI"/></row>
- <row><label path="INDI:CAST"/><bean wx="1" path="INDI:CAST"/></row>
- <row><label path="INDI:RELI"/><bean wx="1" path="INDI:RELI"/></row>
- <row><label path="INDI:NMR"/><bean wx="1" path="INDI:NMR"/></row>
- <row><label path="INDI:NCHI"/><bean wx="1" path="INDI:NCHI"/></row>
-</col>

@@ -21,6 +21,7 @@ package genj.edit;
 
 import genj.edit.beans.PropertyBean;
 import genj.edit.beans.ReferencesBean;
+import genj.edit.beans.RelationshipsBean;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
@@ -273,7 +274,7 @@ public class BeanPanel extends JPanel {
         parse(detail, root, root, descriptor, beanifiedTags);
 
       // create tab for relationships of root
-      createReferencesTab(root);
+      createReferencesTabs(root);
       
       // create a tab for properties of root w/o descriptor
       createPropertiesTab(root, beanifiedTags);
@@ -413,7 +414,7 @@ public class BeanPanel extends JPanel {
     // addressed property doesn't exist yet? create a proxy that mirrors
     // the root and add create a temporary holder (enjoys the necessary
     // context - namely gedcom)
-    if (prop==null) 
+    if (prop==null||prop instanceof PropertyXRef) 
       prop = new PropertyProxy(root).setValue(path, "");
 
     // create bean for property
@@ -426,8 +427,9 @@ public class BeanPanel extends JPanel {
     return bean;
   }
   
-  private void createReferencesTab(Property root) {
-    tabs.addTab("", MetaProperty.IMG_LINK, new ReferencesBean().setProperty(root));
+  private void createReferencesTabs(Property root) {
+    tabs.addTab("", RelationshipsBean.IMG , new RelationshipsBean().setProperty(root));
+    tabs.addTab("", ReferencesBean.IMG , new ReferencesBean().setProperty(root));
   }
 
   private void createLinkTab(Property root, Set<String> beanifiedTags) {

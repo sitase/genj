@@ -80,7 +80,11 @@ public class Context {
     // grab props
     if (properties!=null)
       for (Property p : properties) {
-        if (!this.properties.contains(p)) {
+        // we don't want entities to leak through as properties
+        if (p instanceof Entity) {
+          if (!this.entities.contains(p))
+            this.entities.add((Entity)p);
+        } else if (!this.properties.contains(p)) {
           Entity e = p.getEntity();
           if (e.getGedcom()!=gedcom)
             throw new IllegalArgumentException("gedcom must be same");

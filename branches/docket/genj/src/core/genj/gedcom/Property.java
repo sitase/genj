@@ -577,17 +577,18 @@ public abstract class Property implements Comparable<Property> {
   /**
    * Returns this property's properties which are of given type
    */
-  public List<? extends Property> getProperties(Class<?> type) {
-    List<Property> props = new ArrayList<Property>(10);
+  public <T> List<T> getProperties(Class<T> type) {
+    List<T> props = new ArrayList<T>(10);
     getPropertiesRecursively(props, type);
     return props;
   }
   
-  private void getPropertiesRecursively(List props, Class type) {
+  @SuppressWarnings("unchecked")
+  private <T> void getPropertiesRecursively(List<T> props, Class<T> type) {
     for (int c=0;c<getNoOfProperties();c++) {
       Property child = getProperty(c);
       if (type.isAssignableFrom(child.getClass())) {
-        props.add(child);
+        props.add((T)child);
       }
       child.getPropertiesRecursively(props, type);
     }
