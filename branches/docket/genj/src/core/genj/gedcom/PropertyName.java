@@ -380,34 +380,34 @@ public class PropertyName extends Property {
   /**
    * Return all last names
    */
-  public List getLastNames(boolean sortByName) {
+  public List<String> getLastNames(boolean sortByName) {
     Gedcom gedcom = getGedcom();
     if (gedcom==null)
-      return new ArrayList(0);
+      return new ArrayList<String>(0);
     return getLastNames(gedcom, sortByName);
   }
 
   /**
    * Return all first names
    */
-  public List getFirstNames(boolean sortByName) {
+  public List<String> getFirstNames(boolean sortByName) {
     Gedcom gedcom = getGedcom();
     if (gedcom==null)
-      return new ArrayList(0);
+      return new ArrayList<String>(0);
     return getFirstNames(gedcom, sortByName);
   }
 
   /**
    * Return all last names
    */
-  public static List getLastNames(Gedcom gedcom, boolean sortByName) {
+  public static List<String> getLastNames(Gedcom gedcom, boolean sortByName) {
     return gedcom.getReferenceSet(KEY_LASTNAME).getKeys(sortByName ? gedcom.getCollator() : null);
   }
 
   /**
    * Return all first names
    */
-  public static List getFirstNames(Gedcom gedcom, boolean sortByName) {
+  public static List<String> getFirstNames(Gedcom gedcom, boolean sortByName) {
     return gedcom.getReferenceSet(KEY_FIRSTNAME).getKeys(sortByName ? gedcom.getCollator() : null);
   }
 
@@ -443,7 +443,7 @@ public class PropertyName extends Property {
     if (gedcom==null)
       return;
     // forget old last and remember new
-    ReferenceSet refSet = gedcom.getReferenceSet(KEY_LASTNAME);
+    ReferenceSet<String, Property> refSet = gedcom.getReferenceSet(KEY_LASTNAME);
     if (lastName.length()>0) refSet.remove(lastName, this);
     if (newLast.length()>0) refSet.add(newLast, this);
     // forget old first and remember new

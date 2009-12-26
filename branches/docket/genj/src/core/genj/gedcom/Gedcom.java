@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.135.2.5 $ $Author: nmeier $ $Date: 2009-12-19 00:52:55 $
+ * $Revision: 1.135.2.6 $ $Author: nmeier $ $Date: 2009-12-26 05:21:09 $
  */
 package genj.gedcom;
 
@@ -121,8 +121,8 @@ public class Gedcom {
       E2PREFIX.put(REPO, "R");
     }
     
-  private final static Map 
-    E2TYPE = new HashMap();
+  private final static Map<String, Class<? extends Entity>> 
+    E2TYPE = new HashMap<String, Class<? extends Entity>>();
     static {
       E2TYPE.put(INDI, Indi.class);
       E2TYPE.put(FAM , Fam .class);
@@ -174,7 +174,7 @@ public class Gedcom {
   private List listeners = new ArrayList(10);
   
   /** mapping tags refence sets */
-  private Map tags2refsets = new HashMap();
+  private Map<String, ReferenceSet<String,Property>> tags2refsets = new HashMap<String, ReferenceSet<String, Property>>();
 
   /** encoding */
   private String encoding = ENCODINGS[Math.min(ENCODINGS.length-1, Options.getInstance().defaultEncoding)];
@@ -1210,12 +1210,12 @@ public class Gedcom {
   /**
    * Get a reference set for given tag
    */
-  /*package*/ ReferenceSet getReferenceSet(String tag) {
+  /*package*/ ReferenceSet<String,Property> getReferenceSet(String tag) {
     // lookup
-    ReferenceSet result = (ReferenceSet)tags2refsets.get(tag);
+    ReferenceSet<String,Property> result = tags2refsets.get(tag);
     if (result==null) {
       // .. instantiate if necessary
-      result = new ReferenceSet();
+      result = new ReferenceSet<String, Property>();
       tags2refsets.put(tag, result);
       // .. and pre-fill
       String defaults = Gedcom.resources.getString(tag+".vals",false);

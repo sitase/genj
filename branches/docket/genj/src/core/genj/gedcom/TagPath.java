@@ -361,8 +361,8 @@ public class TagPath {
       
        // up?
       if (tag.equals("..")) {
-        if ((prop=prop.getParent())==null)
-          return false;
+        if (prop.getParent()!=null)
+          prop = prop.getParent();
         continue;
       }
       // stay?
