@@ -130,7 +130,7 @@ public class Undo extends Action2 implements GedcomMetaListener {
   }
 
   public void gedcomWriteLockReleased(Gedcom gedcom) {
-    if (this.gedcom==gedcom)
+    if (this.gedcom==null||this.gedcom==gedcom)
       setEnabled(gedcom.canUndo());
   }
 } //Undo

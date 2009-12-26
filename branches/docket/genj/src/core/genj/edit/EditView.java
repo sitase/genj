@@ -91,8 +91,9 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     
     super(new BorderLayout());
     
-    // check for current mode
+    // check for current modes
     mode.setSelected(REGISTRY.get("advanced", false));
+    focus.setSelected(REGISTRY.get("focus", false));
 
     // add keybindings
     InputMap imap = getInputMap(WHEN_IN_FOCUSED_WINDOW);
@@ -214,16 +215,15 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
   public void setContext(Context newContext, boolean isActionPerformed) {
     
     // new gedcom?
-    if (newContext.getGedcom()==null||newContext.getGedcom()!=newContext.getGedcom()) {
-      
-      callback.follow(newContext.getGedcom());
-      undo.follow(newContext.getGedcom());
-      redo.follow(newContext.getGedcom());
-
+    if (newContext.getGedcom()==null) {
       sticky.setSelected(false);
-      
       setEditor(null);
+      return;
     }
+    
+    callback.follow(newContext.getGedcom());
+    undo.follow(newContext.getGedcom());
+    redo.follow(newContext.getGedcom());
     
     // new editor?
     if (newContext.getEntity()!=null && editor==null) {
@@ -400,6 +400,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     /** run */
     public void actionPerformed(ActionEvent event) {
       setSelected(isSelected());
+      REGISTRY.put("focus", isSelected());
     }
   } //Sticky
   
