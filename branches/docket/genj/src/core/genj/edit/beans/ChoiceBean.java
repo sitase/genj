@@ -130,21 +130,24 @@ public class ChoiceBean extends PropertyBean {
    */
   public void setPropertyImpl(Property prop) {
     
-    if (prop==null)
-      return;
     PropertyChoiceValue choice = (PropertyChoiceValue)prop;
 
-    // setup choices    
     // Note: we're using getDisplayValue() here because like in PropertyRelationship's 
     // case there might be more in the gedcom value than what we want to display 
     // e.g. witness@INDI:BIRT
-    choices.setValues(choice.getChoices(true));
-    choices.setText(choice.isSecret() ? "" : choice.getDisplayValue());
+
+    if (choice!=null) {
+      choices.setValues(choice.getChoices(true));
+      choices.setText(choice.isSecret() ? "" : choice.getDisplayValue());
+      sameChoices = choice.getSameChoices();
+    } else {
+      choices.setText("");
+      choices.setValues(new String[0]);
+      sameChoices = new Property[0];
+    }
+      
     global.setSelected(false);
     global.setVisible(false);
-    
-    // prepare global confirm message
-    sameChoices = choice.getSameChoices();
     
     // done
   }

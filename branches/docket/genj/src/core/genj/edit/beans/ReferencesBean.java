@@ -113,7 +113,7 @@ public class ReferencesBean extends PropertyBean {
     private List<PropertyXRef> rows;
     private TagPath[] columns = new TagPath[] {
         new TagPath(".", Gedcom.getName("REFN")), 
-        new TagPath("*:..", "*"), 
+        new TagPath("*:..:..", "*"), 
       };
     private PropertyRenderer renderer = new Renderer();
     

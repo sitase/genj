@@ -139,19 +139,24 @@ public class NameBean extends PropertyBean {
    * Set context to edit
    */
   public void setPropertyImpl(Property prop) {
+    
     PropertyName name = (PropertyName)prop;
-    if (name==null)
-      return;
-    
-    // keep track of who has the same last name
-    sameLastNames = name.getSameLastNames();
-    
-    // first, last, suff
-    cLast.setValues(name.getLastNames(true));
-    cLast.setText(name.getLastName());
-    cFirst.setValues(name.getFirstNames(true));
-    cFirst.setText(name.getFirstName()); 
-    tSuff.setText(name.getSuffix()); 
+    if (name==null) {
+      sameLastNames = new Property[0];
+      cLast.setValues(new PropertyName[0]);
+      cLast.setText("");
+      cFirst.setValues(new PropertyName[0]);
+      cFirst.setText("");
+    } else {
+      // keep track of who has the same last name
+      sameLastNames = name.getSameLastNames();
+      // first, last, suff
+      cLast.setValues(name.getLastNames(true));
+      cLast.setText(name.getLastName());
+      cFirst.setValues(name.getFirstNames(true));
+      cFirst.setText(name.getFirstName()); 
+      tSuff.setText(name.getSuffix()); 
+    }
     
     cAll.setVisible(false);
     cAll.setSelected(false);

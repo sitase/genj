@@ -127,11 +127,11 @@ public class RelationshipsBean extends PropertyBean {
     
     TagPath[] columns = new TagPath[] {
       new TagPath(".", "Relationship"), // relationship
-      new TagPath("..", Gedcom.getName("FAM")), // families id
-      new TagPath("..:MARR:DATE"), // families id
       new TagPath("*:..", Gedcom.getName("INDI")), // person's id
       new TagPath("*:..:NAME"), // person's name
-      new TagPath("*:..:BIRT:DATE") // person's birth date
+      new TagPath("*:..:BIRT:DATE"), // person's birth date
+      new TagPath("..", Gedcom.getName("FAM")), // families id
+      new TagPath("..:MARR:DATE") // families id
     };
     
     Map<Property,String> p2t = new HashMap<Property, String>();

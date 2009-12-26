@@ -123,36 +123,40 @@ public class PlaceBean extends PropertyBean {
    * Set context to edit
    */
   public void setPropertyImpl(Property prop) {
-    PropertyPlace place = (PropertyPlace)prop;
-    if (place==null)
-      return;
-    
-    sameChoices = place.getSameChoices();
     
     // remove all current fields and clear current default focus - this is all dynamic for each context
     removeAll();
     rows = 0;
     defaultFocus = null;
     
-    /*
-      thought about using getDisplayValue() here but the problem is that getAllJurisdictions()
-      works on values (PropertyChoiceValue stuff) - se we have to use getValue() here
-     */
-    
-    // secret info?
-    String value = place.isSecret() ? "" : place.getValue();
-   
-    // either a simple value or broken down into comma separated jurisdictions
-    if (!Options.getInstance().isSplitJurisdictions || place.getFormatAsString().length()==0) {
-      createChoice(null, value, place.getAllJurisdictions(-1,true), place.getFormatAsString());
+    PropertyPlace place = (PropertyPlace)prop;
+    if (place==null) {
+      sameChoices = new Property[0];
+      createChoice(null, "", new String[0], "");
+      
     } else {
-      String[] format = place.getFormat();
-      String[] jurisdictions = place.getJurisdictions();
-      for (int i=0;i<Math.max(format.length, jurisdictions.length); i++) {
-        createChoice(i<format.length ? format[i] : "?", i<jurisdictions.length ? jurisdictions[i] : "", place.getAllJurisdictions(i, true), null);
+      
+      sameChoices = place.getSameChoices();
+      /*
+        thought about using getDisplayValue() here but the problem is that getAllJurisdictions()
+        works on values (PropertyChoiceValue stuff) - se we have to use getValue() here
+       */
+      // secret info?
+      String value = place.isSecret() ? "" : place.getValue();
+   
+      // either a simple value or broken down into comma separated jurisdictions
+      if (!Options.getInstance().isSplitJurisdictions || place.getFormatAsString().length()==0) {
+        createChoice(null, value, place.getAllJurisdictions(-1,true), place.getFormatAsString());
+      } else {
+        String[] format = place.getFormat();
+        String[] jurisdictions = place.getJurisdictions();
+        for (int i=0;i<Math.max(format.length, jurisdictions.length); i++) {
+          createChoice(i<format.length ? format[i] : "?", i<jurisdictions.length ? jurisdictions[i] : "", place.getAllJurisdictions(i, true), null);
+        }
       }
-    }
 
+    }
+    
     // add 'change all'
     global.setVisible(false);
     global.setSelected(false);
