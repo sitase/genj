@@ -130,6 +130,7 @@ import swingx.docking.Docked;
 
       public void add(JComponent component) {
         docked.addTool(component);
+        component.setFocusable(false);
         toolbar.set(true);
       }
 

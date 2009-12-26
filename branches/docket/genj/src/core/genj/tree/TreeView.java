@@ -504,6 +504,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     sliderZoom.addChangeListener(new ZoomGlue());
     sliderZoom.setAlignmentX(0F);
     sliderZoom.setOpaque(false);
+    sliderZoom.setFocusable(false);
     toolbar.add(sliderZoom);
     
     // overview
@@ -749,8 +750,20 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
       // listen to mouse events
       addMouseListener(this);
       addMouseWheelListener(this);
+//      setFocusable(true);
+//      setRequestFocusEnabled(true);
+
+      new Up().install(this, "U", JComponent.WHEN_FOCUSED);
+    }
+
+    private class Up extends Action2 {
+      @Override
+      public void actionPerformed(ActionEvent e) {
+        System.out.println("up");
+      }
     }
     
+
     public void addNotify() {
       // cont
       super.addNotify();
@@ -843,6 +856,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
      * @see java.awt.event.MouseListener#mousePressed(MouseEvent)
      */
     public void mousePressed(MouseEvent e) {
+      requestFocusInWindow();
       // check node
       Point p = view2model(e.getPoint());
       Object content = model.getContentAt(p.x, p.y);
