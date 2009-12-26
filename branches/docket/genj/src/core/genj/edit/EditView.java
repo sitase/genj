@@ -79,6 +79,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
   private Undo undo = new Undo();
   private Redo redo = new Redo();
   private Sticky sticky = new Sticky();
+  private Focus focus = new Focus();
   
   /** current editor */
   private Editor editor;
@@ -151,6 +152,13 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     // show
     revalidate();
     repaint();
+  }
+  
+  /**
+   * Check whether editor should grab focus or not
+   */
+  /*package*/ boolean isGrabFocus() {
+    return focus.isSelected();
   }
   
   /**
@@ -309,6 +317,10 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     
     // add undo/redo/sticky
     toolbar.add(new JToggleButton(sticky));
+    toolbar.add(new JToggleButton(focus));
+    
+    // add undo/redo
+    toolbar.addSeparator();
     toolbar.add(undo);
     toolbar.add(redo);
     
@@ -355,7 +367,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
 //  } //ContextMenu
   
   /**
-   * Action - toggle
+   * Action - toggle sticky mode
    */
   private class Sticky extends Action2 {
     /** constructor */
@@ -372,6 +384,22 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     public boolean setSelected(boolean selected) {
       super.setImage(selected ? Images.imgStickOn : Images.imgStickOff);
       return super.setSelected(selected);
+    }
+  } //Sticky
+  
+  /**
+   * Action - toggle focus mode
+   */
+  private class Focus extends Action2 {
+    /** constructor */
+    protected Focus() {
+      super.setImage(Images.imgFocus);
+      super.setTip(RESOURCES, "action.focus.tip");
+      super.setSelected(false);
+    }
+    /** run */
+    public void actionPerformed(ActionEvent event) {
+      setSelected(isSelected());
     }
   } //Sticky
   

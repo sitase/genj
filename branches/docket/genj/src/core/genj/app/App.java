@@ -188,7 +188,6 @@ public class App {
         };
         frame.setTitle(RESOURCES.getString("app.title"));
         frame.setIconImage(Gedcom.getImage().getImage());
-        frame.setJMenuBar(workbench.getMenuBar());
         frame.getContentPane().add(workbench);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         frame.addWindowListener(new WindowAdapter() {

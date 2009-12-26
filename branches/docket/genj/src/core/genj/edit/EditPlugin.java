@@ -42,10 +42,7 @@ import genj.edit.actions.SetSubmitter;
 import genj.edit.actions.SwapSpouses;
 import genj.edit.actions.TogglePrivate;
 import genj.edit.actions.Undo;
-import genj.edit.beans.DateBean;
-import genj.edit.beans.NameBean;
 import genj.edit.beans.PropertyBean;
-import genj.edit.beans.SexBean;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
@@ -79,9 +76,9 @@ import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import javax.swing.BoxLayout;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
@@ -90,6 +87,7 @@ import javax.swing.JPanel;
 public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
   
   private final static Resources RESOURCES = Resources.get(EditPlugin.class);
+  private final static Logger LOG = Logger.getLogger("genj.edit");
   
   private Workbench workbench;
   
@@ -110,37 +108,47 @@ public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
   }
   
   @Override
-  public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
+  public void gedcomOpened(Workbench workbench, final Gedcom gedcom) {
 
-    // ask for root of tree
-    if (gedcom.getEntities(Gedcom.INDI).isEmpty()) {
-      
-      final NameBean name = new NameBean();
-      final SexBean sex = new SexBean();
-      final DateBean birth= new DateBean();
-      JPanel panel = new JPanel();
-      panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-      panel.add(new JLabel(RESOURCES.getString("newroot.text")));
-      panel.add(name);
-      panel.add(sex);
-      panel.add(birth);
-      
-      if (0==WindowManager.getInstance().openDialog(null, RESOURCES.getString("newroot.title", gedcom.getName()), WindowManager.QUESTION_MESSAGE, panel, Action2.okCancel(), workbench)) {
-        gedcom.doMuteUnitOfWork(new UnitOfWork() {
-          public void perform(Gedcom gedcom) throws GedcomException {
-            Indi adam = (Indi) gedcom.createEntity(Gedcom.INDI);
-            name.commit(adam.addProperty("NAME", ""));
-            sex.commit(adam.addProperty("SEX", ""));
-            birth.commit(adam.setValue(new TagPath("INDI:BIRT:DATE"), ""));
-            
-            Submitter submitter = (Submitter) gedcom.createEntity(Gedcom.SUBM);
-            submitter.setName(EnvironmentChecker.getProperty(this, "user.name", "?", "user name used as submitter in new gedcom"));
-          }
-        });
-      }
-      
+    // check if there's any individuals
+    if (!gedcom.getEntities(Gedcom.INDI).isEmpty()) 
+      return;
+
+    try {
+      wizardFirst(workbench, gedcom);
+    } catch (Throwable t) {
+      LOG.log(Level.WARNING, "problem in wizard", t);
     }
     
+  }
+  
+  private void wizardFirst(Workbench workbench, Gedcom gedcom) throws GedcomException {
+    
+    // create sample work
+    final Entity adamOrEve = new Gedcom(gedcom.getOrigin()).createEntity("INDI");
+
+    // let user edit it
+    final BeanPanel panel = new BeanPanel();
+    panel.setRoot(adamOrEve);
+    if (0!=WindowManager.getInstance().openDialog(null, RESOURCES.getString("wizard.first", gedcom.getName()), WindowManager.QUESTION_MESSAGE, panel, Action2.okCancel(), workbench)) 
+      return;
+    
+    gedcom.doMuteUnitOfWork(new UnitOfWork() {
+      public void perform(Gedcom gedcom) throws GedcomException {
+        
+        // commit changes to work 
+        panel.commit();
+        
+        // copy changes to original
+        gedcom.createEntity(Gedcom.INDI).copyProperties(adamOrEve, true);
+        
+        // commit submitter as well
+        Submitter submitter = (Submitter) gedcom.createEntity(Gedcom.SUBM);
+        submitter.setName(EnvironmentChecker.getProperty(this, "user.name", "?", "user name used as submitter in new gedcom"));
+      }
+    });
+
+    // done
   }
 
   /** 
@@ -314,10 +322,15 @@ public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
           if (group.size()>0)
             result.add(group);
         } else if (context.getProperties().size()==1) {
-          Action2.Group group = new ActionProvider.PropertyActionGroup(context.getProperty());
-          createActions(context.getProperty(), group);
-          if (group.size()>0)
-            result.add(group);
+          
+          Property cursor = context.getProperty();
+          while (!(cursor instanceof Entity)) {
+            Action2.Group group = new ActionProvider.PropertyActionGroup(cursor);
+            createActions(cursor, group);
+            if (group.size()>0)
+              result.add(group);
+            cursor = cursor.getParent();
+          }
         }
      
         // sub-menu for entity

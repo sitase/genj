@@ -56,6 +56,7 @@ import genj.view.ActionProvider.Purpose;
 import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -79,6 +80,7 @@ import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenuBar;
 import javax.swing.JPanel;
@@ -99,7 +101,11 @@ import swingx.docking.persistence.XMLPersister;
 public class Workbench extends JPanel implements SelectionSink {
 
   private final static Logger LOG = Logger.getLogger("genj.app");
-  private final static String ACC_SAVE = "ctrl S", ACC_EXIT = "ctrl X", ACC_NEW = "ctrl N", ACC_OPEN = "ctrl O";
+  private final static String 
+    ACC_SAVE = "ctrl S", 
+    ACC_NEW = "ctrl N", 
+    ACC_OPEN = "ctrl O";
+  
   private final static Resources RES = Resources.get(Workbench.class);
   private final static Registry REGISTRY = Registry.get(Workbench.class);
 
@@ -137,11 +143,6 @@ public class Workbench extends JPanel implements SelectionSink {
     add(dockingPane, BorderLayout.CENTER);
     add(statusBar, BorderLayout.SOUTH);
 
-    // install some accelerators
-    new ActionSave(false).install(this, ACC_SAVE, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    new ActionExit().install(this, ACC_EXIT, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    new ActionOpen().install(this, ACC_OPEN, JComponent.WHEN_IN_FOCUSED_WINDOW);
-    
     // restore layout
     String layout = REGISTRY.get("restore.layout", (String)null);
     if (layout!=null)
@@ -151,6 +152,19 @@ public class Workbench extends JPanel implements SelectionSink {
 
     
     // Done
+  }
+  
+  @Override
+  public void addNotify() {
+    super.addNotify();
+    // install menu into frame
+    WindowManager.visitContainers(this, new WindowManager.ContainerVisitor() {
+      public Component visit(Component parent, Component child) {
+        if (parent instanceof JFrame)
+          ((JFrame)parent).setJMenuBar(menu);
+        return null;
+      }
+    });
   }
   
   /**
@@ -513,13 +527,6 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   /**
-   * Returns a menu for frame showing this controlcenter
-   */
-  /* package */JMenuBar getMenuBar() {
-    return menu;
-  }
-
-  /**
    * Lookup all workbench related action providers (from views and plugins)
    */
   /*package*/ List<ActionProvider> getActionProviders() {
@@ -559,10 +566,12 @@ public class Workbench extends JPanel implements SelectionSink {
   
   public void fireSelection(Context context, boolean isActionPerformed) {
     
-    // allowed?
-    if (context.getGedcom()!= this.context.getGedcom())
-      throw new IllegalArgumentException("context selection on unknown gedcom");
-
+    // appropriate?
+    if (context.getGedcom()!= this.context.getGedcom()) {
+      LOG.log(Level.FINER, "context selection on unknown gedcom", new Throwable());
+      return;
+    }
+    
     // already known?
     if (!isActionPerformed && this.context.equals(context))
       return;
@@ -805,6 +814,7 @@ public class Workbench extends JPanel implements SelectionSink {
       setText(RES, "cc.menu.new");
       setTip(RES, "cc.tip.create_file");
       setImage(Images.imgNew);
+      install(Workbench.this, ACC_NEW, JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
 
     /** execute callback */
@@ -824,6 +834,7 @@ public class Workbench extends JPanel implements SelectionSink {
       setTip(RES, "cc.tip.open_file");
       setText(RES, "cc.menu.open");
       setImage(Images.imgOpen);
+      install(Workbench.this, ACC_OPEN, JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
 
     /**
@@ -866,8 +877,11 @@ public class Workbench extends JPanel implements SelectionSink {
       // text
       if (saveAs)
         setText(RES.getString("cc.menu.saveas"));
-      else
+      else {
         setText(RES.getString("cc.menu.save"));
+        
+        install(Workbench.this, ACC_SAVE, JComponent.WHEN_IN_FOCUSED_WINDOW);
+      }
       setTip(RES, "cc.tip.save_file");
       // setup
       setImage(Images.imgSave);

@@ -70,6 +70,9 @@ import swingx.docking.Docked;
  */
 /* package */class ViewDockable extends DefaultDockable implements WorkbenchListener {
   
+  private final static String 
+    ACC_CLOSE = "ctrl W";
+  
   private final static Logger LOG = Logger.getLogger("genj.app");
   private final static ContextHook HOOK = new ContextHook();
 
@@ -421,6 +424,7 @@ import swingx.docking.Docked;
     protected ActionCloseView() {
       setImage(Images.imgClose);
       setTip(Resources.get(this).getString("cc.tip.close_view", factory.getTitle()));
+      install(view, ACC_CLOSE, JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
     }
 
     /** run */

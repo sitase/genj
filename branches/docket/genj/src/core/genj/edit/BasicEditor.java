@@ -158,7 +158,7 @@ import spin.Spin;
     } else {
 
       // simply change focus if possible
-      if (beanPanel!=null)
+      if (beanPanel!=null && view.isGrabFocus())
         beanPanel.select(context.getProperty());
       
     }
@@ -192,7 +192,8 @@ import spin.Spin;
     Property focus = focussedBean !=null ? focussedBean.getProperty() : null;
     
     // set selection
-    beanPanel.select(focus);
+    if (view.isGrabFocus())
+      beanPanel.select(focus);
 
     // done
     ok.setEnabled(false);
@@ -228,7 +229,7 @@ import spin.Spin;
     cancel.setEnabled(false);
 
     // set focus
-    if (focus!=null)
+    if (focus!=null && view.isGrabFocus())
       beanPanel.select(focus);
 
     // done

@@ -125,7 +125,7 @@ import javax.swing.tree.TreePath;
   private JSplitPane        splitPane = null;
 
   /** view */
-  private EditView editView;
+  private EditView view;
 
   /** actions */
   private Action2    
@@ -142,7 +142,7 @@ import javax.swing.tree.TreePath;
     
     // remember
     this.gedcom = gedcom;
-    editView = view;
+    this.view = view;
     
     // TREE Component's 
     tree = new Tree();
@@ -225,7 +225,7 @@ import javax.swing.tree.TreePath;
     tree.setSelection(props);
     
     // 20060301 set focus since selection change won't do that anymore
-    if (bean!=null)
+    if (bean!=null && view.isGrabFocus())
       bean.requestFocusInWindow();
     
   
@@ -586,7 +586,7 @@ import javax.swing.tree.TreePath;
       tree.setSelectionPath(new TreePath(tree.getPathFor(newProp)));
       
       // bean we can give focus to (in case of single selection)?
-      if (bean!=null)
+      if (bean!=null && view.isGrabFocus())
         bean.requestFocusInWindow();
       
       // done
@@ -651,7 +651,7 @@ import javax.swing.tree.TreePath;
       if (root!=null) {
         Gedcom gedcom = root.getGedcom();
         // ask user for commit if
-        if (ok.isEnabled()&&!gedcom.isWriteLocked()&&editView.isCommitChanges()) 
+        if (ok.isEnabled()&&!gedcom.isWriteLocked()&&view.isCommitChanges()) 
           commit();
       }
 

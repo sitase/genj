@@ -125,15 +125,12 @@ public class BeanPanel extends JPanel {
     return result!=null ? result.copy() : null;
   }
   
-  private static NestedBlockLayout getEntityLayout(MetaProperty entity) {
-    return getLayout("descriptors/entities/" + entity.getTag()+".xml");
-  }
-  
-  private static NestedBlockLayout getPropertyLayout(MetaProperty meta) {
+  private static NestedBlockLayout getLayout(MetaProperty meta) {
+    if (Entity.class.isAssignableFrom(meta.getType()))
+      return getLayout("descriptors/entities/" + meta.getTag()+".xml");
 
-    String key = "descriptors/properties/" + meta.getTag() +".xml";
-    
     // try to read a descriptor by tag
+    String key = "descriptors/properties/" + meta.getTag() +".xml";
     NestedBlockLayout result = getLayout(key);
     if (result!=null) 
       return result;
@@ -269,7 +266,7 @@ public class BeanPanel extends JPanel {
       Set<String> beanifiedTags = new HashSet<String>();
       
       // layout from descriptor
-      NestedBlockLayout descriptor = getEntityLayout(root.getMetaProperty());
+      NestedBlockLayout descriptor = getLayout(root.getMetaProperty());
       if (descriptor!=null) 
         parse(detail, root, root, descriptor, beanifiedTags);
 
@@ -302,7 +299,7 @@ public class BeanPanel extends JPanel {
     Arrays.sort(nested);
     for (MetaProperty meta : nested) {
       // ignore if we have a layout for a property specific tab
-      if (getPropertyLayout(meta)!=null)
+      if (getLayout(meta)!=null)
         continue;
       // ignore if not editable simple/choice value
       if (meta.getType()!=PropertySimpleValue.class
@@ -443,7 +440,7 @@ public class BeanPanel extends JPanel {
     for (int i=0;i<nested.length;i++) {
       MetaProperty meta = nested[i];
       // if there's a descriptor for it
-      NestedBlockLayout descriptor = getPropertyLayout(meta);
+      NestedBlockLayout descriptor = getLayout(meta);
       if (descriptor==null||descriptor.getCells().isEmpty())
         continue;
       // .. and if there's no other already with isSingleton
@@ -487,7 +484,7 @@ public class BeanPanel extends JPanel {
      
     // got a descriptor for it?
     MetaProperty meta = prop.getMetaProperty();
-    NestedBlockLayout descriptor = getPropertyLayout(meta);
+    NestedBlockLayout descriptor = getLayout(meta);
     if (descriptor==null) 
       return;
      
