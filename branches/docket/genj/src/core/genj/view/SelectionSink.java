@@ -6,8 +6,11 @@ import genj.window.WindowManager.ContainerVisitor;
 
 import java.awt.AWTEvent;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
+
+import javax.swing.RootPaneContainer;
 
 /**
  * A sink for selection events
@@ -36,6 +39,11 @@ public interface SelectionSink {
 
       SelectionSink sink = (SelectionSink)WindowManager.visitContainers(source, new ContainerVisitor() {
         public Component visit(Component parent, Component child) {
+          if (parent instanceof RootPaneContainer) {
+            Container contentPane = ((RootPaneContainer)parent).getContentPane();
+            if (contentPane.getComponentCount()>0 && contentPane.getComponent(0) instanceof SelectionSink)
+              return contentPane.getComponent(0);
+          }
           return parent instanceof SelectionSink ? parent : null;
         }
       });
