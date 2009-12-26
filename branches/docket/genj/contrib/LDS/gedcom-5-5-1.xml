@@ -48,7 +48,7 @@
   </NAME>
   <SEX default="1" cardinality="0:1" type="PropertySex" img="Sex" img.male="Male" img.female="Female"/>
   +++++++++++++ Events +++++++++++++
-  <BIRT default="1" type="PropertyEvent" img="Birth">
+  <BIRT default="1" type="PropertyEvent" img="Birth" cardinality="0:1">
    <TYPE type="PropertyChoiceValue" img="Type"/>
    <DATE default="1" cardinality="0:1" type="PropertyDate" img="Date"/>
    <PLAC default="1" cardinality="0:1" type="PropertyPlace" img="Place">
@@ -88,13 +88,13 @@
    <ADDR default="1"/>
   </RESI>
   <OCCU type="PropertyChoiceValue" img="Occupation" super="INDI:BIRT" cardinality="0:M"/>
-  <RELI type="PropertyChoiceValue" img="Religion" super="INDI:BIRT" >
+  <RELI type="PropertyChoiceValue" img="Religion" super="INDI:BIRT">
    <DATE default="0"/>
    <PLAC default="0"/>
   </RELI>
   <CAST hide="1" type="PropertySimpleValue" img="Caste" super="INDI:RELI" />
   <DSCR hide="1" type="PropertyChoiceValue" img="Description" super="INDI:RELI" />
-  <EDUC type="PropertyChoiceValue" img="Education" super="INDI:RELI"/>
+  <EDUC type="PropertyChoiceValue" img="Education" super="INDI:RELI" cardinality="0:M"/>
   <IDNO type="PropertySimpleValue" img="IDNumber" super="INDI:RELI"/>
   <NATI type="PropertyChoiceValue" img="Nationality" super="INDI:RELI" />
   <NCHI hide="1" type="PropertySimpleValue" img="NumChildren" super="INDI:RELI" />
@@ -118,12 +118,12 @@
   <FCOM img="FirstCommunion" super="INDI:BIRT"/>
   <ORDN img="Ordination" super="INDI:BIRT"/>
   <NATU img="Naturalisation" super="INDI:GRAD"/>
-  <EMIG img="Emmigration" super="INDI:GRAD"/>
-  <IMMI img="Immigration" super="INDI:GRAD"/>
-  <CENS img="Census" super="INDI:GRAD"/>
+  <EMIG img="Emmigration" super="INDI:GRAD" cardinality="0:M"/>
+  <IMMI img="Immigration" super="INDI:GRAD" cardinality="0:M"/>
+  <CENS img="Census" super="INDI:GRAD" cardinality="0:M"/>
   <PROB img="Probate" super="INDI:GRAD"/>
-  <WILL img="Will" super="INDI:GRAD"/>
-  <RETI img="Retirement" super="INDI:GRAD"/>
+  <WILL img="Will" super="INDI:GRAD" cardinality="0:M"/>
+  <RETI img="Retirement" super="INDI:GRAD" cardinality="0:M"/>
   <EVEN img="Event" super="INDI:GRAD">
    <TYPE default="1"/>
   </EVEN>
@@ -141,7 +141,7 @@
   <SLGC super="INDI:BAPL">
    <FAMC hide="1" type="PropertyFamilyChild" img="Fam"/>
   </SLGC>
-  +++++++++++++ Relationships +++++++++++++
+   +++++++++++++ Relationships +++++++++++++
   <NOTE super="INDI:NAME:NOTE"/>
   <FAMC hide="1" type="PropertyFamilyChild" img="Fam">
    <PEDI type="PropertyChoiceValue" img="Type"/>
@@ -182,7 +182,7 @@
   <HUSB hide="1" type="PropertyHusband" img="IndiMale"/>
   <WIFE hide="1" type="PropertyWife" img="IndiFemale"/>
   <NCHI img="NumChildren" type="PropertySimpleValue"/>
-  <ENGA img="Engagement"  super="INDI:BIRT">
+  <ENGA img="Engagement" super="INDI:BIRT" cardinality="0:M">
    <HUSB type="PropertySimpleReadOnly" img="IndiMale" cardinality="0:1">
     <AGE default="1" type="PropertyAge" img="Time" cardinality="1:1"/>
    </HUSB>
