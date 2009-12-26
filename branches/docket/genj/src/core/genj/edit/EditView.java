@@ -523,7 +523,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
       back.setEnabled(!backs.isEmpty());
       forward.setEnabled(!forwards.isEmpty());
       // check if we should go back to one
-      if (editor.getContext().getEntities().size()==0 && !backs.isEmpty())
+      if ( (editor!=null&&editor.getContext().getEntities().isEmpty()) && !backs.isEmpty())
         back();
     }
     
@@ -531,7 +531,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
       // parse stack
       for (Iterator<Context> it = stack.listIterator(); it.hasNext(); ) {
         Context ctx = it.next();
-        if (ctx.getEntity().equals(entity))
+        if (entity.equals(ctx.getEntity()))
           it.remove();
       }
     }

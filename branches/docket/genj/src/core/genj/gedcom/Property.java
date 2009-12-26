@@ -26,7 +26,6 @@ import genj.util.swing.ImageIcon;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 import java.util.regex.Matcher;
@@ -48,7 +47,7 @@ public abstract class Property implements Comparable<Property> {
   
   /** children of this property */
   // 20070128 made this a lazy list so we're not wasting the space for all those leaf nodes out there
-  private List children = null;
+  private List<Property> children = null;
   
   /** images */
   protected ImageIcon image, imageErr;
@@ -148,7 +147,7 @@ public abstract class Property implements Comparable<Property> {
       return addProperty("OBJE", "").addFile(file);
     }
     // need to add it?
-    List pfiles = getProperties(PropertyFile.class);
+    List<PropertyFile> pfiles = getProperties(PropertyFile.class);
     PropertyFile pfile;
     if (pfiles.isEmpty()) {
       pfile = (PropertyFile)addProperty("FILE", "");
@@ -221,7 +220,7 @@ public abstract class Property implements Comparable<Property> {
     
     // keep child now
     if (children==null)
-      children = new ArrayList();
+      children = new ArrayList<Property>();
     children.add(pos, child);
     
     if (isTransient) child.isTransient = true;
@@ -312,7 +311,7 @@ public abstract class Property implements Comparable<Property> {
   /**
    * Move contained properties
    */
-  public void moveProperties(List properties, int pos) {
+  public void moveProperties(List<Property> properties, int pos) {
     
     // move children around
     for (int i = 0; i < properties.size(); i++) {
@@ -392,20 +391,6 @@ public abstract class Property implements Comparable<Property> {
   }
 
   /**
-   * Return a containgin property of given type in the hierarchy of parents 
-   */
-  public Property getContaining(Class type) {
-    Property prop = this;
-    while (prop!=null) {
-      if (type.isAssignableFrom(prop.getClass())) 
-        return prop;
-      prop = prop.getParent();
-    }
-    return null;
-  }
-  
-  
-  /**
    * Returns the property this property belongs to
    */
   public Property getParent() {
@@ -413,24 +398,15 @@ public abstract class Property implements Comparable<Property> {
   }
   
   /**
-   * Returns the path from this to containing property
-   */
-  public TagPath getPathToContaining(Property rparent) {    
-    Stack result = new Stack();
-    getPathToContaining(rparent, result);
-    return new TagPath(result);
-  }
-  
-  /**
    * Returns the path from this to a nested property
    */
   public TagPath getPathToNested(Property nested) {    
-    Stack result = new Stack();
+    Stack<String> result = new Stack<String>();
     nested.getPathToContaining(this, result);
     return new TagPath(result);
   }
   
-  private void getPathToContaining(Property containing, Stack result) {
+  private void getPathToContaining(Property containing, Stack<String> result) {
     result.push(getTag());
     if (containing==this)
       return;
@@ -452,7 +428,7 @@ public abstract class Property implements Comparable<Property> {
    */
   public TagPath getPath(boolean unique) {
 
-    Stack stack = new Stack();
+    Stack<String> stack = new Stack<String>();
 
     // loop through parents
     String tag = getTag();
@@ -511,7 +487,7 @@ public abstract class Property implements Comparable<Property> {
   /**
    * Test properties
    */
-  public boolean hasProperties(List props) {
+  public boolean hasProperties(List<Property> props) {
     return children==null ? false : children.containsAll(props);
   }
   
@@ -528,9 +504,9 @@ public abstract class Property implements Comparable<Property> {
    * @param value regular expression pattern of value to match
    * @return matching properties
    */
-  public List findProperties(Pattern tag, Pattern value) {
+  public List<Property> findProperties(Pattern tag, Pattern value) {
     // create result
-    List result = new ArrayList();
+    List<Property> result = new ArrayList<Property>();
     // check argument
     if (value==null) value = Pattern.compile(".*");
     // recurse
@@ -543,7 +519,7 @@ public abstract class Property implements Comparable<Property> {
     return tag.matcher(getTag()).matches() && value.matcher(getValue()).matches(); 
   }
   
-  private void findPropertiesRecursively(Collection result, Pattern tag, Pattern value, boolean recursively) {
+  private void findPropertiesRecursively(Collection<Property> result, Pattern tag, Pattern value, boolean recursively) {
     // check current
     if (findPropertiesRecursivelyTest(tag, value))
       result.add(this);
@@ -565,7 +541,7 @@ public abstract class Property implements Comparable<Property> {
    * Returns this property's properties by tag 
    */
   public Property[] getProperties(String tag, boolean validOnly) {
-    ArrayList result = new ArrayList(getNoOfProperties());
+    ArrayList<Property> result = new ArrayList<Property>(getNoOfProperties());
     for (int i=0, j = getNoOfProperties(); i<j ; i++) {
       Property prop = getProperty(i);
       if (prop.getTag().equals(tag)&&(!validOnly||prop.isValid()))
@@ -692,7 +668,7 @@ public abstract class Property implements Comparable<Property> {
    */
   public Property[] getProperties(TagPath path) {
     
-   final  List result = new ArrayList(10);
+   final  List<Property> result = new ArrayList<Property>(10);
 
     PropertyVisitor visitor = new PropertyVisitor() {
       protected boolean leaf(Property prop) {
@@ -981,8 +957,8 @@ public abstract class Property implements Comparable<Property> {
   /**
    * Convert collection of properties into array
    */
-  public static Property[] toArray(Collection ps) {
-    return (Property[])ps.toArray(new Property[ps.size()]);
+  public static Property[] toArray(Collection<Property> ps) {
+    return ps.toArray(new Property[ps.size()]);
   }
   
   /**

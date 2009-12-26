@@ -22,7 +22,6 @@ package genj.edit;
 import genj.edit.beans.PropertyBean;
 import genj.edit.beans.ReferencesBean;
 import genj.edit.beans.RelationshipsBean;
-import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.MetaProperty;
@@ -41,7 +40,6 @@ import genj.util.swing.LinkWidget;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.PopupWidget;
 import genj.view.ContextProvider;
-import genj.view.SelectionSink;
 import genj.view.ViewContext;
 
 import java.awt.BorderLayout;
@@ -79,6 +77,10 @@ import javax.swing.event.ChangeListener;
  * A panel for laying out beans for an entity
  */
 public class BeanPanel extends JPanel {
+
+  private static final String
+    PROXY_PROPERTY_ROOT = "beanpanel.bean.root",
+    PROXY_PROPERTY_PATH = "beanpanel.bean.path";
 
   /** keep a cache of descriptors */
   private static Map<String, NestedBlockLayout> DESCRIPTORCACHE = new HashMap<String, NestedBlockLayout>();
@@ -173,11 +175,14 @@ public class BeanPanel extends JPanel {
     for (PropertyBean bean : beans) {
       // check next
       if (bean.hasChanged()&&bean.getProperty()!=null) {
-        Property prop = bean.getProperty();
-        // proxied?:
-        PropertyProxy proxy = (PropertyProxy)prop.getContaining(PropertyProxy.class);
-        if (proxy!=null) 
-          prop = proxy.getProxied().setValue(prop.getPathToContaining(proxy), "");
+        
+        // re-resolve the property we're going to commit too (bean might have been looking at a proxy)
+        Property root = (Property)bean.getClientProperty(PROXY_PROPERTY_ROOT);
+        TagPath path = (TagPath)bean.getClientProperty(PROXY_PROPERTY_PATH);
+        Property prop = root.getProperty(path,false);
+        if (prop==null)
+          prop = root.setValue(path, "");
+        
         // commit its changes
         bean.commit(prop);
         // next
@@ -396,16 +401,7 @@ public class BeanPanel extends JPanel {
    */
   private PropertyBean createBean(Property root, TagPath path, MetaProperty meta, String beanOverride) {
 
-    // try to resolve existing prop - this has to be a property along
-    // the first possible path to avoid that in this case:
-    //  INDI
-    //   BIRT
-    //    DATE sometime
-    //   BIRT
-    //    PLAC somewhere
-    // the result of INDI:BIRT:DATE/INDI:BIRT:PLAC is
-    //   somtime/somewhere
-    // => !backtrack
+    // try to resolve existing prop (first possible path to avoid merging of branches)
     Property prop = root.getProperty(path, false);
     
     // addressed property doesn't exist yet? create a proxy that mirrors
@@ -413,12 +409,16 @@ public class BeanPanel extends JPanel {
     // context - namely gedcom)
     if (prop==null||prop instanceof PropertyXRef) 
       prop = new PropertyProxy(root).setValue(path, "");
-
+    
     // create bean for property
     PropertyBean bean = beanOverride==null ? PropertyBean.getBean(prop.getClass()) : PropertyBean.getBean(beanOverride);
     bean.setProperty(prop);
     bean.addChangeListener(changeSupport);
     beans.add(bean);
+
+    // remember path
+    bean.putClientProperty(PROXY_PROPERTY_ROOT, root);
+    bean.putClientProperty(PROXY_PROPERTY_PATH, path);
     
     // done
     return bean;
@@ -547,12 +547,7 @@ public class BeanPanel extends JPanel {
        });
        
        // send selection
-       SwingUtilities.invokeLater(new Runnable() {
-         // not deferring this won't make the focus switch happen :(
-         public void run() {
-           SelectionSink.Dispatcher.fireSelection(BeanPanel.this, new Context(property), false);
-         }
-       });
+       select(property);
        
        // done
      }

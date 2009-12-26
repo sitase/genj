@@ -58,6 +58,7 @@ import genj.gedcom.PropertyMedia;
 import genj.gedcom.PropertyNote;
 import genj.gedcom.PropertyPlace;
 import genj.gedcom.PropertyRepository;
+import genj.gedcom.PropertySex;
 import genj.gedcom.PropertySource;
 import genj.gedcom.PropertySubmitter;
 import genj.gedcom.Submitter;
@@ -125,8 +126,9 @@ public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
   private void wizardFirst(Workbench workbench, Gedcom gedcom) throws GedcomException {
     
     // create sample work
-    final Entity adamOrEve = new Gedcom(gedcom.getOrigin()).createEntity("INDI");
-
+    final Indi adamOrEve = (Indi)new Gedcom(gedcom.getOrigin()).createEntity("INDI");
+    adamOrEve.setSex(PropertySex.MALE);
+    
     // let user edit it
     final BeanPanel panel = new BeanPanel();
     panel.setRoot(adamOrEve);
@@ -140,7 +142,7 @@ public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
         panel.commit();
         
         // copy changes to original
-        gedcom.createEntity(Gedcom.INDI).copyProperties(adamOrEve, true);
+        gedcom.createEntity(Gedcom.INDI).copyProperties(adamOrEve.getProperties(), true);
         
         // commit submitter as well
         Submitter submitter = (Submitter) gedcom.createEntity(Gedcom.SUBM);
