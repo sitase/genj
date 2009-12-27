@@ -25,9 +25,9 @@ import genj.util.Resources;
 import genj.util.Trackable;
 import genj.util.WordBuffer;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.UnitGraphics;
-import genj.window.WindowManager;
 
 import java.awt.Dimension;
 import java.awt.Graphics;
@@ -386,7 +386,7 @@ public class PrintTask extends Action2 implements Printable, Trackable {
     };
 
     // show it in dialog
-    int choice = WindowManager.getInstance().openDialog("print", title, WindowManager.QUESTION_MESSAGE, widget, actions, owner);
+    int choice = DialogHelper.openDialog(title, DialogHelper.QUESTION_MESSAGE, widget, actions, owner);
 
     // keep settings
     registry.put(attributes);
@@ -423,7 +423,7 @@ public class PrintTask extends Action2 implements Printable, Trackable {
    */
   protected boolean postExecute(boolean preExecuteResult) {
 //    // close progress
-//    WindowManager.getInstance().close(progress);
+//    WindowManager.close(progress);
     // something we should know about?
     if (throwable != null) {
       LOG.log(Level.WARNING, "print() threw error", throwable);

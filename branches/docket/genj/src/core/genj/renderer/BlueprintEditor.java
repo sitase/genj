@@ -30,7 +30,7 @@ import genj.gedcom.PropertyXRef;
 import genj.gedcom.TagPath;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.window.WindowManager;
+import genj.util.swing.DialogHelper;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -240,7 +240,7 @@ public class BlueprintEditor extends JSplitPane {
       TagPath[] paths = gedcom.getGrammar().getAllPaths(blueprint.getTag(), Property.class);
       tree.setPaths(paths, new TagPath[0]);
       // Recheck with the user
-      int option = WindowManager.getInstance().openDialog(null,resources.getString("prop.insert.tip"),WindowManager.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
+      int option = DialogHelper.openDialog(resources.getString("prop.insert.tip"),DialogHelper.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
       // .. OK?
       if (option!=0) return;
       // add those properties

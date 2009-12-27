@@ -32,10 +32,10 @@ import genj.util.GridBagHelper;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.FileChooserWidget;
 import genj.util.swing.PopupWidget;
 import genj.util.swing.TextFieldWidget;
-import genj.window.WindowManager;
 
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
@@ -478,7 +478,7 @@ public class Options extends OptionProvider {
         l.stateChanged(null);
 
         // show a dialog with file association fields
-        int rc = WindowManager.getInstance().openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, panel, new Action[]{ ok, delete, cancel }, widget);
+        int rc = DialogHelper.openDialog(getName(), DialogHelper.QUESTION_MESSAGE, panel, new Action[]{ ok, delete, cancel }, widget);
         if (rc==-1||rc==2)
           return;
 

@@ -26,11 +26,11 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.UnitOfWork;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
 import genj.view.SelectionSink;
-import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
 
@@ -121,7 +121,7 @@ public abstract class AbstractChange extends Action2 {
       };
       
       // Recheck with the user
-      int rc = WindowManager.getInstance().openDialog(getClass().getName(), getText(), WindowManager.QUESTION_MESSAGE, getDialogContent(), actions, WindowManager.getComponent(event) );
+      int rc = DialogHelper.openDialog(getText(), DialogHelper.QUESTION_MESSAGE, getDialogContent(), actions, DialogHelper.getComponent(event) );
       if (rc!=0)
         return;
     }
@@ -134,7 +134,7 @@ public abstract class AbstractChange extends Action2 {
         }
       });
     } catch (Throwable t) {
-      WindowManager.getInstance().openDialog(getClass().getName(), null, WindowManager.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), WindowManager.getComponent(event));
+      DialogHelper.openDialog(null, DialogHelper.ERROR_MESSAGE, t.getMessage(), Action2.okOnly(), DialogHelper.getComponent(event));
     }
     
     // propagate selection

@@ -28,12 +28,12 @@ import genj.io.FileAssociation;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.EditorHyperlinkSupport;
 import genj.util.swing.ImageIcon;
 import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
-import genj.window.WindowManager;
 
 import java.awt.CardLayout;
 import java.awt.Dimension;
@@ -85,7 +85,7 @@ public class ReportView extends View {
   /** components to show report info */
   private Output output;
   private ActionStart actionStart = new ActionStart();
-  private ActionStop actionStop = new ActionStop(actionStart);
+  private ActionStop actionStop = new ActionStop();
   private ActionConsole actionConsole = new ActionConsole();
 
   /** registry for settings */
@@ -156,7 +156,7 @@ public class ReportView extends View {
 
     // check if appropriate
     if (context == null || report.accepts(context) == null) {
-      WindowManager.getInstance().openDialog(null, report.getName(), WindowManager.ERROR_MESSAGE, RESOURCES.getString("report.noaccept"), Action2.okOnly(), ReportView.this);
+      DialogHelper.openDialog(report.getName(), DialogHelper.ERROR_MESSAGE, RESOURCES.getString("report.noaccept"), Action2.okOnly(), ReportView.this);
       return;
     }
 
@@ -214,7 +214,7 @@ public class ReportView extends View {
     } catch (Throwable t) {
     }
 
-    if (0 != WindowManager.getInstance().openDialog("report", RESOURCES.getString("report.reports"), WindowManager.QUESTION_MESSAGE, selector, Action2.okCancel(), ReportView.this))
+    if (0 != DialogHelper.openDialog(RESOURCES.getString("report.reports"), DialogHelper.QUESTION_MESSAGE, selector, Action2.okCancel(), ReportView.this))
       return;
 
     Report report = selector.getReport();
@@ -231,7 +231,7 @@ public class ReportView extends View {
    * stop any running report
    */
   public void stopReport() {
-    // FIXME docket stopReport()
+    // TODO there's no way to stop a running java report atm
   }
 
   @Override
@@ -329,7 +329,7 @@ public class ReportView extends View {
       Action[] actions = Action2.okCancel();
       FormatOptionsWidget options = new FormatOptionsWidget(doc, foRegistry);
       options.connect(actions[0]);
-      if (0 != WindowManager.getInstance().openDialog("reportdoc", title, WindowManager.QUESTION_MESSAGE, options, actions, this))
+      if (0 != DialogHelper.openDialog(title, DialogHelper.QUESTION_MESSAGE, options, actions, this))
         return;
 
       // grab formatter and output file
@@ -372,7 +372,9 @@ public class ReportView extends View {
   public void populate(ToolBar toolbar) {
 
     toolbar.add(actionStart);
-    toolbar.add(actionStop);
+    
+    // TODO stopping report doesn't really work anyways
+    //toolbar.add(actionStop);
     toolbar.add(actionConsole);
     toolbar.add(new ActionSave());
 
@@ -383,13 +385,10 @@ public class ReportView extends View {
    * Action: STOP
    */
   private class ActionStop extends Action2 {
-    private Action2 start;
-
-    protected ActionStop(Action2 start) {
+    protected ActionStop() {
       setImage(imgStop);
       setTip(RESOURCES, "report.stop.tip");
       setEnabled(false);
-      this.start = start;
     }
 
     public void actionPerformed(ActionEvent event) {
@@ -467,7 +466,7 @@ public class ReportView extends View {
 
       // .. exits ?
       if (file.exists()) {
-        int rc = WindowManager.getInstance().openDialog(null, RESOURCES.getString("title"), WindowManager.WARNING_MESSAGE, "File exists. Overwrite?", Action2.yesNo(), ReportView.this);
+        int rc = DialogHelper.openDialog(RESOURCES.getString("title"), DialogHelper.WARNING_MESSAGE, "File exists. Overwrite?", Action2.yesNo(), ReportView.this);
         if (rc != 0) {
           return;
         }
@@ -478,7 +477,7 @@ public class ReportView extends View {
       try {
         out = new OutputStreamWriter(new FileOutputStream(file), Charset.forName("UTF8"));
       } catch (IOException ex) {
-        WindowManager.getInstance().openDialog(null, RESOURCES.getString("title"), WindowManager.ERROR_MESSAGE, "Error while saving to\n" + file.getAbsolutePath(), Action2.okOnly(), ReportView.this);
+        DialogHelper.openDialog(RESOURCES.getString("title"), DialogHelper.ERROR_MESSAGE, "Error while saving to\n" + file.getAbsolutePath(), Action2.okOnly(), ReportView.this);
         return;
       }
 

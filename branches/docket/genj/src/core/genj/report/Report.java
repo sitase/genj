@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.8 $ $Author: nmeier $ $Date: 2009-12-16 01:37:19 $
+ * $Revision: 1.136.2.9 $ $Author: nmeier $ $Date: 2009-12-27 22:45:56 $
  */
 package genj.report;
 
@@ -34,7 +34,7 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
-import genj.window.WindowManager;
+import genj.util.swing.DialogHelper;
 
 import java.awt.Component;
 import java.io.CharArrayWriter;
@@ -120,9 +120,6 @@ public abstract class Report implements Cloneable {
 
   /** translation texts */
   private Resources resources;
-
-  /** a window  manager */
-  private final static WindowManager windowManager = WindowManager.getInstance();
 
   /** options */
   private List<PropertyOption> options;
@@ -382,7 +379,7 @@ public abstract class Report implements Cloneable {
 
     // choose an existing file?
     if (result.exists()&&askForOverwrite) {
-      rc = windowManager.openDialog(null, title, WindowManager.WARNING_MESSAGE, ReportView.RESOURCES.getString("report.file.overwrite"), Action2.yesNo(), owner.get());
+      rc = DialogHelper.openDialog(title, DialogHelper.WARNING_MESSAGE, ReportView.RESOURCES.getString("report.file.overwrite"), Action2.yesNo(), owner.get());
       if (rc!=0)
         return null;
     }
@@ -430,7 +427,7 @@ public abstract class Report implements Cloneable {
       select.setSelection(entity);
 
     // show it
-    int rc = windowManager.openDialog("select."+tag,getName(),WindowManager.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),select},Action2.okCancel(),owner.get());
+    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),select},Action2.okCancel(),owner.get());
     if (rc!=0)
       return null;
 
@@ -450,7 +447,7 @@ public abstract class Report implements Cloneable {
 //   * A sub-class can query the user to choose a value that is somehow represented by given component
 //   */
 //  public final boolean getValueFromUser(JComponent options) {
-//    int rc = windowManager.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, new JComponent[]{options}, Action2.okCancel(), owner.get());
+//    int rc = WindowManager.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, new JComponent[]{options}, Action2.okCancel(), owner.get());
 //    return rc==0;
 //  }
 
@@ -462,7 +459,7 @@ public abstract class Report implements Cloneable {
     ChoiceWidget choice = new ChoiceWidget(choices, selected);
     choice.setEditable(false);
 
-    int rc = windowManager.openDialog(null,getName(),WindowManager.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner.get());
+    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner.get());
 
     return rc==0 ? choice.getSelectedItem() : null;
   }
@@ -490,7 +487,7 @@ public abstract class Report implements Cloneable {
 
     // show 'em
     ChoiceWidget choice = new ChoiceWidget(defaultChoices, defaultChoices.length>0 ? defaultChoices[0] : "");
-    int rc = windowManager.openDialog(null,getName(),WindowManager.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner.get());
+    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner.get());
     String result = rc==0 ? choice.getText() : null;
 
     // Remember?
@@ -541,7 +538,7 @@ public abstract class Report implements Cloneable {
 
     // show to user and check for non-ok
     OptionsWidget widget = new OptionsWidget(title, os);
-    int rc = windowManager.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, widget, Action2.okCancel(), owner.get());
+    int rc = DialogHelper.openDialog(getName(), DialogHelper.QUESTION_MESSAGE, widget, Action2.okCancel(), owner.get());
     if (rc!=0)
       return false;
 
@@ -573,7 +570,7 @@ public abstract class Report implements Cloneable {
     for (int i=0;i<as.length;i++)
       as[i]  = new Action2(actions[i]);
 
-    return windowManager.openDialog(null, getName(), WindowManager.QUESTION_MESSAGE, msg, as, owner.get());
+    return DialogHelper.openDialog(getName(), DialogHelper.QUESTION_MESSAGE, msg, as, owner.get());
 
   }
 

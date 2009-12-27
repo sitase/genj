@@ -26,9 +26,9 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertyName;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextFieldWidget;
-import genj.window.WindowManager;
 
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -103,9 +103,8 @@ public class NameBean extends PropertyBean {
     cAll.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         String msg = getReplaceAllMsg();
-        WindowManager wm = WindowManager.getInstance();
-        if (wm!=null&&msg!=null&&cAll.isSelected()) {
-          int rc = wm.openDialog(null, RESOURCES.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), NameBean.this);
+        if (msg!=null&&cAll.isSelected()) {
+          int rc = DialogHelper.openDialog(RESOURCES.getString("choice.global.enable"), DialogHelper.QUESTION_MESSAGE, msg, Action2.yesNo(), NameBean.this);
           cAll.setSelected(rc==0);
         }        
       }

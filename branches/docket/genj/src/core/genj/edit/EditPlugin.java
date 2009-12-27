@@ -68,9 +68,9 @@ import genj.io.FileAssociation;
 import genj.util.EnvironmentChecker;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.view.ActionProvider;
-import genj.window.WindowManager;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -131,8 +131,9 @@ public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
     
     // let user edit it
     final BeanPanel panel = new BeanPanel();
+    panel.setShowTabs(false);
     panel.setRoot(adamOrEve);
-    if (0!=WindowManager.getInstance().openDialog(null, RESOURCES.getString("wizard.first", gedcom.getName()), WindowManager.QUESTION_MESSAGE, panel, Action2.okCancel(), workbench)) 
+    if (0!=DialogHelper.openDialog(RESOURCES.getString("wizard.first", gedcom.getName()), DialogHelper.QUESTION_MESSAGE, panel, Action2.okCancel(), workbench)) 
       return;
     
     gedcom.doMuteUnitOfWork(new UnitOfWork() {

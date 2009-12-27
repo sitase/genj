@@ -35,6 +35,7 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
 import genj.util.swing.SliderWidget;
@@ -47,7 +48,6 @@ import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -1043,7 +1043,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
       
       // let the user choose an individual
       SelectEntityWidget select = new SelectEntityWidget(context.getGedcom(), Gedcom.INDI, null);
-      int rc = WindowManager.getInstance().openDialog("select.root", getText(), WindowManager.QUESTION_MESSAGE, select, Action2.okCancel(), TreeView.this);
+      int rc = DialogHelper.openDialog(getText(), DialogHelper.QUESTION_MESSAGE, select, Action2.okCancel(), TreeView.this);
       if (rc==0) 
         setRoot(select.getSelection());
       
@@ -1088,8 +1088,8 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
       }
       
       // Ask for name of bookmark
-      name = WindowManager.getInstance().openDialog(
-        null, title, WindowManager.QUESTION_MESSAGE, RESOURCES.getString("bookmark.name"), name, TreeView.this
+      name = DialogHelper.openDialog(
+        title, DialogHelper.QUESTION_MESSAGE, RESOURCES.getString("bookmark.name"), name, TreeView.this
       );
       
       if (name==null) return;

@@ -25,7 +25,7 @@ import genj.gedcom.PropertyPlace;
 import genj.util.GridBagHelper;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
-import genj.window.WindowManager;
+import genj.util.swing.DialogHelper;
 
 import java.awt.Component;
 import java.awt.event.ActionEvent;
@@ -63,9 +63,8 @@ public class PlaceBean extends PropertyBean {
     // listen to selection of global and ask for confirmation
     global.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
-        WindowManager wm = WindowManager.getInstance();
-        if (wm!=null&&global.isSelected()) {
-          int rc = wm.openDialog(null, RESOURCES.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, getGlobalConfirmMessage(),Action2.yesNo(), PlaceBean.this);
+        if (global.isSelected()) {
+          int rc = DialogHelper.openDialog(RESOURCES.getString("choice.global.enable"), DialogHelper.QUESTION_MESSAGE, getGlobalConfirmMessage(), Action2.yesNo(),PlaceBean.this);
           global.setSelected(rc==0);
         }        
       }

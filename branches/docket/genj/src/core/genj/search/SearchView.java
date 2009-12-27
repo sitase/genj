@@ -32,6 +32,7 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.HeadlessLabel;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.PopupWidget;
@@ -40,7 +41,6 @@ import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -236,7 +236,7 @@ public class SearchView extends View {
     if (path.length()>0) try {
       p = new TagPath(path);
     } catch (IllegalArgumentException iae) {
-      WindowManager.getInstance().openDialog(null,value,WindowManager.ERROR_MESSAGE,iae.getMessage(),Action2.okOnly(),SearchView.this);
+      DialogHelper.openDialog(value,DialogHelper.ERROR_MESSAGE,iae.getMessage(),Action2.okOnly(),SearchView.this);
       return;
     }
     

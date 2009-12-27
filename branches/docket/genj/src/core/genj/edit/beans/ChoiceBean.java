@@ -24,7 +24,7 @@ import genj.gedcom.PropertyChoiceValue;
 import genj.util.GridBagHelper;
 import genj.util.swing.Action2;
 import genj.util.swing.ChoiceWidget;
-import genj.window.WindowManager;
+import genj.util.swing.DialogHelper;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -86,9 +86,8 @@ public class ChoiceBean extends PropertyBean {
     global.addActionListener(new ActionListener() {
       public void actionPerformed(ActionEvent e) {
         String msg = getGlobalReplaceMsg();
-        WindowManager wm = WindowManager.getInstance();
-        if (wm!=null&&msg!=null&&global.isSelected()) {
-          int rc = wm.openDialog(null, RESOURCES.getString("choice.global.enable"), WindowManager.QUESTION_MESSAGE, msg, Action2.yesNo(), ChoiceBean.this);
+        if (msg!=null&&global.isSelected()) {
+          int rc = DialogHelper.openDialog(RESOURCES.getString("choice.global.enable"), DialogHelper.QUESTION_MESSAGE, msg, Action2.yesNo(), ChoiceBean.this);
           global.setSelected(rc==0);
         }        
       }

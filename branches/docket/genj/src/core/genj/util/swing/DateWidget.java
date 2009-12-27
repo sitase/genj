@@ -25,7 +25,6 @@ import genj.gedcom.time.Calendar;
 import genj.gedcom.time.PointInTime;
 import genj.util.ChangeSupport;
 import genj.util.WordBuffer;
-import genj.window.WindowManager;
 
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
@@ -318,7 +317,7 @@ public class DateWidget extends JPanel {
           pit.set(newCalendar);
         } catch (GedcomException e) {
           Action[] actions = { Action2.ok(),  new Action2(Calendar.TXT_CALENDAR_RESET) };
-          int rc = WindowManager.getInstance().openDialog(null, Calendar.TXT_CALENDAR_SWITCH, WindowManager.ERROR_MESSAGE, e.getMessage(), actions, DateWidget.this);
+          int rc = DialogHelper.openDialog(Calendar.TXT_CALENDAR_SWITCH, DialogHelper.ERROR_MESSAGE, e.getMessage(), actions, DateWidget.this);
           if (rc==0) 
             return;
           pit = new PointInTime(newCalendar);

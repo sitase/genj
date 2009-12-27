@@ -94,6 +94,8 @@ public class BeanPanel extends JPanel {
   /** content */
   private JPanel detail = new JPanel();
   private JTabbedPane tabs = new ContextTabbedPane();
+
+  private boolean isShowTabs = true;
   
   /**
    * Find a descriptor 
@@ -250,6 +252,11 @@ public class BeanPanel extends JPanel {
     
     // done
   }
+  
+  /** switch on detail */
+  public void setShowTabs(boolean set) {
+    isShowTabs = set;
+  }
 
   /** set context */
   public void setRoot(Property root) {
@@ -275,17 +282,19 @@ public class BeanPanel extends JPanel {
       if (descriptor!=null) 
         parse(detail, root, root, descriptor, beanifiedTags);
 
-      // create tab for relationships of root
-      createReferencesTabs(root);
-      
-      // create a tab for properties of root w/o descriptor
-      createPropertiesTab(root, beanifiedTags);
+      if (isShowTabs) {
+        // create tab for relationships of root
+        createReferencesTabs(root);
+        
+        // create a tab for properties of root w/o descriptor
+        createPropertiesTab(root, beanifiedTags);
+    
+        // create tabs for properties of root w/descriptor
+        createEventTabs(root, beanifiedTags);
   
-      // create tabs for properties of root w/descriptor
-      createPropertyTabs(root, beanifiedTags);
-
-      // create a tab for links to create new
-      createLinkTab(root, beanifiedTags);
+        // create a tab for links to create new
+        createLinkTab(root, beanifiedTags);
+      }
     }
       
     // done
@@ -405,8 +414,7 @@ public class BeanPanel extends JPanel {
     Property prop = root.getProperty(path, false);
     
     // addressed property doesn't exist yet? create a proxy that mirrors
-    // the root and add create a temporary holder (enjoys the necessary
-    // context - namely gedcom)
+    // the root and provides the necessary context
     if (prop==null||prop instanceof PropertyXRef) 
       prop = new PropertyProxy(root).setValue(path, "");
     
@@ -452,9 +460,9 @@ public class BeanPanel extends JPanel {
   }
   
   /**
-   * Create tabs for proeprties from introspection
+   * Create tabs for events
    */
-  private void createPropertyTabs(Property root, Set<String> beanifiedTags) {
+  private void createEventTabs(Property root, Set<String> beanifiedTags) {
     
     // don't create tabs for already visited tabs unless it's a secondary
     Set<String> skippedOnceTags = new HashSet<String>();
@@ -467,7 +475,7 @@ public class BeanPanel extends JPanel {
         continue;
       beanifiedTags.add(tag);
       // create a tab for it
-      createPropertyTab(root, prop);
+      createEventTab(root, prop);
       // next
     }
     // done
@@ -476,7 +484,7 @@ public class BeanPanel extends JPanel {
   /**
    * Create a tab
    */
-  private void createPropertyTab(Property root, Property prop) {
+  private void createEventTab(Property root, Property prop) {
      
     // don't do xrefs
     if (prop instanceof PropertyXRef)

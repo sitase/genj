@@ -26,7 +26,7 @@ import genj.util.EnvironmentChecker;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.window.WindowManager;
+import genj.util.swing.DialogHelper;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -172,7 +172,7 @@ public class App {
           // keep it      
           REGISTRY.put("disclaimer", version);
           // show disclaimer
-          WindowManager.getInstance().openDialog("disclaimer", "Disclaimer", WindowManager.INFORMATION_MESSAGE, RESOURCES.getString("app.disclaimer"), Action2.okOnly(), null);    
+          DialogHelper.openDialog("Disclaimer", DialogHelper.INFORMATION_MESSAGE, RESOURCES.getString("app.disclaimer"), Action2.okOnly(), null);    
         }
         
         // setup control center

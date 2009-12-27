@@ -44,6 +44,7 @@ import genj.util.SafeProxy;
 import genj.util.ServiceLookup;
 import genj.util.Trackable;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.FileChooser;
 import genj.util.swing.HeapStatusWidget;
 import genj.util.swing.MenuHelper;
@@ -53,7 +54,6 @@ import genj.view.SelectionSink;
 import genj.view.View;
 import genj.view.ViewFactory;
 import genj.view.ActionProvider.Purpose;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -113,7 +113,6 @@ public class Workbench extends JPanel implements SelectionSink {
   private List<WorkbenchListener> listeners = new CopyOnWriteArrayList<WorkbenchListener>();
   private List<Object> plugins = new ArrayList<Object>();
   private List<ViewFactory> viewFactories = ServiceLookup.lookup(ViewFactory.class);
-  private WindowManager windowManager;
   private Context context = new Context();
   private DockingPane dockingPane = new DockingPane();
   private Menu menu = new Menu();
@@ -127,7 +126,6 @@ public class Workbench extends JPanel implements SelectionSink {
   public Workbench(Runnable onExit) {
 
     // Initialize data
-    windowManager = WindowManager.getInstance();
     runOnExit = onExit;
     
     // plugins
@@ -158,7 +156,7 @@ public class Workbench extends JPanel implements SelectionSink {
   public void addNotify() {
     super.addNotify();
     // install menu into frame
-    WindowManager.visitContainers(this, new WindowManager.ContainerVisitor() {
+    DialogHelper.visitContainers(this, new DialogHelper.ContainerVisitor() {
       public Component visit(Component parent, Component child) {
         if (parent instanceof JFrame)
           ((JFrame)parent).setJMenuBar(menu);
@@ -187,7 +185,7 @@ public class Workbench extends JPanel implements SelectionSink {
     if (!file.getName().endsWith(".ged"))
       file = new File(file.getAbsolutePath() + ".ged");
     if (file.exists()) {
-      int rc = windowManager.openDialog(null, RES.getString("cc.create.title"), WindowManager.WARNING_MESSAGE, RES.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
+      int rc = DialogHelper.openDialog(RES.getString("cc.create.title"), DialogHelper.WARNING_MESSAGE, RES.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
       if (rc != 0)
         return;
     }
@@ -253,7 +251,7 @@ public class Workbench extends JPanel implements SelectionSink {
       // .. prepare our reader
       reader = (GedcomReader)Spin.off(GedcomReaderFactory.createReader(origin, (GedcomReaderContext)Spin.over(new GedcomReaderContext() {
         public String getPassword() {
-          return windowManager.openDialog(null, origin.getName(), WindowManager.QUESTION_MESSAGE, RES.getString("cc.provide_password"), "", Workbench.this);
+          return DialogHelper.openDialog(origin.getName(), DialogHelper.QUESTION_MESSAGE, RES.getString("cc.provide_password"), "", Workbench.this);
         }
         public void handleWarning(int line, String warning, Context context) {
           // FIXME push warnings in Task docket
@@ -262,7 +260,7 @@ public class Workbench extends JPanel implements SelectionSink {
 
     } catch (IOException ex) {
       String txt = RES.getString("cc.open.no_connect_to", origin) + "\n[" + ex.getMessage() + "]";
-      windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, txt, Action2.okOnly(), Workbench.this);
+      DialogHelper.openDialog(origin.getName(), DialogHelper.ERROR_MESSAGE, txt, Action2.okOnly(), Workbench.this);
       return false;
     }
 
@@ -271,7 +269,7 @@ public class Workbench extends JPanel implements SelectionSink {
       setGedcom(reader.read());
     } catch (GedcomIOException ex) {
       // tell the user about it
-      windowManager.openDialog(null, origin.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.open.read_error", "" + ex.getLine()) + ":\n" + ex.getMessage(), Action2.okOnly(), Workbench.this);
+      DialogHelper.openDialog(origin.getName(), DialogHelper.ERROR_MESSAGE, RES.getString("cc.open.read_error", "" + ex.getLine()) + ":\n" + ex.getMessage(), Action2.okOnly(), Workbench.this);
       // abort
       return false;
     } finally {
@@ -320,7 +318,7 @@ public class Workbench extends JPanel implements SelectionSink {
     fireCommit();
     
     // .. choose file
-    // FIXME docket let views participate in save filter
+    // FIXME docket let views and plugins participate in save filter
     SaveOptionsWidget options = new SaveOptionsWidget(context.getGedcom(), new Filter[] {});
     // (Filter[])viewManager.getViews(Filter.class, gedcomBeingSaved));
     File file = chooseFile(RES.getString("cc.save.title"), RES.getString("cc.save.action"), options);
@@ -329,7 +327,7 @@ public class Workbench extends JPanel implements SelectionSink {
   
     // Need confirmation if File exists?
     if (file.exists()) {
-      int rc = windowManager.openDialog(null, RES.getString("cc.save.title"), WindowManager.WARNING_MESSAGE, RES.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
+      int rc = DialogHelper.openDialog(RES.getString("cc.save.title"), DialogHelper.WARNING_MESSAGE, RES.getString("cc.open.file_exists", file.getName()), Action2.yesNo(), Workbench.this);
       if (rc != 0) 
         return false;
     }
@@ -376,9 +374,8 @@ public class Workbench extends JPanel implements SelectionSink {
   private boolean saveGedcomImpl(Gedcom gedcom, Filter[] filters) {
   
 //  // .. open progress dialog
-//  progress = windowManager.openNonModalDialog(null, RES.getString("cc.save.saving", file.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(gedWriter, getThread()), Action2.cancelOnly(), getTarget());
+//  progress = WindowManager.openNonModalDialog(null, RES.getString("cc.save.saving", file.getName()), WindowManager.INFORMATION_MESSAGE, new ProgressWidget(gedWriter, getThread()), Action2.cancelOnly(), getTarget());
 
-    // FIXME docket async write
     try {
       
       // prep files and writer
@@ -395,10 +392,10 @@ public class Workbench extends JPanel implements SelectionSink {
         // .. create writer
         writer = new GedcomWriter(gedcom, new FileOutputStream(temp));
       } catch (GedcomEncodingException gee) {
-        windowManager.openDialog(null, gedcom.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.save.write_encoding_error", gee.getMessage()), Action2.okOnly(), Workbench.this);
+        DialogHelper.openDialog(gedcom.getName(), DialogHelper.ERROR_MESSAGE, RES.getString("cc.save.write_encoding_error", gee.getMessage()), Action2.okOnly(), Workbench.this);
         return false;
       } catch (IOException ex) {
-        windowManager.openDialog(null, gedcom.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.save.open_error", gedcom.getOrigin().getFile().getAbsolutePath()), Action2.okOnly(), Workbench.this);
+        DialogHelper.openDialog(gedcom.getName(), DialogHelper.ERROR_MESSAGE, RES.getString("cc.save.open_error", gedcom.getOrigin().getFile().getAbsolutePath()), Action2.okOnly(), Workbench.this);
         return false;
       }
       writer.setFilters(filters);
@@ -419,12 +416,12 @@ public class Workbench extends JPanel implements SelectionSink {
         throw new GedcomIOException("Couldn't move temporary " + temp.getName() + " to " + file.getName(), -1);
 
     } catch (GedcomIOException gioex) {
-      windowManager.openDialog(null, gedcom.getName(), WindowManager.ERROR_MESSAGE, RES.getString("cc.save.write_error", "" + gioex.getLine()) + ":\n" + gioex.getMessage(), Action2.okOnly(), Workbench.this);
+      DialogHelper.openDialog(gedcom.getName(), DialogHelper.ERROR_MESSAGE, RES.getString("cc.save.write_error", "" + gioex.getLine()) + ":\n" + gioex.getMessage(), Action2.okOnly(), Workbench.this);
       return false;
     }
 
 //  // close progress
-//  windowManager.close(progress);
+//  WindowManager.close(progress);
     
     // .. note changes are saved now
     if (gedcom.hasChanged())
@@ -481,7 +478,7 @@ public class Workbench extends JPanel implements SelectionSink {
     if (context.getGedcom().hasChanged()) {
       
       // close file officially
-      int rc = windowManager.openDialog("confirm-exit", null, WindowManager.WARNING_MESSAGE, RES.getString("cc.savechanges?", context.getGedcom().getName()), Action2.yesNoCancel(), Workbench.this);
+      int rc = DialogHelper.openDialog(null, DialogHelper.WARNING_MESSAGE, RES.getString("cc.savechanges?", context.getGedcom().getName()), Action2.yesNoCancel(), Workbench.this);
       // cancel - we're done
       if (rc == 2)
         return false;
@@ -765,7 +762,7 @@ public class Workbench extends JPanel implements SelectionSink {
 
     /** run */
     public void actionPerformed(ActionEvent event) {
-      windowManager.openDialog("about", RES.getString("cc.menu.about"), WindowManager.INFORMATION_MESSAGE, new AboutWidget(), Action2.okOnly(), Workbench.this);
+      DialogHelper.openDialog(RES.getString("cc.menu.about"), DialogHelper.INFORMATION_MESSAGE, new AboutWidget(), Action2.okOnly(), Workbench.this);
       // done
     }
   } // ActionAbout
@@ -935,7 +932,7 @@ public class Workbench extends JPanel implements SelectionSink {
       OptionsWidget widget = new OptionsWidget(getText());
       widget.setOptions(OptionProvider.getAllOptions());
       // open dialog
-      windowManager.openDialog("options", getText(), WindowManager.INFORMATION_MESSAGE, widget, Action2.okOnly(), Workbench.this);
+      DialogHelper.openDialog(getText(), DialogHelper.INFORMATION_MESSAGE, widget, Action2.okOnly(), Workbench.this);
       // done
     }
   } // ActionOptions

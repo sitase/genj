@@ -36,12 +36,12 @@ import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.TextAreaWidget;
 import genj.view.ActionProvider;
 import genj.view.SelectionSink;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -302,7 +302,7 @@ import javax.swing.tree.TreePath;
       select.setSelection(gedcom.getEntity(REGISTRY.get("select."+entity.getTag(), (String)null)));
 
       // show it
-      boolean cancel = 0!=WindowManager.getInstance().openDialog("propagate", getText(), WindowManager.WARNING_MESSAGE, panel, Action2.okCancel(), AdvancedEditor.this);
+      boolean cancel = 0!=DialogHelper.openDialog(getText(), DialogHelper.WARNING_MESSAGE, panel, Action2.okCancel(), AdvancedEditor.this);
       if (cancel)
         return;
 
@@ -320,7 +320,7 @@ import javax.swing.tree.TreePath;
           }
         });
       } catch (GedcomException e) {
-        WindowManager.getInstance().openDialog(null,null,WindowManager.ERROR_MESSAGE,e.getMessage(),Action2.okOnly(), AdvancedEditor.this);
+        DialogHelper.openDialog(null,DialogHelper.ERROR_MESSAGE,e.getMessage(),Action2.okOnly(),AdvancedEditor.this);
       }
 
       // done
@@ -378,7 +378,7 @@ import javax.swing.tree.TreePath;
       // warn about cut
       String veto = getVeto(selection);
       if (veto.length()>0) {
-        int rc = WindowManager.getInstance().openDialog("cut.warning", resources.getString("action.cut"), WindowManager.WARNING_MESSAGE, veto, new Action[]{ new Action2(resources.getString("action.cut")), Action2.cancel() }, AdvancedEditor.this );
+        int rc = DialogHelper.openDialog(resources.getString("action.cut"), DialogHelper.WARNING_MESSAGE, veto, new Action[]{ new Action2(resources.getString("action.cut")), Action2.cancel() }, AdvancedEditor.this );
         if (rc!=0)
           return;
       }
@@ -550,14 +550,14 @@ import javax.swing.tree.TreePath;
         JLabel label = new JLabel(resources.getString("add.choose"));
         ChoosePropertyBean choose = new ChoosePropertyBean(parent, resources);
         JCheckBox check = new JCheckBox(resources.getString("add.default_too"),addDefaults);
-        int option = WindowManager.getInstance().openDialog("add",resources.getString("add.title"),WindowManager.QUESTION_MESSAGE,new JComponent[]{ label, choose, check },Action2.okCancel(), AdvancedEditor.this); 
+        int option = DialogHelper.openDialog(resources.getString("add.title"),DialogHelper.QUESTION_MESSAGE,new JComponent[]{ label, choose, check },Action2.okCancel(),AdvancedEditor.this); 
         if (option!=0)
           return;
         // .. calculate chosen tags
         tags = choose.getSelectedTags();
         addDefaults = check.isSelected();
         if (tags.length==0)  {
-          WindowManager.getInstance().openDialog(null,null,WindowManager.ERROR_MESSAGE,resources.getString("add.must_enter"),Action2.okOnly(), AdvancedEditor.this);
+          DialogHelper.openDialog(null,DialogHelper.ERROR_MESSAGE,resources.getString("add.must_enter"),Action2.okOnly(),AdvancedEditor.this);
           return;
         }
       }

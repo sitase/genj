@@ -23,8 +23,8 @@ import genj.gedcom.Gedcom;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 import genj.util.swing.ButtonHelper;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.HeadlessLabel;
-import genj.window.WindowManager;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -146,10 +146,9 @@ public class BlueprintList extends JSplitPane {
         return;
       Object node = path.getLastPathComponent();
       // get name
-      String name = WindowManager.getInstance().openDialog(
+      String name = DialogHelper.openDialog(
         null,
-        null,
-        WindowManager.QUESTION_MESSAGE,
+        DialogHelper.QUESTION_MESSAGE,
         resources.getString("blueprint.add.confirm"),
         "",
         BlueprintList.this
@@ -200,7 +199,7 @@ public class BlueprintList extends JSplitPane {
         return;
       // confirm
       Blueprint blueprint = (Blueprint)node;
-      int rc = WindowManager.getInstance().openDialog(null,null,WindowManager.QUESTION_MESSAGE,resources.getString("blueprint.del.confirm", blueprint.getName()),Action2.okCancel(),BlueprintList.this); 
+      int rc = DialogHelper.openDialog(null,DialogHelper.QUESTION_MESSAGE,resources.getString("blueprint.del.confirm", blueprint.getName()),Action2.okCancel(),BlueprintList.this); 
       if (rc!=0) 
         return;
       // remove selection

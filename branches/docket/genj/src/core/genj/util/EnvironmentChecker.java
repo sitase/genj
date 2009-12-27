@@ -292,8 +292,6 @@ public class EnvironmentChecker {
     try {
       File user_home_genj;
       File home = new File(System.getProperty("user.home"));
-      
-      // FIXME docket we split fromt the normal .genj folder in home here
       File dotgenj = new File(home, ".genj3");
       File appdata = new File(home, "Application Data");
       if (!isWindows() || dotgenj.isDirectory() || !appdata.isDirectory())

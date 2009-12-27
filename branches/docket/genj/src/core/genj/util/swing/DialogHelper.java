@@ -17,13 +17,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-package genj.window;
+package genj.util.swing;
 
-import genj.gedcom.Gedcom;
 import genj.util.Registry;
-import genj.util.swing.Action2;
-import genj.util.swing.TextAreaWidget;
-import genj.util.swing.TextFieldWidget;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
@@ -40,14 +36,12 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.EventObject;
 import java.util.StringTokenizer;
-import java.util.logging.Logger;
 
 import javax.swing.Action;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
-import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
@@ -57,21 +51,13 @@ import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 
 /**
- * Abstract base type for WindowManagers
+ * Helper for interacting with Dialogs and Windows
  */
-public class WindowManager {
+public class DialogHelper {
 
-  private final static Registry REGISTRY = Registry.get(WindowManager.class);
-  
   /** screen we're dealing with */
-  private Rectangle screen = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
+  private final static Rectangle screen = new Rectangle(Toolkit.getDefaultToolkit().getScreenSize());
   
-  /** a hidden default frame */
-  private JFrame defaultFrame = new JFrame();
-  
-  // FIXME docket get rid of window manager
-  private final static WindowManager INSTANCE = new WindowManager();
-
   /** message types*/
   public static final int  
     ERROR_MESSAGE = JOptionPane.ERROR_MESSAGE,
@@ -80,52 +66,7 @@ public class WindowManager {
     QUESTION_MESSAGE = JOptionPane.QUESTION_MESSAGE,
     PLAIN_MESSAGE = JOptionPane.PLAIN_MESSAGE;
 
-  /** a counter for temporary keys */
-  private int temporaryKeyCounter = 0;  
-
-  /** a log */
-  /*package*/ final static Logger LOG = Logger.getLogger("genj.window");
-  
-  /** 
-   * Constructor
-   */
-  private WindowManager() {
-    defaultFrame.setIconImage(Gedcom.getImage().getImage());
-  }
-  
-  /**
-   * Returns an appropriate WindowManager instance for given component
-   * @return manager or null if no appropriate manager could be found
-   */
-  public static WindowManager getInstance() {
-    return INSTANCE;
-  }
-  
-//  /**
-//   * Find a component for given source
-//   */
-//  public static Component getComponent(Object source) {
-//	  
-//	  if (source instanceof EventObject)
-//		  source = ((EventObject)source).getSource();
-//	  
-//		do {
-//		      if (source instanceof JPopupMenu) 
-//		    	  source = ((JPopupMenu)source).getInvoker();
-//		      else if (source instanceof JMenu)
-//		    	  source = ((JMenu)source).getParent();
-//          else if (source instanceof JMenuItem)
-//            source = ((JMenuItem)source).getParent();
-//		      else if (source instanceof Component)
-//		    	  return (Component)source;
-//		      else
-//		  	    throw new IllegalArgumentException("Cannot find parent for source "+source);
-//		    	  
-//	    } while (source!=null);
-//	    
-//	    throw new IllegalArgumentException("Cannot find parent for source "+source);
-//	}
-  public final int openDialog(String key, String title,  int messageType, String txt, Action[] actions, Component source) {
+  public static int openDialog(String title, int messageType,  String txt, Action[] actions, Component source) {
     
     // analyze the text
     int maxLine = 40;
@@ -156,13 +97,13 @@ public class WindowManager {
     JScrollPane content = new JScrollPane(text);
       
     // delegate
-    return openDialog(key, title, messageType, content, actions, source);
+    return openDialog(title, messageType, content, actions, source);
   }
   
   /**
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.awt.Dimension, javax.swing.JComponent[], java.lang.String[], javax.swing.JComponent)
    */
-  public final int openDialog(String key, String title,  int messageType, JComponent[] content, Action[] actions, Component source) {
+  public static int openDialog(String title, int messageType,  JComponent[] content, Action[] actions, Component source) {
     // assemble content into Box (don't use Box here because
     // Box extends Container in pre JDK 1.4)
     JPanel box = new JPanel();
@@ -173,33 +114,31 @@ public class WindowManager {
       content[i].setAlignmentX(0F);
     }
     // delegate
-    return openDialog(key, title, messageType, box, actions, source);
+    return openDialog(title, messageType, box, actions, source);
   }
 
   /**
    * @see genj.window.WindowManager#openDialog(java.lang.String, java.lang.String, javax.swing.Icon, java.lang.String, java.lang.String, javax.swing.JComponent)
    */
-  public final String openDialog(String key, String title,  int messageType, String txt, String value, Component source) {
+  public static String openDialog(String title, int messageType,  String txt, String value, Component source) {
 
     // prepare text field and label
     TextFieldWidget tf = new TextFieldWidget(value, 24);
     JLabel lb = new JLabel(txt);
     
     // delegate
-    int rc = openDialog(key, title, messageType, new JComponent[]{ lb, tf}, Action2.okCancel(), source);
+    int rc = openDialog(title, messageType, new JComponent[]{ lb, tf}, Action2.okCancel(), source);
     
     // analyze
     return rc==0?tf.getText().trim():null;
   }
 
-  public final int openDialog(String key, String title,  int messageType, JComponent content, Action[] actions, Component source) {
+  public static int openDialog(String title, int messageType,  JComponent content, Action[] actions, Component source) {
     // check options - default to OK
     if (actions==null) 
       actions = Action2.okOnly();
-    // grab parameters
-    Rectangle bounds = key!=null ? REGISTRY.get(key, (Rectangle)null) : null;
     // do it
-    Object rc = openDialogImpl(key, title, messageType, content, actions, source, bounds);
+    Object rc = openDialogImpl(title, messageType, content, actions, source);
     // analyze - check which action was responsible for close
     for (int a=0; a<actions.length; a++) 
       if (rc==actions[a]) return a;
@@ -209,7 +148,7 @@ public class WindowManager {
   /**
    * Dialog implementation
    */
-  private Object openDialogImpl(final String key, String title,  int messageType, JComponent content, Action[] actions, Component source, Rectangle bounds) {
+  private static Object openDialogImpl(String title, int messageType,  JComponent content, Action[] actions, Component source) {
 
     // find window for source
     source = visitContainers(source, new ContainerVisitor() {
@@ -221,32 +160,30 @@ public class WindowManager {
     // create an option pane
     JOptionPane optionPane = new Content(messageType, content, actions);
     
-    // let it create the dialog
-    final JDialog dlg = optionPane.createDialog(source != null ? source : defaultFrame, title);
+    // create the dialog
+    final JDialog dlg = optionPane.createDialog(source, title);
     dlg.setResizable(true);
     dlg.setModal(true);
+    
+    // setup bounds
+    StackTraceElement caller = new Throwable().getStackTrace()[2];
+    final Registry registry = Registry.get(caller.getClassName());
+    final String key = caller.getMethodName() + ".dialog";
+    Dimension bounds = registry.get(key, (Dimension)null);
     if (bounds==null) {
       dlg.pack();
       if (source!=null)
         dlg.setLocationRelativeTo(source);
     } else {
-      if (source==null) {
-        dlg.setBounds(bounds.intersection(screen));
-      } else {
-        dlg.setBounds(new Rectangle(bounds.getSize()).intersection(screen));
+      dlg.setBounds(new Rectangle(bounds).intersection(screen));
+      if (source!=null) 
         dlg.setLocationRelativeTo(source.getParent());
-      }
     }
 
     // hook up to the dialog being hidden by the optionpane - that's what is being called after the user selected a button (setValue())
     dlg.addComponentListener(new ComponentAdapter() {
       public void componentHidden(ComponentEvent e) {
-        // key -> remember
-        if (key!=null) {
-          // keep bounds
-          if (dlg.getBounds()!=null)
-            REGISTRY.put(key, dlg.getBounds());
-        }
+        registry.put(key, dlg.getSize());
         dlg.dispose();
       }
     });
@@ -270,10 +207,10 @@ public class WindowManager {
   /**
    * A patched up JOptionPane
    */
-  protected class Content extends JOptionPane {
+  private static class Content extends JOptionPane {
     
     /** constructor */
-    protected Content(int messageType, JComponent content, Action[] actions) {
+    private Content(int messageType, JComponent content, Action[] actions) {
       super(new JLabel(),messageType, JOptionPane.DEFAULT_OPTION, null, new String[0] );
       
       // wrap content in a JPanel - the OptionPaneUI has some code that

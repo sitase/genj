@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.37.2.2 $ $Author: nmeier $ $Date: 2009-12-16 01:37:19 $
+ * $Revision: 1.37.2.3 $ $Author: nmeier $ $Date: 2009-12-27 22:45:56 $
  */
 package genj.util;
 
@@ -123,9 +123,15 @@ public class Registry {
    * Accessor 
    */
   public static Registry get(Class<?> source) {
-    
-    String prefix = source.getName();
-    String[] tokens = prefix.split("\\.");
+    return get(source.getName());
+  }
+  
+  /**
+   * Accessor 
+   */
+  public static Registry get(String pckg) {
+
+    String[] tokens = pckg.split("\\.");
     if (tokens.length==1)
       throw new IllegalArgumentException("default package not allowed");
     
@@ -133,7 +139,7 @@ public class Registry {
     if (r==null) 
       r = new Registry(tokens[0]);
 
-    return tokens.length==1 ? r : new Registry(r, prefix.substring(tokens[0].length()+1));
+    return tokens.length==1 ? r : new Registry(r, pckg.substring(tokens[0].length()+1));
   }
 
   /**

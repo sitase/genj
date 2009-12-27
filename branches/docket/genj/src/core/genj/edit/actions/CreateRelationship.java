@@ -25,6 +25,7 @@ import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
 import genj.gedcom.Property;
+import genj.util.Registry;
 import genj.util.WordBuffer;
 import genj.util.swing.NestedBlockLayout;
 
@@ -46,6 +47,8 @@ import javax.swing.JTextField;
  * </il>
  */
 public abstract class CreateRelationship extends AbstractChange {
+  
+  protected Registry REGISTRY = Registry.get(CreateRelationship.class);
 
   /** the referenced entity */
   private Entity existing;
@@ -146,10 +149,9 @@ public abstract class CreateRelationship extends AbstractChange {
       }
     });
     
-// FIXME let create relationship auto-pick last created object (most likely target)
-//    // preselect something (for anything but indi and fam)?
-//    if (!(targetType.equals(Gedcom.INDI)||targetType.equals(Gedcom.FAM)))
-//      select.setSelection(gedcom.getEntity(ViewManager.getRegistry(gedcom).get("select."+targetType, (String)null)));
+    // preselect something (for anything but indi and fam)?
+    if (!(targetType.equals(Gedcom.INDI)||targetType.equals(Gedcom.FAM)))
+      select.setSelection(gedcom.getEntity(REGISTRY.get("select."+gedcom.getName()+"."+targetType, (String)null)));
     
     // done
     return result;
@@ -179,9 +181,8 @@ public abstract class CreateRelationship extends AbstractChange {
     // perform the change
     Property focus = change(change, change!=existing);
     
-    // remember selection
- // FIXME let create relationship auto-pick last created object (most likely target)
-//    ViewManager.getRegistry(gedcom).put("select."+targetType, change.getId());
+    // remember target of relationship as next time target
+    REGISTRY.put("select."+gedcom.getName()+"."+targetType, change.getId());
     
     // done
     return new Context(focus.getEntity());

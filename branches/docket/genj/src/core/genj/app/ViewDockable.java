@@ -26,7 +26,9 @@ import genj.gedcom.Property;
 import genj.util.Resources;
 import genj.util.Trackable;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.MenuHelper;
+import genj.util.swing.DialogHelper.ContainerVisitor;
 import genj.view.ActionProvider;
 import genj.view.ContextProvider;
 import genj.view.SelectionSink;
@@ -35,8 +37,6 @@ import genj.view.View;
 import genj.view.ViewContext;
 import genj.view.ViewFactory;
 import genj.view.ActionProvider.Purpose;
-import genj.window.WindowManager;
-import genj.window.WindowManager.ContainerVisitor;
 
 import java.awt.AWTEvent;
 import java.awt.Component;
@@ -233,7 +233,7 @@ import swingx.docking.Docked;
      */
     private static Workbench getWorkbench(Component component) {
       
-      Component result = WindowManager.visitContainers(component, new ContainerVisitor() {
+      Component result = DialogHelper.visitContainers(component, new ContainerVisitor() {
         public Component visit(Component parent, Component child) {
           if (parent instanceof Workbench)
             return (Workbench)parent;

@@ -20,7 +20,6 @@
 package genj.option;
 
 import genj.util.swing.ImageIcon;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Component;

@@ -25,7 +25,7 @@ import genj.gedcom.GedcomException;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.util.swing.Action2;
-import genj.window.WindowManager;
+import genj.util.swing.DialogHelper;
 
 import java.awt.event.ActionEvent;
 import java.util.Collection;
@@ -61,26 +61,24 @@ public class TogglePrivate extends AbstractChange {
     // check if that's something we can do
     String pwd = gedcom.getPassword();
     if (pwd==Gedcom.PASSWORD_UNKNOWN) {
-        WindowManager.getInstance().openDialog(
-            null,
+        DialogHelper.openDialog(
             getText(),
-            WindowManager.WARNING_MESSAGE,
+            DialogHelper.WARNING_MESSAGE,
             "This Gedcom file contains encrypted information that has to be decrypted before changing private/public status of other information",
             Action2.okOnly(),
-            WindowManager.getComponent(event));
+            DialogHelper.getComponent(event));
         return null;              
     }
       
     // check gedcom
     if (pwd==null) {
       
-      pwd = WindowManager.getInstance().openDialog(
-        (String)null,
+      pwd = DialogHelper.openDialog(
         getText(),
-        WindowManager.QUESTION_MESSAGE,
+        DialogHelper.QUESTION_MESSAGE,
         AbstractChange.resources.getString("password", gedcom.getName()),
         "",
-        WindowManager.getComponent(event) 
+        DialogHelper.getComponent(event) 
       );
       
       // canceled?
@@ -89,13 +87,12 @@ public class TogglePrivate extends AbstractChange {
     }
 
     // check if the user wants to do it recursively
-    int recursive = WindowManager.getInstance().openDialog(
-        null,
+    int recursive = DialogHelper.openDialog(
         getText(),
-        WindowManager.QUESTION_MESSAGE,
-        AbstractChange.resources.getString("recursive"), 
-        Action2.yesNo(),
-        WindowManager.getComponent(event));
+        DialogHelper.QUESTION_MESSAGE,
+        AbstractChange.resources.getString("recursive"),
+        Action2.yesNo(), 
+        DialogHelper.getComponent(event));
 
     // change it
     gedcom.setPassword(pwd); 

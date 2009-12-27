@@ -31,12 +31,12 @@ import genj.gedcom.PropertyXRef;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.view.ContextProvider;
 import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -180,13 +180,12 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     JCheckBox auto = new JCheckBox(RESOURCES.getString("confirm.autocomit"));
     auto.setFocusable(false);
     
-    int rc = WindowManager.getInstance().openDialog(null, 
-        RESOURCES.getString("confirm.keep.changes"), WindowManager.QUESTION_MESSAGE, 
-        new JComponent[] {
+    int rc = DialogHelper.openDialog(RESOURCES.getString("confirm.keep.changes"), 
+        DialogHelper.QUESTION_MESSAGE, new JComponent[] {
           new JLabel(RESOURCES.getString("confirm.keep.changes")),
           auto
-        },
-        Action2.yesNo(), 
+        }, 
+        Action2.yesNo(),
         this
     );
     

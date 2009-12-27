@@ -28,9 +28,9 @@ import genj.gedcom.Property;
 import genj.gedcom.PropertyXRef;
 import genj.gedcom.UnitOfWork;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.view.SelectionSink;
 import genj.view.ViewContext;
-import genj.window.WindowManager;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -70,13 +70,12 @@ public class XRefBean extends PropertyBean {
         return;
       
       SelectEntityWidget select = new SelectEntityWidget(xref.getGedcom(), xref.getTargetType(), null);
-      if (0!=WindowManager.getInstance().openDialog(
-          null, 
+      if (0!=DialogHelper.openDialog(
           getText(), 
-          WindowManager.QUESTION_MESSAGE, 
+          DialogHelper.QUESTION_MESSAGE, 
           select, 
           Action2.okCancel(), 
-          WindowManager.getComponent(event)))
+          DialogHelper.getComponent(event)))
         return;
 
       final Entity newTarget = select.getSelection();
@@ -99,13 +98,12 @@ public class XRefBean extends PropertyBean {
           }
         });
       } catch (GedcomException ge) {
-        WindowManager.getInstance().openDialog(
-            null, 
+        DialogHelper.openDialog(
             getText(), 
-            WindowManager.WARNING_MESSAGE, 
+            DialogHelper.WARNING_MESSAGE, 
             ge.getMessage(), 
             Action2.okOnly(), 
-            WindowManager.getComponent(event));
+            DialogHelper.getComponent(event));
         LOG.log(Level.FINER, ge.getMessage(), ge);
       }
       

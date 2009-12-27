@@ -23,7 +23,7 @@ import genj.gedcom.Gedcom;
 import genj.gedcom.PropertyFile;
 import genj.io.FileAssociation;
 import genj.util.swing.Action2;
-import genj.window.WindowManager;
+import genj.util.swing.DialogHelper;
 
 import java.awt.event.ActionEvent;
 import java.io.File;
@@ -74,7 +74,7 @@ public class RunExternal extends Action2 {
     if (file==null)
       return;
     if (association==null)
-      association = FileAssociation.get(file, "View", WindowManager.getComponent(event));
+      association = FileAssociation.get(file, "View", DialogHelper.getComponent(event));
     if (association!=null)
       association.execute(file);
   }
