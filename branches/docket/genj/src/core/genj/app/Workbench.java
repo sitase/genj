@@ -19,6 +19,7 @@
  */
 package genj.app;
 
+import genj.common.ContextListWidget;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
@@ -52,6 +53,7 @@ import genj.util.swing.ProgressWidget;
 import genj.view.ActionProvider;
 import genj.view.SelectionSink;
 import genj.view.View;
+import genj.view.ViewContext;
 import genj.view.ViewFactory;
 import genj.view.ActionProvider.Purpose;
 
@@ -91,6 +93,7 @@ import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
 import spin.Spin;
+import swingx.docking.DefaultDockable;
 import swingx.docking.Dockable;
 import swingx.docking.DockingPane;
 import swingx.docking.persistence.XMLPersister;
@@ -245,6 +248,7 @@ public class Workbench extends JPanel implements SelectionSink {
     final Origin origin = Origin.create(url);
 
     // Open Connection and get input stream
+    final List<ViewContext> warnings = new ArrayList<ViewContext>();
     GedcomReader reader;
     try {
 
@@ -254,7 +258,7 @@ public class Workbench extends JPanel implements SelectionSink {
           return DialogHelper.openDialog(origin.getName(), DialogHelper.QUESTION_MESSAGE, RES.getString("cc.provide_password"), "", Workbench.this);
         }
         public void handleWarning(int line, String warning, Context context) {
-          // FIXME push warnings in Task docket
+          warnings.add(new ViewContext(RES.getString("cc.open.warning", new Object[] { new Integer(line), warning}), context));
         }
       })));
 
@@ -263,10 +267,17 @@ public class Workbench extends JPanel implements SelectionSink {
       DialogHelper.openDialog(origin.getName(), DialogHelper.ERROR_MESSAGE, txt, Action2.okOnly(), Workbench.this);
       return false;
     }
-
+    
     try {
       for (WorkbenchListener l : listeners) l.processStarted(this, reader);
       setGedcom(reader.read());
+      if (!warnings.isEmpty()) {
+        DefaultDockable warnDockable = new DefaultDockable();
+        warnDockable.setTitle(RES.getString("cc.open.warnings", context.getGedcom().getName()));
+        warnDockable.setIcon(Images.imgOpen);
+        warnDockable.setContent(new ContextListWidget(context.getGedcom(), warnings));
+        dockingPane.putDockable("warnings", warnDockable);
+      }
     } catch (GedcomIOException ex) {
       // tell the user about it
       DialogHelper.openDialog(origin.getName(), DialogHelper.ERROR_MESSAGE, RES.getString("cc.open.read_error", "" + ex.getLine()) + ":\n" + ex.getMessage(), Action2.okOnly(), Workbench.this);
@@ -1280,12 +1291,13 @@ public class Workbench extends JPanel implements SelectionSink {
     
     @Override
     protected Object parseKey(String key) throws SAXParseException {
+      // a view dockable key?
       try {
         return Class.forName(key);
       } catch (ClassNotFoundException e) {
-        LOG.log(Level.WARNING, "can't parse docking key", e);
-        return null;
       }
+      // a string key then
+      return key;
     }
     
     @Override
@@ -1294,13 +1306,15 @@ public class Workbench extends JPanel implements SelectionSink {
         if (vf.getClass().equals(key))
           return new ViewDockable(Workbench.this, vf);
       }
-      LOG.log(Level.WARNING, "can't find view factory for docking key", key);
+      LOG.finer("can't find view factory for docking key"+key);
       return null;
     }
     
     @SuppressWarnings("unchecked")
     @Override
     protected String formatKey(Object key) throws SAXException {
+      if (key instanceof String)
+        return (String)key;
       return ((Class<? extends ViewFactory>)key).getName();
     }
     
