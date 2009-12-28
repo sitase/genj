@@ -31,10 +31,6 @@ public class HelpPluginFactory implements PluginFactory, ActionProvider {
     return result;
   }
 
-  public int getPriority() {
-    return 0;
-  }
-
   /**
    * Action - help
    */

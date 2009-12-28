@@ -19,6 +19,7 @@
  */
 package genj.edit;
 
+import genj.app.Priority;
 import genj.app.Workbench;
 import genj.app.WorkbenchAdapter;
 import genj.common.SelectEntityWidget;
@@ -85,6 +86,7 @@ import javax.swing.JPanel;
 /**
  * our editing plugin
  */
+@Priority(priority=Priority.HIGH)
 public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
   
   private final static Resources RESOURCES = Resources.get(EditPlugin.class);
@@ -102,10 +104,6 @@ public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
     // prime bean cache
     PropertyBean.getAvailableBeans();
 
-  }
-  
-  public int getPriority() {
-    return HIGH;
   }
   
   @Override

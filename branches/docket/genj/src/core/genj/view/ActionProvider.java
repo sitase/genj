@@ -34,21 +34,12 @@ import java.util.List;
  * Support for a actions of property/entity/gedcom
  */
 public interface ActionProvider {
-  
+
   public enum Purpose {
     TOOLBAR,
     CONTEXT,
     MENU
   }
-
-  /** priorities */
-  public final static int
-    HIGH = 90,
-    NORMAL = 50,
-    LOW = 10;
-
-  /** a priority between 0-100 */
-  public int getPriority();
 
   /**
    * Callback for actions on a list of entities

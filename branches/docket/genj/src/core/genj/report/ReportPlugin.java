@@ -71,10 +71,6 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
   public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
   }
   
-  public int getPriority() {
-    return NORMAL;
-  }
-
   /**
    * actions we provide
    */

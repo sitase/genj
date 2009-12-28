@@ -535,32 +535,37 @@ public class Workbench extends JPanel implements SelectionSink {
   }
   
   /**
-   * Lookup all workbench related action providers (from views and plugins)
+   * Lookup providers
    */
-  /*package*/ List<ActionProvider> getActionProviders() {
+  @SuppressWarnings("unchecked")
+  /*package*/ <T> List<T> lookup(Class<T> type) {
     
-    List<ActionProvider> result = new ArrayList<ActionProvider>();
+    List<T> result = new ArrayList<T>();
     
     // check all dock'd views
     for (Object key : dockingPane.getDockableKeys()) {
       Dockable dockable = dockingPane.getDockable(key);
       if (dockable instanceof ViewDockable) {
         ViewDockable vd = (ViewDockable)dockable;
-        if (vd.getContent() instanceof ActionProvider)
-          result.add(SafeProxy.harden((ActionProvider)vd.getContent(), LOG));
+        if (type.isAssignableFrom(vd.getContent().getClass()))
+          result.add(SafeProxy.harden((T)vd.getContent(), LOG));
       }
     }
     
     // check all plugins
     for (Object plugin : plugins) {
-      if (plugin instanceof ActionProvider)
-        result.add(SafeProxy.harden((ActionProvider)plugin, LOG));
+      if (type.isAssignableFrom(plugin.getClass()))
+        result.add(SafeProxy.harden((T)plugin, LOG));
     }
     
     // sort by priority
-    Collections.sort(result, new Comparator<ActionProvider>() {
-      public int compare(ActionProvider a1, ActionProvider a2) {
-        return a2.getPriority() - a1.getPriority();
+    Collections.sort(result, new Comparator<T>() {
+      public int compare(T a1, T a2) {
+        Priority P1 = a1.getClass().getAnnotation(Priority.class);
+        Priority P2 = a2.getClass().getAnnotation(Priority.class);
+        int p1 = P1!=null ? P1.priority() : Priority.NORMAL;
+        int p2 = P2!=null ? P2.priority() : Priority.NORMAL;
+        return p1 - p2;
       }
     });
     
@@ -1120,7 +1125,7 @@ public class Workbench extends JPanel implements SelectionSink {
   
       // provider's actions
       if (context.getGedcom()!=null) {
-        for (ActionProvider provider : getActionProviders()) {
+        for (ActionProvider provider : lookup(ActionProvider.class)) {
           for (Action2 action : provider.createActions(context, Purpose.MENU)) {
             if (action instanceof Action2.Group) {
               mh.createMenu((Action2.Group)action);
@@ -1217,7 +1222,7 @@ public class Workbench extends JPanel implements SelectionSink {
       // let providers speak
       if (context.getGedcom()!=null) {
         addSeparator();
-        for (ActionProvider provider : getActionProviders()) {
+        for (ActionProvider provider : lookup(ActionProvider.class)) {
           for (Action2 action : provider.createActions(context, Purpose.TOOLBAR)) {
             if (action instanceof Action2.Group)
               LOG.warning("ActionProvider "+provider+" returned a group for toolbar");
