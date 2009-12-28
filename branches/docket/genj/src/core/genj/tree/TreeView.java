@@ -83,6 +83,8 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
   protected final static ImageIcon BOOKMARK_ICON = new ImageIcon(TreeView.class, "images/Bookmark");      
   protected final static Registry REGISTRY = Registry.get(TreeView.class);
   protected final static Resources RESOURCES = Resources.get(TreeView.class);
+  protected final static String TITLE = RESOURCES.getString("title");
+  
   
   /** the units we use */
   private final Point DPI;
@@ -105,9 +107,6 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
 
   /** our current zoom */  
   private SliderWidget sliderZoom;  
-  
-  /** the title we have */
-  private String title;
   
   /** whether we use antialising */
   private boolean isAntialiasing = false;
@@ -528,11 +527,12 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
         
     // bookmarks
     PopupWidget pb = new PopupWidget("",BOOKMARK_ICON) {
-      /**
-       * @see genj.util.swing.PopupButton#getActions()
-       */
-      public List getActions() {
-        return TreeView.this.model.getBookmarks();
+      @Override
+      public void showPopup() {
+        removeItems();
+        addItems(TreeView.this.model.getBookmarks());
+        // add items now
+        super.showPopup();
       }
     };
     pb.setToolTipText(RESOURCES.getString("bookmark.tip"));
@@ -542,11 +542,6 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     // done
   }
   
-  /** a priority between 0-100 */
-  public int getPriority() {
-    return NORMAL;
-  }
-
   /**
    * create actions for a context
    */
@@ -660,7 +655,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
    * A string representation of this view as a filter
    */
   public String getFilterName() {
-    return model.getEntities().size()+" nodes in "+title;
+    return model.getEntities().size()+" nodes in "+TITLE;
   }
 
   /**
@@ -958,7 +953,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
      */
     private ActionRoot(Entity entity) {
       root = entity;
-      setText(RESOURCES.getString("root",title));
+      setText(RESOURCES.getString("root",TITLE));
       setImage(Images.imgView);
     }
     
@@ -1067,7 +1062,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
         setText(RESOURCES, "bookmark.add");
         setImage(BOOKMARK_ICON);
       } else {
-        setText(RESOURCES.getString("bookmark.in",title));
+        setText(RESOURCES.getString("bookmark.in",TITLE));
         setImage(Images.imgView);
       }
     } 
@@ -1089,7 +1084,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
       
       // Ask for name of bookmark
       name = DialogHelper.openDialog(
-        title, DialogHelper.QUESTION_MESSAGE, RESOURCES.getString("bookmark.name"), name, TreeView.this
+        TITLE, DialogHelper.QUESTION_MESSAGE, RESOURCES.getString("bookmark.name"), name, TreeView.this
       );
       
       if (name==null) return;

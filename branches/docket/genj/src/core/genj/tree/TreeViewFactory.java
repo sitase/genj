@@ -19,7 +19,6 @@
  */
 package genj.tree;
 
-import genj.util.Resources;
 import genj.util.swing.ImageIcon;
 import genj.view.View;
 import genj.view.ViewFactory;
@@ -48,7 +47,7 @@ public class TreeViewFactory implements ViewFactory {
    * @see genj.view.ViewFactory#getName(boolean)
    */
   public String getTitle() {
-    return Resources.get(this).getString("title");
+    return TreeView.TITLE;
   }
   
 } //TreeViewFactory
