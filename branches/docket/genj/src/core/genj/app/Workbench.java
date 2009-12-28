@@ -134,7 +134,7 @@ public class Workbench extends JPanel implements SelectionSink {
     // plugins
     for (PluginFactory pf : ServiceLookup.lookup(PluginFactory.class)) {
       LOG.info("Loading plugin "+pf.getClass());
-      Object plugin = SafeProxy.harden(pf.createPlugin(this), LOG);
+      Object plugin = pf.createPlugin(this);
       plugins.add(plugin);
     }
 
@@ -548,14 +548,14 @@ public class Workbench extends JPanel implements SelectionSink {
       if (dockable instanceof ViewDockable) {
         ViewDockable vd = (ViewDockable)dockable;
         if (type.isAssignableFrom(vd.getContent().getClass()))
-          result.add(SafeProxy.harden((T)vd.getContent(), LOG));
+          result.add((T)vd.getContent());
       }
     }
     
     // check all plugins
     for (Object plugin : plugins) {
       if (type.isAssignableFrom(plugin.getClass()))
-        result.add(SafeProxy.harden((T)plugin, LOG));
+        result.add((T)plugin);
     }
     
     // sort by priority
@@ -565,11 +565,12 @@ public class Workbench extends JPanel implements SelectionSink {
         Priority P2 = a2.getClass().getAnnotation(Priority.class);
         int p1 = P1!=null ? P1.priority() : Priority.NORMAL;
         int p2 = P2!=null ? P2.priority() : Priority.NORMAL;
-        return p1 - p2;
+        return p2 - p1;
       }
     });
-    
-    return result;
+
+    // harden and done
+    return SafeProxy.harden(result, LOG);
   }
   
   public void fireCommit() {

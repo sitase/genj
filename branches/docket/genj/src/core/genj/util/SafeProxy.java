@@ -26,6 +26,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,6 +42,13 @@ public class SafeProxy {
    */
   public static<T> T harden(final T implementation) {
     return harden(implementation, Logger.getAnonymousLogger());
+  }
+  
+  public static<T> List<T> harden(final List<T> ts, Logger logger) {
+    for (ListIterator<T> li = ts.listIterator(); li.hasNext(); ) {
+     li.set(harden(li.next(), logger));
+    }
+    return ts;
   }
   
   /**
