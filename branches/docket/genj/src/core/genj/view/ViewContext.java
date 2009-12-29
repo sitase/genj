@@ -51,6 +51,15 @@ public class ViewContext extends Context implements Comparable<ViewContext> {
   /**
    * Constructor
    */
+  public ViewContext(String text, ImageIcon img, Context context) {
+    super(context);
+    setText(text);
+    setImage(img);
+  }
+  
+  /**
+   * Constructor
+   */
   public ViewContext(Context context) {
     super(context);
   }

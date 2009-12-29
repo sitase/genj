@@ -19,6 +19,7 @@
  */
 package genj.common;
 
+import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomListener;
@@ -206,7 +207,7 @@ public class ContextListWidget extends JList implements ContextProvider {
       for (ListIterator<ViewContext> it=list.listIterator(); it.hasNext(); ) {
         ViewContext context = (ViewContext)it.next();
         if (context.getProperties().contains(property))
-          it.set(new ViewContext(context.getGedcom()));
+          it.set(new ViewContext(context.getText(), context.getImage(), new Context(context.getGedcom())));
       }
       // TODO this could be less coarse grained
       fireContentsChanged(this, 0, list.size());
