@@ -48,6 +48,7 @@ import genj.util.swing.Action2;
 import genj.util.swing.DialogHelper;
 import genj.util.swing.FileChooser;
 import genj.util.swing.HeapStatusWidget;
+import genj.util.swing.ImageIcon;
 import genj.util.swing.MenuHelper;
 import genj.util.swing.ProgressWidget;
 import genj.view.ActionProvider;
@@ -95,6 +96,7 @@ import org.xml.sax.SAXParseException;
 import spin.Spin;
 import swingx.docking.DefaultDockable;
 import swingx.docking.Dockable;
+import swingx.docking.Docked;
 import swingx.docking.DockingPane;
 import swingx.docking.persistence.XMLPersister;
 
@@ -272,11 +274,11 @@ public class Workbench extends JPanel implements SelectionSink {
       for (WorkbenchListener l : listeners) l.processStarted(this, reader);
       setGedcom(reader.read());
       if (!warnings.isEmpty()) {
-        DefaultDockable warnDockable = new DefaultDockable();
-        warnDockable.setTitle(RES.getString("cc.open.warnings", context.getGedcom().getName()));
-        warnDockable.setIcon(Images.imgOpen);
-        warnDockable.setContent(new ContextListWidget(context.getGedcom(), warnings));
-        dockingPane.putDockable("warnings", warnDockable);
+        dockingPane.putDockable("warnings", new GedcomDockable(
+            RES.getString("cc.open.warnings", context.getGedcom().getName()), 
+            Images.imgOpen,
+            new ContextListWidget(context.getGedcom(), warnings))
+        );
       }
     } catch (GedcomIOException ex) {
       // tell the user about it
@@ -542,11 +544,11 @@ public class Workbench extends JPanel implements SelectionSink {
     
     List<T> result = new ArrayList<T>();
     
-    // check all dock'd views
+    // check all dock'd components
     for (Object key : dockingPane.getDockableKeys()) {
       Dockable dockable = dockingPane.getDockable(key);
-      if (dockable instanceof ViewDockable) {
-        ViewDockable vd = (ViewDockable)dockable;
+      if (dockable instanceof DefaultDockable) {
+        DefaultDockable vd = (DefaultDockable)dockable;
         if (type.isAssignableFrom(vd.getContent().getClass()))
           result.add((T)vd.getContent());
       }
@@ -1340,6 +1342,62 @@ public class Workbench extends JPanel implements SelectionSink {
       } catch (Exception ex) {
         LOG.log(Level.WARNING, "unable to save layout", ex);
       }
+    }
+  }
+  
+  /**
+   * A dockable for showing gedcom related info - no view yet, something we want to close if gedcom goes away
+   */
+  private class GedcomDockable extends DefaultDockable implements WorkbenchListener {
+    
+    private GedcomDockable(String title, ImageIcon img, JComponent content) {
+      setContent(content);
+      setTitle(title);
+      setIcon(img);
+    }
+    
+    @Override
+    public void docked(Docked docked) {
+      super.docked(docked);
+      addWorkbenchListener(this);
+    }
+    
+    @Override
+    public void undocked() {
+      super.undocked();
+      removeWorkbenchListener(this);
+    }
+
+    public void commitRequested(Workbench workbench) {
+    }
+
+    public void gedcomClosed(Workbench workbench, Gedcom gedcom) {
+      for (Object key : dockingPane.getDockableKeys())
+        if (dockingPane.getDockable(key)==this)
+          dockingPane.putDockable(key, null);
+      return;
+    }
+
+    public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
+    }
+
+    public void processStarted(Workbench workbench, Trackable process) {
+    }
+
+    public void processStopped(Workbench workbench, Trackable process) {
+    }
+
+    public void selectionChanged(Workbench workbench, Context context, boolean isActionPerformed) {
+    }
+
+    public void viewClosed(Workbench workbench, View view) {
+    }
+
+    public void viewOpened(Workbench workbench, View view) {
+    }
+
+    public boolean workbenchClosing(Workbench workbench) {
+      return true;
     }
   }
 
