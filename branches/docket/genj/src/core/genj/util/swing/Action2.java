@@ -299,8 +299,17 @@ public class Action2 extends AbstractAction {
     public Group(String text) {
     	this(text,null);
     }
-    
+
     public void add(Action2 action) {
+      // merge into known
+      for (Action old : this) {
+        if (old.equals(action)) {
+          if (old instanceof Action2.Group) 
+            ((Action2.Group) old).addAll((Action2.Group)action);
+          return;
+        }
+      }
+      // or keep as is
       actions.add(action);
     }
 

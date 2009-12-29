@@ -256,6 +256,7 @@ public class BeanPanel extends JPanel {
   /** switch on detail */
   public void setShowTabs(boolean set) {
     isShowTabs = set;
+    tabs.setVisible(set);
   }
 
   /** set context */

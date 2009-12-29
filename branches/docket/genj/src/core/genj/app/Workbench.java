@@ -1098,46 +1098,53 @@ public class Workbench extends JPanel implements SelectionSink {
       revalidate();
       repaint();
 
-      // Build menu
-      MenuHelper mh = new MenuHelper().pushMenu(this);
-
-      // FIXME docket - need to merge workbench menus with those of action providers
+      Action2.Group groups = new Action2.Group("ignore");
+      
       // File
-      mh.createMenu(RES.getString("cc.menu.file"));
-      mh.createItem(new ActionNew());
-      mh.createItem(new ActionOpen());
-      mh.createItem(new ActionSave(false));
-      mh.createItem(new ActionSave(true));
-      mh.createSeparator();
-      mh.createItem(new ActionClose());
+      Action2.Group file = new ActionProvider.FileActionGroup();
+      groups.add(file);
+      file.add(new ActionNew());
+      file.add(new ActionOpen());
+      file.add(new ActionSave(false));
+      file.add(new ActionSave(true));
+      file.add(new ActionProvider.SeparatorAction());
+      file.add(new ActionClose());
       if (!EnvironmentChecker.isMac())   // Mac's don't need exit actions in
-        mh.createItem(new ActionExit()); // application menus apparently
-      mh.createSeparator();
-      mh.createItem(new ActionAbout());
-      mh.popMenu();
+        file.add(new ActionExit()); // application menus apparently
       
       // Views
-      mh.createMenu(RES.getString("cc.menu.view"));
-      for (ViewFactory factory : viewFactories) {
-        ActionOpenView action = new ActionOpenView(factory);
-        mh.createItem(action);
-      }
-      mh.createSeparator();
-      mh.createItem(new ActionOptions());
-      mh.popMenu();
-  
-      // provider's actions
+      Action2.Group views = new ActionProvider.ViewActionGroup();
+      groups.add(views);
+      for (ViewFactory factory : viewFactories) 
+        views.add(new ActionOpenView(factory));
+
+      // merge providers' actions
       if (context.getGedcom()!=null) {
         for (ActionProvider provider : lookup(ActionProvider.class)) {
           for (Action2 action : provider.createActions(context, Purpose.MENU)) {
             if (action instanceof Action2.Group) {
-              mh.createMenu((Action2.Group)action);
-              mh.popMenu();
+              groups.add(action);
             } else {
               LOG.warning("ActionProvider "+provider+" returned a non-group for menu");
             }
           }
         }
+      }
+      
+      Action2.Group edit = new ActionProvider.EditActionGroup();
+      edit.add(new ActionProvider.SeparatorAction());
+      edit.add(new ActionOptions());
+      groups.add(edit);
+
+      Action2.Group help = new ActionProvider.HelpActionGroup();
+      help.add(new ActionAbout());
+      groups.add(help);
+
+      // Build menu
+      MenuHelper mh = new MenuHelper().pushMenu(this);
+      for (Action2 group : groups) {
+        mh.createMenu((Action2.Group)group);
+        mh.popMenu();
       }
       
       // remember actions

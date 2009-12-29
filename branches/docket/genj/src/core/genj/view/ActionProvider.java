@@ -87,6 +87,40 @@ public interface ActionProvider {
   }
   
   /**
+   * an action group for Views
+   */
+  public final class ViewActionGroup extends Action2.Group {
+    public ViewActionGroup() {
+      super(Resources.get(FileActionGroup.class).getString("group.view"));
+    }
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof ViewActionGroup;
+    }
+    @Override
+    public int hashCode() {
+      return ViewActionGroup.class.hashCode();
+    }
+  }
+  
+  /**
+   * an action group for File
+   */
+  public final class FileActionGroup extends Action2.Group {
+    public FileActionGroup() {
+      super(Resources.get(FileActionGroup.class).getString("group.file"));
+    }
+    @Override
+    public boolean equals(Object obj) {
+      return obj instanceof FileActionGroup;
+    }
+    @Override
+    public int hashCode() {
+      return FileActionGroup.class.hashCode();
+    }
+  }
+  
+  /**
    * an action group for edit
    */
   public final class EditActionGroup extends Action2.Group {
