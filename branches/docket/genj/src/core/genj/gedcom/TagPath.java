@@ -282,7 +282,7 @@ public class TagPath {
       // try to find a reasonable tag to display as text (that's not '.' or '*')
       int i = length()-1;
       String tag = get(i);
-      while (i>1&&!Character.isLetter(tag.charAt(0))) 
+      while (i>1&&!Character.isJavaIdentifierPart(tag.charAt(0))) 
         tag = get(--i);
       
       // as text
