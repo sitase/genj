@@ -30,6 +30,7 @@ import genj.gedcom.TagPath;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
+import genj.view.SettingsAction;
 import genj.view.ToolBar;
 import genj.view.View;
 
@@ -41,8 +42,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
-
-import javax.swing.table.TableModel;
 
 /**
  * Component for showing entities of a gedcom file in a tabular way
@@ -103,8 +102,8 @@ public class TableView extends View {
     // done
   }
   
-  /*package*/ TableModel getModel() {
-    return propertyTable.getTableModel();
+  /*package*/ PropertyTableWidget getTable() {
+    return propertyTable;
   }
   
   /**
@@ -187,6 +186,8 @@ public class TableView extends View {
       String tag = Gedcom.ENTITIES[i];
       toolbar.add(new SwitchMode(getMode(tag)));
     }
+    
+    toolbar.add(new Settings());
 
   }
   
@@ -200,6 +201,23 @@ public class TableView extends View {
       mode.save();
     // continue
     super.removeNotify();
+  }
+  
+  /**
+   * Action - settings
+   */
+  private class Settings extends SettingsAction<TableViewSettings> {
+
+    @Override
+    protected void commit(TableViewSettings editor) {
+      editor.commit();
+    }
+
+    @Override
+    protected TableViewSettings getEditor() {
+      return new TableViewSettings(TableView.this);
+    }
+
   }
   
   /**

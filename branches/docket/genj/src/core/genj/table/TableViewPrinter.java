@@ -91,7 +91,7 @@ public class TableViewPrinter implements Printer {
    */
   public Dimension calcSize(Dimension2D pageSizeInInches, Point dpi) {
 
-    TableModel model = table.getModel();
+    TableModel model = table.getTable().getTableModel();
     
     // prepare data
     pageWidth = (int)Math.ceil(pageSizeInInches.getWidth()*dpi.x);
@@ -197,7 +197,7 @@ public class TableViewPrinter implements Printer {
     g.setFont(font);
 
     // grab model
-    TableModel model = table.getModel();
+    TableModel model = table.getTable().getTableModel();
     
     // identify column/row for this page
     int scol=0, cols=0;
