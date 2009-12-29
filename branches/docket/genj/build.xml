@@ -242,57 +242,6 @@
   </target>
 
   <!--
-   Distribution - Applet
-   -->
-  <target name="dist.applet" depends="init,keyfile,compile,version">
-  
-  	 <!-- what we exclude - would be great to derive that automatically :( -->
-     <property name="exclude" value="
-      genj/app/**, genj/fo/**, genj/chart/**, genj/lnf/**, genj/report/**, **/*ViewPrinter*.class, **/*ViewSettings*.class
-     "/>
-
-     <!-- applet sub -->
-     <mkdir dir="./build/applet"/>
-
-     <!-- create genj.jar -->
-     <delete file="./build/applet/genj.jar"/>
-     <jar jarfile="./build/applet/genj.jar" update="True">
-       <fileset dir="./build/classes/contrib" 
-       	 excludes="${exclude}"
-         includes="**/*.class"/>
-       <fileset dir="./build/classes/core" 
-       	 excludes="${exclude}"
-         includes="**/*.class"/>
-       <fileset dir="./images" excludes="${exclude}"/>
-       <fileset dir="./language/en" excludes="${exclude}"/>
-       <fileset dir="./src/core" excludes="${exclude}"
-         includes="**/*.properties,**/*.xml"/>
-       <fileset dir="./build/version"/>
-      <fileset dir="." includes="contrib/LDS/*.xml"/>
-     </jar>
-  	
-     <!-- copy graphj.jar -->
-     <copy todir="./build/applet" file="./lib/graphj.jar"/>
-  	
-    <!-- copy example.ged -->
-    <copy todir="./build/applet">
-      <fileset dir="./gedcom"/>
-	  </copy> 	
-  	
-  	 <!-- sign em -->
-     <signjar keystore="./build/keyfile" alias="genj" storepass="password">
-      <fileset dir="./build/applet" includes="*.jar"/>
-     </signjar>	
-  	
-     <!-- create genj_applet_xyz.jar -->
-     <zip zipfile="./build/dist/genj_applet-${version}.zip" update="True">
-       <fileset dir="./build" includes="applet/*"/>
-       <fileset dir="." includes="doc/*"/>
-     </zip>
-
-  </target>
-
-  <!--
    Distribution - Application
    -->
   <target name="dist.app" depends="compile, version">
@@ -358,7 +307,7 @@
   <!--
    Distribution
    -->
-  <target name="dist" depends="init,compile,version,dist.languages,dist.applet,dist.app,dist.javadoc">
+  <target name="dist" depends="init,compile,version,dist.languages,dist.app,dist.javadoc">
   </target>
 
   <!--
