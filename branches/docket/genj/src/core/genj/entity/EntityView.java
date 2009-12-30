@@ -30,6 +30,7 @@ import genj.renderer.BlueprintManager;
 import genj.renderer.EntityRenderer;
 import genj.util.Registry;
 import genj.util.Resources;
+import genj.util.swing.Action2;
 import genj.view.ContextProvider;
 import genj.view.View;
 import genj.view.ViewContext;
@@ -40,6 +41,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
+import java.awt.event.ActionEvent;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -70,7 +72,7 @@ public class EntityView extends View implements ContextProvider {
   private Map<String, Blueprint> type2blueprint = new HashMap<String, Blueprint>();
   
   /** whether we do antialiasing */
-  private boolean isAntialiasing = false;
+  private boolean isAntialiasing = true;
   
   private GedcomListener callback = new GedcomListenerAdapter() {
     public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
@@ -109,7 +111,29 @@ public class EntityView extends View implements ContextProvider {
    * ContextProvider - callback
    */
   public ViewContext getContext() {
-    return context!=null ? new ViewContext(context) : null;
+    ViewContext result = new ViewContext(context);
+    if (context.getEntity()!=null) {
+      Action2.Group blueprints = new Action2.Group(BlueprintManager.TXT_BLUEPRINT);
+      for (Blueprint blueprint : BlueprintManager.getInstance().getBlueprints(context.getEntity().getTag())) {
+        blueprints.add(new Use(blueprint));
+      }
+      if (blueprints.size()>0)
+        result.addAction(blueprints);
+    }
+    return result;
+  }
+  
+  private class Use extends Action2 {
+    private Blueprint blueprint;
+    public Use(Blueprint blueprint) {
+      setText(blueprint.getName());
+      this.blueprint = blueprint;
+    }
+    @Override
+    public void actionPerformed(ActionEvent e) {
+      type2blueprint.put(blueprint.getTag(), blueprint);
+      setContext(context, false);
+    }
   }
 
   /**
@@ -180,29 +204,13 @@ public class EntityView extends View implements ContextProvider {
   /** 
    * Get blueprint used for given type
    */
-  /*package*/ Blueprint getBlueprint(String tag) {
+  private Blueprint getBlueprint(String tag) {
     Blueprint result = (Blueprint)type2blueprint.get(tag);
     if (result==null) {
       result = BlueprintManager.getInstance().getBlueprint(tag, "");
       type2blueprint.put(tag, result);
     }
     return result;
-  }
-  
-  /**
-   * Set the blueprints used (map tag to blueprint)
-   */
-  /*package*/ void setBlueprints(Map<String,Blueprint> setType2Blueprints) {
-    type2blueprint = setType2Blueprints;
-    // show
-    repaint();
-  }
-  
-  /**
-   * Gets the blueprints used (map tag to blueprint)
-   */
-  /*package*/ Map<String,Blueprint> getBlueprints() {
-    return type2blueprint;
   }
   
   /**

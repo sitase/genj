@@ -108,7 +108,7 @@ public class Blueprint {
   /**
    * Entity this blueprint is for
    */
-  /*package*/ String getTag() {
+  public String getTag() {
     return tag;
   }
   

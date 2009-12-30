@@ -54,6 +54,8 @@ public class BlueprintManager {
   private final static String SUFFIX = ".html";
   private final static Registry REGISTRY = Registry.get(BlueprintManager.class);
   private final static Resources RESOURCES = Resources.get(BlueprintManager.class);
+  
+  public final static String TXT_BLUEPRINT = RESOURCES.getString("blueprint");
 
   /*package*/ final static Logger LOG = Logger.getLogger("genj.renderer");
 
