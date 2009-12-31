@@ -92,7 +92,7 @@ public class RelationshipsBean extends PropertyBean {
   private Model getModel(Fam fam) {
     
     TagPath[] columns = new TagPath[] {
-      new TagPath(".", Gedcom.getName("RELA")), // relationship
+      new TagPath(".", RESOURCES.getString("relationship")), // relationship
       new TagPath("*:..", Gedcom.getName("INDI")), // person's id
       new TagPath("*:..:NAME"), // person's name
       new TagPath("*:..:BIRT:DATE") // person's birth date
@@ -126,7 +126,7 @@ public class RelationshipsBean extends PropertyBean {
   private Model getModel(Indi indi) {
     
     TagPath[] columns = new TagPath[] {
-      new TagPath(".", "Relationship"), // relationship
+      new TagPath(".", RESOURCES.getString("relationship")), // relationship
       new TagPath("*:..", Gedcom.getName("INDI")), // person's id
       new TagPath("*:..:NAME"), // person's name
       new TagPath("*:..:BIRT:DATE"), // person's birth date
