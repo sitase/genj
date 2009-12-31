@@ -87,6 +87,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenuBar;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JToolBar;
 import javax.swing.SwingConstants;
 
@@ -1086,6 +1087,10 @@ public class Workbench extends JPanel implements SelectionSink {
       
       addWorkbenchListener(this);
       setup();
+      
+      // atm we're using heavyweight components at least in tree view
+      JPopupMenu.setDefaultLightWeightPopupEnabled(false);
+
       
     }
     
