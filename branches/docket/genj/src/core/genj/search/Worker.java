@@ -67,7 +67,7 @@ import java.util.logging.Logger;
     synchronized (lock) {
       try {
         lock.set(false);
-        thread.interrupt();
+        if (thread!=null) thread.interrupt();
       } catch (Throwable t) {
       }
     }
