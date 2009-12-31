@@ -192,22 +192,22 @@ public class ReportFlashList extends Report {
   /**
    * One of the report's entry point
    */
-  public void start(Gedcom gedcom) {
-    start(gedcom, gedcom.getEntities(Gedcom.INDI), null);
+  public Document start(Gedcom gedcom) {
+    return start(gedcom, gedcom.getEntities(Gedcom.INDI), null);
   }
 
   /**
    * One of the report's entry point
    */
-  public void start(Indi[] indis) {
-    start(indis[0].getGedcom(), Arrays.asList(indis), null);
+  public Document start(Indi[] indis) {
+    return start(indis[0].getGedcom(), Arrays.asList(indis), null);
   }
 
   /**
    * One of the report's entry point
    */
-  public void start(Indi indi) {
-    start(indi.getGedcom(), indi.getGedcom().getEntities(Gedcom.INDI), indi);
+  public Document start(Indi indi) {
+    return start(indi.getGedcom(), indi.getGedcom().getEntities(Gedcom.INDI), indi);
   }
 
   /**
