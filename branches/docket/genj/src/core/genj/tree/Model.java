@@ -337,8 +337,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
   /**
    * Accessor - id's of entities hiding ancestors
    */
-  public Collection getHideAncestorsIDs() {
-    return getIds(hideAncestors);
+  public Collection<String> getHideAncestorsIDs() {
+    return hideAncestors;
   }
   
   /**
@@ -352,8 +352,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
   /**
    * Accessor - id's of entities hiding descendants
    */
-  public Collection getHideDescendantsIDs() {
-    return getIds(hideDescendants);
+  public Collection<String> getHideDescendantsIDs() {
+    return hideDescendants;
   }
   
   /**
@@ -367,13 +367,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
   /**
    * Helper - get ids from collection of entities
    */  
-  private Collection getIds(Collection entities) {
-    List result = new ArrayList();
-    Iterator es = entities.iterator();
-    while (es.hasNext()) {
-      Entity e = (Entity)es.next();
+  private Collection<String> getIds(Collection<Entity> entities) {
+    List<String> result = new ArrayList<String>();
+    for (Entity e : entities) 
       result.add(e.getId());
-    }
     return result;    
   }
   
@@ -388,7 +385,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
    * Whether we're hiding ancestors of given entity
    */
   /*package*/ boolean isHideAncestors(Indi indi) {
-    return hideAncestors.contains(indi);
+    return hideAncestors.contains(indi.getId());
   }
   
   /** 
@@ -559,7 +556,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
     /** indi */
     private Indi indi;
     /** set to change */
-    private Set set;
+    private Set<String> set;
     /**
      * constructor
      * @param individual indi to un/fold
@@ -573,7 +570,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
      * perform 
      */
     public void run() {
-      if (!set.remove(indi)) set.add(indi);
+      if (!set.remove(indi.getId())) set.add(indi.getId());
       update();
     }
   } //FoldUnfold
