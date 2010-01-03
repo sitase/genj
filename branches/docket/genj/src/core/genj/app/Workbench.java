@@ -231,7 +231,7 @@ public class Workbench extends JPanel implements SelectionSink {
     // form origin
     try {
       return openGedcom(new URL("file", "", file.getAbsolutePath()));
-    } catch (MalformedURLException e) {
+    } catch (Throwable t) {
       // shouldn't
       return false;
     }
@@ -454,13 +454,13 @@ public class Workbench extends JPanel implements SelectionSink {
    */
   public void exit() {
     
-    // close
-    if (!closeGedcom())
-      return;
-    
     // remember current context for exit
     if (context.getGedcom()!=null)
       REGISTRY.put("restore.url", context.getGedcom().getOrigin().toString());
+    
+    // close
+    if (!closeGedcom())
+      return;
     
     // store layout
     StringWriter layout = new StringWriter();
