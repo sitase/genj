@@ -27,17 +27,19 @@ import genj.gedcom.Property;
 import genj.view.ContextProvider;
 import genj.view.SelectionSink;
 import genj.view.ViewContext;
+import genj.view.ViewContext.ContextList;
 
+import java.awt.BorderLayout;
 import java.awt.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Vector;
 
 import javax.swing.AbstractListModel;
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.JLabel;
 import javax.swing.JList;
-import javax.swing.ListModel;
+import javax.swing.JPanel;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -47,37 +49,59 @@ import spin.Spin;
 /**
  * A widget for rendering a list of contexts
  */
-public class ContextListWidget extends JList implements ContextProvider {
+public class ContextListWidget extends JPanel implements ContextProvider {
 
-  private Gedcom ged;
-  
+  private Gedcom gedcom;
   private Callback callback = new Callback();
+  private JList list;
+  private JLabel title = new JLabel();
+  private List<ViewContext> contexts = new ArrayList<ViewContext>();
   
   /** 
    * Constructor
    */
-  public ContextListWidget(Gedcom gedcom) {
-    super(new Model());
-    ged = gedcom;
-    setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-    setCellRenderer(callback);
-    addListSelectionListener(callback);
+  public ContextListWidget(ContextList list) {
+    this(list.getGedcom(), list);
+    
+    title.setText(list.getTitle());
+    title.setOpaque(true);
+    title.setBackground(this.list.getBackground());
+    add(title, BorderLayout.NORTH);
   }
 
   /** 
    * Constructor
    */
   public ContextListWidget(Gedcom gedcom, List<ViewContext> contextList) {
-    this(gedcom);
-    setContextList(contextList);
+    
+    super(new BorderLayout());
+    
+    this.gedcom = gedcom;
+    this.contexts.addAll(contextList);
+    
+    list = new JList(new Model(contextList));
+    list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+    list.setCellRenderer(callback);
+    list.addListSelectionListener(callback);
+    
+    add(list, BorderLayout.CENTER);
   }
+
+  public String getTitle() {
+    return title.getText();
+  }
+  
+  public List<ViewContext> getContexts() {
+    return contexts;
+  }
+    
   
   /**
    * Provides a 'current' context
    */
   public ViewContext getContext() {
     
-    Object[] selection = getSelectedValues();
+    Object[] selection = list.getSelectedValues();
     
     // one selected?
     if (selection.length==1&&selection[0] instanceof ViewContext)
@@ -93,7 +117,7 @@ public class ContextListWidget extends JList implements ContextProvider {
       ents.addAll(context.getEntities());
     }
     
-    ViewContext result = new ViewContext(ged, ents, props);
+    ViewContext result = new ViewContext(gedcom, ents, props);
     
     // done
     return result;
@@ -107,7 +131,7 @@ public class ContextListWidget extends JList implements ContextProvider {
     // let super do its thing
     super.addNotify();
     // listen to gedcom 
-    ged.addGedcomListener((GedcomListener)Spin.over(getModel()));
+    gedcom.addGedcomListener((GedcomListener)Spin.over(list.getModel()));
   }
   
   /**
@@ -116,39 +140,9 @@ public class ContextListWidget extends JList implements ContextProvider {
   @Override
   public void removeNotify() {
     // disconnect from gedcom
-    ged.removeGedcomListener((GedcomListener)Spin.over(getModel()));
+    gedcom.removeGedcomListener((GedcomListener)Spin.over(list.getModel()));
     // let super continue
     super.removeNotify();
-  }
-  
-  /**
-   * Set the list to show
-   */
-  public void setContextList(List<ViewContext> contextList) {
-    ((Model)getModel()).setContextList(contextList);
-  }
-  
-  /**
-   * @see JList#setModel(javax.swing.ListModel)
-   */
-  public void setModel(ListModel model) {
-    if (!(model instanceof Model))
-      throw new IllegalArgumentException("setModel() n/a");
-    super.setModel(model);
-  }
-
-  /**
-   * @see JList#setListData(java.lang.Object[])
-   */
-  public void setListData(Object[] listData) {
-    throw new IllegalArgumentException("setListData() n/a");
-  }
-  
-  /**
-   * @see JList#setListData(java.util.Vector)
-   */
-  public void setListData(Vector<?> listData) {
-    throw new IllegalArgumentException("setListData() n/a");
   }
   
   /**
@@ -158,7 +152,7 @@ public class ContextListWidget extends JList implements ContextProvider {
     
     private List<ViewContext> list = new ArrayList<ViewContext>();
     
-    private void setContextList(List<ViewContext> set) {
+    private Model(List<ViewContext> set) {
       // clear old
       int n = list.size();
       list.clear();

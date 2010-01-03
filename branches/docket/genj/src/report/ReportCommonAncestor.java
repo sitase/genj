@@ -5,15 +5,21 @@
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
  */
+import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Indi;
-import genj.report.AnnotationsReport;
+import genj.report.Report;
+import genj.view.ViewContext;
+import genj.view.ViewContext.ContextList;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Compute the common ancestor of two individuals
  *
  */
-public class ReportCommonAncestor extends AnnotationsReport {
+public class ReportCommonAncestor extends Report {
 
   /**
    * special treatmen context argument check
@@ -35,19 +41,19 @@ public class ReportCommonAncestor extends AnnotationsReport {
   /**
    * our main method for an argument individual
    */
-  public void start(Indi indi) {
+  public ContextList start(Indi indi) {
     // ask for other
     Indi other = (Indi)getEntityFromUser(translate("select"), indi.getGedcom(), Gedcom.INDI);
     if (other==null)
-      return;
+      return null;
     // continue
-    start(new Indi[] { indi, other});
+    return start(new Indi[] { indi, other});
   }
 
   /**
    * our main method for an argument of a bunch of individuals
    */
-  public void start(Indi[] indis) {
+  public ContextList start(Indi[] indis) {
 
     // first and second
     Indi indi = indis[0];
@@ -58,14 +64,16 @@ public class ReportCommonAncestor extends AnnotationsReport {
 
     // nothing to show?
     if (ancestor==null) {
-      setMessage(translate("nocommon"));
-      return;
+      getOptionFromUser(translate("nocommon"), Report.OPTION_OK);
+      return null;
     }
 
     // prepare the result
-    addAnnotation(indi, translate("result.first", indi));
-    addAnnotation(other, translate("result.second", other));
-    addAnnotation(ancestor, translate("result.ancestor", ancestor));
+    ContextList result = new ContextList(indi.getGedcom(), getName());
+    result.add(new ViewContext(translate("result.first", indi), new Context(indi)));
+    result.add(new ViewContext(translate("result.second", other), new Context(other)));
+    result.add(new ViewContext(translate("result.ancestor", ancestor), new Context(ancestor)));
+    return result;
   }
 
   private Indi getCommonAncestor(Indi indi, Indi other) {

@@ -243,7 +243,7 @@ public class EditView extends View implements ContextProvider, SelectionSink  {
     }
 
     // refocus?
-    if (editor!=null && newContext.getEntity()!=editor.getContext().getEntity() && (!sticky.isSelected()||isActionPerformed)) {
+    if (editor!=null && newContext.getEntity()!=null && newContext.getEntity()!=editor.getContext().getEntity() && (!sticky.isSelected()||isActionPerformed)) {
 
       backs.push(editor.getContext());
       

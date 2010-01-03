@@ -19,6 +19,7 @@
  */
 package genj.report;
 
+import genj.common.ContextListWidget;
 import genj.fo.Format;
 import genj.fo.FormatOptionsWidget;
 import genj.gedcom.Context;
@@ -34,6 +35,8 @@ import genj.util.swing.ImageIcon;
 import genj.view.SelectionSink;
 import genj.view.ToolBar;
 import genj.view.View;
+import genj.view.ViewContext;
+import genj.view.ViewContext.ContextList;
 
 import java.awt.CardLayout;
 import java.awt.Dimension;
@@ -62,7 +65,6 @@ import javax.swing.JEditorPane;
 import javax.swing.JFileChooser;
 import javax.swing.JScrollPane;
 import javax.swing.text.BadLocationException;
-import javax.swing.text.Document;
 
 import spin.Spin;
 
@@ -134,7 +136,7 @@ public class ReportView extends View {
     if (!actionStart.isEnabled())
       return;
 
-    if (report.getStartMethod(gedcom) == null) {
+    if (report.getStartMethod(context) == null) {
       for (int i = 0; i < Gedcom.ENTITIES.length; i++) {
         String tag = Gedcom.ENTITIES[i];
         Entity sample = gedcom.getFirstEntity(tag);
@@ -161,11 +163,8 @@ public class ReportView extends View {
     }
 
     // clear the current output
-    output.clear();
-    while (getComponentCount() > 1)
-      remove(1);
-    showConsole(true);
-
+    clear();
+    
     // set running
     actionStart.setEnabled(false);
     actionStop.setEnabled(true);
@@ -175,6 +174,13 @@ public class ReportView extends View {
     // kick it off
     new Thread(new Runner(gedcom, context, report, (Runner.Callback) Spin.over(new RunnerCallback()))).start();
 
+  }
+  
+  private void clear() {
+    output.clear();
+    while (getComponentCount() > 1)
+      remove(1);
+    showConsole(true);
   }
 
   /**
@@ -236,6 +242,10 @@ public class ReportView extends View {
 
   @Override
   public void setContext(Context context, boolean isActionPerformed) {
+    
+    // different gedcom?
+    if (gedcom!=context.getGedcom())
+      clear();
 
     // keep
     gedcom = context.getGedcom();
@@ -250,10 +260,12 @@ public class ReportView extends View {
    */
   /* package */void showConsole(boolean show) {
     if (show) {
+      output.setVisible(true);
       ((CardLayout) getLayout()).first(this);
       actionConsole.setEnabled(getComponentCount() > 1);
       actionConsole.setImage(imgGui);
     } else {
+      output.setVisible(false);
       ((CardLayout) getLayout()).last(this);
       actionConsole.setEnabled(true);
       actionConsole.setImage(imgConsole);
@@ -306,7 +318,13 @@ public class ReportView extends View {
       } catch (IOException e) {
         output.add("*** can't open URL " + result + ": " + e.getMessage());
       }
+      showConsole(true);
       return;
+    }
+
+    // context list?
+    if (result instanceof ViewContext.ContextList) {
+      result = new ContextListWidget((ContextList)result);
     }
 
     // component?
@@ -317,7 +335,7 @@ public class ReportView extends View {
       showConsole(false);
       return;
     }
-
+    
     // document
     if (result instanceof genj.fo.Document) {
 
@@ -451,6 +469,20 @@ public class ReportView extends View {
     }
 
     public void actionPerformed(ActionEvent event) {
+      
+      // user looking at a context-list?
+      if (getComponentCount()>1 && getComponent(1) instanceof ContextListWidget) {
+        ContextListWidget list = (ContextListWidget)getComponent(1);
+        genj.fo.Document doc = new genj.fo.Document(list.getTitle());
+        doc.startSection(list.getTitle());
+        for (ViewContext c : list.getContexts()) {
+          doc.addText(c.getText());
+          doc.nextParagraph();
+        }
+        showResult(doc);
+        // done
+        return;
+      }
 
       // .. choose file
       JFileChooser chooser = new JFileChooser(".");
@@ -554,7 +586,7 @@ public class ReportView extends View {
           return null;
 
         // scan doc
-        Document doc = getDocument();
+        javax.swing.text.Document doc = getDocument();
 
         // find ' ' to the left
         for (int i = 0;; i++) {
@@ -622,7 +654,7 @@ public class ReportView extends View {
     }
 
     void add(String txt) {
-      Document doc = getDocument();
+      javax.swing.text.Document doc = getDocument();
       try {
         doc.insertString(doc.getLength(), txt, null);
       } catch (Throwable t) {
