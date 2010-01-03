@@ -773,7 +773,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider, F
     }
     
     public void mouseWheelMoved(MouseWheelEvent e) {
-    	setZoom(zoom - e.getWheelRotation()*0.1);
+      sliderZoom.setValue(sliderZoom.getValue() - e.getWheelRotation()*10);
     }
     
     /**
