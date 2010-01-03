@@ -315,12 +315,7 @@ public abstract class Origin {
       // only for locals
       if (!"file".equals(url.getProtocol()))
         return null;
-      try {
-        return new File(URLDecoder.decode(url.getFile(), "UTF-8"));
-      } catch (UnsupportedEncodingException e) {
-        // try fallback without url decoded
-        return new File(url.getFile());
-      }
+      return new File(url.getFile());
     }
 
     /**
