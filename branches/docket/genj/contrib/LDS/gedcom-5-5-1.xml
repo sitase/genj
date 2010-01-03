@@ -88,7 +88,7 @@
    <ADDR default="1"/>
   </RESI>
   <OCCU type="PropertyChoiceValue" img="Occupation" super="INDI:BIRT" cardinality="0:M"/>
-  <RELI type="PropertyChoiceValue" img="Religion" super="INDI:BIRT">
+  <RELI type="PropertyChoiceValue" img="Religion" super="INDI:BIRT" cardinality="0:M">
    <DATE default="0"/>
    <PLAC default="0"/>
   </RELI>
