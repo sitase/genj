@@ -134,11 +134,13 @@ public class Workbench extends JPanel implements SelectionSink {
     runOnExit = onExit;
     
     // plugins
+    LOG.info("loading plugins");
     for (PluginFactory pf : ServiceLookup.lookup(PluginFactory.class)) {
       LOG.info("Loading plugin "+pf.getClass());
       Object plugin = pf.createPlugin(this);
       plugins.add(plugin);
     }
+    LOG.info("/loading plugins");
 
     // Layout
     setLayout(new BorderLayout());
