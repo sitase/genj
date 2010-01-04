@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="GenJ" default="dist" basedir=".">
   
-  <property file="build.properties"/>
-	
   <path id="project.class.path">
     <pathelement path ="./build/version"/>
     <pathelement path ="./build/classes/contrib"/>
@@ -22,19 +20,32 @@
    Initialization
    -->
   <target name="init">
-    <echo level="info">Creating output directories</echo>
-    <mkdir dir="./build"/>
-    <mkdir dir="./build/run"/>
-    <mkdir dir="./build/dist"/>
-    <mkdir dir="./build/lib"/>
 
-    <tstamp><format property="now.long" pattern="yyyy/MM/dd HH:mm:ss"/></tstamp>
     <tstamp><format property="now.short" pattern="yyyyMMdd"/></tstamp>
+    <tstamp><format property="now.long" pattern="yyyy/MM/dd HH:mm:ss"/></tstamp>
+  	
+    <loadproperties srcfile="./build.properties">
+    	<filterchain>
+          <replaceregex pattern="^version[\s]*=[\s]*\$Name:[\s]+([^\s]+)[\s]*\$$" replace="version=\1-${now.short}" flags="i" byline="true"/>
+          <replaceregex pattern="^version[\s]*=[\s]*\$Name:[\s]*\$$" replace="version=HEAD-${now.short}" flags="i" byline="true"/>
+          <replaceregex pattern="^version[\s]*=[\s]*$" replace="" flags="i"/>
+    	</filterchain>
+    </loadproperties>
+
   	<property name="version" value="${now.short}"/>
     <property name="build" value="${version} ${now.long} ${user.name}"/>
   	
     <echo level="info">version = ${version}</echo>
     <echo level="info">build = ${build}</echo>
+    	
+      	<fail/>
+      	
+  	<echo level="info">Creating output directories</echo>
+    <mkdir dir="./build"/>
+    <mkdir dir="./build/run"/>
+    <mkdir dir="./build/dist"/>
+    <mkdir dir="./build/lib"/>
+
   </target>
   	
   <!--
