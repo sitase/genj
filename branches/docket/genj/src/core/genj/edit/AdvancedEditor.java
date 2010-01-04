@@ -180,10 +180,7 @@ import javax.swing.tree.TreePath;
     setFocusTraversalPolicy(new FocusPolicy());
     setFocusCycleRoot(true);
     
-    // shortcuts
-    new Cut().install(this, ACC_CUT, JComponent.WHEN_FOCUSED);
-    new Copy().install(this, ACC_COPY, JComponent.WHEN_FOCUSED);
-    new Paste().install(this, ACC_PASTE, JComponent.WHEN_FOCUSED);
+
     // done    
   }
   
@@ -765,6 +762,10 @@ import javax.swing.tree.TreePath;
     /** constructor */
     private Tree() {
       super(gedcom);
+      // shortcuts
+      new Cut().install(this, ACC_CUT, JComponent.WHEN_FOCUSED);
+      new Copy().install(this, ACC_COPY, JComponent.WHEN_FOCUSED);
+      new Paste().install(this, ACC_PASTE, JComponent.WHEN_FOCUSED);
     }
 
     /** provide context */
