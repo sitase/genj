@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * $Revision: 1.136.2.9 $ $Author: nmeier $ $Date: 2009-12-27 22:45:56 $
+ * $Revision: 1.136.2.10 $ $Author: nmeier $ $Date: 2010-01-04 23:45:27 $
  */
 package genj.report;
 
@@ -130,9 +130,9 @@ public abstract class Report implements Cloneable {
   /** file */
   private File file;
   
-  /** thread locals */
-  private ThreadLocal<PrintWriter> out = new ThreadLocal<PrintWriter>();
-  private ThreadLocal<Component> owner = new ThreadLocal<Component>();
+  /** outs */
+  private PrintWriter out = NUL;
+  private Component owner = null;
   
 
   /**
@@ -153,22 +153,21 @@ public abstract class Report implements Cloneable {
    * Get a logging out
    */
   public PrintWriter getOut() {
-    PrintWriter result = out.get();
-    return result!=null ? result : NUL;
+    return out;
   }
   
   /** 
    * Set logging out (this is a thread local operation)
    */
   /*package*/ void setOut(PrintWriter set) {
-    out.set(set);
+    out = set;
   }
 
   /** 
    * Set owner (this is a thread local operation)
    */
   /*package*/ void setOwner(Component set) {
-    owner.set(set);
+    owner = set;
   }
 
   /**
@@ -370,7 +369,7 @@ public abstract class Report implements Cloneable {
     if (extension != null)
         chooser.setFileFilter(new FileExtensionFilter(extension));
 
-    int rc = chooser.showDialog(owner.get(),button);
+    int rc = chooser.showDialog(owner,button);
 
     // check result
     File result = chooser.getSelectedFile();
@@ -379,7 +378,7 @@ public abstract class Report implements Cloneable {
 
     // choose an existing file?
     if (result.exists()&&askForOverwrite) {
-      rc = DialogHelper.openDialog(title, DialogHelper.WARNING_MESSAGE, ReportView.RESOURCES.getString("report.file.overwrite"), Action2.yesNo(), owner.get());
+      rc = DialogHelper.openDialog(title, DialogHelper.WARNING_MESSAGE, ReportView.RESOURCES.getString("report.file.overwrite"), Action2.yesNo(), owner);
       if (rc!=0)
         return null;
     }
@@ -399,7 +398,7 @@ public abstract class Report implements Cloneable {
     JFileChooser chooser = new JFileChooser(dir);
     chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
     chooser.setDialogTitle(title);
-    int rc = chooser.showDialog(owner.get(),button);
+    int rc = chooser.showDialog(owner,button);
 
     // check result
     File result = chooser.getSelectedFile();
@@ -427,7 +426,7 @@ public abstract class Report implements Cloneable {
       select.setSelection(entity);
 
     // show it
-    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),select},Action2.okCancel(),owner.get());
+    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),select},Action2.okCancel(),owner);
     if (rc!=0)
       return null;
 
@@ -459,7 +458,7 @@ public abstract class Report implements Cloneable {
     ChoiceWidget choice = new ChoiceWidget(choices, selected);
     choice.setEditable(false);
 
-    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner.get());
+    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner);
 
     return rc==0 ? choice.getSelectedItem() : null;
   }
@@ -487,7 +486,7 @@ public abstract class Report implements Cloneable {
 
     // show 'em
     ChoiceWidget choice = new ChoiceWidget(defaultChoices, defaultChoices.length>0 ? defaultChoices[0] : "");
-    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner.get());
+    int rc = DialogHelper.openDialog(getName(),DialogHelper.QUESTION_MESSAGE,new JComponent[]{new JLabel(msg),choice},Action2.okCancel(),owner);
     String result = rc==0 ? choice.getText() : null;
 
     // Remember?
@@ -538,7 +537,7 @@ public abstract class Report implements Cloneable {
 
     // show to user and check for non-ok
     OptionsWidget widget = new OptionsWidget(title, os);
-    int rc = DialogHelper.openDialog(getName(), DialogHelper.QUESTION_MESSAGE, widget, Action2.okCancel(), owner.get());
+    int rc = DialogHelper.openDialog(getName(), DialogHelper.QUESTION_MESSAGE, widget, Action2.okCancel(), owner);
     if (rc!=0)
       return false;
 
@@ -570,7 +569,7 @@ public abstract class Report implements Cloneable {
     for (int i=0;i<as.length;i++)
       as[i]  = new Action2(actions[i]);
 
-    return DialogHelper.openDialog(getName(), DialogHelper.QUESTION_MESSAGE, msg, as, owner.get());
+    return DialogHelper.openDialog(getName(), DialogHelper.QUESTION_MESSAGE, msg, as, owner);
 
   }
 

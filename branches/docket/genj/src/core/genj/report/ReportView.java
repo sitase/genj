@@ -161,6 +161,9 @@ public class ReportView extends View {
       DialogHelper.openDialog(report.getName(), DialogHelper.ERROR_MESSAGE, RESOURCES.getString("report.noaccept"), Action2.okOnly(), ReportView.this);
       return;
     }
+    
+    // set report ui context
+    report.setOwner(this);
 
     // clear the current output
     clear();
@@ -213,7 +216,12 @@ public class ReportView extends View {
    * Start a report after selection
    */
   public void startReport() {
+    
+    // minimum we can work on?
+    if (gedcom==null)
+      return;
 
+    // let user pick
     ReportSelector selector = new ReportSelector();
     try {
       selector.select(ReportLoader.getInstance().getReportByName(REGISTRY.get("lastreport", (String) null)));
