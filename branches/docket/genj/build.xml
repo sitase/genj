@@ -38,8 +38,6 @@
     <echo level="info">version = ${version}</echo>
     <echo level="info">build = ${build}</echo>
     	
-      	<fail/>
-      	
   	<echo level="info">Creating output directories</echo>
     <mkdir dir="./build"/>
     <mkdir dir="./build/run"/>
