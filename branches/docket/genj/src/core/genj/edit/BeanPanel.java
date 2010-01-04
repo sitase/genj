@@ -35,10 +35,12 @@ import genj.gedcom.TagPath;
 import genj.gedcom.UnitOfWork;
 import genj.util.ChangeSupport;
 import genj.util.swing.Action2;
+import genj.util.swing.DialogHelper;
 import genj.util.swing.ImageIcon;
 import genj.util.swing.LinkWidget;
 import genj.util.swing.NestedBlockLayout;
 import genj.util.swing.PopupWidget;
+import genj.util.swing.DialogHelper.ContainerVisitor;
 import genj.view.ContextProvider;
 import genj.view.ViewContext;
 
@@ -66,8 +68,10 @@ import java.util.logging.Logger;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JRootPane;
 import javax.swing.JTabbedPane;
 import javax.swing.LayoutFocusTraversalPolicy;
+import javax.swing.Popup;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
@@ -649,7 +653,7 @@ public class BeanPanel extends JPanel {
       // resize if available
       Dimension d = BasicEditor.REGISTRY.get("popup."+wrapped.getProperty().getTag(), (Dimension)null);
       if (d!=null) {
-        getPopup().getParent().setSize(d);
+        getPopup().setSize(d);
         getPopup().revalidate();
       }
       // request focus
@@ -664,8 +668,14 @@ public class BeanPanel extends JPanel {
       if (wrapped.getCursor()!=Cursor.getDefaultCursor()) {
         Dimension d = new Dimension(e.getPoint().x, e.getPoint().y);
         BasicEditor.REGISTRY.put("popup."+wrapped.getProperty().getTag(), d);
-        getPopup().getParent().setSize(d);
-        getPopup().revalidate();
+        
+        // find containing component with same size and resize
+        Component c = getPopup();
+        Dimension old = c.getSize();
+        while (c.getParent().getSize().equals(old)) c = c.getParent();
+        c.setSize(d);
+        c.invalidate();
+        c.validate();
       }
     }
   
