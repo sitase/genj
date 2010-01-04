@@ -55,6 +55,10 @@
     <FORM type="PropertySimpleValue" img="Format"/>
     <SOUR super="INDI:NAME:SOUR"/>
     <NOTE super="INDI:NAME:NOTE"/>
+    <MAP default="0" cardinality="0:1" type="PropertySimpleReadOnly" img="Place">
+     <LATI default="1" cardinality="1:1" type="PropertySimpleValue" img="Place"/>
+     <LONG default="1" cardinality="1:1" type="PropertySimpleValue" img="Place"/>
+    </MAP>
    </PLAC>
    <ADDR type="PropertyMultilineValue" img="Addr">
     <ADR1 hide="1" type="PropertySimpleValue" img="Addr"/>
