@@ -37,6 +37,7 @@ import java.util.List;
 import javax.swing.AbstractButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 
 /**
  * Class for providing ViewInfo information to a ViewEditor
@@ -99,13 +100,13 @@ public class TableViewSettings extends JPanel {
     AbstractButton bDown = bh.create(new Move(false));
     
     // Layout
-    gh.add(new JLabel(resources.getString("info.columns"))   ,0,2,1,1);
-    gh.add(pathTree                ,1,2,2,2,GridBagHelper.GROWFILL_BOTH);
+    gh.add(new JLabel(resources.getString("info.columns"))   ,0,0,3,1, GridBagHelper.FILL_HORIZONTAL);
+    gh.add(pathTree                ,0,1,3,1,GridBagHelper.GROWFILL_BOTH);
 
-    gh.add(new JLabel(resources.getString("info.order"))  ,0,4,1,1);
-    gh.add(bUp                                            ,0,5,1,1,GridBagHelper.FILL_HORIZONTAL);
-    gh.add(bDown                                          ,0,6,1,1,GridBagHelper.FILL_HORIZONTAL);
-    gh.add(pathList                                       ,1,4,2,4,GridBagHelper.GROWFILL_BOTH);
+    gh.add(new JLabel(resources.getString("info.order"))  ,0,2,3,1, GridBagHelper.FILL_HORIZONTAL);
+    gh.add(pathList                                       ,0,3,3,1,GridBagHelper.GROWFILL_BOTH);
+    gh.add(bUp                                            ,0,4,1,1,GridBagHelper.FILL_HORIZONTAL);
+    gh.add(bDown                                          ,1,4,1,1,GridBagHelper.FILL_HORIZONTAL);
 
     
     // check grammar
