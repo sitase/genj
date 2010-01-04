@@ -21,6 +21,7 @@ package genj.util.swing;
 
 
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
@@ -106,6 +107,20 @@ public class PopupWidget extends JButton {
    */
   public void cancelPopup() {
     popup.setVisible(false);
+  }
+  
+  protected void setPopupSize(Dimension d) {
+    // resize all components with same size
+    Component c = getPopup();
+    Dimension min = c.getMinimumSize();
+    d.width = Math.max(min.width, d.width);
+    d.height = Math.max(min.height, d.height);
+    Dimension old = c.getSize();
+    while (c!=null && c.getSize().equals(old)) {
+      c.setSize(d);
+      c = c.getParent();
+    }
+    getPopup().revalidate();
   }
   
   /**
