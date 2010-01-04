@@ -34,6 +34,7 @@ import genj.util.swing.UnitGraphics;
 import genj.util.swing.ViewPortAdapter;
 import genj.view.ContextProvider;
 import genj.view.SelectionSink;
+import genj.view.SettingsAction;
 import genj.view.ToolBar;
 import genj.view.View;
 import genj.view.ViewContext;
@@ -355,6 +356,8 @@ public class TimelineView extends View {
     sliderCmPerYear.setOpaque(false);
 
     toolbar.add(sliderCmPerYear);
+    
+    toolbar.add(new Settings());
     
   }
 
@@ -680,5 +683,19 @@ public class TimelineView extends View {
       repaint();
     }
   } // ModelListener
+  
+  private class Settings extends SettingsAction<TimelineViewSettings> {
+
+    @Override
+    protected void commit(TimelineViewSettings editor) {
+      editor.commit(TimelineView.this);
+    }
+
+    @Override
+    protected TimelineViewSettings getEditor() {
+      return new TimelineViewSettings(TimelineView.this);
+    }
+    
+  }
   
 } //TimelineView
