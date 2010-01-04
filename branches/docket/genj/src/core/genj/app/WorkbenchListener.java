@@ -74,6 +74,11 @@ public interface WorkbenchListener {
   public void gedcomOpened(Workbench workbench, Gedcom gedcom);
   
   /**
+   * notification that a view has been restored
+   */
+  public void viewRestored(Workbench workbench, View view);
+  
+  /**
    * notification that a view has been opened
    */
   public void viewOpened(Workbench workbench, View view);

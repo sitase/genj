@@ -238,6 +238,14 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
   }
 
   public void viewOpened(Workbench workbench, View view) {
+    if (view instanceof ReportView) {
+      ReportView reportView = (ReportView)view;
+      reportView.setPlugin(this);
+      reportView.startReport();
+    }
+  }
+  
+  public void viewRestored(Workbench workbench, View view) {
     if (view instanceof ReportView)
       ((ReportView)view).setPlugin(this);
   }
