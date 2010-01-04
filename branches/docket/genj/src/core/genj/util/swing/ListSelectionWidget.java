@@ -148,7 +148,12 @@ public class ListSelectionWidget<T> extends JComponent {
    */
   public void setSelection(Set<T> set) {
     selection = new HashSet<T>(set);
-    selection.retainAll(choices);
+    
+    for (T t : set)
+      if (!choices.contains(t))
+        choices.add(t);
+    
+    update();
   }
   
   /**
