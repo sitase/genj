@@ -37,6 +37,7 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.MessageFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -214,7 +215,7 @@ public class App {
         if (args.length==0)
           workbench.restoreGedcom();
         else try {
-          workbench.openGedcom(new File(args[0]).toURI().toURL());
+          workbench.openGedcom(new URL("file", "", new File(args[0]).getAbsolutePath()));
         } catch (MalformedURLException e) {
         }
         
