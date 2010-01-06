@@ -140,13 +140,27 @@ public class Resources {
     load(in, keys, key2string);
   }
   
-  private static String trimLeft(String s) {
-    int pos = 0;
-    for (int len=s.length(); pos<len; pos++) {
-      if (!Character.isWhitespace(s.charAt(pos)))
+  private static String trim(String s) {
+    
+    // take off whitespace in front
+    int start = 0;
+    for (int len=s.length(); start<len; start++) {
+      if (!Character.isWhitespace(s.charAt(start)))
         break;
     }
-    return pos==0 ? s : s.substring(pos);
+    int end = s.length();
+    
+    // look for unclosed comment
+    int comment = s.indexOf("*/", start);
+    if (comment>=0)
+      start = comment+2;
+    
+    // look for open comment
+    comment = s.indexOf("/*", start);
+    if (comment>=0)
+      end = comment;
+    
+    return s.substring(start,end);
   }
   
   /**
@@ -166,7 +180,7 @@ public class Resources {
         String line = lines.readLine();
         if (line==null) 
           break;
-        String trimmed = trimLeft(line);
+        String trimmed = trim(line);
         if (trimmed.length()==0) {
           last = null;
           continue;
@@ -184,7 +198,7 @@ public class Resources {
             continue;
           }
           // \ssomething -> ....
-          if (line.charAt(0)==' '&&Character.isLetter(trimmed.charAt(0))) {
+          if (line.charAt(0)==' ') {
             String appendto = (String)key2string.get(last);
             if (!(appendto.endsWith(" ")||appendto.endsWith("\n"))) appendto += " ";
             key2string.put(last, appendto + breakify(trimmed));
@@ -203,7 +217,7 @@ public class Resources {
         key = trimmed.substring(0, i).trim();
         if (key.indexOf(' ')>0)
           continue;
-        val = trimLeft(trimmed.substring(i+1));
+        val = trim(trimmed.substring(i+1));
         keys.add(key);
         
         // remember (we keep lowercase keys in map)
