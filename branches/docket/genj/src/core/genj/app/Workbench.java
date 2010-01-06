@@ -1126,6 +1126,9 @@ public class Workbench extends JPanel implements SelectionSink {
       if (!EnvironmentChecker.isMac())   // Mac's don't need exit actions in
         file.add(new ActionExit()); // application menus apparently
       
+      // Edit
+      groups.add(new ActionProvider.EditActionGroup());
+      
       // Views
       Action2.Group views = new ActionProvider.ViewActionGroup();
       groups.add(views);
