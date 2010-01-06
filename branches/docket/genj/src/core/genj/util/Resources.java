@@ -167,8 +167,10 @@ public class Resources {
         if (line==null) 
           break;
         String trimmed = trimLeft(line);
-        if (trimmed.length()==0)
+        if (trimmed.length()==0) {
+          last = null;
           continue;
+        }
         // .. continuation as follows:
         if (last!=null) {
           // +... -> newline....
@@ -181,8 +183,8 @@ public class Resources {
             key2string.put(last, key2string.get(last)+breakify(trimmed.substring(1)));
             continue;
           }
-          // \s... -> ....
-          if (line.charAt(0)==' ') {
+          // \ssomething -> ....
+          if (line.charAt(0)==' '&&Character.isLetter(trimmed.charAt(0))) {
             String appendto = (String)key2string.get(last);
             if (!(appendto.endsWith(" ")||appendto.endsWith("\n"))) appendto += " ";
             key2string.put(last, appendto + breakify(trimmed));
@@ -190,7 +192,7 @@ public class Resources {
           }
         } 
           
-        // has to start with non-space
+        // text has to start with letter
         if (!Character.isLetter(line.charAt(0)))
           continue;
         
