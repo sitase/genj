@@ -35,7 +35,8 @@ public abstract class SettingsAction<E extends JComponent> extends Action2 {
   private final static Resources RESOURCES = Resources.get(SettingsAction.class);
   
   public SettingsAction() {
-    super.setImage(Images.imgSettings);
+    setImage(Images.imgSettings);
+    setTip(RESOURCES.getString("view.settings.tip"));
   }
 
   @Override
