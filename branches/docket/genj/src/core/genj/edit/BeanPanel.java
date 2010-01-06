@@ -375,10 +375,10 @@ public class BeanPanel extends JPanel {
     if ("label".equals(element)) {
 
       JLabel label;
-      if (path.length()==1&&root instanceof Entity)
-        label = new JLabel(meta.getName() + ' ' + ((Entity)root).getId(), root.getImage(false), SwingConstants.LEFT);
+      if (path.length()==1&&root instanceof Entity) 
+        label = new JLabel(meta.getName() + ' ' + ((Entity)root).getId(), null, SwingConstants.LEFT);
       else
-        label = new JLabel(meta.getName(cell.isAttribute("plural")), meta.getImage(), SwingConstants.LEFT);
+        label = new JLabel(meta.getName(cell.isAttribute("plural")), null, SwingConstants.LEFT);
 
       return label;
     }

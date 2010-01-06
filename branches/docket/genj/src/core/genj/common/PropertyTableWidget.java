@@ -58,6 +58,7 @@ import java.text.Collator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Logger;
 
@@ -798,13 +799,21 @@ public class PropertyTableWidget extends JPanel  {
         return this;
       }
       
+      private Map<String,String> atts() {
+        Map<String,String> result = new HashMap<String, String>();
+        result.put(PropertyRenderer.HINT_KEY_TXT, PropertyRenderer.HINT_VALUE_TRUE);
+        result.put(PropertyRenderer.HINT_KEY_IMG, PropertyRenderer.HINT_VALUE_FALSE);
+        result.put(PropertyRenderer.HINT_KEY_SHORT, PropertyRenderer.HINT_VALUE_TRUE);
+        return result;
+      }
+      
       /**
        * patched preferred size
        */
       public Dimension getPreferredSize() {
         if (curProp==null)
           return new Dimension(0,0);
-        return Dimension2d.getDimension(renderers.getRenderer(curProp).getSize(getFont(), new FontRenderContext(null, false, false), curProp, new HashMap<String,String>(), Options.getInstance().getDPI()));
+        return Dimension2d.getDimension(renderers.getRenderer(curProp).getSize(getFont(), new FontRenderContext(null, false, false), curProp, atts(), Options.getInstance().getDPI()));
       }
       
       /**
@@ -834,7 +843,7 @@ public class PropertyTableWidget extends JPanel  {
         bounds.x += 1;
         bounds.width -= 2;
         // let it render
-        proxy.render(graphics, bounds, curProp, new HashMap<String,String>(), Options.getInstance().getDPI());
+        proxy.render(graphics, bounds, curProp, atts(), Options.getInstance().getDPI());
         // done
       }
       
