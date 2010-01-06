@@ -20,6 +20,7 @@
 package genj.timeline;
 
 import genj.almanac.Almanac;
+import genj.almanac.Event;
 import genj.gedcom.Context;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
@@ -80,7 +81,7 @@ public class TimelineView extends View {
   private Resources resources = Resources.get(this);
   
   /** keeping track of our colors */
-  /*package*/ Map colors = new HashMap();
+  /*package*/ Map<String,Color> colors = new HashMap<String, Color>();
     
   /** our model */
   private Model model;
@@ -107,7 +108,7 @@ public class TimelineView extends View {
   private ContentRenderer contentRenderer = new ContentRenderer();
   
   /** almanac categories */
-  private List ignoredAlmanacCategories = new ArrayList();
+  private List<String> ignoredAlmanacCategories = new ArrayList<String>();
   
   /** min/max's */
   /*package*/ final static double 
@@ -254,8 +255,8 @@ public class TimelineView extends View {
   /**
    * Accessor - almanac categories
    */
-  public Set getAlmanacCategories() {
-    HashSet result = new HashSet(Almanac.getInstance().getCategories());
+  public Set<String> getAlmanacCategories() {
+    HashSet<String> result = new HashSet<String>(Almanac.getInstance().getCategories());
     result.removeAll(ignoredAlmanacCategories);
     return result;
   }
@@ -263,7 +264,7 @@ public class TimelineView extends View {
   /**
    * Accessor - hidden almanac category keys
    */
-  public void setAlmanacCategories(Set set) {
+  public void setAlmanacCategories(Set<String> set) {
     ignoredAlmanacCategories.clear();
     ignoredAlmanacCategories.addAll(Almanac.getInstance().getCategories());
     ignoredAlmanacCategories.removeAll(set);
@@ -505,7 +506,7 @@ public class TimelineView extends View {
       WordBuffer text = new WordBuffer();
       int cursor = Cursor.DEFAULT_CURSOR;
       try {
-	      Iterator almanac = Almanac.getInstance().getEvents(when, days, getAlmanacCategories());
+	      Iterator<Event> almanac = Almanac.getInstance().getEvents(when, days, getAlmanacCategories());
 	      if (almanac.hasNext()) {
 		      text.append("<html><body>");
 		      for (int i=0;i<10&&almanac.hasNext();i++) {
@@ -632,6 +633,7 @@ public class TimelineView extends View {
    * Listening to changes on the scrollpane
    */
   private class ChangeCenteredYear implements AdjustmentListener {
+    private boolean mute = false;
     /** @see java.awt.event.AdjustmentListener#adjustmentValueChanged(AdjustmentEvent) */
     public void adjustmentValueChanged(AdjustmentEvent e) {
       // swing's scrollbar doesn't distinguish between user-input
@@ -644,7 +646,12 @@ public class TimelineView extends View {
       } else {
         // no adjusting means we scroll back to 'our' remembered center
         // that means scrolling with the bar's buttons will not work!
-        scroll2year(centeredYear);
+        if (!mute) try {
+          mute = true;
+          scroll2year(centeredYear);
+        } finally {
+          mute = false;
+        }
       }
     }
   } //ChangeScroll 
