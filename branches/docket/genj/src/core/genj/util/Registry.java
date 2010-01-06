@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.37.2.3 $ $Author: nmeier $ $Date: 2009-12-27 22:45:56 $
+ * $Revision: 1.37.2.4 $ $Author: nmeier $ $Date: 2010-01-06 00:43:51 $
  */
 package genj.util;
 
@@ -157,22 +157,19 @@ public class Registry {
   /**
    * Returns a map of values
    */
-  public Map get(String prefix, Map def) {
-    Map result = new HashMap();
+  public <K,V> Map<K,V> get(String prefix, Map<K,V> def) {
+    Map<K,V> result = new HashMap<K,V>();
     // loop over keys in map
-    Iterator keys = def.keySet().iterator();
-    while (keys.hasNext()) {
+    for (K key : def.keySet()) {
       // grab from default
-      Object key = keys.next();
-      Object value = def.get(key);
+      V value = def.get(key);
       // try to get a better value
       try {
-        value = getClass().getMethod("get", new Class[]{ String.class, value.getClass() })
+        value = (V)getClass().getMethod("get", new Class[]{ String.class, value.getClass() })
           .invoke(this, new Object[]{ prefix+"."+key, value });
       } catch (Throwable t) {
-        
       }
-      // keep it
+      // overwrite it
       result.put(key, value);
     }
     // done
@@ -393,7 +390,8 @@ public class Registry {
   /**
    * Returns a collection of strings by key
    */
-  public Collection get(String key, Collection def) {
+  @SuppressWarnings("unchecked")
+  public Collection<String> get(String key, Collection<String> def) {
 
     // Get size of array
     int size = get(key,-1);
@@ -401,17 +399,16 @@ public class Registry {
       return def;
 
     // Create result
-    Collection result;
+    Collection<String> result;
     try {
-      result = (Collection)def.getClass().newInstance();
+      result = (Collection<String>)def.getClass().newInstance();
     } catch (Throwable t) {
       return def;
     }
     
     // Collection content
-    for (int i=0;i<size;i++) {
+    for (int i=0;i<size;i++) 
       result.add(get(key+"."+(i+1),""));
-    }
 
     // Done
     return result;
