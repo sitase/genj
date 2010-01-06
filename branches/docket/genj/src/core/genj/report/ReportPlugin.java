@@ -44,6 +44,8 @@ import java.util.logging.Level;
 public class ReportPlugin implements ActionProvider, WorkbenchListener {
   
   private final static int MAX_HISTORY = 5;
+
+  private boolean showReportPickerOnOpen = true;
   
   private Workbench workbench;
   private Action2.Group workbenchActions = new Action2.Group("Reports");
@@ -227,9 +229,14 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
     /** callback */
     public void actionPerformed(ActionEvent event) {
       View view = workbench.getView(ReportViewFactory.class);
-      if (view==null)
-        view = workbench.openView(ReportViewFactory.class);
-      
+      if (view==null) {
+        showReportPickerOnOpen = false;
+        try {
+          view = workbench.openView(ReportViewFactory.class);
+        } finally {
+          showReportPickerOnOpen = true;
+        }
+      }      
       ((ReportView)view).startReport(report, context);
     }
   } //ActionRun
@@ -241,7 +248,8 @@ public class ReportPlugin implements ActionProvider, WorkbenchListener {
     if (view instanceof ReportView) {
       ReportView reportView = (ReportView)view;
       reportView.setPlugin(this);
-      reportView.startReport();
+      if (showReportPickerOnOpen)
+        reportView.startReport();
     }
   }
   
