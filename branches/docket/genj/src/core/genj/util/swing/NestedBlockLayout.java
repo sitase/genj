@@ -234,8 +234,9 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     /** preferred size of column */
     Dimension preferred;
 
-    /** weight of column */
+    /** weight/growth */
     Point2D.Double weight;
+    Point grow;
     
     /** subs */
     ArrayList<Block> subs = new ArrayList<Block>(16);
@@ -284,6 +285,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
       // clear state
       preferred = null;
       weight = null;
+      grow = null;
 
       // recurse
       if (recurse) for (int i=0;i<subs.size();i++) {
@@ -293,6 +295,27 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     
     /** weight */
     abstract Point2D weight();
+    
+    /** grow */
+    Point grow() {
+      
+      // known?
+      if (grow!=null)
+        return grow;
+      
+      // calculate
+      grow = new Point();
+      for (Block block : subs) {
+        Point sub = block.grow();
+        if (sub.x==1)
+          grow.x=1;
+        if (sub.y==1)
+          grow.y=1;
+      }      
+      
+      // done
+      return grow;
+    }
     
     /** preferred size */
     abstract Dimension preferred();
@@ -356,6 +379,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     }
     
     /** weight */
+    @Override
     Point2D weight() {
       
       // known?
@@ -375,17 +399,21 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     }
     
     /** layout */
+    @Override
     void layout(Rectangle in) {
       
       // compute spare space horizontally
       double weight = 0;
+      int grow = 0;
       int spare = in.width;
       for (int i=0;i<subs.size();i++) {
         Block sub = (Block)subs.get(i);
         spare -= sub.preferred().width;
         weight += sub.weight().getX();
+        grow += sub.grow().x;
       }
-      double spareOverWeight = weight>0 ? spare/weight : 0;
+      double weightFactor = weight>0 ? spare/weight : 0;
+      int growFactor = weightFactor==0 && grow>0 ? spare/grow : 0;
       
       // layout subs
       Rectangle avail = new Rectangle(in.x, in.y, 0, 0);
@@ -393,7 +421,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
         
         Block sub = (Block)subs.get(i);
         
-        avail.width = sub.preferred().width + (int)(sub.weight().getX() * spareOverWeight);
+        avail.width = sub.preferred().width + (int)(sub.weight().getX() * weightFactor) + (sub.grow().x*growFactor);
         avail.height = in.height;
 
         sub.layout(avail);
@@ -461,12 +489,15 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
       // compute spare space vertically
       double weight = 0;
       int spare = in.height;
+      int grow = 0;
       for (int i=0;i<subs.size();i++) {
         Block sub = (Block)subs.get(i);
         spare -= sub.preferred().height;
         weight += sub.weight().getY();
+        grow += sub.grow().y;
       }
-      double spareOverWeight = weight>0 ? spare/weight : 0;
+      double weightFactor = weight>0 ? spare/weight : 0;
+      int growFactor = weightFactor==0 && grow>0 ? spare/grow : 0;
       
       // loop over subs
       Rectangle avail = new Rectangle(in.x, in.y, 0, 0);
@@ -475,7 +506,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
         Block sub = (Block)subs.get(i);
         
         avail.width = in.width;
-        avail.height = sub.preferred().height + (int)(sub.weight().getY() * spareOverWeight);
+        avail.height = sub.preferred().height + (int)(sub.weight().getY() * weightFactor) + (sub.grow().y*growFactor);
         
         sub.layout(avail);
   
@@ -499,9 +530,6 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     
     /** wrapped component */
     private Component component;
-    
-    /** grow constraints */
-    private Point cellGrow = new Point();
     
     /** padding */
     private int cellPadding;
@@ -545,12 +573,13 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
         cellAlign.y = Float.parseFloat(ay);
       
       // look for grow info
+      grow = new Point();
       String gx = getAttribute("gx");
       if (gx!=null)
-        cellGrow.x = 1;
+        grow.x = 1;
       String gy = getAttribute("gy");
       if (gy!=null)
-        cellGrow.y = 1;
+        grow.y = 1;
 
       // done
     }
@@ -560,6 +589,12 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
       Cell clone = (Cell)super.clone();
       clone.component = null;
       return clone;
+    }
+    
+    @Override
+    void invalidate(boolean arg0) {
+      // component info only
+      preferred = null;
     }
     
     /** set contained content */
@@ -618,6 +653,7 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
     }
     
     /** weight */
+    @Override
     Point2D weight() {
       return component==null ? new Point2D.Double() : cellWeight;
     }
@@ -634,12 +670,12 @@ public class NestedBlockLayout implements LayoutManager2, Cloneable {
       // make sure it's not more than maximum
       Dimension pref = preferred();
       Dimension max = component.getMaximumSize();
-      if (cellGrow.x!=0) 
+      if (grow.x!=0) 
         max.width = avail.width;
       else if (cellWeight.x==0) 
         max.width = pref.width;
         
-      if (cellGrow.y!=0) 
+      if (grow.y!=0) 
         max.height = avail.height;
       else if (cellWeight.y==0)
         max.height = pref.height;
