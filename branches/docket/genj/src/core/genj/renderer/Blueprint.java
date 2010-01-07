@@ -112,4 +112,9 @@ public class Blueprint {
     return tag;
   }
   
+  @Override
+  public String toString() {
+    return getName();
+  }
+  
 } //RenderingScheme

@@ -256,7 +256,7 @@ public class BlueprintManager {
   private List<Blueprint> getBlueprintsInternal(String tag) {
     List<Blueprint> result = tag2blueprints.get(tag);
     if (result==null) {
-      result = new ArrayList();
+      result = new ArrayList<Blueprint>();
       tag2blueprints.put(tag, result);
     }
     return result;
@@ -271,8 +271,8 @@ public class BlueprintManager {
       getBlueprintFile(blueprint);
     
     // keep it overriding same name unless read-only
-    List blueprints = getBlueprintsInternal(blueprint.getTag());
-    for (ListIterator it=blueprints.listIterator(); it.hasNext(); ) {
+    List<Blueprint> blueprints = getBlueprintsInternal(blueprint.getTag());
+    for (ListIterator<Blueprint> it=blueprints.listIterator(); it.hasNext(); ) {
       Blueprint other = (Blueprint)it.next();
       // found one with same name?
       if (other.getName().equalsIgnoreCase(blueprint.getName())) {

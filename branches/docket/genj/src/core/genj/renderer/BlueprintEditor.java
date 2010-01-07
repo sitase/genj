@@ -23,6 +23,7 @@ import genj.common.PathTreeWidget;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
 import genj.gedcom.GedcomException;
+import genj.gedcom.Grammar;
 import genj.gedcom.MetaProperty;
 import genj.gedcom.Property;
 import genj.gedcom.PropertySimpleReadOnly;
@@ -43,6 +44,8 @@ import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
@@ -68,8 +71,8 @@ public class BlueprintEditor extends JSplitPane {
   /** resources */
   private final static Resources resources = Resources.get(BlueprintEditor.class);
   
-  /** the gedcom we're looking at*/
-  private Gedcom gedcom;
+  /** the grammar we're looking at*/
+  private Grammar grammar = Grammar.V55;
   
   /** the current scheme */
   private Blueprint blueprint;
@@ -84,13 +87,11 @@ public class BlueprintEditor extends JSplitPane {
   private boolean isChanged = false;
   
   /** the blueprint manager */
-  private BlueprintManager blueprintManager;
+  private BlueprintManager blueprintManager = BlueprintManager.getInstance();
     
   /**
    * Constructor   */
-  public BlueprintEditor(BlueprintManager bpMgr) { 
-    // remember
-    blueprintManager = bpMgr;
+  public BlueprintEditor(Entity recipient) { 
     // preview
     preview = new Preview();
     preview.setBorder(BorderFactory.createTitledBorder(resources.getString("blueprint.preview")));
@@ -115,7 +116,7 @@ public class BlueprintEditor extends JSplitPane {
     // event listening
     html.getDocument().addDocumentListener(preview);
     // intial set
-    set(null,null, false);
+    set(null);
     // done
   }
   
@@ -129,27 +130,24 @@ public class BlueprintEditor extends JSplitPane {
   /**
    * Set Gedcom, Blueprint
    */
-  public void set(Gedcom geDcom, Blueprint scHeme, boolean editable) {
+  public void set(Blueprint setBlueprint) {
     // resolve buttons and html
-    gedcom = geDcom;
-    if (scHeme==null) {
+    if (setBlueprint==null) {
       blueprint = null;
       html.setText("");
-      editable = false;
     } else {
-      blueprint = scHeme;
+      blueprint = setBlueprint;
       html.setText(blueprint.getHTML());
       html.setCaretPosition(0);
     }
-    bInsert.setEnabled(editable&&gedcom!=null);
-    html.setEditable(editable);
-    html.setToolTipText(editable||blueprint==null?null:resources.getString("blueprint.readonly", blueprint.getName()));
+    boolean edit = blueprint!=null&&!blueprint.isReadOnly();
+    bInsert.setEnabled(edit);
+    html.setEditable(edit);
+    html.setToolTipText(edit?resources.getString("blueprint.readonly", blueprint.getName()):null);
     // mark unchanged
     isChanged = false;
     // make sure that changes
     preview.repaint();
-    // is it an editable one?
-    if (blueprint!=null&&!blueprint.isReadOnly()) setHTMLVisible(true);
     // done    
   }
   
@@ -163,7 +161,7 @@ public class BlueprintEditor extends JSplitPane {
         // mark unchanged
         isChanged = false;
       } catch (IOException e) {
-        // TODO add a user warning
+        Logger.getLogger("genj.renderer").log(Level.WARNING, "can't save blueprint", e);
       }
     }
   }
@@ -233,11 +231,9 @@ public class BlueprintEditor extends JSplitPane {
     }
     /** @see genj.util.swing.Action2#execute() */
     public void actionPerformed(ActionEvent event) {
-      // only if gedcom is valid
-      if (gedcom==null) return;
       // create a tree of available TagPaths
       PathTreeWidget tree = new PathTreeWidget();
-      TagPath[] paths = gedcom.getGrammar().getAllPaths(blueprint.getTag(), Property.class);
+      TagPath[] paths = grammar.getAllPaths(blueprint.getTag(), Property.class);
       tree.setPaths(paths, new TagPath[0]);
       // Recheck with the user
       int option = DialogHelper.openDialog(resources.getString("prop.insert.tip"),DialogHelper.QUESTION_MESSAGE,tree,Action2.okCancel(),BlueprintEditor.this);        
@@ -263,7 +259,7 @@ public class BlueprintEditor extends JSplitPane {
   private class Example extends Entity  {
     
     /** faked values */
-    private Map tag2value = new HashMap();
+    private Map<String,String> tag2value = new HashMap<String, String>();
     
     /**
      * Constructor
@@ -303,14 +299,14 @@ public class BlueprintEditor extends JSplitPane {
       if (path.length()==1)
         return this;
       // fake it
-      Object value = tag2value.get(path.getLast());
+      String value = tag2value.get(path.getLast());
       if (value==null) 
         value = "Something";
-      MetaProperty meta = gedcom.getGrammar().getMeta(path, false);
+      MetaProperty meta = grammar.getMeta(path, false);
       if (PropertyXRef.class.isAssignableFrom(meta.getType()))
         value = "@...@";
       try {
-        return meta.create(value.toString());
+        return meta.create(value);
       } catch (GedcomException e) {
         return new PropertySimpleReadOnly(path.getLast(), value.toString());
       }

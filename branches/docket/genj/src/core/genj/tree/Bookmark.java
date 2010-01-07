@@ -19,13 +19,10 @@
  */
 package genj.tree;
 
-import java.awt.event.ActionEvent;
-
 import genj.gedcom.Entity;
 import genj.gedcom.Fam;
 import genj.gedcom.Gedcom;
 import genj.gedcom.Indi;
-import genj.util.swing.Action2;
 
 /**
  * A Bookmark in viewing a tree
@@ -34,10 +31,7 @@ import genj.util.swing.Action2;
  * <li>the name
  * </il>
  */
-public class Bookmark extends Action2 {
-  
-  /** the tree */
-  private TreeView tree;
+public class Bookmark {
   
   /** the name */
   private String name;
@@ -48,13 +42,12 @@ public class Bookmark extends Action2 {
   /**
    * Internal Constructor
    */
-  /*package*/ Bookmark(TreeView t, Gedcom ged, String s) throws IllegalArgumentException {
+  /*package*/ Bookmark(Gedcom ged, String s) throws IllegalArgumentException {
     
     // grab name and id from s
     int at = s.indexOf('#');
     if (at<0) throw new IllegalArgumentException("id#expected name");
     
-    tree = t;
     name = s.substring(at+1);
     String id = s.substring(0,at);
     
@@ -63,21 +56,14 @@ public class Bookmark extends Action2 {
     if (!(entity instanceof Indi||entity instanceof Fam))
       throw new IllegalArgumentException("id "+id+" doesn't point to Indi or Fam");
   
-    // setup text
-    setText(name);
-    setImage(Gedcom.getEntityImage(entity.getTag()));
   }
   
   /**
    * Constructor
    */
-  public Bookmark(TreeView t, String n, Entity e) {
-    tree = t;
+  public Bookmark(String n, Entity e) {
     name = n;
     entity = e;
-  
-    setText(name);
-    setImage(Gedcom.getEntityImage(entity.getTag()));
   }
   
   /**
@@ -94,18 +80,6 @@ public class Bookmark extends Action2 {
     return entity;
   }
   
-  /**
-   * @see genj.util.swing.Action2#execute()
-   */
-  public void actionPerformed(ActionEvent event) {
-    // Either scroll to or change root
-    TreeNode node = tree.getModel().getNode(entity);
-    if (node!=null)
-      tree.show(entity);
-    else
-      tree.setRoot(entity);
-  }
-
   /**
    * @see java.lang.Object#toString()
    */

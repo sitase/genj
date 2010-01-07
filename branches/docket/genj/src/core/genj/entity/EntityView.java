@@ -27,10 +27,10 @@ import genj.gedcom.GedcomListenerAdapter;
 import genj.gedcom.Property;
 import genj.renderer.Blueprint;
 import genj.renderer.BlueprintManager;
+import genj.renderer.ChooseBlueprintAction;
 import genj.renderer.EntityRenderer;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
 import genj.view.ContextProvider;
 import genj.view.View;
 import genj.view.ViewContext;
@@ -41,7 +41,6 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
-import java.awt.event.ActionEvent;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -111,31 +110,27 @@ public class EntityView extends View implements ContextProvider {
    * ContextProvider - callback
    */
   public ViewContext getContext() {
+    
     ViewContext result = new ViewContext(context);
+    
+    // pick blueprint for entity?
     if (context.getEntity()!=null) {
-      Action2.Group blueprints = new Action2.Group(BlueprintManager.TXT_BLUEPRINT);
-      for (Blueprint blueprint : BlueprintManager.getInstance().getBlueprints(context.getEntity().getTag())) {
-        blueprints.add(new Use(blueprint));
-      }
-      if (blueprints.size()>0)
-        result.addAction(blueprints);
+      
+      result.addAction(new ChooseBlueprintAction(context.getEntity(), getBlueprint(context.getEntity().getTag())) {
+        @Override
+        protected void commit(Entity recipient, Blueprint blueprint) {
+          type2blueprint.put(blueprint.getTag(), blueprint);
+          setContext(context, false);
+          REGISTRY.put("blueprint."+blueprint.getTag(), blueprint.getName());
+        }
+      });
+
     }
+    
+    // done
     return result;
   }
   
-  private class Use extends Action2 {
-    private Blueprint blueprint;
-    public Use(Blueprint blueprint) {
-      setText(blueprint.getName());
-      this.blueprint = blueprint;
-    }
-    @Override
-    public void actionPerformed(ActionEvent e) {
-      type2blueprint.put(blueprint.getTag(), blueprint);
-      setContext(context, false);
-    }
-  }
-
   /**
    * our context setter
    */

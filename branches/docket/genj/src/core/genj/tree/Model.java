@@ -121,6 +121,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
       return;
     // keep as root
     root = entity;
+    // start fresh
+    bookmarks.clear();
     // parse the current information
     update();
     // done
@@ -322,14 +324,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
   /**
    * Accessor - bookmarks
    */
-  public List getBookmarks() {
+  public List<Bookmark> getBookmarks() {
     return Collections.unmodifiableList(bookmarks);
   }
   
   /**
    * Accessor - bookmarks
    */
-  public void setBookmarks(List set) {
+  public void setBookmarks(List<Bookmark> set) {
     bookmarks.clear();
     bookmarks.addAll(set);
   }
