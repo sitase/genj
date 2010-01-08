@@ -22,6 +22,7 @@ package genj.gedcom;
 import java.util.Collection;
 import java.util.Stack;
 import java.util.StringTokenizer;
+import java.util.regex.Pattern;
 
 /**
  * Class for encapsulating a path of tags that describe the way throug
@@ -288,9 +289,15 @@ public class TagPath {
       // as text
       name = Gedcom.getName(tag);
       
-      // qualify 2nd level path element (e.g. date or place) if possible
-      if (i>1 && Character.isLetter(get(i-1).charAt(0))) 
-        name = name + " - " + Gedcom.getName(get(i-1));
+      // qualify 2nd level path element (e.g. date or place) for events if possible
+      //  BIRT:DATE > Date - Birth
+      //  IMMI:PLAC > Date - Immigration
+      //  NAME:NICK > Nickname (not "Nickname - Name")
+      if (i>1 && Character.isLetter(get(i-1).charAt(0))) {
+        String up = Gedcom.getName(get(i-1));
+        if (!Pattern.compile(".*"+up+".*", Pattern.CASE_INSENSITIVE).matcher(name).find())
+          name = name + " - " + up;
+      }
     }
     return name;
   }
