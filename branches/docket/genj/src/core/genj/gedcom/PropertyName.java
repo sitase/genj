@@ -268,7 +268,8 @@ public class PropertyName extends Property {
   public PropertyName setName(String first, String last, String suff, boolean replaceAllLastNames) {
 
     // 20070128 don't bother with calculating old if this is happening in init()
-    String old = getParent()==null?null:getValue();
+    boolean hasParent = getParent()!=null;
+    String old = hasParent ? getValue() : null;
 
     // check for uppercase lastname
     if (Options.getInstance().isUpperCaseNames)
@@ -295,10 +296,28 @@ public class PropertyName extends Property {
     
     // remember us
     remember(first, last);
-
+    
+    // update GIVN|SURN - IF we have a parent
+    if (hasParent) {
+      boolean add = Options.getInstance().isAddGivenSurname;
+      Property givn = getProperty("GIVN");
+      if (add || givn!=null) {
+        if (givn==null)
+          givn = addProperty("GIVN", first);
+        else
+          givn.setValue(first);
+      }
+      Property surn = getProperty("SURN");
+      if (add || surn!=null) {
+        if (surn==null)
+          surn = addProperty("SURN", last);
+        else
+          surn.setValue(last);
+      }
+    }
+    
     // Make sure no Information is kept in base class
     nameAsString=null;
-
     lastName  = last;
     firstName = first;
     suffix    = suff;
