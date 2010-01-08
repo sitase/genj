@@ -19,22 +19,20 @@
  */
 package genj.edit.actions;
 
-import genj.gedcom.Gedcom;
 import genj.gedcom.PropertyFile;
-import genj.io.FileAssociation;
 import genj.util.swing.Action2;
-import genj.util.swing.DialogHelper;
 
+import java.awt.Desktop;
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * External action 
  */
 public class RunExternal extends Action2 {
-  
-  /** the wrapped association */
-  private FileAssociation association;
   
   /** the wrapped file */
   private File file;
@@ -45,26 +43,7 @@ public class RunExternal extends Action2 {
   public RunExternal(PropertyFile f) {
     file = f.getFile();
     super.setImage(f.getImage(false));
-    super.setText("Open...");
-  }
-  
-  /**
-   * Constructor
-   */
-  public RunExternal(PropertyFile f, FileAssociation fa) {
-    association = fa;
-    file = f.getFile();
-    super.setImage(f.getImage(false));
-    super.setText(association.getName()+" ("+association.getSuffixes()+")");
-  }
-  
-  /**
-   * Constructor
-   */
-  public RunExternal(Gedcom ged, String f, FileAssociation fa) {
-    association = fa;
-    file = ged.getOrigin().getFile(f);
-    super.setText(association.getName()+" ("+association.getSuffixes()+")");
+    super.setText("Open");
   }
   
   /**
@@ -73,10 +52,11 @@ public class RunExternal extends Action2 {
   public void actionPerformed(ActionEvent event) {
     if (file==null)
       return;
-    if (association==null)
-      association = FileAssociation.get(file, "View", DialogHelper.getComponent(event));
-    if (association!=null)
-      association.execute(file);
+    try {
+      Desktop.getDesktop().open(file);
+    } catch (IOException e) {
+      Logger.getLogger("genj.edit.actions").log(Level.INFO, "can't open "+file, e);
+    }
   }
   
 } //RunExternal

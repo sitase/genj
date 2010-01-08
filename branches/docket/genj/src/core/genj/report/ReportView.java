@@ -25,7 +25,6 @@ import genj.fo.FormatOptionsWidget;
 import genj.gedcom.Context;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.io.FileAssociation;
 import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
@@ -39,6 +38,7 @@ import genj.view.ViewContext;
 import genj.view.ViewContext.ContextList;
 
 import java.awt.CardLayout;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Point;
@@ -312,9 +312,11 @@ public class ReportView extends View {
           // can't happen
         }
       } else {
-        FileAssociation association = FileAssociation.get(file, (String) null, this);
-        if (association != null)
-          association.execute(file);
+        try {
+          Desktop.getDesktop().open(file);
+        } catch (IOException e) {
+          Logger.getLogger("genj.report").log(Level.INFO, "can't open "+file, e);
+        }
         return;
       }
     }

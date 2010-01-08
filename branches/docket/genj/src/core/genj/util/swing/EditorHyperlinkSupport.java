@@ -19,9 +19,8 @@
  */
 package genj.util.swing;
 
-import genj.io.FileAssociation;
-
-import java.net.URL;
+import java.awt.Desktop;
+import java.net.URI;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -53,7 +52,11 @@ public class EditorHyperlinkSupport implements HyperlinkListener {
       if (e.getDescription().startsWith("#")) 
           editor.scrollToReference(e.getDescription().substring(1));
       else {
-        FileAssociation.open(new URL(e.getDescription()), editor);
+        try {
+          Desktop.getDesktop().browse(new URI(e.getDescription()));
+        } catch (Throwable t) {
+          LOG.log(Level.INFO, "can't open browser for "+e.getDescription());
+        }
       }          
         
     } catch (Throwable t) {

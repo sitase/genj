@@ -65,7 +65,6 @@ import genj.gedcom.PropertySubmitter;
 import genj.gedcom.Submitter;
 import genj.gedcom.TagPath;
 import genj.gedcom.UnitOfWork;
-import genj.io.FileAssociation;
 import genj.util.EnvironmentChecker;
 import genj.util.Resources;
 import genj.util.swing.Action2;
@@ -477,20 +476,7 @@ public class EditPlugin extends WorkbenchAdapter implements ActionProvider {
    * Create actions for PropertyFile
    */
   private void createActions(Action2.Group group, PropertyFile file) {
-  
-    // find suffix
-    String suffix = file.getSuffix();
-      
-    // lookup associations
-    List<FileAssociation> assocs = FileAssociation.getAll(suffix);
-    if (assocs.isEmpty()) {
-      group.add(new RunExternal(file));
-    } else {
-      for (FileAssociation fa : assocs) {
-        group.add(new RunExternal(file,fa));
-      }
-    }
-    // done
+    group.add(new RunExternal(file));
   }
 
 }

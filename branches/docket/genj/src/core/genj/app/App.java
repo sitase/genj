@@ -215,7 +215,7 @@ public class App {
         if (args.length==0)
           workbench.restoreGedcom();
         else try {
-          workbench.openGedcom(new URL("file", "", new File(args[0]).getAbsolutePath()));
+          workbench.openGedcom(new URL("file:"+new File(args[0]).getAbsolutePath()));
         } catch (MalformedURLException e) {
         }
         

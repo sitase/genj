@@ -19,8 +19,6 @@
  */
 package genj.app;
 
-import genj.gedcom.PropertyFile;
-import genj.io.FileAssociation;
 import genj.lnf.LnF;
 import genj.option.Option;
 import genj.option.OptionProvider;
@@ -28,32 +26,24 @@ import genj.option.OptionUI;
 import genj.option.OptionsWidget;
 import genj.option.PropertyOption;
 import genj.util.EnvironmentChecker;
-import genj.util.GridBagHelper;
-import genj.util.Registry;
 import genj.util.Resources;
 import genj.util.swing.Action2;
-import genj.util.swing.DialogHelper;
-import genj.util.swing.FileChooserWidget;
-import genj.util.swing.PopupWidget;
-import genj.util.swing.TextFieldWidget;
 
+import java.awt.Desktop;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.io.File;
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.TreeSet;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.UIManager;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
 
 /**
  * Application options
@@ -286,8 +276,6 @@ public class Options extends OptionProvider {
   public List getOptions() {
     // bean property options of instance
     List result = PropertyOption.introspect(instance);
-    // add an option for FileAssociations
-    result.add(new FileAssociationOption());
     // add an otion for user.home.dir
     result.add(new UserHomeGenJOption());
     // done
@@ -341,166 +329,13 @@ public class Options extends OptionProvider {
       }
       public void actionPerformed(ActionEvent event) {
         File user_home_genj = new File(EnvironmentChecker.getProperty(UserHomeGenJOption.this, "user.home.genj", null, "trying to open user.home.genj")) ;
-        FileAssociation asso = FileAssociation.get(user_home_genj, "", null);
-        if (asso!=null) asso.execute(user_home_genj);
+        try {
+          Desktop.getDesktop().open(user_home_genj);
+        } catch (IOException e) {
+          Logger.getLogger("genj.io").log(Level.INFO, "can't open user.home.genj", e);
+        }
       }
     }
   }
-
-  /**
-   * Option for File Associations
-   */
-  private static class FileAssociationOption extends Option implements OptionUI {
-
-    /** the options widget */
-    private OptionsWidget widget;
-
-    /** the current popup widget */
-    private PopupWidget popup;
-
-    /** callback - user readble name */
-    public String getName() {
-      return getInstance().getResources().getString("option.fileassociations");
-    }
-
-    /** callback - user readble tool tip */
-    public String getToolTip() {
-      return getInstance().getResources().getString("option.fileassociations.tip", false);
-    }
-
-    /** callback - persist */
-    public void persist() {
-      Registry.get(this).put("associations", FileAssociation.getAll());
-    }
-
-    /** callback - restore */
-    public void restore() {
-      String[] associations = Registry.get(this).get("associations", new String[0]);
-      for (int i = 0; i < associations.length; i++)
-        FileAssociation.add(new FileAssociation(associations[i]));
-    }
-
-    /** callback - resolve ui */
-    public OptionUI getUI(OptionsWidget widget) {
-      this.widget = widget;
-      return this;
-    }
-
-    /** callback - text representation = none */
-    public String getTextRepresentation() {
-      return null;
-    }
-
-    /** callback - component representation = button */
-    public JComponent getComponentRepresentation() {
-      // prepare popup widget
-      popup = new PopupWidget("...");
-      popup.addItems(getActions());
-      // done
-      return popup;
-    }
-
-    /**
-     * calculate actions for popup
-     */
-    private List<Action2> getActions() {
-      // create action for each association
-      List<Action2> result = new ArrayList<Action2>(10);
-      int i=1;
-      for (FileAssociation fa : FileAssociation.getAll())
-        result.add(new Edit(i++, fa));
-      result.add(new Edit(0, null));
-      // done
-      return result;
-    }
-
-    /** callback - commit */
-    public void endRepresentation() {
-      // already done
-    }
-
-    /**
-     * Action for UI
-     */
-    private class Edit extends Action2 {
-      /** file association */
-      private FileAssociation association;
-      /** constructor */
-      private Edit(int i, FileAssociation fa) {
-        association = fa;
-        setImage(PropertyFile.DEFAULT_IMAGE);
-        setText(fa!=null ? i+" "+fa.getName()+" ("+fa.getSuffixes()+')' : localize("new"));
-      }
-      /** localize */
-      private String localize(String key) {
-        return Options.getInstance().getResources().getString("option.filesssociations."+key);
-      }
-      /** action main */
-      public void actionPerformed(ActionEvent event) {
-
-        // create panel with association fields
-        JPanel panel = new JPanel();
-        final TextFieldWidget
-          suffixes   = new TextFieldWidget(),
-          name       = new TextFieldWidget();
-        final FileChooserWidget
-          executable = new FileChooserWidget(FileChooserWidget.EXECUTABLES);
-        GridBagHelper gh = new GridBagHelper(panel);
-        gh.add(new JLabel(localize("suffix"), JLabel.LEFT), 0,0,1,1,GridBagHelper.FILL_HORIZONTAL);
-        gh.add(suffixes                                   , 1,0,1,1,GridBagHelper.GROWFILL_HORIZONTAL);
-        gh.add(new JLabel(localize("name"  ), JLabel.LEFT), 0,1,1,1,GridBagHelper.FILL_HORIZONTAL);
-        gh.add(name                                       , 1,1,1,1,GridBagHelper.GROWFILL_HORIZONTAL);
-        gh.add(new JLabel(localize("exec"  ), JLabel.LEFT), 0,2,1,1,GridBagHelper.FILL_HORIZONTAL);
-        gh.add(executable                                 , 1,2,1,1,GridBagHelper.GROWFILL_HORIZONTAL);
-
-        // setup data from existing FileAssociation
-        if (association!=null) {
-          suffixes  .setText(association.getSuffixes()  );
-          name      .setText(association.getName()      );
-          executable.setFile(association.getExecutable());
-        }
-
-        // prepare some actions
-        final Action
-          ok = Action2.ok(),
-          delete = new Action2(localize("delete"), association!=null),
-          cancel = Action2.cancel();
-
-        // track changes
-        ChangeListener l = new ChangeListener() {
-          public void stateChanged(ChangeEvent e) {
-            ok.setEnabled( !suffixes.isEmpty() && !name.isEmpty() && !executable.isEmpty() );
-          }
-        };
-        suffixes.addChangeListener(l);
-        name.addChangeListener(l);
-        executable.addChangeListener(l);
-        l.stateChanged(null);
-
-        // show a dialog with file association fields
-        int rc = DialogHelper.openDialog(getName(), DialogHelper.QUESTION_MESSAGE, panel, new Action[]{ ok, delete, cancel }, widget);
-        if (rc==-1||rc==2)
-          return;
-
-        // ok'd?
-        if (rc==0) {
-            // create new?
-            if (association==null)
-              association = FileAssociation.add(new FileAssociation());
-            // keep input
-            association.setSuffixes(suffixes.getText());
-            association.setName(name.getText());
-            association.setExecutable(executable.getFile().toString());
-        } else { // delete
-          FileAssociation.del(association);
-        }
-
-        // update actions
-        popup.removeItems();
-        popup.addItems(getActions());
-      }
-    } // Action
-
-  } //FileAssociationOption
 
 } //Options

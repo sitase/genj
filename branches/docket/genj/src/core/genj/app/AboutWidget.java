@@ -29,17 +29,20 @@
 package genj.app;
 
 import genj.Version;
-import genj.io.FileAssociation;
 import genj.util.EnvironmentChecker;
 import genj.util.Resources;
 import genj.util.swing.Action2;
 
 import java.awt.BorderLayout;
+import java.awt.Desktop;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -240,9 +243,11 @@ public class AboutWidget extends JPanel{
       setText("Log");
     }
     public void actionPerformed(ActionEvent event) {
-      FileAssociation asso = FileAssociation.get(App.LOGFILE, "GenJ Log", AboutWidget.this);
-      if (asso!=null)
-        asso.execute(App.LOGFILE);
+      try {
+        Desktop.getDesktop().open(App.LOGFILE);
+      } catch (IOException e) {
+        Logger.getLogger("genj.io").log(Level.INFO, "can't open logfile", e);
+      }
     }
   }
   

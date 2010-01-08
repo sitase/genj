@@ -17,7 +17,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  * 
- * $Revision: 1.37.2.4 $ $Author: nmeier $ $Date: 2010-01-06 00:43:51 $
+ * $Revision: 1.37.2.5 $ $Author: nmeier $ $Date: 2010-01-08 01:43:26 $
  */
 package genj.util;
 
@@ -391,7 +391,7 @@ public class Registry {
    * Returns a collection of strings by key
    */
   @SuppressWarnings("unchecked")
-  public Collection<String> get(String key, Collection<String> def) {
+  public List<String> get(String key, List<String> def) {
 
     // Get size of array
     int size = get(key,-1);
@@ -399,14 +399,7 @@ public class Registry {
       return def;
 
     // Create result
-    Collection<String> result;
-    try {
-      result = (Collection<String>)def.getClass().newInstance();
-    } catch (Throwable t) {
-      return def;
-    }
-    
-    // Collection content
+    List<String> result = new ArrayList<String>();
     for (int i=0;i<size;i++) 
       result.add(get(key+"."+(i+1),""));
 
@@ -638,13 +631,13 @@ public class Registry {
   /**
    * Remembers a collection of Strings
    */
-  public void put(String key, Collection values) {
+  public void put(String key, Collection<?> values) {
 
     // Remember
     int l = values.size();
     put(key,l);
     
-    Iterator elements = values.iterator();
+    Iterator<?> elements = values.iterator();
     for (int i=0;elements.hasNext();i++) {
       put(key+"."+(i+1),elements.next().toString());
     }

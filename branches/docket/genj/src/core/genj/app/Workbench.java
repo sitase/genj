@@ -204,7 +204,7 @@ public class Workbench extends JPanel implements SelectionSink {
     // form the origin
     Gedcom gedcom;
     try {
-      gedcom = new Gedcom(Origin.create(new URL("file", "", file.getAbsolutePath())));
+      gedcom = new Gedcom(Origin.create(new URL("file:"+file.getAbsolutePath())));
     } catch (MalformedURLException e) {
       LOG.log(Level.WARNING, "unexpected exception creating new gedcom", e);
       return;
@@ -231,7 +231,7 @@ public class Workbench extends JPanel implements SelectionSink {
     
     // form origin
     try {
-      return openGedcom(new URL("file", "", file.getAbsolutePath()));
+      return openGedcom(new URL("file:"+file.getAbsolutePath()));
     } catch (Throwable t) {
       // shouldn't
       return false;
@@ -290,6 +290,14 @@ public class Workbench extends JPanel implements SelectionSink {
     } finally {
       for (WorkbenchListener l : listeners) l.processStopped(this, reader);
     }
+    
+    // remember
+    List<String> history = REGISTRY.get("history", new ArrayList<String>());
+    history.remove(origin.toString());
+    history.add(0, origin.toString());
+    if (history.size()>5)
+      history.remove(history.size()-1);
+    REGISTRY.put("history", history);
     
     // done
     return true;
@@ -855,6 +863,8 @@ public class Workbench extends JPanel implements SelectionSink {
    * Action - open
    */
   private class ActionOpen extends WorkbenchAction {
+    
+    private URL url;
 
     /** constructor - good for button or menu item */
     protected ActionOpen() {
@@ -863,12 +873,24 @@ public class Workbench extends JPanel implements SelectionSink {
       setImage(Images.imgOpen);
       install(Workbench.this, ACC_OPEN, JComponent.WHEN_IN_FOCUSED_WINDOW);
     }
+    
+    protected ActionOpen(int m, URL url) {
+      this.url = url;
+      String txt = ((char)('1'+m)) + " " + url.getFile();
+      
+      int i = txt.indexOf('/');
+      int j = txt.lastIndexOf('/');
+      if (i!=j) 
+        txt = txt.substring(0, i + 1) + "..." + txt.substring(j);
+      setMnemonic(txt.charAt(0));
+      setText(txt);
+    }
 
-    /**
-     * (Async) execute
-     */
     public void actionPerformed(ActionEvent event) {
-      openGedcom();
+      if (url!=null)
+        openGedcom(url);
+      else
+        openGedcom();
     }
   } // ActionOpen
 
@@ -1121,8 +1143,13 @@ public class Workbench extends JPanel implements SelectionSink {
       file.add(new ActionOpen());
       file.add(new ActionSave(false));
       file.add(new ActionSave(true));
-      file.add(new ActionProvider.SeparatorAction());
       file.add(new ActionClose());
+      file.add(new ActionProvider.SeparatorAction());
+      int i=0; for (String recent : REGISTRY.get("history", new ArrayList<String>())) try {
+        if (context.getGedcom()==null||!recent.equals(context.getGedcom().getOrigin().toString()))
+          file.add(new ActionOpen(i++, new URL(recent)));
+      } catch (MalformedURLException e) { }
+      file.add(new ActionProvider.SeparatorAction());
       if (!EnvironmentChecker.isMac())   // Mac's don't need exit actions in
         file.add(new ActionExit()); // application menus apparently
       

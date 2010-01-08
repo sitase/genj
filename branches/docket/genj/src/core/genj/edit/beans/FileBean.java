@@ -23,7 +23,6 @@ import genj.edit.actions.RunExternal;
 import genj.gedcom.Property;
 import genj.gedcom.PropertyBlob;
 import genj.gedcom.PropertyFile;
-import genj.io.FileAssociation;
 import genj.util.Origin;
 import genj.util.swing.Action2;
 import genj.util.swing.FileChooserWidget;
@@ -205,21 +204,9 @@ public class FileBean extends PropertyBean {
       result.addAction(new ActionZoom(200));
       result.addAction(new ActionZoom(  0));
       
-      // find suffix
       PropertyFile file = (PropertyFile)getProperty();
-      if (file!=null) {
-        String suffix = file.getSuffix();
-        // lookup associations
-        List<FileAssociation> assocs = FileAssociation.getAll(suffix);
-        if (assocs.isEmpty()) {
-          result.addAction(new RunExternal(file));
-        } else {
-          for (FileAssociation fa : assocs) {
-            result.addAction(new RunExternal(file,fa));
-          }
-        }
-      }
-      // done
+      if (file!=null) 
+        result.addAction(new RunExternal(file));
     }
     // all done
     return result;
