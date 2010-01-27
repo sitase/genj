@@ -34,7 +34,7 @@ public class Fam extends Entity {
     PATH_FAMMARRDATE = new TagPath("FAM:MARR:DATE"),
     PATH_FAMMARRPLAC = new TagPath("FAM:MARR:PLAC"),
     PATH_FAMDIVDATE  = new TagPath("FAM:DIV:DATE"),
-    PATH_FAMDIVPLAC  = new TagPath("FAM:DIV:PLAC");
+    PATH_FAMDIVPLAC  = new TagPath("FAM:MARR:PLAC");
 
   private final static TagPath
     SORT_SIBLINGS = new TagPath("CHIL:*:..:BIRT:DATE");
@@ -334,19 +334,19 @@ public class Fam extends Entity {
   /**
    * Meier, Magdalene (I1) & Meier, Lars (I2) ...
    */
-  protected String getToStringPrefix(boolean showIds, boolean showAsLink) {
+  protected String getToStringPrefix(boolean showIds) {
     
     StringBuffer result = new StringBuffer();
 
     Indi husband = getHusband();
     if (husband!=null) {
-      result.append(husband.toString(showIds, showAsLink));
+      result.append(husband.toString(showIds));
       result.append(Options.getInstance().getTxtMarriageSymbol());
     }
     
     Indi wife = getWife();
     if (wife!=null) {
-      result.append(wife.toString(showIds, showAsLink));
+      result.append(wife.toString(showIds));
     }
 
     // Done
@@ -389,50 +389,18 @@ public class Fam extends Entity {
    */
   public void swapSpouses() throws GedcomException {
     
-    PropertyHusband husband = (PropertyHusband) getProperty("HUSB", true);
-    PropertyWife wife = (PropertyWife) getProperty("WIFE", true);
-    
-    // noop?
-    if (husband==null&&wife==null)
-      return;
-    
-    // only one?
-    if (husband==null) {
-      setHusband(getWife());
-      return;
-    }
+    Indi 
+      husband = getHusband(),
+      wife = getWife();
 
-    if (wife==null) {
-      setWife(getHusband());
-      return;
-    }
+    setWife(null);
+    setHusband(null);
       
-    // swivel pointers
-    PropertyFamilySpouse famsh= null;
-    PropertyFamilySpouse famsw = null;
-    
-    if (husband!=null) {
-      famsh = (PropertyFamilySpouse) husband.getTarget();
-      husband.unlink();
-    }
-
-    if (wife!=null) {
-      famsw = (PropertyFamilySpouse) wife.getTarget();
-      wife.unlink();
-    }
-
-    if (husband!=null&&famsw!=null)
-      husband.link(famsw);
-    
-    if (wife!=null&&famsh!=null)
-      wife.link(famsh);
-    
+    if (wife!=null)
+      setHusband(wife);
+    if (husband!=null)
+      setWife(husband);
+      
   }
-
   
-  protected String getIdLinkFormat() {
- return genj.report.Options.getInstance().getLinkToFam();
-  }
-
-
 } //Fam

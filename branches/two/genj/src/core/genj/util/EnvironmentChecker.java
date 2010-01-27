@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URLClassLoader;
+import java.security.AccessControlException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -133,14 +134,18 @@ public class EnvironmentChecker {
       }
       
       // check classloaders
-      ClassLoader cl = EnvironmentChecker.class.getClassLoader();
-      while (cl!=null) {
-        if (cl instanceof URLClassLoader) {
-          LOG.info("URLClassloader "+cl + Arrays.asList(((URLClassLoader)cl).getURLs()));
-        } else {
-          LOG.info("Classloader "+cl);
-        }
-        cl = cl.getParent();
+      try {
+	      ClassLoader cl = EnvironmentChecker.class.getClassLoader();
+	      while (cl!=null) {
+	        if (cl instanceof URLClassLoader) {
+	          LOG.info("URLClassloader "+cl + Arrays.asList(((URLClassLoader)cl).getURLs()));
+	        } else {
+	          LOG.info("Classloader "+cl);
+	        }
+	        cl = cl.getParent();
+	      }
+      } catch (AccessControlException ace) {
+        // in applet
       }
       
       // check memory
@@ -240,6 +245,7 @@ public class EnvironmentChecker {
   static {
     try {
       EnvironmentChecker.loadSystemProperties(new FileInputStream(new File("system.properties")));
+    } catch (AccessControlException ace) {
     } catch (IOException e) {
     }
   }
