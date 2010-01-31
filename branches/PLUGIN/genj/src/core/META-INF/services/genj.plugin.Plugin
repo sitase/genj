@@ -1,8 +1,0 @@
-genj.edit.EditViewPlugin
-genj.table.TableViewPlugin
-genj.tree.TreeViewPlugin
-genj.timeline.TimelineViewPlugin
-genj.nav.NavigatorViewPlugin
-genj.entity.EntityViewPlugin
-genj.search.SearchViewPlugin
-genj.report.ReportPlugin
