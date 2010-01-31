@@ -1,6 +1,0 @@
-*.jpage
-.cvsignore
-build
-java.policy.applet
-.fbprefs
-.fbwarnings
