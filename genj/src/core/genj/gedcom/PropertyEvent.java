@@ -19,7 +19,9 @@
  */
 package genj.gedcom;
 
-import genj.gedcom.time.Delta;
+import java.util.*;
+
+import genj.util.*;
 
 /**
  * Gedcom Property : EVENT
@@ -28,9 +30,39 @@ public class PropertyEvent extends Property {
   
   /** our Tag */
   private String tag;
-  
-  /** whether the event is known to have happened */
-  private boolean knownToHaveHappened;
+
+  /** known EVENT tags */
+  private static String[] tags;
+
+  /**
+   * Constructor of address Gedcom-line
+   */
+  public PropertyEvent(String tag) {
+
+    // Remember
+    this.tag = tag;
+
+    // Done
+  }
+
+  /**
+   * Constructor of address Gedcom-line
+   */
+  public PropertyEvent(String tag, String value) {
+
+    // Remember
+    this.tag = tag;
+
+    // Done
+  }
+
+  /**
+   * Adds all default properties to this property
+   */
+  public void addDefaultProperties() {
+    addProperty(new PropertyDate());
+    addProperty(new PropertyPlace(""));
+  }
 
   /**
    * Returns the date of the event
@@ -46,9 +78,11 @@ public class PropertyEvent extends Property {
   public PropertyDate getDate(boolean valid) {
 
     // Try to get date-property which is valid
-    Property prop = getProperty("DATE",valid);
-    if (prop==null) 
+  //  Property prop = getProperty(new TagPath(getTag()+":DATE"),valid);
+    Property prop = getProperty(new TagPath("DATE"),valid);
+    if (prop==null) {
       return null;
+    }
 
     // Return as Date
     return (PropertyDate)prop;
@@ -58,8 +92,35 @@ public class PropertyEvent extends Property {
    * Calculate event's date
    */
   public String getDateAsString() {
-    Property date = getProperty("DATE");
-    return date!=null ? date.getValue() : "";
+
+    // look for PropertyDate in children
+    if (children==null) return "";
+    
+    for (int i=0;i<children.getSize();i++) {
+      Property prop = children.get(i);
+      if ( prop instanceof PropertyDate ) {
+        return ((PropertyDate)prop).toString();
+      }
+    }
+
+    // No information
+    return "";
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "Empty";
+  }
+
+  /**
+   * Returns the name of the proxy-object which knows properties looked
+   * up by TagPath
+   * @return proxy's logical name
+   */
+  public static String getProxy(TagPath path) {
+    return "Empty";
   }
 
   /**
@@ -70,137 +131,46 @@ public class PropertyEvent extends Property {
   }
 
   /**
-   * @see genj.gedcom.Property#setTag(java.lang.String)
-   */
-  /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    // remember tag
-    tag = meta.getTag();
-    // remember Y
-    if (value.toLowerCase().equals("y"))
-      knownToHaveHappened = true;
-    // continue with super 
-    return super.init(meta,value);
-  }
-
-  /**
    * Returns the value of this property
    */
   public String getValue() {
-    return knownToHaveHappened ? "Y" : "";
+    return "";
   }
 
   /**
    * Sets the value of this property
    */
-  public void setValue(String value) {
-    setKnownToHaveHappened(value.toLowerCase().equals("y"));
+  public boolean setValue(String value) {
+    return false;
   }
-  
-  @Override
-  void propagatePropertyChanged(Property property, String oldValue) {
-    super.propagatePropertyChanged(property, oldValue);
-    
-    // sniff for changes in date
-    if (property instanceof PropertyDate && getProperty("DATE")==property && getParent() instanceof Indi) {
-      // propagate birth changes to co-located other events
-      if (getParent().getProperty("BIRT") == this) {
-        for (PropertyEvent event : getParent().getProperties(PropertyEvent.class)) {
-          if (event!=this)
-            event.updateAge((PropertyDate)property);
-        }
-      } else if (!"BIRT".equals(getTag())){
-        updateAge();
+
+  /**
+   * Returns the list of tags which identify PropertyEvents
+   */
+  public static String[] getTags() {
+
+    // Already calculated?
+    if (tags!=null) {
+      return tags;
+    }
+
+    Vector v = new Vector(100);
+    for (int i=0;i<metaDefs.length;i++) {
+      MetaDefinition def = metaDefs[i];
+      if (def.isEvent()) {
+        v.addElement(def.getTag());
       }
     }
 
-    // done
-  }
-
-
-  /**
-   * Update age information for this event
-   */
-  public void updateAge() {
-    
-    if (!(getParent() instanceof Indi ))
-      return;
-    
-    updateAge( ((Indi)getParent()).getBirthDate() );
-    
-  }
-  
-  /*package*/ void updateAge(PropertyDate birt) {
-    
-    // got a date?
-    PropertyDate date = getDate(true);
-    if (date==birt)
-      return;
-    
-    // got age?
-    PropertyAge age = (PropertyAge) getProperty("AGE");
-    if (age==null) {
-      if (date==null || !Options.getInstance().isAddAge)
-        return;
-      age = (PropertyAge)addProperty("AGE", "");
+    String[] result = new String[v.size()];
+    Enumeration e = v.elements();
+    for (int i=0;e.hasMoreElements();i++) {
+      result[i] = e.nextElement().toString();
     }
-    
-    // no age computable?
-    if (date==null||birt==null||!birt.isValid()) {
-      // leave it alone
-      return;
-    }
-    
-    // compute
-    if (birt.getStart().compareTo(date.getStart())>=0)
-      age.setValue("");
-    else
-      age.setValue(Delta.get(birt.getStart(), date.getStart()));
-    
-    // done
+
+    tags = result;
+    return result;
   }
 
-  /**
-   * Returns the list of paths which identify PropertyEvents
-   */
-  public static TagPath[] getTagPaths(Gedcom gedcom) {
-    return gedcom.getGrammar().getAllPaths(null, PropertyEvent.class);  
-  }
-  
-  /**
-   * Access - whether this event is known to have happened
-   * @return null if this attribute is not supported, true or false otherwise
-   */
-  public Boolean isKnownToHaveHappened() {
-    // patch - no known EVEN
-    if (getTag().equals("EVEN"))
-      return null;
-    return new Boolean(knownToHaveHappened);
-  }
 
-  /**
-   * Access - whether this event is known to have happened
-   */
-  public void setKnownToHaveHappened(boolean set) {
-    String old = getValue();
-    knownToHaveHappened = set;
-    propagatePropertyChanged(this, old);
-  }
-
-// Could do an automatic 'y' here but that would pollute
-// the gedcom data unnecessary, no?
-//  
-//  /**
-//   * @see genj.gedcom.Property#changeNotify(genj.gedcom.Property, int)
-//   */
-//  void changeNotify(Property prop, int status) {
-//    // continue upwards 
-//    super.changeNotify(prop, status);
-//    // update known state
-//    if (status!=Change.PDEL && prop instanceof PropertyDate) {
-//      if (((PropertyDate)prop).isValid()) setKnownToHaveHappened(true);
-//    }
-//    // done
-//  }
-
-
-} //PropertyEvent
+}

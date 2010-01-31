@@ -19,27 +19,85 @@
  */
 package genj.gedcom;
 
-import genj.util.swing.ImageIcon;
+import java.util.*;
+import genj.util.*;
 
 /**
- * Gedcom Property : SOURCE 
- * A property that links to an existing SOURCE entity
+ * Gedcom Property : SOURCE (entity/property)
+ * A property that either consists of SOURCE information or
+ * refers to a SOURCE entity
  */
 public class PropertySource extends PropertyXRef {
 
+  /** the source's content */
+  private String source;
+
+
   /**
-   * This will be called once when instantiation has
-   * happend - it's our chance to substitute this with
-   * a multilinevalue if no reference applicable
+   * Constructor with reference
+   * @param entity reference of entity this property links to
    */
-  /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    // expecting SOUR
-    meta.assertTag("SOUR");
-    // ONLY for @..@!!!
-    if (value.startsWith("@")&&value.endsWith("@"))
-      return super.init(meta,value);
-    // switch to multiline value
-    return new PropertyMultilineValue().init(meta, value);
+  public PropertySource(PropertyXRef target) {
+    super(target);
+  }
+
+  /**
+   * Constructor with Tag,Value parameters
+   * @param tag property's tag
+   * @param value property's value
+   */
+  public PropertySource() {
+    this(null,"");
+  }
+
+  /**
+   * Constructor with Tag,Value parameters
+   * @param tag property's tag
+   * @param value property's value
+   */
+  public PropertySource(String tag, String value) {
+    super(null);
+
+    // Setup value
+    setValue(value);
+  }
+
+  /**
+   * Adds all default properties to this property
+   */
+  public void addDefaultProperties() {
+
+    noteModifiedProperty();
+
+    // Just add 'em
+    if (this instanceof Entity) {
+	addProperty(new PropertyGenericAttribute("TITL"));
+    }
+    // Done
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    // Entity Media ?
+    if (this instanceof Entity) {
+      return "Entity";
+    }
+
+    return "XRef";
+  }
+
+  /**
+   * Returns the name of the proxy-object which knows properties looked
+   * up by TagPath
+   * @return proxy's logical name
+   */
+  public static String getProxy(TagPath path) {
+    if (path.length()>1) {
+      return "XRef";
+    }
+    return "Entity";
   }
 
 
@@ -50,41 +108,57 @@ public class PropertySource extends PropertyXRef {
     return "SOUR";
   }
 
+
   /**
    * Links reference to entity (if not already done)
    * @exception GedcomException when processing link would result in inconsistent state
    */
   public void link() throws GedcomException {
 
+    // No Property Source?
+    if (source!=null) {
+      return;
+    }
+
+    // Get enclosing entity ?
+    Entity entity = getEntity();
+
+    // .. Me Source-Property or -Entity?
+    if (this==entity) {
+      return;  // outa here
+    }
+
+    // Something to do ?
+    if (getReferencedEntity()!=null) {
+      return;
+    }
+
     // Look for Source
-    Source source = (Source)getCandidate();
+    String id = getReferencedId();
+    if (id.length()==0) {
+      return;
+    }
+
+    Source source = getGedcom().getSourceFromId(id);
+    if (source == null) {
+      throw new GedcomException("Couldn't find entity with ID "+id);
+    }
 
     // Create Backlink
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
-    source.addProperty(fxref);
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
+    source.addForeignXRef(fxref);
 
     // ... and point
-    link(fxref);
+    setTarget(fxref);
 
-    // done
+    // don't delete anything because we may have children, like PAGE
   }
 
   /**
    * The expected referenced type
    */
-  public String getTargetType() {
-    return Gedcom.SOUR;
+  public int getExpectedReferencedType() {
+    return Gedcom.SOURCES;
   }
-
-  /**
-   * @see genj.gedcom.PropertyXRef#overlay(genj.util.swing.ImageIcon)
-   */
-  protected ImageIcon overlay(ImageIcon img) {
-    // used as a reference? go ahead and overlay!
-    if (super.getTargetEntity()!=null)
-      return super.overlay(img);
-    // used inline! no overlay!
-    return img;
-  }
-} //PropertySource
+}
 

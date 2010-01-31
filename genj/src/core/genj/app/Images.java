@@ -19,7 +19,7 @@
  */
 package genj.app;
 
-import genj.util.swing.ImageIcon;
+import genj.util.ImgIcon;
 
 /**
  * Wrapper for package used Images
@@ -28,18 +28,50 @@ final public class Images {
 
   private static Images instance = new Images();
 
-  public static ImageIcon
-    imgClose, imgNew, imgOpen, imgExit, imgSave, imgAbout;
+  public static ImgIcon
+    imgDelEntity,
+    imgNewFam,
+    imgNewSource,
+    imgGedcom,
+    imgNewIndi,
+    imgNewSubmitter,
+    imgNewRepository,
+    imgUndo,
+    imgNewMedia,
+    imgNewTable,
+    imgNewTimeline,
+    imgNewNote,
+    imgNewTree,
+    imgNewEdit,
+    imgNewReport,
+    imgNewNavigator,
+    imgSettings,
+    imgPrint,
+    imgHelp;
 
   /**
    * Constructor which pre-loads all images
    */
   private Images() {
-    imgClose        = new ImageIcon(this,"images/Close");
-    imgNew         = new ImageIcon(this,"images/New");
-    imgOpen         = new ImageIcon(this,"images/Open");
-    imgExit         = new ImageIcon(this,"images/Exit");
-    imgSave         = new ImageIcon(this,"images/Save");
-    imgAbout        = new ImageIcon(this,"images/About");
+
+    imgDelEntity    = new ImgIcon(this,"images/DelEntity.gif");
+    imgNewFam       = new ImgIcon(this,"images/NewFam.gif");
+    imgNewSource    = new ImgIcon(this,"images/NewSource.gif");
+    imgGedcom       = new ImgIcon(this,"images/Gedcom.gif");
+    imgNewIndi      = new ImgIcon(this,"images/NewIndi.gif");
+    imgNewSubmitter = new ImgIcon(this,"images/NewSubmitter.gif");
+    imgNewRepository= new ImgIcon(this,"images/NewRepository.gif");
+    imgUndo         = new ImgIcon(this,"images/Undo.gif");
+    imgNewMedia     = new ImgIcon(this,"images/NewMedia.gif");
+    imgNewTable     = new ImgIcon(this,"images/NewTable.gif");
+    imgNewTimeline  = new ImgIcon(this,"images/NewTimeline.gif");
+    imgNewNote      = new ImgIcon(this,"images/NewNote.gif");
+    imgNewTree      = new ImgIcon(this,"images/NewTree.gif");
+    imgNewEdit      = new ImgIcon(this,"images/NewEdit.gif");
+    imgNewReport    = new ImgIcon(this,"images/NewReport.gif");
+    imgNewNavigator = new ImgIcon(this,"images/NewNavigator.gif");
+    imgSettings     = new ImgIcon(this,"images/Settings.gif");
+    imgPrint        = new ImgIcon(this,"images/Print.gif");
+    imgHelp         = new ImgIcon(this,"images/Help.gif");
   }
 }

@@ -19,56 +19,71 @@
  */
 package genj.gedcom;
 
-import genj.util.swing.ImageIcon;
 
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.ref.SoftReference;
+import java.awt.*;
+import java.io.*;
+import java.net.*;
+
+import genj.util.*;
 
 /**
  * Gedcom Property : FILE
  */
-public class PropertyFile extends Property implements IconValueAvailable {
+public class PropertyFile extends Property {
 
-  /** standard image */
-  public final static ImageIcon DEFAULT_IMAGE = Grammar.V55.getMeta(new TagPath("INDI:OBJE:FILE")).getImage();
-
-  /** expected tag */
-  private final static String TAG = "FILE";
-  
   /** the file-name */
   private String  file;
+
+  /** whether we have an image yet */
+  private boolean isIconChecked = false;
 
   /** whether file-name is relative or absolute */
   private boolean isRelativeChecked = false;
 
   /** the image */
-  private Object valueAsIcon = null;
+  private ImgIcon valueAsIcon   = null;
+
+  /**
+   * Constructor of FILE Gedcom-line
+   */
+  public PropertyFile() {
+  }
+
+  /**
+   * Constructor of FILE Gedcom-line
+   */
+  public PropertyFile(String file) {
+    this.file=file;
+  }
+
+  /**
+   * Constructor of FILE Gedcom-line
+   */
+  public PropertyFile(String tag, String value) {
+    setValue(value);
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "File";
+  }
+
+  /**
+   * Returns the name of the proxy-object which knows properties looked
+   * up by TagPath
+   * @return proxy's logical name
+   */
+  public static String getProxy(TagPath path) {
+    return "File";
+  }
 
   /**
    * Returns the tag of this property
    */
   public String getTag() {
-    return TAG;
-  }
-  
-  /**
-   * @see genj.gedcom.Property#setTag(java.lang.String)
-   */
-  /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    meta.assertTag(TAG);
-    return super.init(meta, value);
-  }
-  
-  /**
-   * Overriden - file association is easy for a PropertyFile
-   */
-  public boolean addFile(File file) {
-    setValue(file.getAbsolutePath(), true);
-    return true;
+    return "FILE";
   }
 
   /**
@@ -79,17 +94,11 @@ public class PropertyFile extends Property implements IconValueAvailable {
     if (file==null)
       return "";
 
-    // we're checking the value for relative here because
-    // in setValue() the parent might not be set yet so
-    // getGedcom() wouldn't work there
     if (!isRelativeChecked) {
-      Gedcom gedcom = getGedcom();
-      if (gedcom!=null) {
-        String relative = gedcom.getOrigin().calcRelativeLocation(file);
-        if (relative !=null)
-          file = relative;
-        isRelativeChecked = true;
-      }
+      String relative = getGedcom().getOrigin().calcRelativeLocation(file);
+      if (relative !=null)
+        file = relative;
+      isRelativeChecked = true;
     }
     return file;
   }
@@ -97,186 +106,58 @@ public class PropertyFile extends Property implements IconValueAvailable {
   /**
    * Tries to return the data of the referenced file as an icon
    */
-  public synchronized ImageIcon getValueAsIcon() {
+  public synchronized ImgIcon getValueAsIcon() {
 
-    // ever loaded?
-    if (valueAsIcon instanceof SoftReference) {
-      
-      // check reference
-      ImageIcon result = (ImageIcon)((SoftReference)valueAsIcon).get();
-      if (result!=null)
-        return result;
-     
-      // reference was cut
-      valueAsIcon = null;   
+    // Already calculated?
+    if (isIconChecked) {
+      return valueAsIcon;
     }
-
-    // never loaded or cut reference? 
-    if (valueAsIcon==null) {
-      
-      // load it
-      ImageIcon result = loadValueAsIcon();
-      
-      // remember
-      if (result!=null)
-        valueAsIcon = new SoftReference(result);
-      else
-        valueAsIcon = new Object(); // NULL
-
-      // done    
-      return result;
-    }
-
-    // checked and never loaded
-    return null;
-  }
-  
-  /**
-   * Tries to Load the date of the referenced file 
-   */
-  private synchronized ImageIcon loadValueAsIcon() {
-
-    ImageIcon result = null;
+    isIconChecked = true;
+    valueAsIcon   = null;
 
     // Check File for Image ?
-    if (file!=null&&file.trim().length()>0) {
-
-      // Open InputStream
-      InputStream in = null;
-      try {
-        
-        // read image - this might be big
-        in = getGedcom().getOrigin().open(file);
-        long size = in.available();
-        result = new ImageIcon(file, in);
-        
-        // make sure the result makes sense
-        int w = result.getIconWidth();
-        int h = result.getIconHeight();
-        if (w<=0||h<=0)
-          throw new IllegalArgumentException();
-          
-        // scale down if too big
-        int max = getMaxValueAsIconSize(false);
-        if (max>0 && size>max) {
-          
-          double ratio = w / (double)h;
-          int maxarea = Math.max(32*32, max/4);
-          
-          w = (int)(Math.sqrt(maxarea * ratio   ));
-          h = (int)(Math.sqrt(maxarea / ratio ));
-            
-          BufferedImage thumb = new BufferedImage(w,h,BufferedImage.TYPE_INT_RGB);
-          Graphics2D g = (Graphics2D)thumb.getGraphics();
-          g.drawImage(result.getImage(), 0, 0, w, h, null);
-          result = new ImageIcon(thumb);
-        }
-        
-      } catch (Throwable t) {
-        result = null;
-      } finally {
-        // cleanup
-        if (in!=null) try { in.close(); } catch (IOException ioe) {};
-      }
-      
-      // done
+    if ((file==null)||(file.trim().length()==0)) {
+      return null;
     }
 
-    // done
-    return result;
+    // Open InputStream
+    try {
+      valueAsIcon = new ImgIcon(getInputStream());
+    } catch (IOException e) {
+    }
+
+    // Done
+    return valueAsIcon;
   }
-  
+
   /**
    * Sets this property's value
    */
-  public void setValue(String value) {
+  public boolean setValue(File f) {
+    return setValue("file:"+f);
+  }
 
-    String old = getValue();
+  /**
+   * Sets this property's value
+   */
+  public boolean setValue(String value) {
+
+    // Remember the change
+    noteModifiedProperty();
 
     // Remember the value
-    file = value.replace('\\','/');
-    isRelativeChecked = false;
-    
+    file=value.replace('\\','/');
+
     // Reinit our icon calculation
-    valueAsIcon = null;
-
-    // 20030518 don't automatically update TITL/FORM
-    // will be prompted in ProxyFile
-    
-    // Remember the change
-    propagatePropertyChanged(this, old);
-    
-    // done    
-  }
-  
-  /**
-   * Sets this property's value
-   */
-  public void setValue(String value, boolean updateMeta) {
-    
-    // set value
-    setValue(value);
-    
-    // check
-    Property media = getParent();
-    if (!updateMeta||!media.getTag().equals("OBJE")) 
-      return;
-      
-    // look for right place of FORM
-    Property parent = this;
-    if (!getMetaProperty().allows("FORM")) {
-      if (!media.getMetaProperty().allows("FORM"))
-        return;
-      parent = media;
-    }
-
-    Property form = parent.getProperty("FORM");
-    if (form==null) parent.addProperty("FORM", PropertyFile.getSuffix(file));
-    else form.setValue(PropertyFile.getSuffix(file));
-    
-    // done  
+    isIconChecked = false;
+    isRelativeChecked = false;
+    return true;
   }
 
   /**
    * Accessor File's InputStream
    */
   public InputStream getInputStream() throws IOException {
-    return getGedcom().getOrigin().open(file);
+    return getGedcom().getOrigin().openFile(file).getInputStream();
   }
-  
-  /**
-   * The files location (if externally accessible)    */
-  public File getFile() {
-    File result = getGedcom().getOrigin().getFile(file);
-    if (result==null||!result.exists()||!result.isFile()) return null;
-    return result;
-  }
-
-  /**
-   * Resolve the maximum load (whether to return kb)   */
-  public static int getMaxValueAsIconSize(boolean kb) {
-    return (kb ? 1 : 1024) * Options.getInstance().getMaxImageFileSizeKB();
-  }
-
-  /**
-   * Calculate suffix of file (empty string if n/a)
-   */
-  public String getSuffix() {
-    return getSuffix(file);
-  }
-
-  /**
-   * Calculate suffix of file (empty string if n/a)
-   */
-  public static String getSuffix(String value) {
-    // check for suffix
-    String result = "";
-    if (value!=null) {
-      int i = value.lastIndexOf('.');
-      if (i>=0) result = value.substring(i+1);
-    }
-    // done
-    return result;
-  }
-  
-} //PropertyFile
+}

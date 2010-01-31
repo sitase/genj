@@ -19,38 +19,39 @@
  */
 package genj.nav;
 
-import genj.util.Resources;
-import genj.util.swing.ImageIcon;
-import genj.view.View;
-import genj.view.ViewFactory;
+import java.awt.Component;
+import java.awt.Frame;
 
+import genj.app.ViewFactory;
+import genj.app.ViewSettingsWidget;
+import genj.gedcom.Gedcom;
+import genj.print.PrintRenderer;
+import genj.util.Registry;
 
 /**
  * The factory for the TableView
  */
 public class NavigatorViewFactory implements ViewFactory {
 
-  private final static ImageIcon img = new ImageIcon(NavigatorViewFactory.class,"View");
-
   /**
-   * @see genj.view.ViewFactory#createView(String, Gedcom, Registry)
+   * @see genj.app.ViewFactory#createSettingsComponent(Component)
    */
-  public View createView() {
-    return new NavigatorView();
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getImage()
-   */
-  public ImageIcon getImage() {
-    return img;
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getName(boolean)
-   */
-  public String getTitle() {
-    return Resources.get(this).getString("title");
+  public ViewSettingsWidget createSettingsComponent(Component view) {
+    return null;
   }
 
-} //NavigatorViewFactory
+  /**
+   * @see genj.app.ViewFactory#createPrintRenderer(Component)
+   */
+  public PrintRenderer createPrintRenderer(Component view) {
+    return null;
+  }
+
+  /**
+   * @see genj.app.ViewFactory#createViewComponent(Gedcom, Registry, Frame)
+   */
+  public Component createViewComponent(Gedcom gedcom, Registry registry, Frame frame) {
+    return new NavigatorView(gedcom,registry,frame);
+  }
+
+}

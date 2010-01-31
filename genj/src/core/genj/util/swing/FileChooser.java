@@ -19,85 +19,31 @@
  */
 package genj.util.swing;
 
-import genj.util.WordBuffer;
-
+import java.awt.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.filechooser.*;
+import javax.swing.*;
 import java.io.File;
-import java.util.StringTokenizer;
-
-import javax.swing.JComponent;
-import javax.swing.JFileChooser;
-import javax.swing.filechooser.FileFilter;
 
 /**
  * Enhanced file chooser that accepts filter+description
  */
 public class FileChooser extends JFileChooser {
 
-  /** the textual command on the non-cancel button */
+  private String[] extensions;
+  private String   description;
+
   private String command;
 
-  /** the owning component */
-  private JComponent owner;
-
-  /**
-   * Constructor
-   */
-  public FileChooser(JComponent owner, String title, String command, String extensions, String baseDir) {
-    
-    super(baseDir!=null?baseDir:".");
-
-    setDialogTitle(title);
-    
-    this.owner  = owner;
-    this.command= command;
-
-    if (extensions!=null) {
-      Filter filter = new Filter(extensions);
-      addChoosableFileFilter(filter);
-      setFileFilter(filter);
-    }
-  }
-
-  /**
-   * show it
-   */
-  public int showDialog() {
-    int rc = showDialog(owner,command);
-    // unselect selected file if not 'ok'
-    if (rc!=0)
-      setSelectedFile(null);
-    return rc;
-  }
-
+  private JFrame frame;
 
   /**
    * Filter Definition
    */
-  private class Filter extends FileFilter {
-    
-    /** extensions we're looking for */
-    private String[] exts;
-    
-    /** description */
-    private String descr;
+  class Filter extends FileFilter {
 
-    /**
-     * Constructor
-     */
-    private Filter(String extensions) {
-
-      StringTokenizer tokens = new StringTokenizer(extensions, ",");
-      exts = new String[tokens.countTokens()];
-      if (exts.length==0)
-        throw new IllegalArgumentException("extensions required");
-        
-      WordBuffer buf = new WordBuffer(",");
-      for (int i=0; i<exts.length; i++) {
-        exts[i] = tokens.nextToken().toLowerCase().trim();
-        buf.append("*."+exts[i]);
-      }
-      descr = buf.toString();
-    }
+    // LCD
 
     /**
      * Files to accept
@@ -105,23 +51,21 @@ public class FileChooser extends JFileChooser {
     public boolean accept(File f) {
 
       // directory is o.k.
-      if (f.isDirectory())
+      if (f.isDirectory()) {
         return true;
-
-      // check extension
-      String name = f.getName();
-      int dot = name.lastIndexOf('.');
-      if (dot<0)
-        return false;
-      String ext = name.substring(dot+1); 
-        
-      // loop
-      for (int i=0;i<exts.length;i++) {
-        if (exts[i].equalsIgnoreCase(ext))
-          return true;
       }
-      
-      // not found
+
+      String s= f.getName();
+      int i =s.lastIndexOf('.');
+      if (i>0) {
+
+        for (int e=0;e<extensions.length;e++) {
+          if (extensions[e].equals( s.substring(i+1).toLowerCase() )) {
+            return true;
+          }
+        }
+
+      }
       return false;
     }
 
@@ -129,9 +73,32 @@ public class FileChooser extends JFileChooser {
      * Description
      */
     public String getDescription() {
-      return descr;
+      return description;
     }
 
-  } //Filter
+    // EOC
+  }
 
-} //FileChooser
+  /**
+   * Constructor
+   */
+  public FileChooser(JFrame frame, String title, String command, String[] fileExtensions, String fileDescription, String baseDir) {
+    super(baseDir!=null?baseDir:".");
+    this.frame  =frame;
+    this.command=command;
+    extensions  = fileExtensions;
+    description = fileDescription;
+
+    Filter filter = new Filter();
+    addChoosableFileFilter(filter);
+    setFileFilter(filter);
+    setDialogTitle(title);
+  }
+
+  /**
+   * show it
+   */
+  public int showDialog() {
+    return showDialog(frame,command);
+  }
+}

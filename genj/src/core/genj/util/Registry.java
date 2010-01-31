@@ -16,75 +16,32 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- * 
- * $Revision: 1.41 $ $Author: nmeier $ $Date: 2010-01-14 00:20:46 $
  */
 package genj.util;
 
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Frame;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.geom.Point2D;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Vector;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.swing.JFrame;
+import java.util.*;
+import java.io.*;
+import java.awt.*;
 
 /**
- * Registry - betterfied java.util.Properties
+ * Registry - improved java.util.Properties
  */
 public class Registry {
-  
-  private final static Logger LOG = Logger.getLogger("genj.util");
-  
-  private String prefix;
+
+  private String view;
   private Properties properties;
-  
-  private static Map<String, Registry> prefix2registry = new HashMap<String, Registry>();
-  private static Map<File, Registry> file2registry = new HashMap<File, Registry>();
-  
+  private Registry parent;
+  private boolean changed;
+
+  private static Hashtable registries = new Hashtable();
+
   /**
-   * Constructor 
+   * Constructor for empty registry that can't be looked up
+   * afterwards and won't be saved
    */
-  public Registry(Registry registry, String view) {
-    if (registry.prefix.length()>0)
-      view = registry.prefix + "." + view;
-    this.prefix = view;
-    this.properties = registry.properties;
-  }
-  
-  /**
-   * Constructor 
-   */
-  private Registry(String rootPrefix) {
-    
-    this.prefix = rootPrefix;
-    
-    // patch properties that keeps order
-    this.properties = new SortingProperties();
-    
-    // remember
-    synchronized (Registry.class) {
-      prefix2registry.put(prefix,this);
-    }
+  public Registry() {
+    view       ="";
+    properties =new Properties();
   }
 
   /**
@@ -93,111 +50,74 @@ public class Registry {
    * @param InputStream to load registry from
    */
   public Registry(InputStream in) {
+    this();
     // Load settings
-    prefix = "";
-    properties = new SortingProperties();
     try {
       properties.load(in);
     } catch (Exception ex) {
     }
   }
-  
-  private Registry(File file) {
-    // Load settings
-    prefix = "";
-    properties = new SortingProperties();
-    try {
-      properties.load(new FileInputStream(file));
-    } catch (Exception ex) {
-    }
-  }
 
   /**
-   * Registry representation of a file - changes are committed
+   * Constructor for registry loaded from local disk
+   * @param InputStream to load registry from
    */
-  public static Registry get(File file) {
-    synchronized (Registry.class) {
-      Registry r = file2registry.get(file);
-      if (r==null) {
-        r = new Registry(file);
-        file2registry.put(file, r);
-      }
-      return r;
-    }
-  }
-
-  /**
-   * Accessor 
-   */
-  public static Registry get(Object source) {
-    return get(source.getClass());
+  public Registry(String name) {
+    this(name, (Origin)null);
   }
   
   /**
-   * Accessor 
+   * Constructor for registry loaded relative to given Origin
    */
-  public static Registry get(Class<?> source) {
-    return get(source.getName());
-  }
-  
-  /**
-   * Accessor 
-   */
-  public static Registry get(String pckg) {
-
-    String[] tokens = pckg.split("\\.");
-    if (tokens.length==1)
-      throw new IllegalArgumentException("default package not allowed");
-    
-    String prefix = tokens[0];
-    
-    Registry r;
-    synchronized (Registry.class) {
-      r = prefix2registry.get(prefix);
-      if (r==null) {
-        r = new Registry(tokens[0]);
-        prefix2registry.put(prefix, r);
-      }
-    }
-
-    return tokens.length==1 ? r : new Registry(r, pckg.substring(prefix.length()+1));
-  }
-
-  /**
-   * Remove keys
-   */
-  public void remove(String prefix) {
-    List<Object> keys = new ArrayList<Object>(properties.keySet());
-    for (int i=0,j=keys.size();i<j;i++) {
-      String key = (String)keys.get(i);
-      if (key.startsWith(prefix))
-        properties.remove(key);
-    }
-  }
-  
-  /**
-   * Returns a map of values
-   */
-  @SuppressWarnings("unchecked")
-  public <K,V> Map<K,V> get(String key, Map<K,V> def) {
-    Map<K,V> result = new HashMap<K,V>();
-    // loop over keys in map
-    for (K subkey : def.keySet()) {
-      // grab from default
-      V value = def.get(subkey);
-      // try to get a better value
+  public Registry(String name, Origin origin) {
+    this();
+    // read all relative to origin
+    if (origin!=null) {
       try {
-        value = (V)getClass().getMethod("get", new Class[]{ String.class, value.getClass() })
-          .invoke(this, new Object[]{ key+"."+subkey, value });
+        Origin.Connection c = origin.openFile(name+".properties");
+        InputStream in = c.getInputStream();
+        properties.load(in);
+        in.close();
       } catch (Throwable t) {
       }
-      // overwrite it
-      result.put(subkey, value);
     }
+    // read all from local registry
+    try {
+      FileInputStream in = new FileInputStream(getFile(name));
+      properties.load(in);
+      in.close();
+    } catch (Throwable t) {
+    }
+    // remember
+    registries.put(name,this);
     // done
-    return result;
   }
 
+  /**
+   * Constructor for a view of a Registry
+   * @param view the logical view as String
+   */
+  public Registry(Registry registry, String view) {
+
+    // Make sure it's a valid name ?
+    if ( (view==null) || ((view = view.trim()).length()==0) ) {
+      throw new IllegalArgumentException("View can't be empty");
+    }
+
+    // Prepare data
+    this.view       = view;
+    this.parent     = registry;
+
+    // Done
+  }
+
+  /**
+   * Returns a registry for given logical name (might be null)
+   */
+  public static Registry lookup(String name) {
+    return (Registry)registries.get(name);
+  }
+  
   /**
    * Returns array of ints by key
    */
@@ -205,7 +125,7 @@ public class Registry {
 
     // Get size of array
     int size = get(key,-1);
-    if (size<0)
+    if (size==-1)
       return def;
 
     // Gather array
@@ -340,32 +260,15 @@ public class Registry {
   public Point get(String key, Point def) {
 
     // Get box dimension
-    int x = get(key+".x", Integer.MAX_VALUE);
-    int y = get(key+".y", Integer.MAX_VALUE);
+    int x = get(key+".x", -1);
+    int y = get(key+".y", -1);
 
     // Missing ?
-    if ( x==Integer.MAX_VALUE || y==Integer.MAX_VALUE )
+    if ( (x==-1) || (y==-1) )
       return def;
 
     // Done
     return new Point(x,y);
-  }
-
-  /**
-   * Returns point parameter by key
-   */
-  public Point2D get(String key, Point2D def) {
-
-    // Get box dimension
-    float x = get(key+".x", Float.NaN);
-    float y = get(key+".y", Float.NaN);
-
-    // Missing ?
-    if ( Float.isNaN(x) || Float.isNaN(y) )
-      return def;
-
-    // Done
-    return new Point2D.Double(x,y);
   }
 
   /**
@@ -388,19 +291,45 @@ public class Registry {
   }
 
   /**
-   * Returns a collection of strings by key
+   * Returns String parameter to key
    */
-  public List<String> get(String key, List<String> def) {
+  public String get(String key, String def) {
+
+    // Get property by key
+    String result;
+    if (parent==null) {
+      result = properties.getProperty(key);
+    } else
+      result = parent.get(view+"."+key,def);
+
+    // .. existing ?
+    if (result==null)
+      return def;
+
+    // .. information ?
+    result = result.trim();
+    if (result.length()==0)
+      return def;
+
+    // Done
+    return result;
+  }
+
+  /**
+   * Returns vector of strings by key
+   */
+  public Vector get(String key, Vector def) {
 
     // Get size of array
     int size = get(key,-1);
     if (size==-1)
       return def;
 
-    // Create result
-    List<String> result = new ArrayList<String>();
-    for (int i=0;i<size;i++) 
-      result.add(get(key+"."+(i+1),""));
+    // Gather array
+    Vector result = new Vector(size);
+    for (int i=0;i<size;i++) {
+      result.addElement(get(key+"."+(i+1),""));
+    }
 
     // Done
     return result;
@@ -429,77 +358,40 @@ public class Registry {
   }
 
   /**
-   * Returns color parameter by key
+   * Returns this registry's view
    */
-  public Color get(String key, Color def) {
+  public String getView() {
 
-    // Get property by key
-    int result = get(key,Integer.MAX_VALUE);
+    // Base of registry ?
+    if (parent==null)
+      return "";
 
-    // .. existing ?
-    if (result==Integer.MAX_VALUE)
-      return def;
-
-    // done
-    return new Color(result);
+    // View of registry !
+    String s = parent.getView();
+    return (s.length()==0 ? "" : s+".")+view;
   }
 
   /**
-   * Returns String parameter to key
+   * Returns this registry's view's last part
    */
-  public String get(String key, String def) {
-    
-    // prepend prefix
-    if (prefix.length()>0)
-      key = prefix+"."+key;
+  public String getViewSuffix() {
 
-    // Get property by key
-    String result = (String)properties.get(key);
+    String v = getView();
 
-    // verify it exists
-    // 20060222 NM can't assume length()==0 means default should apply - it could indeed mean an empty value!
-    // 20040523 NM removed trim() to allow for leading/trailing space values
-    if (result==null)
-      return def;
-      
-    // Done
-    return result;
+    int pos = v.lastIndexOf('.');
+    if (pos==-1)
+      return v;
+
+    return v.substring(pos+1);
   }
 
   /**
-   * Remembers a String value
+   * Lists all properties
    */
-  public void put(String key, String value) {
-
-    // prepend prefix
-    if (prefix.length()>0)
-      key = prefix+"."+key;
-
-    if (value==null)
-      properties.remove(key);
-    else
-      properties.put(key,value);
+  public void list(PrintStream out) {
+    properties.list(out);
   }
 
-  /**
-   * Remember an array of values
-   */
-  public void put(String key, Map<String,?> values) {
-    
-    // loop over keys in map
-    for (String subkey : values.keySet()) {
-      // grab value
-      Object value = values.get(subkey);
-      // try to store
-      try {
-        value = getClass().getMethod("put", new Class[]{ String.class, value.getClass() })
-          .invoke(this, new Object[]{ key+"."+subkey, value });
-      } catch (Throwable t) {        
-      }
-    }
-    // done
-  }
-  
   /**
    * Remembers an array of ints
    */
@@ -606,19 +498,6 @@ public class Registry {
     // Done
   }
 
-
-  /**
-   * Remembers a point value
-   */
-  public void put(String key, Point2D value) {
-
-    // Remember box dimension
-    put(key+".x",(float)value.getX());
-    put(key+".y",(float)value.getY());
-
-    // Done
-  }
-
   /**
    * Remembers a rectangle value
    */
@@ -634,17 +513,31 @@ public class Registry {
   }
 
   /**
-   * Remembers a collection of Strings
+   * Remembers a String value
    */
-  public void put(String key, Collection<?> values) {
+  public void put(String key, String value) {
+
+    if (parent==null) {
+      String old = properties.getProperty(key);
+      if ( (old==null) || (!old.equals(value)) ) {
+        changed=true;
+        properties.put(key,value);
+      }
+    } else {
+      parent.put(view+"."+key,value);
+    }
+  }
+
+  /**
+   * Remembers a vector of Strings
+   */
+  public void put(String key, Vector value) {
 
     // Remember
-    int l = values.size();
+    int l = value.size();
     put(key,l);
-    
-    Iterator<?> elements = values.iterator();
-    for (int i=0;elements.hasNext();i++) {
-      put(key+"."+(i+1),elements.next().toString());
+    for (int i=0;i<l;i++) {
+      put(key+"."+(i+1),value.elementAt(i).toString());
     }
 
     // Done
@@ -662,90 +555,43 @@ public class Registry {
   }
   
   /**
-   * Remembers a boolean value
+   * Calculates a filename for given registry name
    */
-  public void put(String key, Color value) {
-
-    // Remember
-    put(key,value.getRGB());
-
-    // Done
+  private static File getFile(String name) {
+    String dir = EnvironmentChecker.getProperty(
+      Registry.class,
+      new String[]{ "user.home" },
+      ".",
+      "calculate dir for registry file"
+    );
+    return new File(dir,name+".properties");
   }
-  
-  /**
-   * Set the file to read from/write to 
-   */
-  public void setFile(File file) {
-    
-    synchronized (Registry.class) {
-    
-      // read all from local registry
-      try {
-        properties.clear();
-        LOG.fine("Loading registry "+prefix+" from file "+file.getAbsolutePath());
-        FileInputStream in = new FileInputStream(file);
-        properties.load(in);
-        in.close();
-      } catch (Throwable t) {
-        LOG.log(Level.FINE, "Failed to read registry from "+file+" ("+t.getMessage()+")");
-      }
 
-      file2registry.put(file, this);
-    }
-  }
-  
   /**
    * Save registries
    */
-  public static void persist() {
-    
-    // Go through list of registries that have a file
-    for (File file : file2registry.keySet()) {
-      Registry registry = file2registry.get(file);
+  public static void saveToDisk() {
+
+    // Go through registries
+    Enumeration keys = registries.keys();
+    while (keys.hasMoreElements()) {
+
+      // Get Registry
+      String key = keys.nextElement().toString();
+      Registry registry = (Registry)registries.get(key);
+
+      // Open known file
       try {
-        LOG.fine("Storing registry in file "+file.getAbsolutePath());
-        file.getParentFile().mkdirs();
-        FileOutputStream out = new FileOutputStream(file);
-        registry.properties.store(out, registry.prefix);
+        FileOutputStream out = new FileOutputStream(getFile(key));
+        registry.properties.save(out,key);
         out.flush();
         out.close();
       } catch (IOException ex) {
-        LOG.log(Level.INFO, "Can't store registry in file "+file.getAbsolutePath(), ex);
+        Debug.log(Debug.ERROR, Registry.class,"Couldn't save registry "+key,ex);
       }
 
     }
 
     // Done
   }
-
-  /**
-   * store JFrame characteristics
-   */
-  public void put(String key, JFrame frame) {
-    Rectangle bounds = frame.getBounds();
-    boolean maximized = frame.getExtendedState()==JFrame.MAXIMIZED_BOTH;
-    if (bounds!=null&&!maximized)
-      put(key, bounds);
-    put(key+".maximized", maximized);
-  }
-  
-  public JFrame get(String key, JFrame frame) {
-    
-    frame.setBounds(get(key, new Rectangle(0,0,640,480)));
-    if (get(key+".maximized", true))
-      frame.setExtendedState(Frame.MAXIMIZED_BOTH);
-    
-    return frame;
-  }
-
-  private static class SortingProperties extends Properties {
-    @SuppressWarnings("unchecked")
-    @Override
-    public synchronized Enumeration<Object> keys() {
-      Vector result = new Vector(super.keySet()); 
-      Collections.sort(result);
-      return result.elements();
-    }
-  };
-
-} //Registry
+}

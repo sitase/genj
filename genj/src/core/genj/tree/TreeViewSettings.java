@@ -19,280 +19,382 @@
  */
 package genj.tree;
 
+import java.awt.*;
+import java.util.*;
+import java.awt.event.*;
+import javax.swing.*;
+import javax.swing.border.*;
+import javax.swing.event.*;
+
+import genj.gedcom.*;
+import awtx.*;
+import genj.app.*;
+import genj.util.GridBagHelper;
+import genj.option.*;
 import genj.util.Resources;
-import genj.util.swing.Action2;
-import genj.util.swing.ColorsWidget;
-import genj.util.swing.DialogHelper;
-import genj.util.swing.FontChooser;
-import genj.util.swing.NestedBlockLayout;
-
-import java.awt.Container;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
-import javax.swing.AbstractListModel;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JSpinner;
-import javax.swing.JTabbedPane;
-import javax.swing.ListSelectionModel;
-import javax.swing.SpinnerNumberModel;
-import javax.swing.event.ChangeEvent;
-import javax.swing.event.ChangeListener;
-import javax.swing.event.ListDataEvent;
-import javax.swing.event.ListDataListener;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 
 /**
- * The settings component for the Tree View */
-public class TreeViewSettings extends JTabbedPane {
-  
-  private final static Resources RESOURCES = Resources.get(TreeViewSettings.class);
+ * Class for providing PInfo information to a ViewEditor
+ */
+public class TreeViewSettings extends ViewSettingsWidget {
 
-  /** members  */
-  private JSpinner[] spinners = new JSpinner[5]; 
-  private ColorsWidget colors;
-  private JCheckBox checkBending, checkAntialiasing, checkMarrSymbols;
-  private Action2 
-    up = new Move(-1), 
-    down = new Move( 1), 
-    delete =  new Delete(); 
-  private FontChooser font;
-  private Commit commit;
-  private Bookmarks bookmarks;
-  private JList bList;
-  
+  private TreeView   tree;
+
+  private int entity = Gedcom.INDIVIDUALS;
+
+  private final static int[] filter = {
+    Gedcom.INDIVIDUALS,
+    Gedcom.FAMILIES
+  };
+
+  private JComboBox comboTypes = new JComboBox();
+  private Scala scalaZoom = new Scala();
+  private JList listBookmarks = new JList();
+  private JCheckBox[] checkPaints = {
+    new JCheckBox(resources.getString("options.show_shadows")),
+    new JCheckBox(resources.getString("options.show_images" )),
+    new JCheckBox(resources.getString("options.zoom_images" )),
+    new JCheckBox(resources.getString("options.vertical")),
+    new JCheckBox(resources.getString("options.abbreviate_dates"))
+  };
+
+  private TagPathTree pathTree = new TagPathTree();
+  private OptionLayoutProperties layoutProperties = new OptionLayoutProperties(null);
+  private JButton
+    delBookmark = new JButton(resources.getString("bookmarks.delete")),
+    addBookmark = new JButton(resources.getString("bookmarks.add")),
+    upBookmark  = new JButton(resources.getString("bookmarks.up")),
+    downBookmark= new JButton(resources.getString("bookmarks.down"));
+
+  private JTextField labelBookmark = new JTextField();
+
+  private EntitySelector entityBookmark = new EntitySelector();
+
+  private JComboBox comboFont = new JComboBox();
+  private final static Resources resources = new Resources("genj.tree");
+  private JTextField textFont = new JTextField();
+
   /**
    * Constructor
-   * @param view
    */
-  public TreeViewSettings(TreeView view) {
+  public TreeViewSettings(TreeView tree) {
     
-    commit = new Commit(view);
+    // initial layout
+    JTabbedPane tabbed = new JTabbedPane();
+    setLayout(new BorderLayout());
+    add(tabbed, BorderLayout.CENTER);
     
-    // panel for checkbox options    
-    JPanel options = new JPanel(new NestedBlockLayout(
-        "<col>"+
-         "<check gx=\"1\"/>"+
-         "<check gx=\"1\"/>"+
-         "<check gx=\"1\"/>"+
-         "<font gx=\"1\"/>"+
-         "<row><label/><spinner/></row>"+
-         "<row><label/><spinner/></row>"+
-         "<row><label/><spinner/></row>"+
-         "<row><label/><spinner/></row>"+
-         "<row><label/><spinner/></row>"+
-         "</col>"
-     ));
+    // remember
+    this.tree = tree;
 
-    checkBending = createCheck("bend", view.getModel().isBendArcs());
-    checkAntialiasing = createCheck("antialiasing", view.isAntialising());
-    checkMarrSymbols = createCheck("marrsymbols", view.getModel().isMarrSymbols());
-    font = new FontChooser();
-    font.setSelectedFont(view.getContentFont());
-    font.addChangeListener(commit);
-    
-    options.add(checkBending);
-    options.add(checkAntialiasing);
-    options.add(checkMarrSymbols);
-    options.add(font);    
-
-    TreeMetrics m = view.getModel().getMetrics();
-    spinners[0] = createSpinner("indiwidth",  options, 0.4, m.wIndis*0.1D, 16.0);
-    spinners[1] = createSpinner("indiheight", options, 0.4, m.hIndis*0.1D,16.0);
-    spinners[2] = createSpinner("famwidth",   options, 0.4, m.wFams*0.1D, 16.0);
-    spinners[3] = createSpinner("famheight",  options, 0.4, m.hFams*0.1D, 16.0);
-    spinners[4] = createSpinner("padding",    options, 0.4, m.pad*0.1D, 4.0);
-
-    // color chooser
-    colors = new ColorsWidget();
-    for (String key : view.getColors().keySet()) 
-      colors.addColor(key, RESOURCES.getString("color."+key), view.getColors().get(key));
-    colors.addChangeListener(commit);
-    
-    // bookmarks
-    bookmarks = new Bookmarks(view.getModel().getBookmarks());
-    bookmarks.addListDataListener(commit);
-    
-    bList = new JList(bookmarks);
-    bList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-    bList.getModel().addListDataListener(commit);
-    bList.addListSelectionListener(new ListSelectionListener() {
-      /** update buttons */
-      public void valueChanged(ListSelectionEvent e) {
-        int 
-          i = bList.getSelectedIndex(),
-          n = bookmarks.getSize();
-        up.setEnabled(i>0);
-        down.setEnabled(i>=0&&i<n-1);
-        delete.setEnabled(i>=0);
+    // Create a listener
+    ActionListener alistener = new ActionListener() {
+      public void actionPerformed(ActionEvent e) {
+      if ("ADD".equals(e.getActionCommand()))
+        addBookmark();
+      if ("DEL".equals(e.getActionCommand()))
+        delBookmark();
+      if ("UP".equals(e.getActionCommand()))
+        moveBookmark(true);
+      if ("DOWN".equals(e.getActionCommand()))
+        moveBookmark(false);
+      if ("TYPE".equals(e.getActionCommand()))
+        changeType();
       }
-    });
-    
-    JPanel bPanel = new JPanel(new NestedBlockLayout("<col><list wx=\"1\" wy=\"1\"/><row><up wx=\"1\"/><dn wx=\"1\"/><del wx=\"1\"/></row></col>"));
-    bPanel.add(new JScrollPane(bList));
-    bPanel.add(new JButton(up));
-    bPanel.add(new JButton(down));
-    bPanel.add(new JButton(delete));
-    
-    // add those tabs
-    add(RESOURCES.getString("page.main")  , options);
-    add(RESOURCES.getString("page.colors"), colors);
-    add(RESOURCES.getString("page.bookmarks"), bPanel);
+    };
+    addBookmark .addActionListener(alistener);
+    delBookmark .addActionListener(alistener);
+    upBookmark  .addActionListener(alistener);
+    downBookmark.addActionListener(alistener);
+    comboTypes  .addActionListener(alistener);
+    addBookmark .setActionCommand("ADD");
+    delBookmark .setActionCommand("DEL");
+    upBookmark  .setActionCommand("UP");
+    downBookmark.setActionCommand("DOWN");
+    comboTypes  .setActionCommand("TYPE");
 
-    DialogHelper.setOpaque(options, false);
-    DialogHelper.setOpaque(colors, false);
-    
-    // done
+    TagPathTreeListener tlistener = new TagPathTreeListener() {
+      // LCD
+      public void handleSelection(TagPath p, boolean on) {
+        if (on) {
+          layoutProperties.add(p,null);
+        } else {
+          layoutProperties.remove(p);
+        }
+      }
+      // EOC
+    };
+    pathTree.addTagPathTreeListener(tlistener);
+
+    // Create Components
+    for (int i=0;i<filter.length;i++) {
+      comboTypes.addItem(Gedcom.getNameFor(filter[i],true));
+    }
+    entityBookmark.setFilter(filter);
+    Insets ins = new Insets(0,0,0,0);
+    addBookmark.setMargin(ins);
+    delBookmark.setMargin(ins);
+    upBookmark.setMargin(ins);
+    downBookmark.setMargin(ins);
+
+    Border defaultBorder = BorderFactory.createEmptyBorder(8,8,8,8);
+
+    // Properties
+    JPanel panel = new JPanel();panel.setBorder(defaultBorder);
+
+      GridBagHelper helper = new GridBagHelper(panel);
+      int row = 0;
+
+      helper.add(new JLabel(resources.getString("properties.show")),0,row++,2,1);
+      helper.addFiller(0,row,new Dimension(16,16));
+      helper.add(comboTypes,1,row++,1,1,helper.GROW_HORIZONTAL|helper.FILL_HORIZONTAL);
+      helper.add(pathTree,1,row++,1,1,helper.GROW_BOTH|helper.FILL_BOTH);
+      helper.add(layoutProperties,1,row++,1,1,helper.GROW_BOTH|helper.FILL_BOTH);
+
+    tabbed.add(resources.getString("page.properties"),panel);
+
+    // Options
+    panel = new JPanel();panel.setBorder(defaultBorder);
+
+      helper = new GridBagHelper(panel);
+      row = 0;
+
+      helper.add(new JLabel(resources.getString("options.zoom")),0,row++,2,1);
+      helper.addFiller(0,row,new Dimension(16,1));
+      helper.add(scalaZoom,1,row++,1,1,helper.FILL_HORIZONTAL);
+
+      helper.add(new JLabel(resources.getString("options.display")),0,row++,2,1);
+      for (int i=0;i<checkPaints.length;i++) {
+        helper.add(checkPaints[i],1,row++,1,1);
+      }
+
+      helper.add(new JLabel(resources.getString("options.font")),0,row++,2,1);
+      helper.add(comboFont,1,row++,1,1);
+      helper.add(textFont,1,row++,1,1);
+
+    tabbed.add(resources.getString("page.options"),panel);
+
+    // Bookmarks
+    panel = new JPanel();panel.setBorder(defaultBorder);
+
+      helper = new GridBagHelper(panel);
+      row = 0;
+
+      helper.add(entityBookmark                ,1,row++,5,1);
+      helper.add(labelBookmark                 ,1,row++,5,1);
+
+      helper.add(addBookmark                   ,1,row  ,1,1,helper.FILL_NONE);
+      helper.add(delBookmark                   ,2,row  ,1,1,helper.FILL_NONE);
+      helper.add(new JLabel()                  ,3,row  ,1,1,helper.GROW_HORIZONTAL);
+      helper.add(upBookmark                    ,4,row  ,1,1,helper.FILL_NONE);
+      helper.add(downBookmark                  ,5,row++,1,1,helper.FILL_NONE);
+
+      helper.add(new JScrollPane(listBookmarks),1,row++,5,1,helper.GROW_BOTH|helper.FILL_BOTH);
+
+    tabbed.add(resources.getString("page.bookmarks"),panel);
+
+    // Done
   }
 
-  private JCheckBox createCheck(String key, boolean checked) {
-    JCheckBox result = new JCheckBox(RESOURCES.getString(key), checked);
-    result.setToolTipText(RESOURCES.getString(key+".tip"));
-    result.addActionListener(commit);
-    return result;
-  }
-  
   /**
-   * Create a spinner
+   * Adds a bookmark
    */
-  private JSpinner createSpinner(String key, Container c, double min, double val,double max) {
-    
-    val = Math.min(max, Math.max(val, min));
-    
-    JSpinner result = new JSpinner(new SpinnerNumberModel(val, min, max, 0.1D));
-    JSpinner.NumberEditor editor = new JSpinner.NumberEditor(result, "##0.0");
-    result.setEditor(editor);
-    result.addChangeListener(editor);
-    result.setToolTipText(RESOURCES.getString("info."+key+".tip"));
-    result.addChangeListener(commit);
-    
-    c.add(new JLabel(RESOURCES.getString("info."+key)));
-    c.add(result);
-    
-    // done
-    return result;
+  private void addBookmark() {
+
+    // Get information
+    Entity entity = entityBookmark.getEntity();
+    String label  = labelBookmark.getText().trim();
+
+    if ((entity==null)||(label.length()==0)) {
+      return;
+    }
+
+    // Add new bookmark
+    ListModel old_model = listBookmarks.getModel();
+    DefaultListModel new_model = new DefaultListModel();
+
+    for (int i=0;i<old_model.getSize();i++) {
+      new_model.addElement(old_model.getElementAt(i));
+    }
+
+    new_model.addElement(new Bookmark(entity,label));
+
+    listBookmarks.setModel(new_model);
+
+    // Done
   }
-  
-  private class Bookmarks extends AbstractListModel {
-    
-    private ArrayList<Bookmark> list;
-    
-    Bookmarks(List<Bookmark> list) {
-      this.list = new ArrayList<Bookmark>(list);
-    }
 
-    public Object getElementAt(int index) {
-      return list.get(index);
-    }
-
-    public int getSize() {
-      return list.size();
-    }
-    
-    public void swap(int i, int j) {
-      if (i==j)
-        return;
-      Bookmark b = list.get(i);
-      list.set(i, list.get(j));
-      list.set(j, b);
-      fireContentsChanged(this, Math.min(i,j), Math.max(i,j));
-    }
-
-    public void delete(int i) {
-      list.remove(i);
-      fireIntervalRemoved(this, i, i);
-    }
-
-    public List<Bookmark> get() {
-      return Collections.unmodifiableList(list);
-    }
-  }
-  
   /**
-   * Action - move a bookmark
+   * Changes the type to the current ComboBox selection
    */
-  private class Move extends Action2 {
-    /** by how much to move */
-    private int by;
-    private Move(int how) {
-      setText(RESOURCES.getString("bookmark.move."+how));
-      setEnabled(false);
-      by = how;
+  private void changeType() {
+    int i = comboTypes.getSelectedIndex();
+    if (i==-1) {
+      return;
     }
-    public void actionPerformed(java.awt.event.ActionEvent e) {
-      int i = bList.getSelectedIndex();
-      bookmarks.swap(i, i+by);
-      bList.setSelectedIndex(i+by);
-    }
-  } //ActionMove
-  
-  /**
-   * Action - delete a bookmark
-   */
-  private class Delete extends Action2 {
-    private Delete() {
-      setText(RESOURCES.getString("bookmark.del"));
-      setEnabled(false);
-    }
-    public void actionPerformed(java.awt.event.ActionEvent e) {
-      int i = bList.getSelectedIndex();
-      bookmarks.delete(i);
-    }
-  } //ActionDelete
-
-  private class Commit implements ChangeListener, ActionListener, ListDataListener {
-    
-    private TreeView view;
-    
-    private Commit(TreeView view) {
-      this.view = view;
-    }
-
-    public void stateChanged(ChangeEvent e) {
-      actionPerformed(null);
-    }
-    
-    public void actionPerformed(ActionEvent e) {
-      // options
-      view.getModel().setBendArcs(checkBending.isSelected());
-      view.setAntialiasing(checkAntialiasing.isSelected());
-      view.setContentFont(font.getSelectedFont());
-      view.getModel().setMarrSymbols(checkMarrSymbols.isSelected());
-      // metrics
-      view.getModel().setMetrics(new TreeMetrics(
-        (int)(((Double)spinners[0].getModel().getValue()).doubleValue()*10),
-        (int)(((Double)spinners[1].getModel().getValue()).doubleValue()*10),
-        (int)(((Double)spinners[2].getModel().getValue()).doubleValue()*10),
-        (int)(((Double)spinners[3].getModel().getValue()).doubleValue()*10),
-        (int)(((Double)spinners[4].getModel().getValue()).doubleValue()*10)
-      ));
-      // colors
-      view.setColors(colors.getColors());
-      // bookmarks
-      view.getModel().setBookmarks(bookmarks.get());
-      // done
-    }
-
-    public void contentsChanged(ListDataEvent e) {
-      actionPerformed(null);
-    }
-
-    public void intervalAdded(ListDataEvent e) {
-      actionPerformed(null);
-    }
-
-    public void intervalRemoved(ListDataEvent e) {
-      actionPerformed(null);
-    }
+    entity = filter[i];
+    reset();
   }
-  
-} //TreeViewSettings
+
+  /**
+   * Removes a bookmark
+   */
+  private void delBookmark() {
+
+    // Get information
+    int i = listBookmarks.getSelectedIndex();
+    if (i<0) {
+      return;
+    }
+
+    // Remove bookmark
+    DefaultListModel model = (DefaultListModel)listBookmarks.getModel();
+    model.removeElementAt(i);
+
+    // Done
+  }
+
+  /**
+   * Has to return the component used fir editing
+   */
+  public Component getEditor() {
+    return this;
+  }
+
+  /**
+   * Moves a bookmark up/down
+   */
+  private void moveBookmark(boolean up) {
+
+    int i = listBookmarks.getSelectedIndex();
+    int j = up ? i-1 : i+1;
+
+    ListModel model = listBookmarks.getModel();
+    Bookmark[] bms = new Bookmark[model.getSize()];
+
+    if ( (i<0) || (j<0) || (j>=bms.length) ) {
+      return;
+    }
+
+    for (int b=0;b<bms.length;b++) {
+      bms[b] = (Bookmark)model.getElementAt(b);
+    }
+
+    Bookmark bm = bms[i];
+    bms[i] = bms[j];
+    bms[j] = bm;
+
+    listBookmarks.setListData(bms);
+    listBookmarks.setSelectedIndex(j);
+
+    //  Done
+  }
+
+  /**
+   * Tells the ViewInfo to reset made changes
+   */
+  public void reset() {
+
+    // ?
+    if (tree==null) {
+      return;
+    }
+
+    // Clear reference to table for listeners
+    TreeView t = tree;
+    tree = null;
+
+    // Read options
+    checkPaints[0].setSelected(t.isShadow());
+    checkPaints[1].setSelected(t.isPropertyImages());
+    checkPaints[2].setSelected(t.isZoomBlobs());
+    checkPaints[3].setSelected(t.isVertical());
+    checkPaints[4].setSelected(t.isAbbreviateDates());
+
+    scalaZoom.setValue(t.getZoom());
+
+    String fontName = t.getModel().getFont().getName();
+    int fontSize    = t.getModel().getFont().getSize();
+
+    String[] sysFonts = Toolkit.getDefaultToolkit().getFontList();
+    Vector ourFonts = new Vector(sysFonts.length+1);
+    ourFonts.addElement(fontName);
+    for (int f=0;f<sysFonts.length;f++) {
+      if (!sysFonts[f].equals(fontName)) {
+        ourFonts.addElement(sysFonts[f]);
+      }
+    }
+    comboFont.setModel(new DefaultComboBoxModel(ourFonts));
+    textFont.setText(""+fontSize);
+
+    // Read bookmarks
+    DefaultListModel model = new DefaultListModel();
+
+    Enumeration bs = t.getBookmarks().elements();
+    while (bs.hasMoreElements()) {
+      model.addElement(bs.nextElement());
+    }
+    listBookmarks.setModel(model);
+
+    // Reflect properties by TagPaths
+    TagPath[] selectedPaths = t.getTagPaths(entity);
+    TagPath[] usedPaths     = TagPath.getUsedTagPaths(t.getGedcom(),entity);
+
+    pathTree.setPaths(usedPaths);
+    pathTree.setSelection(selectedPaths);
+
+    entityBookmark.setGedcom(t.getGedcom());
+
+    layoutProperties.setFont(t.getFont());
+    layoutProperties.setSizeOfEntities(t.getSize(entity));
+    layoutProperties.removeAll();
+    Proxy[] proxies = t.getProxies(entity);
+    for (int i=0;i<proxies.length;i++) {
+      Proxy proxy = proxies[i];
+      layoutProperties.add(proxy.getPath(),proxy.getBox());
+    }
+
+    // Show table again
+    tree = t;
+
+    // Done
+  }
+
+  /**
+   * Tells the ViewInfo to apply made changes
+   */
+  public void apply() {
+
+    // Write Options
+    tree.setShadow         (checkPaints[0].isSelected());
+    tree.setPropertyImages (checkPaints[1].isSelected());
+    tree.setZoomBlobs      (checkPaints[2].isSelected());
+    tree.setVertical       (checkPaints[3].isSelected());
+    tree.setAbbreviateDates(checkPaints[4].isSelected());
+    tree.setZoom           (scalaZoom.getValue());
+
+    int size = 10; try { size = Integer.parseInt(textFont.getText()); } catch (Exception e) {}
+    tree.getModel().setFont(new Font(comboFont.getSelectedItem().toString(),Font.PLAIN,size));
+    textFont.setText(""+size);
+
+    // Write Bookmarks
+    ListModel model = listBookmarks.getModel();
+    Vector bs = new Vector(model.getSize());
+    for (int i=0;i<model.getSize();i++)
+      bs.addElement(model.getElementAt(i));
+    tree.setBookmarks(bs);
+
+    // Write Properties
+    TagPath[] paths = layoutProperties.getTagPaths();
+    Rectangle[] boxes = new Rectangle[paths.length];
+    for (int i=0;i<paths.length;i++)
+      boxes[i] = layoutProperties.getBoxForPath(paths[i]);
+
+    Proxy[] proxies = tree.getModel().generateProxies(paths,boxes);
+    tree.getModel().setProxiesOf(entity,proxies);
+    tree.getModel().setSizeOf(entity,layoutProperties.getSizeOfEntities());
+
+    // Done
+  }
+
+}

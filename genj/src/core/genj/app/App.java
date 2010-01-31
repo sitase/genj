@@ -20,39 +20,28 @@
 package genj.app;
 
 import genj.Version;
-import genj.gedcom.Gedcom;
-import genj.option.OptionProvider;
-import genj.util.EnvironmentChecker;
+import genj.lnf.LnFBridge;
+import genj.util.*;
+import genj.util.AreaInScreen;
+import genj.util.ImgIcon;
 import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
-import genj.util.swing.DialogHelper;
-import genj.util.swing.MacAdapter;
-
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.Dimension;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.File;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.text.MessageFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
-import java.util.logging.FileHandler;
-import java.util.logging.Formatter;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
-import java.util.logging.StreamHandler;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.StringTokenizer;
+import java.util.Vector;
 
+import javax.swing.AbstractAction;
 import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JTextPane;
 import javax.swing.UIManager;
 
 /**
@@ -60,333 +49,214 @@ import javax.swing.UIManager;
  */
 public class App {
   
-  /*package*/ static Logger LOG;
-  /*package*/ static File LOGFILE; 
-  private final static Resources RESOURCES = Resources.get(App.class);
-  private final static Registry REGISTRY = Registry.get(App.class);
-  
-  private static Workbench workbench;
-  private static JFrame frame;
+  /** constants */
+  private final static String SWING_RESOURCES_KEY_PREFIX = "swing.";
+  private final static String FRAME_KEY_PREFIX = "frame.";
+
+  /** members */
+  private Registry registry;
+  private Hashtable openFrames = new Hashtable();
+  private static App instance;
+  /*package*/ final static Resources resources = new Resources("genj.app");
+
+  /**
+   * Application Constructor
+   */
+  private App() {
+
+    // Startup Information
+    Debug.log(Debug.INFO, App.class, "GenJ App - Version "+Version.getInstance()+" - "+new Date());
+    String log = EnvironmentChecker.getProperty(
+      this, new String[]{ "genj.debug.file" }, null, "choose log-file"
+    );
+    if (log!=null) Debug.setFile(new File(log));
+    EnvironmentChecker.log();
+    
+    // init our data
+    registry = new Registry("genj");
+    
+    // Make sure that Swing shows our localized texts
+    Enumeration keys = resources.getKeys();
+    while (keys.hasMoreElements()) {
+      String key = (String)keys.nextElement();
+      if (key.indexOf(SWING_RESOURCES_KEY_PREFIX)==0) {
+        UIManager.put(
+          key.substring(SWING_RESOURCES_KEY_PREFIX.length()),
+          resources.getString(key)
+        );
+      }
+    }
+    
+    // Set the Look&Feel
+    LnFBridge.LnF lnf = LnFBridge.getInstance().getLnF(registry.get("lnf", (String)null));
+    if (lnf!=null) {
+      lnf.apply(lnf.getTheme(registry.get("lnf.theme", (String)null)), new Vector());
+    }
+
+    // Disclaimer
+    if (registry.get("disclaimer",0)==0) {
+
+      registry.put("disclaimer",1);
+
+      JTextPane tpane = new JTextPane();
+      tpane.setText(resources.getString("app.disclaimer"));
+      JScrollPane spane = new JScrollPane(tpane) {
+        public Dimension getPreferredSize() {
+          return new Dimension(256,128);
+        }
+      };
+
+      JOptionPane.showMessageDialog(null,spane,"Disclaimer",JOptionPane.INFORMATION_MESSAGE);
+
+    }
+
+    // Create frame
+    JFrame frame = createFrame(resources.getString("app.title"),Images.imgGedcom,"main", new Dimension(256,180));
+
+    // Create the desktop
+    ControlCenter center = new ControlCenter(frame,registry);
+    frame.getContentPane().add(center);
+
+    // Show it
+    frame.pack();
+    frame.show();
+
+    // Done
+  }
   
   /**
-   * GenJ Main Method
+   * Singleton access
    */
-  public static synchronized void main(final String[] args) {
+  public static App getInstance() {
+    return instance;
+  }
+  
+  /**
+   * Shutdown
+   */
+  public void shutdown() {
     
-    // already up?
-    if (workbench!=null)  
-      return;
-    
+    // close all frames we know
+    Enumeration e = App.getInstance().getFrames().elements();
+    while (e.hasMoreElements()) ((JFrame)e.nextElement()).dispose();
+    // Store registry 
+    Registry.saveToDisk();      
+    // Flush Debug
+    Debug.flush();
+    // exit
+    System.exit(0);
+  }
+
+  /**
+   * Main of app
+   */
+  public static void main(java.lang.String[] args) {
+
+    // Startup and catch Swing missing
     try {
-      
-      // prepare our master log and own LogManager for GenJ
-      LOG = Logger.getLogger("genj");
-      
-      // allow command line override of debug level - set non-genj level a tad higher
-      Logger root = Logger.getLogger("");
-      try {
-        Level level = Level.parse(EnvironmentChecker.getProperty("genj.debug.level", "INFO", "log-level for GenJ"));
-        LOG.setLevel(level);
-        if (Integer.MAX_VALUE!=level.intValue())
-          root.setLevel(new Level("genj.debug.level+1", level.intValue()+1) {} );
-      } catch (Throwable t) {
-      }
-
-      // prepare console logging
-      Handler[] handlers = root.getHandlers();
-      for (int i=0;i<handlers.length;i++) root.removeHandler(handlers[i]);
-      BufferedHandler bufferedLogHandler = new BufferedHandler();
-      root.addHandler(bufferedLogHandler);
-      root.addHandler(new FlushingHandler(new StreamHandler(System.out, new LogFormatter())));
-      System.setOut(new PrintStream(new LogOutputStream(Level.INFO, "System", "out")));
-      System.setErr(new PrintStream(new LogOutputStream(Level.WARNING, "System", "err")));
-  
-      LOG.info("Main");
-      
-      // prepare our registry
-      REGISTRY.setFile(new File(EnvironmentChecker.getProperty("user.home.genj", ".", "calculate dir for registry"), "genj.properties"));
-  
-      // initialize options first
-      OptionProvider.getAllOptions();
-      
-      // create our home directory
-      File home = new File(EnvironmentChecker.getProperty("user.home.genj", null, "determining home directory"));
-      home.mkdirs();
-      if (!home.exists()||!home.isDirectory()) 
-        throw new IOException("Can't initialize home directoy "+home);
-      
-      // Setup File Logging and check environment
-      LOGFILE = new File(home, "genj.log");
-      Handler handler = new FileHandler(LOGFILE.getAbsolutePath(), Options.getInstance().getMaxLogSizeKB()*1024, 1, true);
-      handler.setLevel(Level.ALL);
-      handler.setFormatter(new LogFormatter());
-      LOG.addHandler(handler);
-      root.removeHandler(bufferedLogHandler);
-      bufferedLogHandler.flush(handler);
-    
-      // Startup Information
-      LOG.info("version = "+Version.getInstance().getBuildString());
-      LOG.info("date = "+new Date());
-      EnvironmentChecker.log();
-      
-      // patch up GenJ for Mac if applicable
-      if (MacAdapter.isMac()) {
-        MacAdapter.getInstance().install("GenealogyJ");
-        LOG.info("MacAdapter active");
-      }
-      
-      // check VM version
-      if (!EnvironmentChecker.isJava16()) {
-        if (EnvironmentChecker.getProperty("genj.forcevm", null, "Check force of VM")==null) {
-          LOG.severe("Need Java 1.6 to run GenJ");
-          System.exit(1);
-          return;
-        }
-      }
-
-      LOG.info("/Main");
-      
-      // start awt Startup
-      SwingUtilities.invokeAndWait(new Startup(args));
-      
-    } catch (Throwable t) {
-      throw new Error(t);
+      instance = new App();
+    } catch (NoClassDefFoundError err) {
+      Debug.log(Debug.ERROR, App.class, "Cannot instantiate App", err);
+      Debug.flush();
+      System.exit(1);
     }
-    
+  }
+
+  /**
+   * Returns a previously opened Frame by key
+   */
+  public JFrame getFrame(String key) {
+    return (JFrame)openFrames.get(FRAME_KEY_PREFIX+key);
   }
   
   /**
-   * Our startup code
+   * Returns all know JFrames that have been opened
    */
-  private static class Startup implements Runnable {
-    
-    private String[] args;
-
-    Startup(String[] args) {
-      this.args = args;
-    }
-    
-    public void run() {
-      
-        // Log is up
-        LOG.info("Startup");
-        
-        // patch JPopupMenu consuming events on close
-        UIManager.put("PopupMenu.consumeEventOnClose", new Boolean(false));
-        
-        // setup control center
-        workbench = new Workbench(new Shutdown());
-  
-        // show it
-        frame = new JFrame() {
-          @Override
-          public void dispose() {
-            REGISTRY.put("frame", this);
-            super.dispose();
-          }
-        };
-        frame.setTitle(RESOURCES.getString("app.title"));
-        frame.setIconImage(Gedcom.getImage().getImage());
-        frame.getContentPane().add(workbench);
-        frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-        frame.addWindowListener(new WindowAdapter() {
-          public void windowClosing(WindowEvent e) {
-            workbench.exit();
-          }
-        });
-        REGISTRY.get("frame", frame);
-        frame.setVisible(true);
-        
-        // Disclaimer - check version and registry value
-        String version = Version.getInstance().getVersionString();
-        if (!version.equals(REGISTRY.get("disclaimer",""))) {
-          // keep it      
-          REGISTRY.put("disclaimer", version);
-          // show disclaimer
-          DialogHelper.openDialog("Disclaimer", DialogHelper.INFORMATION_MESSAGE, RESOURCES.getString("app.disclaimer"), Action2.okOnly(), frame);    
-        }
-
-        // connect
-        workbench.addWorkbenchListener(new WorkbenchAdapter() {
-          @Override
-        	public void gedcomClosed(Workbench workbench, Gedcom gedcom) {
-            frame.setTitle(RESOURCES.getString("app.title"));
-        	}
-        	@Override
-        	public void gedcomOpened(Workbench workbench, Gedcom gedcom) {
-            frame.setTitle(gedcom.getName()+" - "+RESOURCES.getString("app.title"));
-        	}
-        });
-
-        // load
-        if (args.length==0)
-          workbench.restoreGedcom();
-        else try {
-          workbench.openGedcom(new URL("file:"+new File(args[0]).getAbsolutePath()));
-        } catch (MalformedURLException e) {
-        }
-        
-        // done
-        LOG.info("/Startup");
-      
-    }
-    
-  } //Startup
-
-  /**
-   * Our shutdown code
-   */
-  private static class Shutdown implements Runnable {
-    
-    /**
-     * do the shutdown
-     */
-    public void run() {
-      LOG.info("Shutdown");
-      // close window
-      frame.dispose();
-	  // persist options
-	  OptionProvider.persistAll();
-	  // Store registry 
-	  Registry.persist();      
-	  // done
-      LOG.info("/Shutdown");
-      // let VM do it's thing
-      System.exit(0);
-      // done
-    }
-    
-  } //Shutdown
-  
-  /**
-   * a log handler that buffers 
-   */
-  private static class BufferedHandler extends Handler {
-    
-    private List<LogRecord> buffer = new ArrayList<LogRecord>();
-
-    @Override
-    public void close() throws SecurityException {
-      // noop
-    }
-
-    @Override
-    public void flush() {
-      
-    }
-    
-    private void flush(Handler other) {
-      for (LogRecord record : buffer)
-        other.publish(record);
-      buffer.clear();
-    }
-
-    @Override
-    public void publish(LogRecord record) {
-      buffer.add(record);
-    }
-    
+  public Hashtable getFrames() {
+    return openFrames;
   }
 
   /**
-   * a log handler that flushes on publish
+   * Creates a Frame which remembers it's position from last time
    */
-  private static class FlushingHandler extends Handler {
-    private Handler wrapped;
-    private FlushingHandler(Handler wrapped) {
-      this.wrapped = wrapped;
-      wrapped.setLevel(Level.ALL);
-      setLevel(Level.ALL);
-    }
-    public void publish(LogRecord record) {
-      wrapped.publish(record);
-      flush();
-    }
-    public void flush() {
-      wrapped.flush();
-    }
-    public void close() throws SecurityException {
-      flush();
-      wrapped.close();
-    }
+  public JFrame createFrame(String title, ImgIcon image, final String key, final Dimension dimension) {
+    return new App.Frame(title,image,key,dimension);
   }
-  
-  /**
-   * Our own log format
-   */
-  private static class LogFormatter extends Formatter {
-    public String format(LogRecord record) {
-      StringBuffer result = new StringBuffer(80);
-      result.append(record.getLevel());
-      result.append(":");
-      result.append(record.getSourceClassName());
-      result.append(".");
-      result.append(record.getSourceMethodName());
-      result.append(":");
-      String msg = record.getMessage();
-      Object[] parms = record.getParameters();
-      if (parms==null||parms.length==0)
-        result.append(record.getMessage());
-      else 
-        result.append(MessageFormat.format(msg, parms));
-      result.append(System.getProperty("line.separator"));
 
-      if (record.getThrown()!= null) {
-        
-        StringWriter sw = new StringWriter();
-        PrintWriter pw = new PrintWriter(sw);
-        try {
-            record.getThrown().printStackTrace(pw);
-        } catch (Throwable t) {
-        }
-        pw.close();
-        result.append(sw.toString());
-      }      
-      
-      return result.toString();
-    }
-  }
-  
   /**
-   * Our STDOUT/ STDERR log outputstream
+   * Our own frame
    */
-  private static class LogOutputStream extends OutputStream {
+  public class Frame extends JFrame {
     
-    private char[] buffer = new char[256];
-    private int size = 0;
-    private Level level;
-    private String sourceClass, sourceMethod;
+    private String savedKey;
+    private Dimension savedDimension;
     
     /**
      * Constructor
      */
-    public LogOutputStream(Level level, String sourceClass, String sourceMethod) {
-      this.level = level;
-      this.sourceClass = sourceClass;
-      this.sourceMethod = sourceMethod;
+    protected Frame(String title, ImgIcon image, String key, Dimension dimension) {
+
+      // 1st remember
+      savedKey = FRAME_KEY_PREFIX+key;
+      savedDimension = dimension;
+      
+      // 2nd modify the frame's behavior
+      setTitle(title);
+      if (image!=null) setIconImage(image.getImage());
+      setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+      
+      // 3rd remember
+      openFrames.put(savedKey,this);
+
+      // done
     }
     
     /**
-     * collect up to limit characters 
+     * @see java.awt.Window#dispose()
      */
-    public void write(int b) throws IOException {
-      if (b!='\n') {
-       buffer[size++] = (char)b;
-       if (size<buffer.length) 
-         return;
-      }
-      flush();
+    public void dispose() {
+      registry.put(savedKey,getBounds());
+      openFrames.remove(savedKey);
+      super.dispose();
     }
 
     /**
-     * 
-     */
-    public void flush() throws IOException {
-      if (size>0) {
-        LOG.logp(level, sourceClass, sourceMethod, String.valueOf(buffer, 0, size).trim());
-        size = 0;
+     * @see java.awt.Window#pack()
+     */    
+    public void pack() {
+      
+      Rectangle box = registry.get(savedKey,(Rectangle)null);
+      if ((box==null)&&(savedDimension!=null)) 
+        box = new Rectangle(0,0,savedDimension.width,savedDimension.height);
+      if (box==null) {
+        super.pack();
+      } else {
+        setBounds(new AreaInScreen(box));
       }
+      invalidate();
+      validate();
+      doLayout();
     }
-  }
+
+  } // Frame
+
+  /**
+   * Sets the LookAndFeel
+   */
+  public void setLnF(LnFBridge.LnF lnf, LnFBridge.Theme theme) {
     
-} //App
+    // collect frames we know about
+    Vector uis = new Vector();
+    Enumeration frames = getFrames().elements();
+    while (frames.hasMoreElements()) uis.add(frames.nextElement());
+    
+    // set it!
+    if (lnf.apply(theme, uis)) {
+      registry.put("lnf", lnf.getName());
+      if (theme!=null) registry.put("lnf.theme", theme.getName());
+    }
+    
+    // remember
+  }
+  
+}

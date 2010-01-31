@@ -1,7 +1,7 @@
 /**
  * GenJ - GenealogyJ
  *
- * Copyright (C) 1997 - 2010 Nils Meier <nils@meiers.net>
+ * Copyright (C) 1997 - 2002 Nils Meier <nils@meiers.net>
  *
  * This piece of code is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -19,26 +19,41 @@
  */
 package genj.print;
 
-import gj.awt.geom.Dimension2D;
+import java.awt.*;
+import javax.swing.*;
 
-import java.awt.Graphics2D;
+import genj.util.Resources;
 
 /**
- * Printing Renderer
+ * Interface between Printer and Renderer
  */
 public interface PrintRenderer {
   
   /**
-   * Calculate the size required for printing
-   * @result size in inches of printed content horizontally&vertically
+   * Returns a panel for editing this renderers properties
    */
-  public Dimension2D getSize();
-  
+  public JPanel getEditor(Resources resources);
+
   /**
-   * Render content 
-   * @param g graphics context to render on - (0,0) in graphics space is the top-left
-   * @param page page to render (x,y)
-   */  
-  public void render(Graphics2D g);
-  
-} //PrintRenderer
+   * Returns size of rendering object in pixels
+   */
+  public Dimension getSize();
+
+  /**
+   * Renders print data for page
+   * @param g Graphics to render on
+   */
+  public void renderPage(Graphics g, Dimension dimPages);
+
+  /**
+   * Renders a preview
+   * @param g Graphics to render on
+   * @param zoom zoom rate to use
+   */
+  public void renderPreview(Graphics g, Dimension dimPreview, float zoomPreview);
+
+  /**
+   * Tells the renderer which printer it is used by
+   */
+  public void setPrinter(Printer printer);
+}

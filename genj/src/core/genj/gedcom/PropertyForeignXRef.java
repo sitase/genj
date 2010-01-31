@@ -19,44 +19,39 @@
  */
 package genj.gedcom;
 
-import genj.util.swing.ImageIcon;
-
 /**
  * Gedcom Property : - (internal)
  * This XRef is for pointing back to XRefs in case
  * Gedcom does only support uni-direction
  */
-/*package*/ class PropertyForeignXRef extends PropertyXRef {
+public class PropertyForeignXRef extends PropertyXRef {
 
   /**
-   * Empty Constructor
+   * Constructor with reference
    */
-  protected PropertyForeignXRef() {
+  public PropertyForeignXRef(PropertyXRef target) {
+    super(target);
   }
-  
+
   /**
    * getTag method comment.
    */
   public String getTag() {
-    return "XREF";
+    throw new RuntimeException("getTag is not support by ForeignXRefs");
   }
 
   /**
-   * There's no gedcom equivalent to a foreign (back) reference - returning ID of foreign entity
+   * getValue method comment.
    */
   public String getValue() {
-    Entity entity = getTargetEntity();
-    return entity==null ? "" : '@'+getTargetEntity().getId()+'@';
+    throw new RuntimeException("getValue is not support by ForeignXRefs");
   }
-  
-  
+
   /**
-   * A human readable text representation 
+   * Marks this Property as being invisible
    */
-  public String getDisplayValue() {
-    // 20070212 target can be null (on unlink() for example)
-    PropertyXRef target = getTarget();
-    return target != null ? target.getForeignDisplayValue() : "";
+  public boolean isVisible() {
+    return false;
   }
 
   /**
@@ -69,38 +64,22 @@ import genj.util.swing.ImageIcon;
   /**
    * setValue method comment.
    */
-  public void setValue(String newValue) {
-    // ignored
+  public boolean setValue(String newValue) {
+    throw new RuntimeException("setValue is not support by ForeignXRefs");
   }
 
   /**
-   * @see genj.gedcom.PropertyXRef#getImage(boolean)
+   * getImage method comment.
    */
-  public ImageIcon getImage(boolean checkValid) {
-    // 20070212 target can be null (on unlink() for example)
-    PropertyXRef target = getTarget();
-    return target != null ? overlay(target.getEntity().getImage(false)) : MetaProperty.IMG_ERROR;
+  public genj.util.ImgIcon getImage(boolean checkValid) {
+    throw new RuntimeException("getImage is not support by ForeignXRefs");
   }
 
   /**
    * The expected referenced type
    */
-  public String getTargetType() {
-    throw new IllegalArgumentException("getTargetType is not support by ForeignXRefs");
+  public int getExpectedReferencedType() {
+    return -1;
   }
 
-  /**
-   * @see genj.gedcom.PropertyForeignXRef#isValid()
-   */
-  public boolean isValid() {
-    return true; //always valid
-  }
-
-  /**
-   * @see genj.gedcom.PropertyForeignXRef#isTransient()
-   */
-  public boolean isTransient() {
-    return true; //YES!
-  }
-
-} //PropertyForeignXRef
+}

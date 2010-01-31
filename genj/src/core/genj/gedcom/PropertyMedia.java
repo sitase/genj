@@ -19,32 +19,82 @@
  */
 package genj.gedcom;
 
-import genj.util.swing.ImageIcon;
-import java.util.List;
+import genj.util.*;
 
 /**
- * Gedcom Property : MEDIA
- * Property wrapping a reference to a multiMedia object - this object
- * can contain BLOBs with in-line information. We discourage the use
- * of this entity in GenJ and encourage in-line OBJE properties instead.
+ * Gedcom Property : MEDIA (entity)
+ * Property wrapping a reference to a multiMedia object
  */
-public class PropertyMedia extends PropertyXRef implements IconValueAvailable {
+public class PropertyMedia extends PropertyXRef {
 
   /**
-   * This will be called once when instantiation has
-   * happend - it's our chance to substitute this with
-   * a read-only value if no reference applicable
+   * Constructor with reference
+   * @param entity reference of entity this property links to
    */
-  /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    // expecting NOTE
-    meta.assertTag("OBJE");
-    // ONLY for @..@!!!
-    if (value.startsWith("@")&&value.endsWith("@"))
-      return super.init(meta,value);
-    // switch to ro value
-    return new PropertySimpleReadOnly().init(meta, value);
+  public PropertyMedia(PropertyXRef target) {
+    super(target);
   }
 
+  /**
+   * Constructor
+   */
+  public PropertyMedia() {
+    super(null,"");
+  }
+
+  /**
+   * Constructor with Tag,Value parameters
+   * @param tag property's tag
+   * @param value property's value
+   */
+  public PropertyMedia(String tag, String value) {
+    super(tag,value);
+  }
+
+  /**
+   * Adds all default properties to this property
+   */
+  public void addDefaultProperties() {
+
+    noteModifiedProperty();
+
+    // Just add 'em
+    addProperty(new PropertyGenericAttribute("TITL"));
+    addProperty(new PropertyGenericAttribute("FORM"));
+
+    // Am I an entity ?
+    if (getEntity()==this) {
+      addProperty(new PropertyBlob());
+    } else {
+      addProperty(new PropertyFile());
+    }
+
+    // Done
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    // Entity Media ?
+    if (this instanceof Entity) {
+      return "Entity";
+    }
+    // OBJE linked to Entity Media or FILE
+    return "XRef";
+  }
+
+  /**
+   * Returns the name of the proxy-object which knows properties looked
+   * up by TagPath
+   * @return proxy's logical name
+   */
+  public static String getProxy(TagPath path) {
+    if (path.length()>1) {
+      return "XRef";
+    }
+    return "Entity";
+  }
 
   /**
    * Returns the tag of this property
@@ -59,33 +109,54 @@ public class PropertyMedia extends PropertyXRef implements IconValueAvailable {
    */
   public void link() throws GedcomException {
 
+    // Get enclosing entity ?
+    Entity entity = getEntity();
+
+    // .. Me Media-Property or -Entity?
+    if (this==entity) {
+      return;  // outa here
+    }
+
+    // Something to do ?
+    if (getReferencedEntity()!=null) {
+      return;
+    }
+
     // Look for media
-    Media media = (Media)getCandidate();
+    String id = getReferencedId();
+    if (id.length()==0) {
+      return;
+    }
+
+    Media media = getGedcom().getMediaFromId(id);
+    if (media==null) {
+      throw new GedcomException("Couldn't find entity with ID "+id);
+    }
 
     // Create a back-reference
-    PropertyForeignXRef fxref = new PropertyForeignXRef();
-    media.addProperty(fxref);
+    PropertyForeignXRef fxref = new PropertyForeignXRef(this);
+    media.addForeignXRef(fxref);
 
     // .. and point to it
-    link(fxref);
+    setTarget(fxref);
+
+    // Are there any properties that can be deleted ?
+    Property[] known = getKnownProperties();
+    for (int i=0;i<known.length;i++) {
+      TagPath path = new TagPath(getTag()+":"+known[i].getTag());
+      Property[] props = getProperties(path,false);
+      delProperties(props);
+    }
 
     // Done
 
   }
-  
+
   /**
    * The expected referenced type
    */
-  public String getTargetType() {
-    return Gedcom.OBJE;
+  public int getExpectedReferencedType() {
+    return Gedcom.MULTIMEDIAS;
   }
 
-  /**
-   * Returns an ImgIcon if existing in one of the sub-properties
-   */
-  public ImageIcon getValueAsIcon() {
-    List<IconValueAvailable> ps = super.getProperties(IconValueAvailable.class);
-    return ps.isEmpty() ? null : ps.get(0).getValueAsIcon();
-  }
-  
-} //PropertyMedia
+}

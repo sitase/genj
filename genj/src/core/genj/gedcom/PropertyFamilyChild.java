@@ -19,7 +19,8 @@
  */
 package genj.gedcom;
 
-import java.util.List;
+import java.util.*;
+import genj.util.*;
 
 /**
  * Gedcom Property : FAMC
@@ -28,53 +29,33 @@ import java.util.List;
 public class PropertyFamilyChild extends PropertyXRef {
 
   /**
-   * Empty Constructor
+   * Constructor with reference
    */
-  public PropertyFamilyChild() {
-  }
-  
-  /**
-   * Check if this is a biological link (not necessarily deterministic)
-   * @return Boolean.True if biological, Boolean.FALSE if not biological, null otherwise (unknown)
-   */
-  public Boolean isBiological() {
-    // certainly not if contained in ADOPtion event
-    String parent = getParent().getTag();
-    if ("ADOP".equals(parent))
-      return Boolean.FALSE;
-    // certainly yes if contained in BIRTh event
-    if ("BIRT".equals(parent))
-      return Boolean.TRUE;
-    // check for PEDI? could be if not present
-    Property pedi = getProperty("PEDI");
-    if (pedi!=null) {
-      String value = pedi.getValue();
-      if ("birth".equals(value)) return Boolean.TRUE;
-      if ("adopted".equals(value)) return Boolean.FALSE;
-      if ("foster".equals(value)) return Boolean.FALSE; 
-      if ("sealing".equals(value)) return Boolean.FALSE;
-    }
-    // dunno
-    return null;
+  public PropertyFamilyChild(PropertyXRef target) {
+    super(target);
   }
 
   /**
-   * @see genj.gedcom.PropertyXRef#getForeignDisplayValue()
+   * Constructor with Tag,Value parameters
    */
-  protected String getForeignDisplayValue() {
-    // can only really be called if this is an ADOPtion case
-    Property adop = getParent();
-    if (adop instanceof PropertyEvent&&adop.getTag().equals("ADOP"))
-      return resources.getString("foreign.ADOP", getEntity().toString());
-    // fallback
-    return super.getForeignDisplayValue();
+  public PropertyFamilyChild(String tag, String value) {
+    super(tag,value);
   }
-  
+
+  /**
+   * Returns a warning string that describes what happens when this
+   * property would be deleted
+   * @return warning as <code>String</code>, <code>null</code> when no warning
+   */
+  public String getDeleteVeto() {
+    return "The connection to the referenced family and its reference to this child are lost";
+  }
+
   /**
    * Returns the reference to family
    */
   public Fam getFamily() {
-    return (Fam)getTargetEntity();
+    return (Fam)getReferencedEntity();
   }
 
   
@@ -95,45 +76,57 @@ public class PropertyFamilyChild extends PropertyXRef {
    */
   public void link() throws GedcomException {
 
+    // Something to do ?
+    if (getFamily()!=null) {
+      return;
+    }
+
     // Get enclosing individual ?
     Indi indi;
     try {
       indi = (Indi)getEntity();
     } catch (ClassCastException ex) {
-      throw new GedcomException(resources.getString("error.noenclosingindi"));
+      throw new GedcomException("FAMS can't be linked to family when not in individual");
     }
-    
-    // Look for family
-    Fam fam = (Fam)getCandidate();
-    Indi father = fam.getHusband();
-    Indi mother = fam.getWife();
 
-    // Make sure the child is not ancestor of the family (father,grandfather,grandgrandfather,...)
-    // .. that would introduce a circle
-    if (indi.isAncestorOf(fam))
-      throw new GedcomException(resources.getString("error.already.ancestor", indi.toString(), fam.toString() ));
+    // Prepare some VARs
+    Property p;
+    Property ps[];
 
-    // NM20070921 - since we're handling multiple references to FAMC in getFamiliesWhereChild now e.g.
-    // 0 INDI
-    // 0  FAMC @F@
-    // 0  BIRT
-    // 1   FAMC @F@
-    // we can allow multiple famc pointing at the same family
-    
-    // Connect back from family (maybe using invalid back reference) 
-    List childs = fam.getProperties(PropertyChild.class);
-    for (int i=0,j=childs.size();i<j;i++) {
-      PropertyChild prop = (PropertyChild)childs.get(i);
-      if (prop.isCandidate(indi)) {
-        link(prop);
+    // Enclosing individual has a childhood already ?
+    if (indi.getFamc()!=null)
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already child of a family");
+
+    // Look for family (not-existing -> Gedcom throws Exception)
+    String id = getReferencedId();
+    Fam fam = getGedcom().getFamFromId(id);
+    if (fam==null)
+      throw new GedcomException("Couldn't find family with ID "+id);
+
+    // Enclosing individual is Husband/Wife in family ?
+    if ((fam.getHusband()==indi)||(fam.getWife()==indi))
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already spouse in family @"+id+"@");
+
+    // Family is descendant of indi ?
+    if (fam.isDescendantOf(indi))
+      throw new GedcomException("Individual @"+indi.getId()+"@ is already ancestor of family @"+fam.getId()+"@");
+
+    // Connect back from family (maybe using invalid back reference)
+    ps = fam.getProperties(new TagPath("FAM:CHIL"),false);
+    PropertyChild pc;
+    for (int i=0;i<ps.length;i++) {
+      pc = (PropertyChild)ps[i];
+      if ( (!pc.isValid()) && (pc.getReferencedId().equals(indi.getId())) ) {
+        pc.setTarget(this);
+        setTarget(pc);
         return;
       }
     }
 
     // .. new back referencing property
-    PropertyXRef xref = new PropertyChild();
-    fam.addProperty(xref);
-    link(xref);
+    pc = new PropertyChild(this);
+    fam.addProperty(pc);
+    setTarget(pc);
 
     // Done
   }
@@ -141,9 +134,8 @@ public class PropertyFamilyChild extends PropertyXRef {
   /**
    * The expected referenced type
    */
-  public String getTargetType() {
-    return Gedcom.FAM;
-
+  public int getExpectedReferencedType() {
+    return Gedcom.FAMILIES;
   }
 
-} //PropertyFamilyChild
+}

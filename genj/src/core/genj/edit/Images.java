@@ -19,7 +19,7 @@
  */
 package genj.edit;
 
-import genj.util.swing.ImageIcon;
+import genj.util.ImgIcon;
 
 /**
  * Wrapper for package used Images
@@ -28,53 +28,33 @@ final public class Images {
 
   private static Images instance = new Images();
 
-  public static ImageIcon
-  
-    imgView,
-    imgAdvanced,
-    
+  public static ImgIcon
     imgStickOn,
     imgStickOff,
-    imgFocus,
-    imgBack,
-    imgForward,
-    
-    imgUndo,
-    imgRedo,
-    
-    imgCut,
-    imgCopy, 
-    imgPaste,
-    
-    imgNew,
-	
-    imgDelEntity,
-    imgNewEntity;
+    imgNewChild,
+    imgNewParent,
+    imgNewSpouse,
+    imgNewMedia,
+    imgNewNote,
+    imgReturn,
+    imgFind,
+    imgLink;
 
   /**
    * Constructor which pre-loads all images
    */
   private Images() {
-    
-    imgView      = new ImageIcon(this,"images/View");
-    imgAdvanced  = new ImageIcon(this,"images/Advanced");
 
-    imgStickOn   = new ImageIcon(this,"images/StickOn");
-    imgStickOff  = new ImageIcon(this,"images/StickOff");
-    imgFocus     = new ImageIcon(this,"images/Focus");
-    imgBack      = new ImageIcon(this,"images/Return");
-    imgForward   = new ImageIcon(this,"images/Forward");
-
-    imgUndo      = new ImageIcon(this,"images/Undo");
-    imgRedo      = new ImageIcon(this,"images/Redo");
+    imgStickOn   = new ImgIcon(this,"StickOn.gif");
+    imgStickOff  = new ImgIcon(this,"StickOff.gif");
+    imgNewChild  = new ImgIcon(this,"NewChild.gif");
+    imgNewParent = new ImgIcon(this,"NewParent.gif");
+    imgNewSpouse = new ImgIcon(this,"NewSpouse.gif");
+    imgNewMedia  = new ImgIcon(this,"NewMedia.gif");
+    imgNewNote   = new ImgIcon(this,"NewNote.gif");
+    imgFind      = new ImgIcon(this,"Find.gif");
+    imgLink      = new ImgIcon(this,"Link.gif");
+    imgReturn    = new ImgIcon(this,"Return.gif");
     
-    imgCut       = new ImageIcon(this,"images/Cut");
-    imgCopy      = new ImageIcon(this,"images/Copy");
-    imgPaste     = new ImageIcon(this,"images/Paste");
-    
-    imgNew     = new ImageIcon(this,"images/New");
-    
-    imgNewEntity   = new ImageIcon(this,"images/entity/New");
-    imgDelEntity    = new ImageIcon(this,"images/entity/Delete");
   }
 }

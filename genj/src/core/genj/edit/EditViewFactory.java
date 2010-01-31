@@ -19,36 +19,39 @@
  */
 package genj.edit;
 
-import genj.util.swing.ImageIcon;
-import genj.view.View;
-import genj.view.ViewFactory;
+import java.awt.Component;
+import java.awt.Frame;
 
-
+import genj.app.ViewFactory;
+import genj.app.ViewSettingsWidget;
+import genj.gedcom.Gedcom;
+import genj.print.PrintRenderer;
+import genj.util.Registry;
 
 /**
  * The factory for the TableView
  */
 public class EditViewFactory implements ViewFactory {
-    
+
   /**
-   * @see genj.view.ViewFactory#createView(genj.gedcom.Gedcom, genj.util.Registry, java.awt.Frame)
+   * @see genj.app.ViewFactory#createSettingsComponent(Component)
    */
-  public View createView() {
-    return new EditView();
+  public ViewSettingsWidget createSettingsComponent(Component view) {
+    return null;
   }
 
   /**
-   * @see genj.view.ViewFactory#getImage()
+   * @see genj.app.ViewFactory#createPrintRenderer(Component)
    */
-  public ImageIcon getImage() {
-    return Images.imgView;
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getName(boolean)
-   */
-  public String getTitle() {
-    return EditView.RESOURCES.getString("title");
+  public PrintRenderer createPrintRenderer(Component view) {
+    return null;
   }
 
-} //EditViewFactory
+  /**
+   * @see genj.app.ViewFactory#createViewComponent(Gedcom, Registry, Frame)
+   */
+  public Component createViewComponent(Gedcom gedcom, Registry registry, Frame frame) {
+    return new EditView(gedcom,registry,frame);
+  }
+
+}

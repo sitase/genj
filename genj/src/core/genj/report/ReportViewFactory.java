@@ -19,38 +19,39 @@
  */
 package genj.report;
 
-import genj.util.Resources;
-import genj.util.swing.ImageIcon;
-import genj.view.View;
-import genj.view.ViewFactory;
+import java.awt.Component;
+import java.awt.Frame;
 
+import genj.app.ViewFactory;
+import genj.app.ViewSettingsWidget;
+import genj.gedcom.Gedcom;
+import genj.print.PrintRenderer;
+import genj.util.Registry;
 
 /**
  * The factory for the TableView
  */
 public class ReportViewFactory implements ViewFactory {
 
-  /*package*/ final static ImageIcon IMG = new ImageIcon(ReportViewFactory.class, "View");
-
   /**
-   * Factory method - create instance of view
+   * @see genj.app.ViewFactory#createSettingsComponent(Component)
    */
-  public View createView() {
-    return new ReportView();
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getImage()
-   */
-  public ImageIcon getImage() {
-    return IMG;
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getTitle(boolean)
-   */
-  public String getTitle() {
-    return Resources.get(this).getString("title");
+  public ViewSettingsWidget createSettingsComponent(Component view) {
+    return null;
   }
 
-} //ReportViewFactory
+  /**
+   * @see genj.app.ViewFactory#createPrintRenderer(Component)
+   */
+  public PrintRenderer createPrintRenderer(Component view) {
+    return null;
+  }
+
+  /**
+   * @see genj.app.ViewFactory#createViewComponent(Gedcom, Registry, Frame)
+   */
+  public Component createViewComponent(Gedcom gedcom, Registry registry, Frame frame) {
+    return new ReportView(gedcom,registry,frame);
+  }
+
+}

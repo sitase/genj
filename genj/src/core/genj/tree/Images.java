@@ -19,7 +19,7 @@
  */
 package genj.tree;
 
-import genj.util.swing.ImageIcon;
+import genj.util.ImgIcon;
 
 /**
  * A wrapper to the images we use in the TreeView
@@ -28,31 +28,28 @@ final class Images {
 
   private static Images instance = new Images();
 
-  static ImageIcon
-    imgView,
-    imgOverview,
-    imgHori,
-    imgVert,
-    imgDoFams,
-    imgDontFams,
-    imgFoldSymbols;
-    
+  static ImgIcon
+    imgMinus,
+    imgPlus,
+    imgMore,
+    imgStickOn,
+    imgStickOff,
+    imgIndisFields,
+    imgFamsFields,
+    imgOverview;
+
   /**
    * Constructor which pre-loads all images
    */
   private Images() {
 
-    imgView        = new ImageIcon(this,"images/View"       );
-
-    imgOverview    = new ImageIcon(this,"images/Overview"   );
-    
-    imgHori        = new ImageIcon(this,"images/Hori"       );
-    imgVert        = new ImageIcon(this,"images/Vert"       );
-    
-    imgDoFams      = new ImageIcon(this,"images/DoFams"     ); 
-    imgDontFams    = new ImageIcon(this,"images/DontFams"   ); 
-
-    imgFoldSymbols = new ImageIcon(this,"images/FoldUnfold"    );
+    imgMinus       = new ImgIcon(this,"images/Minus.gif"      );
+    imgPlus        = new ImgIcon(this,"images/Plus.gif"       );
+    imgMore        = new ImgIcon(this,"images/More.gif"       );
+    imgStickOn     = new ImgIcon(this,"images/StickOn.gif"    );
+    imgStickOff    = new ImgIcon(this,"images/StickOff.gif"   );
+    imgIndisFields = new ImgIcon(this,"images/IndisFields.gif");
+    imgFamsFields  = new ImgIcon(this,"images/FamsFields.gif" );
+    imgOverview    = new ImgIcon(this,"images/Overview.gif"   );
   }
-  
-} //Images
+}

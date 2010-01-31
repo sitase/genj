@@ -19,6 +19,8 @@
  */
 package genj.util;
 
+import java.util.*;
+
 /**
  * Class for en/decoding Base64
  */

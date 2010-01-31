@@ -28,15 +28,12 @@ public class WordBuffer {
   /** a buffer we collect words in */
   private StringBuffer buffer;
   
-  /** the filler between words */
-  private String filler = " ";
-  
   /** 
    * Constructor
    */
-  public WordBuffer(String filler) {
-    this();
-    setFiller(filler);
+  public WordBuffer(String content) {
+    buffer = new StringBuffer(content.length()*2);
+    buffer.append(content);
   }
   
   /** 
@@ -46,28 +43,11 @@ public class WordBuffer {
     buffer = new StringBuffer(80);
   }
   
-  /**
-   * Set the filler to use between words   */
-  public WordBuffer setFiller(String set) {
-    filler = set;
-    return this;
-  }
-  
   /** 
    * String representation of the content
    */
   public String toString() {
     return buffer.toString();
-  }
-  
-  /**
-   * Append a primitive
-   */
-  public WordBuffer append(int i) {
-    if (buffer.length()>0)
-      buffer.append(filler);
-    buffer.append(i);
-    return this;
   }
 
   /**
@@ -79,31 +59,13 @@ public class WordBuffer {
   }
 
   /**
-   * Append a generic object (null->"")
-   */
-  public WordBuffer append(Object object, String nullSubst) {
-    if (object==null) return append(nullSubst);
-    return append(object.toString(), nullSubst);
-  }
-
-  /**
    * Append a word
    */  
   public WordBuffer append(String word) {
-    return (word==null) ? this :append(word, null);
-  }
-  
-  /**
-   * Append a word
-   */  
-  public WordBuffer append(String word, String nullSubst) {
-    // nothing to do?
-    if ((word==null)||(word.length()==0)) return append(nullSubst);
-    // need a word-filler?
-    if ((buffer.length()>0)&&(!isStartingWithPunctuation(word))) buffer.append(filler);
-    // get the word
-    buffer.append(word.trim());
-    // done
+    if ((word!=null)&&(word.length()!=0)) {
+      if ((buffer.length()>0)&&(!isStartingWithPunctuation(word))) buffer.append(' ');
+      buffer.append(word.trim());
+    }
     return this;
   }
   
@@ -118,12 +80,5 @@ public class WordBuffer {
       case ':': return true;
     }
   }
-  
-  /**
-   * Current length
-   */
-  public int length() {
-    return buffer.length();
-  }
 
-} //WordBuffer
+}

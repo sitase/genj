@@ -19,9 +19,7 @@
  */
 package genj.gedcom;
 
-import java.util.Collection;
-import java.util.Stack;
-import java.util.regex.Pattern;
+import java.util.*;
 
 /**
  * Class for encapsulating a path of tags that describe the way throug
@@ -30,27 +28,14 @@ import java.util.regex.Pattern;
  * individual.
  * @author  Nils Meier
  * @version 0.1 04/21/98
- * @version 2004/08/25 made immutable
  */
 public class TagPath {
-  
-  /** a logical name */
-  private String name = null;
 
   /** the list of tags that describe the path */
   private String tags[];
-  private int qualifiers[];
-  
-  /** the length (= number of elements) in tags (length<=tags.length) */
-  private int len;
-  
-  /** the hash of this path (immutable) */
-  private int hash = 0;
-  
-  /** our marker */
-  public final static char SEPARATOR = ':';
-  public final static String SEPARATOR_STRING = String.valueOf(SEPARATOR);
-  private final static char SELECTOR = '#';
+
+  /** the position in the path */
+  private int position;
 
   /**
    * Constructor for TagPath
@@ -58,138 +43,43 @@ public class TagPath {
    * @exception IllegalArgumentException in case format isn't o.k.
    */
   public TagPath(String path) throws IllegalArgumentException {
-    this(path, null);
-  }
-  
-  public TagPath(String[] path, String name) throws IllegalArgumentException {
-    // keep name
-    this.name = name;
 
     // Parse path
-    len = path.length;
-    if (len==0)
-      throw new IllegalArgumentException("No valid path '"+path+"'");
+    StringTokenizer tokens = new StringTokenizer(path,":",false);
+    int num = tokens.countTokens();
+    if (num==0)
+      throw new IllegalArgumentException("No valid path :"+path);
 
     // ... setup data
-    tags = new String[len];
-    qualifiers = new int[len];
-    for (int i=0;i<len;i++) {
-      
-      // next token
-      String tag = path[i];
-      if (tag.length()==0) 
-        throw new IllegalArgumentException("Empty tag in '"+path+"' is not valid");
-
-      // remember
-      set(i, tag);
-      
+    tags = new String[num];
+    for (int i=0;i<num;i++) {
+      tags[i] = tokens.nextToken();
     }
-    
+
+    position = 0;
+
     // Done
   }
-  
-  /**
-   * Constructor for TagPath
-   * @param path path as colon separated string value a:b:c
-   * @exception IllegalArgumentException in case format isn't o.k.
-   */
-  public TagPath(String path, String name) throws IllegalArgumentException {
-    this(path.split(SEPARATOR_STRING), name);
-  }
-  
-  private void set(int pos, String tag) {
-    
-    // check qualifier
-    int qualifier = -1;
-    int separator = tag.indexOf('#');
-    if (separator>0) {
-      try {
-        qualifier = Integer.parseInt(tag.substring(separator+1));
-      } catch (NumberFormatException e) {
-        throw new IllegalArgumentException("Illegal tag qualifier in '"+tag+"'");
-      }
-      tag = tag.substring(0, separator);
-    }
 
-    // remember 
-    tags[pos] = tag;
-    qualifiers[pos] = qualifier;
-    hash += tag.hashCode();
-
-  }
-  
   /**
-   * Constructor for TagPath
+   * Returns the path as a string
+   * @return a colon separated string representation of this path a:b:c
    */
-  public TagPath(TagPath other) {
-    this(other, other.len);
+  public String asString() {
+    String result = tags[0];
+    for (int i=1;i<tags.length;i++)
+      result = result + ":" + tags[i];
+    return result;
   }
 
   /**
-   * Constructor for TagPath
+   * Sets this path's internal postition one position back
+   * @exception IllegalArgumentException in case internal position can't be backed
    */
-  public TagPath(TagPath other, int length) {
-    // copyup to len and rehash
-    len = length;
-    tags = other.tags;
-    qualifiers = other.qualifiers;
-    for (int i=0; i<len; i++)
-      hash += tags[i].hashCode();
-    // done
-  }
-
-  /**
-   * Constructor for TagPath
-   */
-  public TagPath(TagPath other, String tag) {
-    
-    // setup len
-    len = other.len+1;
-  
-    // copy and append   
-    tags = new String[len];
-    qualifiers = new int[len];
-    
-    System.arraycopy(other.tags, 0, tags, 0, other.len);
-    System.arraycopy(other.qualifiers, 0, qualifiers, 0, other.len);
-    
-    tags[len-1] = tag;
-    qualifiers[len-1] = -1;
-    
-    // prepare our hash
-    hash = other.hash + tag.hashCode();
-  }
-  
-  /**
-   * Constructor for TagPath
-   * @param path path as colon separated string value c:b:a
-   * @exception IllegalArgumentException in case format isn't o.k.
-   * @return the path [a:b:c]
-   */
-  /*package*/ TagPath(Stack<String> path) throws IllegalArgumentException {
-    // grab stack elements
-    len = path.size();
-    tags = new String[len];
-    qualifiers = new int[len];
-    for (int i=0;i<len;i++) 
-      set(i, path.pop().toString());
-    // done
-  }
-  
-  /**
-   * Wether this path starts with prefix
-   */
-  public boolean startsWith(TagPath prefix) {
-    // not if longer
-    if (prefix.len>len) 
-      return false;
-    // check
-    for (int i=0;i<prefix.len;i++) {
-      if (!tags[i].equals(prefix.tags[i]) || qualifiers[i]!=prefix.qualifiers[i]) 
-        return false;
-    }
-    // yes
-    return true;
+  public void back() {
+    if (position==0)
+      throw new IllegalArgumentException("Path's internal position can't be backed");
+    position--;
   }
 
   /**
@@ -198,31 +88,55 @@ public class TagPath {
   public boolean equals(Object obj) {
 
     // Me ?
-    if (obj==this) 
+    if (obj==this) {
       return true;
+    }
 
     // TagPath ?
-    if (!(obj instanceof TagPath))
+    if (!(obj instanceof TagPath)) {
       return false;
+    }
 
     // Size ?
     TagPath other = (TagPath)obj;
-    if (other.len!=len) 
+    if (other.length()!=length()) {
       return false;
+    }
 
     // Elements ?
-    for (int i=0;i<len;i++) {
-      if (!tags[i].equals(other.tags[i]) || qualifiers[i]!=other.qualifiers[i]) 
+    for (int i=0;i<tags.length;i++) {
+      if (!tags[i].equals(other.tags[i])) {
         return false;
+      }
     }
 
     // Equal
     return true;
   }
-  
+
   /**
-   * Returns the n-th tag of this path 
-   * @param which 0-based number
+   * Fill Hashtable with paths to properties
+   */
+  static private void fillHashtableWithPaths(Hashtable hash, Property prop, String path) {
+
+    String p = path+prop.getTag();
+
+    if (prop.getNoOfProperties()==0) {
+      if (!hash.contains(p)) {
+        hash.put(p,new TagPath(p));
+      }
+      return;
+    }
+
+    p+=":";
+    for (int c=0;c<prop.getNoOfProperties();c++) {
+      fillHashtableWithPaths(hash,prop.getProperty(c),p);
+    }
+
+  }
+  /**
+   * Returns the n-th tag of this path
+   * @param which 1-based number
    * @return tag as <code>String</code>
    */
   public String get(int which) {
@@ -230,19 +144,57 @@ public class TagPath {
   }
 
   /**
-   * Returns the first tag of this path
-   * @return first tag as <code>String</code>
-   */
-  public String getFirst() {
-    return get(0);
-  }
-
-  /**
    * Returns the last tag of this path
    * @return last tag as <code>String</code>
    */
   public String getLast() {
-    return get(len-1);
+    return tags[tags.length-1];
+  }
+
+  /**
+   * Returns the next tag in internal kept order
+   * @return next tag as <code>String</code>
+   */
+  public String getNext() {
+    String result = tags[position];
+    position++;
+    return result;
+  }
+
+  /**
+   * Calculate all appearing TagPaths in given gedcom
+   */
+  static public TagPath[] getUsedTagPaths(Gedcom gedcom,int type) {
+
+    Hashtable hash = new Hashtable(32);
+
+    // Loop through all entities of current type
+    EntityList entities  = gedcom.getEntities(type);
+
+    for (int e=0;e<entities.getSize();e++) {
+      Entity entity = entities.get(e);
+      fillHashtableWithPaths(hash,entity.getProperty(),"");
+    }
+
+    // Done
+    TagPath[] result = new TagPath[hash.size()];
+    Enumeration e = hash.elements();
+    for (int i=0;e.hasMoreElements();i++) {
+      result[i] = (TagPath)e.nextElement();
+    }
+
+    return result;
+  }
+
+  /**
+   * Returns true when this path's internal postition is not at the end
+   * @return <code>true</code> is internal position is not at the end
+   */
+  public boolean hasMore() {
+    if (position>=length()) {
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -250,175 +202,21 @@ public class TagPath {
    * @return length of this path
    */
   public int length() {
-    return len;
+    return tags.length;
   }
-    
+
+  /**
+   * Resets this path's internal postition
+   */
+  public void setToFirst() {
+    position = 0;
+  }
+
   /**
    * Returns the path as a string
+   * @see #asString()
    */
   public String toString() {
-    StringBuffer result = new StringBuffer();
-    for (int i=0;i<len;i++) {
-      if (i>0) result.append(':');
-      result.append(tags[i]);
-      if (qualifiers[i]>=0) {
-        result.append('#');
-        result.append(qualifiers[i]);
-      }
-    }
-    return result.toString();
+    return asString();
   }
-  
-  /**
-   * @see java.lang.Object#hashCode()
-   */
-  public int hashCode() {
-    return hash;
-  }
-  
-  /**
-   * Accessor - name
-   */
-  public String getName() {
-    if (name==null) {
-      // try to find a reasonable tag to display as text (that's not '.' or '*')
-      int i = length()-1;
-      String tag = get(i);
-      while (i>1&&!Character.isJavaIdentifierPart(tag.charAt(0))) 
-        tag = get(--i);
-      
-      // as text
-      name = Gedcom.getName(tag);
-      
-      // qualify 2nd level path element (e.g. date or place) for events if possible
-      //  BIRT:DATE > Date - Birth
-      //  IMMI:PLAC > Date - Immigration
-      //  NAME:NICK > Nickname (not "Nickname - Name")
-      if (i>1 && Character.isLetter(get(i-1).charAt(0))) {
-        String up = Gedcom.getName(get(i-1));
-        if (!Pattern.compile(".*"+up+".*", Pattern.CASE_INSENSITIVE).matcher(name).find())
-          name = name + " - " + up;
-      }
-    }
-    return name;
-  }
-
-  /**
-   * Resolve a path from given property
-   */
-  public static TagPath get(Property prop) {
-    
-    String p = prop.getTag();
-    while (!(prop instanceof Entity)) {
-      prop = prop.getParent();
-      p = prop.getTag() + ":" + p;
-    }
-    
-    // done
-    return new TagPath(p);
-  }
-
-  /**
-   * Get an array out of collection
-   */
-  public static TagPath[] toArray(Collection<TagPath> c) {
-    return c.toArray(new TagPath[c.size()]);
-  }
-  
-  /**
-   * Get an array of tag Paths out of an array of strings
-   */
-  public static TagPath[] toArray(String[] paths) {
-    TagPath[] result = new TagPath[paths.length];
-    for (int i=0; i<result.length; i++) {
-      result[i] = new TagPath(paths[i]);
-    }
-    return result;
-  }
-
-  /**
-   * Iterate a properties nodes corresponding to this path
-   */
-  public void iterate(Property root, PropertyVisitor visitor) {
-    iterate(root, visitor, true);
-  }
-  public void iterate(Property root, PropertyVisitor visitor, boolean backtrack) {
-    
-    // first tag has to match
-    String tag = get(0);
-    char c = tag.charAt(0);
-    if (c=='.'||c=='*')
-      iterate(0, root, visitor, backtrack);
-    else if (tag.equals(root.getTag()))
-      iterate(1, root, visitor, backtrack);
-  }
-  
-  private boolean iterate(int pos, Property prop, PropertyVisitor visitor, boolean backtrack) {
-    
-    String tag;
-    
-    // follow as far as we can without recursing into children
-    for (;;pos++) {
-      
-      // walked the path?
-      if (pos==length()) 
-        return visitor.leaf(prop);
-      
-      // check next tag
-      tag = get(pos);
-      
-       // up?
-      if (tag.equals("..")) {
-        if (prop.getParent()!=null)
-          prop = prop.getParent();
-        continue;
-      }
-      // stay?
-      if (tag.equals( ".")) {
-        continue;
-      }
-      // follow?
-      if (tag.equals( "*")) {
-        // check out target
-        if (!(prop instanceof PropertyXRef)||((PropertyXRef)prop).getTarget()==null)
-          return false;
-        prop = ((PropertyXRef)prop).getTarget();
-        continue;
-      }
-      // looks like we have a child at hand
-      break;
-    }
-    
-    // let visitor know that we're recursing now
-    if (!visitor.recursion(prop, tag))
-      return false;
-    
-    // recurse into children
-    int qualifier = qualifiers[pos];
-    for (int i=0, c=0;i<prop.getNoOfProperties();i++) {
-      Property child = prop.getProperty(i);
-      if (!backtrack && prop.getProperty(child.getTag())!=child)
-        continue;
-      if (tag.equals(child.getTag())) {
-        if (qualifier<0||qualifier==c++) {
-          if (!iterate(pos+1, child, visitor, backtrack))
-            return false;
-        }
-      }
-    }
-    
-    // backtrack
-    return true;
-  }
-
-  /**
-   * tag in path check
-   */
-  public boolean contains(String tag) {
-    for (int i=0;i<len;i++) 
-      if (tags[i].equals(tag))
-        return true;
-    return false;
-  }
-  
-} //TagPath
+}

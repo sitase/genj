@@ -19,93 +19,124 @@
  */
 package genj.edit;
 
-import genj.gedcom.MetaProperty;
-import genj.gedcom.Property;
-import genj.util.GridBagHelper;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.*;
+import java.lang.reflect.Method;
+
+import javax.swing.*;
+import javax.swing.event.*;
+
+import genj.gedcom.*;
+import genj.util.Debug;
+import genj.util.ImgIcon;
 import genj.util.Resources;
-
-import java.awt.Component;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-
-import javax.swing.ButtonGroup;
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.JComponent;
-import javax.swing.JList;
-import javax.swing.JRadioButton;
-import javax.swing.JScrollPane;
-import javax.swing.JTextField;
-import javax.swing.JTextPane;
-import javax.swing.ListCellRenderer;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
+import genj.util.swing.ImgIconConverter;
 
 /**
  * A bean that allows to choose a property from a list of properties
  */
-public class ChoosePropertyBean extends JComponent {
+public class ChoosePropertyBean extends JComponent implements ItemListener, ListSelectionListener {
 
   private JRadioButton rbChoose,rbNew;
   private JTextField tfNew;
   private JList lChoose;
   private JScrollPane spInfo;
   private JTextPane tpInfo;
-  private Property parent;
-  private List listeners = new ArrayList();
-  private Callback callback = new Callback();
+
+  /**
+   * Tag List Cell Renderer
+   */
+  class TagListRenderer extends JLabel implements ListCellRenderer {
+
+    /** whether the tag in the list is selected or not */
+    boolean isSelected;
+
+    /**
+     * Return component for rendering list element
+     */
+    public Component getListCellRendererComponent(JList list,Object value,int index,boolean isSelected,boolean cellHasFocus) {
+      Property prop = (Property)value;
+      setText(prop.getTag());
+      try {
+        // .. get class of property
+        ImgIcon img   = prop.getImage(false);
+        setIcon(ImgIconConverter.get(img));
+      } catch (Exception e) {
+        Debug.log(Debug.WARNING, this, "Unexpected error while retrieving image of "+prop, e);
+        setIcon(ImgIconConverter.get( genj.gedcom.Images.get("?")));
+      }
+      this.isSelected = isSelected;
+      return this;
+    }
+
+    /**
+     * paint is subclassed to draw the background correctly.  JLabel
+     * currently does not allow backgrounds other than white, and it
+     * will also fill behind the icon.  Something that isn't desirable.
+     */
+    public void paint(Graphics g) {
+
+      Color bColor;
+
+      if (isSelected) {
+        bColor = Color.yellow;
+      } else {
+        bColor = (getParent() != null) ? getParent().getBackground() : getBackground();
+      }
+
+      g.setColor(bColor);
+      g.fillRect(0 , 0, getWidth()-1, getHeight()-1);
+
+      super.paint(g);
+    }
+
+    // EOC
+  }
 
   /**
    * Constructor
    */
-  public ChoosePropertyBean(Property pArent, Resources resources) {
-    
-    // keep parent and calculate possible properties
-    parent = pArent;
-    MetaProperty[] defs = parent.getNestedMetaProperties(MetaProperty.WHERE_NOT_HIDDEN | MetaProperty.WHERE_CARDINALITY_ALLOWS);
-    Arrays.sort(defs, callback);
-        
+  public ChoosePropertyBean(Property[] knownProps, Resources resources) {
+
     // Layout
-    GridBagHelper gh = new GridBagHelper(this);
+    GridBagLayout layout = new GridBagLayout();
+    setLayout(layout);
 
     // Checkbox for known props
-    rbChoose = new JRadioButton(resources.getString("choose.known"),defs.length>0);
-    rbChoose.setEnabled(defs.length>0);
-    rbChoose.addItemListener(callback);
+    rbChoose = new JRadioButton(resources.getString("choose.known"),knownProps.length>0);
+    rbChoose.setEnabled(knownProps.length>0);
+    rbChoose.addItemListener(this);
     rbChoose.setAlignmentX(0);
-    gh.add(rbChoose,1,1,2,1, GridBagHelper.GROWFILL_HORIZONTAL);
+    add(rbChoose,1,1,2,1,false);
 
     // .. List of tags
-    lChoose = new JList(defs);
-    lChoose.setVisibleRowCount(4);
-    lChoose.setEnabled(defs.length>0);
-    lChoose.setCellRenderer(new MetaDefRenderer());
-    lChoose.addListSelectionListener(callback);
-    lChoose.addMouseListener(callback);
+    lChoose = new JList(knownProps);
+    lChoose.setEnabled(knownProps.length>0);
+    lChoose.setCellRenderer(new TagListRenderer());
+    if (knownProps.length==0) lChoose.setPrototypeCellValue(new PropertyUnknown("XXXXX",""));
+    lChoose.addListSelectionListener(this);
     JScrollPane sp = new JScrollPane(lChoose);
-    // 20030527 grrrrrrr why is this necessary
-    sp.setMinimumSize(sp.getPreferredSize());
-    gh.add(sp,1,2,1,1,GridBagHelper.GROWFILL_VERTICAL);
+    add(sp,1,2,1,1,true);
 
     // .. Info field
     tpInfo = new JTextPane();
     tpInfo.setText("");
     tpInfo.setEditable(false);
-    spInfo = new JScrollPane(tpInfo);
-    gh.add(spInfo,2,2,1,1,GridBagHelper.GROWFILL_BOTH);
+    spInfo = new JScrollPane(tpInfo,JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,JScrollPane.HORIZONTAL_SCROLLBAR_NEVER) {
+      // LCD
+      public Dimension getPreferredSize() {
+        return new Dimension(256,128);
+      }
+      // EOC
+    };
+    add(spInfo,2,2,1,1,true);
 
     // RadioButton for new props
-    rbNew = new JRadioButton(resources.getString("choose.new"),defs.length==0);
-    rbNew.addItemListener(callback);
+    rbNew = new JRadioButton(resources.getString("choose.new"),knownProps.length==0);
+    rbNew.addItemListener(this);
     rbNew.setAlignmentX(0);
-    gh.add(rbNew,1,3,2,1, GridBagHelper.GROWFILL_HORIZONTAL);
+    add(rbNew,1,3,2,1,false);
 
     ButtonGroup group = new ButtonGroup();
     group.add(rbChoose);
@@ -113,135 +144,108 @@ public class ChoosePropertyBean extends JComponent {
 
     // Create Lower Part
     tfNew = new JTextField();
-    tfNew.setEnabled(defs.length==0);
+    tfNew.setEnabled(knownProps.length==0);
     tfNew.setAlignmentX(0);
-    gh.add(tfNew,1,4,2,1, GridBagHelper.GROWFILL_HORIZONTAL);
+    add(tfNew,1,4,2,1,false);
 
-    // Pre select
-    if (defs.length>0) {
-      lChoose.setSelectedIndex(0);
+    // Focus
+    if (knownProps.length==0) {
+      tfNew.requestFocus();
+    } else {
+      lChoose.requestFocus();
     }
-    
+
     // Done
   }
 
   /**
-   * Returns the selected tags
+   * Helper method that adds components to a container with gridbaglayout
    */
-  public String[] getSelectedTags() {
+  private void add(Component c,int x,int y,int w,int h,boolean grow) {
+    add(c);
 
-    String[] result = null;
+    GridBagConstraints s = new GridBagConstraints();
+    s.gridx = x;
+    s.gridy = y;
+    s.gridwidth = w;
+    s.gridheight= h;
+    s.weightx = grow ? 1 : 0;
+    s.weighty = grow ? 1 : 0;
+    s.fill = grow ? GridBagConstraints.BOTH : GridBagConstraints.HORIZONTAL;
 
-    // list of selected properties
+    ((GridBagLayout)getLayout()).setConstraints(c,s);
+  }
+
+  /**
+   * Returns the resulting properties
+   */
+  public Property[] getResultingProperties() {
+
+    Property[] result = null;
+
+    // ... prepare list of selected properties
     if (rbChoose.isSelected() == true) {
       Object[] objs = lChoose.getSelectedValues();
-      result = new String[objs.length];
-      for (int i=0;i<objs.length;i++) {
-        result[i] = ((MetaProperty)objs[i]).getTag();
-      }
-      return result;
-    }
-    
-    // single entered tag
-    String tag = tfNew.getText();
-    return tag!=null ? new String[] { tag } : new String[0];
-  }
-
-  /**
-   * add action listener
-   */
-  public void addActionListener(ActionListener listener) {
-    listeners.add(listener);
-  }
-
-  /**
-   * remove action listener
-   */
-  public void removeActionListener(ActionListener listener) {
-    listeners.remove(listener);
-  }
-
-  /**
-   * Tag List Cell Renderer
-   */
-  class MetaDefRenderer extends DefaultListCellRenderer implements ListCellRenderer {
-
-    /**
-     * Return component for rendering list element
-     */
-    public Component getListCellRendererComponent(JList list,Object value,int index,boolean isSelected,boolean cellHasFocus) {
-      super.getListCellRendererComponent(list,value,index,isSelected,cellHasFocus);
-        MetaProperty def = (MetaProperty)value;
-        setText(def.getTag()+" ("+def.getName()+")");
-        setIcon(def.getImage());
-      return this;
-    }
-
-  } //MetaDefRenderer
-  
-  /**
-   * Internal Callback
-   */
-  private class Callback extends MouseAdapter implements ItemListener, ListSelectionListener, Comparator  {
-    
-    /** compare meta properties for alphabetic sorting */
-    public int compare(Object o1, Object o2) {
-      MetaProperty m1 = (MetaProperty)o1, m2 = (MetaProperty)o2;
-      return m1.getTag().compareTo(m2.getTag());
-    }
-    
-    /** check double clicks */
-    public void mouseClicked(MouseEvent event) {
-      if (event.getClickCount()>1) {
-        ActionEvent e = new ActionEvent(ChoosePropertyBean.this, 0, null);
-        ActionListener[] as = (ActionListener[])listeners.toArray(new ActionListener[listeners.size()]);
-        for (int i = 0; i < as.length; i++) {
-          as[i].actionPerformed(e);
+      if ( (objs==null) || (objs.length==0) ) {
+        result = null;
+      } else {
+        result = new Property[objs.length];
+        for (int i=0;i<objs.length;i++) {
+          result[i] = (Property)objs[i];
         }
       }
-    }
-    
-    /**
-     * RadioButtons have been changed
-     */
-    public void itemStateChanged(ItemEvent e) {
-      if (e.getSource() == rbChoose) {
-        lChoose.setEnabled(true);
-        tfNew.setEnabled(false);
-        lChoose.requestFocusInWindow();
-      }
-      if (e.getSource() == rbNew) {
-        lChoose.clearSelection();
-        lChoose.setEnabled(false);
-        tfNew.setEnabled(true);
-        tfNew.requestFocusInWindow();
+    } else {
+      // ... create a single entry property list
+      if (tfNew.getText().equals("")) {
+        result = null;
+      } else {
+        result = new Property[1];
+        result[0] = Property.createInstance(tfNew.getText(),"");
       }
     }
 
-    /**
-     * One of the tag-items in the item list has been (de-)selected
-     */
-    public void valueChanged(ListSelectionEvent e) {
-    
-      // Check selection
-      Object[] selection = lChoose.getSelectedValues();
-    
-      // None selected
-      if ((selection==null)||(selection.length==0)) {
-        tpInfo.setText("");
-        return;
-      }
-    
-      // Show info of last selected
-      MetaProperty meta = (MetaProperty)selection[selection.length-1];
-      tpInfo.setText(meta.getInfo());
-      if (!rbChoose.isSelected())
-        rbChoose.doClick();
-    
-      // Done
-    }
-    
+    return result;
   }
 
-} //ChoosePropertyBean
+  /**
+   * RadioButtons have been changed
+   */
+  public void itemStateChanged(ItemEvent e) {
+    if (e.getSource() == rbChoose) {
+      lChoose.setEnabled(true);
+      tfNew.setEnabled(false);
+      lChoose.requestFocus();
+    }
+    if (e.getSource() == rbNew) {
+      lChoose.clearSelection();
+      lChoose.setEnabled(false);
+      tfNew.setEnabled(true);
+      tfNew.requestFocus();
+    }
+  }
+
+  /**
+   * One of the tag-items in the item list has been (de-)selected
+   */
+  public void valueChanged(ListSelectionEvent e) {
+
+    // Check selection
+    Object[] selection = lChoose.getSelectedValues();
+
+    // None selected
+    if ((selection==null)||(selection.length==0)) {
+      tpInfo.setText("");
+      return;
+    }
+
+    // Show info of last selected
+    Property prop=(Property)selection[selection.length-1];
+    tpInfo.setText(prop.getInfo());
+    if (!rbChoose.isSelected())
+      rbChoose.doClick();
+
+    // Done
+  }
+
+}
 

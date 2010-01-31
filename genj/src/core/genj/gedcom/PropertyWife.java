@@ -19,6 +19,9 @@
  */
 package genj.gedcom;
 
+import java.util.*;
+
+import genj.util.*;
 
 /**
  * Gedcom Property : WIFE
@@ -26,24 +29,18 @@ package genj.gedcom;
  */
 public class PropertyWife extends PropertyXRef {
 
-  private final static TagPath
-    PATH_INDIFAMS = new TagPath("INDI:FAMS");
-  
-  public final static String TAG = "WIFE";
-
-  public final static String LABEL_MOTHER = Gedcom.resources.getString("WIFE.mother");
-  
   /**
-   * Empty Constructor
+   * Constructor with reference
    */
-  public PropertyWife() {
+  public PropertyWife(PropertyXRef target) {
+    super(target);
   }
-  
+
   /**
-   * Constructor
+   * Constructor with Tag,Value parameters
    */
-  protected PropertyWife(String target) {
-    setValue(target);
+  public PropertyWife(String tag, String value) {
+    super(tag,value);
   }
 
   /**
@@ -52,24 +49,21 @@ public class PropertyWife extends PropertyXRef {
    * @return warning as <code>String</code>, <code>null</code> when no warning
    */
   public String getDeleteVeto() {
-    // warn if linked
-    if (getTargetEntity()==null) 
-      return null;
-    return resources.getString("prop.wife.veto");
+    return "The connection to the referenced wife and its reference to this family are lost";
   }
 
   /**
    * Returns the Gedcom-Tag of this property
    */
   public String getTag() {
-    return TAG;
+    return "WIFE";
   }
 
   /**
    * Returns the wife
    */
   public Indi getWife() {
-    return (Indi)getTargetEntity();
+    return (Indi)getReferencedEntity();
   }
 
   /**
@@ -79,6 +73,11 @@ public class PropertyWife extends PropertyXRef {
    */
   public void link() throws GedcomException {
 
+    // Something to do ?
+    if (getWife()!=null) {
+      return;
+    }
+
     // Get enclosing family ?
     Fam fam = null;
     try {
@@ -86,7 +85,7 @@ public class PropertyWife extends PropertyXRef {
     } catch (ClassCastException ex) {
     }
     if (fam==null)
-      throw new GedcomException(resources.getString("error.noenclosingfam"));
+      throw new GedcomException("WIFE can't be linked to individual when not in family");
 
     // Prepare some VARs
     Property p;
@@ -94,34 +93,40 @@ public class PropertyWife extends PropertyXRef {
 
     // Enclosing family has a wife already ?
     if (fam.getWife()!=null)
-      throw new GedcomException(resources.getString("error.already.spouse", fam.getWife().toString(), fam.toString()));
+      throw new GedcomException("Family @"+fam.getId()+"@ can't have two wifes");
 
     // Look for wife (not-existing -> Gedcom throws Exception)
-    Indi wife = (Indi)getCandidate();
+    String id = getReferencedId();
+    Indi wife = getGedcom().getIndiFromId(id);
+    if (wife==null)
+      throw new GedcomException("Couldn't find wife with ID "+id);
 
-    // make sure wife isn't also husband
+    // Enclosing family has indi as child or husband ?
     if (fam.getHusband()==wife)
-      throw new GedcomException(resources.getString("error.already.spouse", wife.toString(), fam.toString()));
+      throw new GedcomException("Individual @"+id+"@ is already husband in family @"+fam.getId()+"@");
 
-    // make sure the wife isn't descendant of family
-    if (wife.isDescendantOf(fam))
-      throw new GedcomException(resources.getString("error.already.descendant", wife.toString(), fam.toString()));
+    Indi children[] = fam.getChildren();
+    for (int i=0;i<children.length;i++) {
+      if ( children[i] == wife )
+        throw new GedcomException("Individual @"+id+"@ is already child in family @"+fam.getId()+"@");
+    }
 
     // Connect back from husband (maybe using invalid back reference)
-    ps = wife.getProperties(PATH_INDIFAMS);
+    ps = wife.getProperties(new TagPath("INDI:FAMS"),false);
     PropertyFamilySpouse pfs;
     for (int i=0;i<ps.length;i++) {
       pfs = (PropertyFamilySpouse)ps[i];
-      if (pfs.isCandidate(fam)) {
-        link(pfs);
+      if ( (!pfs.isValid()) && (pfs.getReferencedId().equals(fam.getId())) ) {
+        pfs.setTarget(this);
+        setTarget(pfs);
         return;
       }
     }
 
     // .. new back referencing property
-    pfs = new PropertyFamilySpouse();
+    pfs = new PropertyFamilySpouse(this);
     wife.addProperty(pfs);
-    link(pfs);
+    setTarget(pfs);
 
     // Done
   }
@@ -129,8 +134,8 @@ public class PropertyWife extends PropertyXRef {
   /**
    * The expected referenced type
    */
-  public String getTargetType() {
-    return Gedcom.INDI;
+  public int getExpectedReferencedType() {
+    return Gedcom.INDIVIDUALS;
   }
 
-} //PropertyWife
+}

@@ -19,114 +19,121 @@
  */
 package genj.gedcom;
 
-import java.util.List;
-import java.util.regex.Pattern;
-
-
-
+import java.util.Date;
 
 /**
  * Class for encapsulating a note
  */
-public class Note extends Entity implements MultiLineProperty {
+public class Note extends PropertyNote implements Entity {
 
-  /** a delegate for keep the text data crammed in here by Gedcom grammar */
-  private PropertyMultilineValue delegate;
-  
+  private String id = "";
+  private Gedcom gedcom;
+  private PropertySet foreignXRefs = new PropertySet();
+
+  /**
+   * Constructor for Note
+   */
+  /*package*/ Note(Gedcom gedcom) {
+
+    // Call super's constructor
+    super(null);
+
+    // Entity
+    this.gedcom = gedcom;
+  }
+
+  /**
+   * Adds a PropertyForeignXRef to this entity
+   */
+  public void addForeignXRef(PropertyForeignXRef fxref) {
+    foreignXRefs.add(fxref);
+  }
+
   /**
    * Notification to entity that it has been added to a Gedcom
    */
-  /*package*/ void addNotify(Gedcom ged) {
-    
-    // continue
-    super.addNotify(ged);
+  public void addNotify(Gedcom gedcom) {
+    this.gedcom = gedcom;
+  }
 
-    // create a delegate we're using for storing the 
-    // note's multiline value
-    if (delegate==null) {
-      delegate = (PropertyMultilineValue)addProperty("NOTE", "");
-      delegate.isTransient = true;
+  /**
+   * Notification to entity that it has been deleted from a Gedcom
+   */
+  public void delNotify() {
+
+    // Notify to properties
+    super.delNotify();
+
+    // Remove all foreign XRefs
+    foreignXRefs.deleteAll();
+
+    // Break connection
+    this.gedcom = null;
+  }
+
+  /**
+   * Removes a property
+   * This overrides the default behaviour by first
+   * looking in this entity's foreign list
+   */
+  public boolean delProperty(Property which) {
+
+    if (foreignXRefs.contains(which)) {
+      foreignXRefs.delete(which);
+      return true;
     }
-    
-    // done
+    return super.delProperty(which);
   }
 
   /**
-   * Returns the delegate multiline value property that actually
-   * contains this note's content
+   * Gedcom this entity's in
+   * @return containing Gedcom
    */
-  public PropertyMultilineValue getDelegate() {
-    return delegate;
-  }
-  
-  /**
-   * Note ...
-   */
-  @Override
-  protected String getToStringPrefix(boolean showIds) {
-    return delegate.getDisplayValue();
+  public Gedcom getGedcom() {
+    return gedcom;
   }
 
   /**
-   * @see genj.gedcom.Entity#setValue(java.lang.String)
+   * Returns this entity's id.
    */
-  public void setValue(String newValue) {
-    // keep it in delegate
-    delegate.setValue(newValue);
-  }
-  
-  /**
-   * @see genj.gedcom.Property#delProperty(genj.gedcom.Property)
-   */
-  public void delProperty(Property which) {
-    // ignore request unless not delegate
-    if (which!=delegate) 
-      super.delProperty(which);
-  }
-
-    
-  /**
-   * @see genj.gedcom.Property#getValue()
-   */
-  public String getValue() {
-    return delegate.getValue();
-  }
-  
-  public List<Property> findProperties(Pattern tag, Pattern value) {
-    // let super do its thing
-    List<Property> result = super.findProperties(tag, value);
-    // don't let 'this' in there
-    result.remove(this);
-    // done
-    return result;
-  }
-  
-  /**
-   * @see genj.gedcom.MultiLineProperty#getLineIterator()
-   */
-  public Iterator getLineIterator() {
-    return delegate.getLineIterator();
+  public String getId() {
+    return id;
   }
 
   /**
-   * @see genj.gedcom.MultiLineProperty#getLineCollector()
+   * Returns this entity's first property
    */
-  public Collector getLineCollector() {
-    return delegate.getLineCollector();
-  }
-  
-  /**
-   * @see genj.gedcom.Property#isPrivate()
-   */
-  public boolean isPrivate() {
-    return delegate.isPrivate();
+  public Property getProperty() {
+    return this;
   }
 
   /**
-   * @see genj.gedcom.Property#setPrivate(boolean, boolean)
+   * Returns the type to which this entity belongs
+   * INDIVIDUALS, FAMILIES, MULTIMEDIAS, NOTES, ...
    */
-  public void setPrivate(boolean set, boolean recursively) {
-    delegate.setPrivate(set, recursively);
+  public int getType() {
+    return Gedcom.NOTES;
   }
 
-} //Note
+  /**
+   * Set Gedcom this entity's in
+   */
+  public void setGedcom(Gedcom gedcom) {
+    this.gedcom=gedcom;
+  }
+
+  /**
+   * Sets entity's id.
+   * @param id new id
+   */
+  public void setId(String id) {
+    this.id=id;
+  }
+
+  /**
+   * Returns this property as a string
+   */
+  public String toString() {
+    return getId()+":"+super.toString();
+  }
+}

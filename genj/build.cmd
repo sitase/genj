@@ -1,11 +1,9 @@
 @echo off
 setlocal
 
-set classpath=%JAVA_HOME%/lib/tools.jar;./contrib/ant/ant.jar
+set classpath=%ANT_HOME%/lib/ant.jar
 
-echo Classpath is %classpath%
-
-"%JAVA_HOME%\bin\java" org.apache.tools.ant.Main %1 %2 %3 %4
+%JAVA_HOME%\bin\java org.apache.tools.ant.Main %1 %2 %3 %4
 
 endlocal
 

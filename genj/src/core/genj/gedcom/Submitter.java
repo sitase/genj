@@ -19,33 +19,124 @@
  */
 package genj.gedcom;
 
+import java.util.Date;
+
 /**
  * Class for encapsulating a submitter
  */
-public class Submitter extends Entity {
-  
-  private final static TagPath PATH_NAME =new TagPath("SUBM:NAME");
+public class Submitter extends PropertySubmitter implements Entity {
+
+  private String id = "";
+  private Gedcom gedcom;
+  private PropertySet foreignXRefs = new PropertySet();
 
   /**
-   * Name ...
+   * Constructor for Submitter
    */
-  @Override
-  protected String getToStringPrefix(boolean showIds) {
-    return getName();
+  /*package*/ Submitter(Gedcom gedcom) {
+
+    // Call super's constructor
+    super(null);
+
+    // Entity
+    this.gedcom = gedcom;
   }
-  
+
   /**
-   * Name of Submitter
+   * Adds a PropertyForeignXRef to this entity
    */
-  public String getName() {
-    return getValue(PATH_NAME, "");
+  public void addForeignXRef(PropertyForeignXRef fxref) {
+    foreignXRefs.add(fxref);
   }
-  
+
   /**
-   * Name of Submitter
+   * Notification to entity that it has been added to a Gedcom
    */
-  public void setName(String name) {
-    setValue(PATH_NAME, name);
+  public void addNotify(Gedcom gedcom) {
+    this.gedcom = gedcom;
   }
-  
-} //Submitter
+
+  /**
+   * Notification to entity that it has been deleted from a Gedcom
+   */
+  public void delNotify() {
+
+    // Notify to properties
+    super.delNotify();
+
+    // Remove all foreign XRefs
+    foreignXRefs.deleteAll();
+
+    // Break connection
+    this.gedcom = null;
+  }
+
+  /**
+   * Removes a property
+   * This overrides the default behaviour by first
+   * looking in this entity's foreign list
+   */
+  public boolean delProperty(Property which) {
+
+    if (foreignXRefs.contains(which)) {
+      foreignXRefs.delete(which);
+      return true;
+    }
+    return super.delProperty(which);
+  }
+
+  /**
+   * Gedcom this entity's in
+   * @return containing Gedcom
+   */
+  public Gedcom getGedcom() {
+    return gedcom;
+  }
+
+  /**
+   * Returns this entity's id.
+   */
+  public String getId(boolean atat) {
+    return atat ? ("@" + id + "@") : id;
+  }
+  public String getId() {
+    return id;
+  }
+
+  /**
+   * Returns this entity's first property
+   */
+  public Property getProperty() {
+    return this;
+  }
+
+  /**
+   * Returns the type to which this entity belongs
+   * INDIVIDUALS, FAMILIES, MULTIMEDIAS, SUBMITTERS, ...
+   */
+  public int getType() {
+    return Gedcom.SUBMITTERS;
+  }
+
+  /**
+   * Set Gedcom this entity's in
+   */
+  public void setGedcom(Gedcom gedcom) {
+    this.gedcom=gedcom;
+  }
+
+  /**
+   * Sets entity's id.
+   * @param id new id
+   */
+  public void setId(String id) {
+    this.id=id;
+  }
+
+  /**
+   * Returns this property as a string
+   */
+  public String toString() {
+    return getId()+":"+super.toString();
+  }
+}

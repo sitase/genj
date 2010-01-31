@@ -19,12 +19,7 @@
  */
 package genj.util;
 
-import java.awt.Component;
-import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
+import java.awt.*;
 
 /**
  * This class provides basic helper functions for
@@ -32,33 +27,18 @@ import java.awt.Insets;
  */
 public class GridBagHelper {
 
+  private GridBagLayout layout;
+  private GridBagConstraints constraints;
+  private Container container;
+
   public final static int
     FILL_HORIZONTAL =  1,
     FILL_VERTICAL   =  2,
     FILL_BOTH       =  4,
+    FILL_NONE       =  8,
     GROW_HORIZONTAL = 16,
     GROW_VERTICAL   = 32,
     GROW_BOTH       = 64;
-
-  public final static int
-    GROWFILL_HORIZONTAL = FILL_HORIZONTAL|GROW_HORIZONTAL,
-    GROWFILL_VERTICAL   = FILL_VERTICAL  |GROW_VERTICAL  ,
-    GROWFILL_BOTH       = FILL_BOTH      |GROW_BOTH      ;
-    
-  /** wrapped layout */
-  private GridBagLayout layout;
-  
-  /** cached constraints */
-  private GridBagConstraints constraints;
-  
-  /** managed container */
-  private Container container;
-  
-  /** preset insets */
-  private Insets presetInsets = new Insets(0,0,0,0);
-
-  /** the next preset parameter */
-  private int presetParameter = 0;
 
   /**
    * A filling component
@@ -97,23 +77,6 @@ public class GridBagHelper {
     // Done
   }
 
-  
-  /**
-   * Sets insets to use
-   */
-  public GridBagHelper setInsets(Insets set) {
-    presetInsets = set;
-    return this;
-  }
-  
-  /**
-   * Sets parameters to use
-   */
-  public GridBagHelper setParameter(int set) {
-    presetParameter = set;
-    return this;
-  }
-
   /**
    * Adds component to container with GridBagLayout (1x1 grids)
    * @param component component to add
@@ -122,7 +85,7 @@ public class GridBagHelper {
    * @return Added component
    */
   public Component add(Component component,int x,int y) {
-    return add(component,x,y,1,1);
+    return add(component,x,y,1,1,0);
   }
 
   /**
@@ -135,7 +98,7 @@ public class GridBagHelper {
    * @return Added component
    */
   public Component add(Component component,int x,int y,int w,int h) {
-    return add(component,x,y,w,h,presetParameter);
+    return add(component,x,y,w,h,0);
   }
 
   /**
@@ -150,7 +113,7 @@ public class GridBagHelper {
    * @return Added component
    */
   public Component add(Component component,int x,int y,int w,int h,int parm) {
-    return add(component,x,y,w,h,parm,presetInsets);
+    return add(component,x,y,w,h,parm,new Insets(0,0,0,0));
   }
 
   /**
@@ -177,7 +140,7 @@ public class GridBagHelper {
     constraints.gridheight= h;
     constraints.weightx   = isSet(parm,GROW_BOTH) || isSet(parm,GROW_HORIZONTAL) ? 1 : 0;
     constraints.weighty   = isSet(parm,GROW_BOTH) || isSet(parm,GROW_VERTICAL  ) ? 1 : 0;
-    constraints.fill      = GridBagConstraints.NONE;
+    constraints.fill      = GridBagConstraints.BOTH;
     constraints.insets    = insets;
 
     if ( isSet(parm,FILL_BOTH) || (isSet(parm,FILL_HORIZONTAL)&&isSet(parm,FILL_VERTICAL)) )
@@ -186,6 +149,8 @@ public class GridBagHelper {
       constraints.fill = GridBagConstraints.HORIZONTAL;
     else if (isSet(parm,FILL_VERTICAL  ))
       constraints.fill = GridBagConstraints.VERTICAL  ;
+    else if (isSet(parm,FILL_NONE      ))
+      constraints.fill = GridBagConstraints.NONE      ;
 
     // Set constraints
     layout.setConstraints(component,constraints);
@@ -198,7 +163,7 @@ public class GridBagHelper {
    * Add a filling component that grows to maximum but shows nothing
    */
   public void addFiller(int x, int y) {
-    add(new Fill(new Dimension(0,0)), x, y, 1, 1, GROW_BOTH);
+    add(new Label(), x, y, 1, 1, GROW_BOTH);
   }
 
   /**
@@ -215,4 +180,4 @@ public class GridBagHelper {
     return ((value&mask)!=0);
   }
 
-} //GridBagHelper
+}

@@ -19,73 +19,47 @@
  */
 package genj.tree;
 
-import genj.gedcom.Entity;
-import genj.gedcom.Fam;
-import genj.gedcom.Gedcom;
-import genj.gedcom.Indi;
+import genj.gedcom.*;
 
 /**
- * A Bookmark in viewing a tree
- * <il>
- * <li>the bookmark'd entity
- * <li>the name
- * </il>
+ * A bookmark on an entity in a Gedcom
  */
 public class Bookmark {
-  
-  /** the name */
-  private String name;
-  
+
   /** the entity */
   private Entity entity;
-  
-  /**
-   * Internal Constructor
-   */
-  /*package*/ Bookmark(Gedcom ged, String s) throws IllegalArgumentException {
-    
-    // grab name and id from s
-    int at = s.indexOf('#');
-    if (at<0) throw new IllegalArgumentException("id#expected name");
-    
-    name = s.substring(at+1);
-    String id = s.substring(0,at);
-    
-    // resolve entity
-    entity = ged.getEntity(id);
-    if (!(entity instanceof Indi||entity instanceof Fam))
-      throw new IllegalArgumentException("id "+id+" doesn't point to Indi or Fam");
-  
-  }
-  
+
+  /** the name of the mark */
+  private String name;
+
   /**
    * Constructor
+   * @param entity entity to bookmar
+   * @param name logical name of bookmark
    */
-  public Bookmark(String n, Entity e) {
-    name = n;
-    entity = e;
+  Bookmark(Entity entity, String name) {
+    this.entity=entity;
+    this.name  =name  ;
   }
-  
+
   /**
-   * Accessor - name
-   */
-  public String getName() {
-    return name;
-  }
-  
-  /**
-   * Accessor - entity
+   * Returns bookmarked entity
    */
   public Entity getEntity() {
     return entity;
   }
-  
+
   /**
-   * @see java.lang.Object#toString()
+   * Returns bookmark's name
+   */
+  public String getName() {
+    return name;
+  }
+
+  /**
+   * This bookmark as a string
    */
   public String toString() {
-    return entity.getId()+'#'+name;
+    return getName();
   }
-  
-
-} //Bookmark
+}

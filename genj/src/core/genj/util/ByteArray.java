@@ -19,8 +19,11 @@
  */
 package genj.util;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.awt.*;
+import java.net.*;
+import java.io.*;
+import java.util.*;
+import javax.swing.ImageIcon;
 
 /**
  * Class that represents an improved ByteArray
@@ -35,56 +38,43 @@ public class ByteArray {
 
   /** the bits */
   private byte[] bits = EMPTY;
-  
-  private boolean isAllowInterrupts;
 
   /**
-   * Constructor
+   * Accessor for bytes
    */
-  public ByteArray(InputStream in) throws InterruptedException, IOException {
-    // 20030519 check available 
-    this(in, Math.max(in.available(), CLUSTER), false);
+  public byte[] getBytes() {
+    return bits;
   }
 
   /**
    * Constructor
    */
-  public ByteArray(InputStream in, boolean allowInterrupts) throws InterruptedException, IOException {
-    // 20030519 check available 
-    this(in, Math.max(in.available(), CLUSTER), allowInterrupts);
-  }
+  public ByteArray(InputStream in) throws IOException {
 
-  /**
-   * Constructor
-   */
-  public ByteArray(InputStream in, int cluster, boolean allowInterrupts) throws InterruptedException, IOException {
-    
-    isAllowInterrupts = allowInterrupts;
-
-    // Read from stream - if the callee knows the size of the
-    // file it might be passed in as 'cluster'. So we increase
-    // that by 1 so maximal one cluster is created
-    byte buffer[] = new byte[cluster+1];
+    // Read from stream
+    byte buffer[] = new byte[CLUSTER];
     int len=0,total=0;
 
     while (true) {
 
       // Read !
-      len = in.read(buffer,total,buffer.length-total);
-
-      // Interrupted?
-      if (isAllowInterrupts&&Thread.currentThread().isInterrupted())
-        throw new InterruptedException();
+      try {
+        len = in.read(buffer,total,buffer.length-total);
+      } catch (IOException ex) {
+        throw ex;
+      }
 
       // End of stream ?
-      if (len<0) break;
+      if (len<0)
+        break;
 
       // Increment amount read !
       total+=len;
-      
+
       // Did it fit and end ?
-      if (total<buffer.length)
+      if (total<buffer.length) {
         continue;
+      }
 
       // More than fit !
       byte tmp[] = new byte[buffer.length*2];
@@ -95,18 +85,9 @@ public class ByteArray {
     }
 
     // Remember
-    bits = new byte[total];
-    System.arraycopy(buffer, 0, bits, 0, total);
-    buffer = null;
-       
+    bits = buffer;
+
     // Done
   }
 
-  /**
-   * Accessor for bytes
-   */
-  public byte[] getBytes() {
-    return bits;
-  }
-
-} //ByteArray
+}

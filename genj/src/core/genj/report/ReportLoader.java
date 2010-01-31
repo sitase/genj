@@ -19,228 +19,233 @@
  */
 package genj.report;
 
-import genj.util.EnvironmentChecker;
-
-import java.io.File;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
+import java.util.*;
+import genj.util.Debug;
+import java.io.*;
+import java.net.*;
 
 /**
  * ClassLoad for Reports
  */
-public class ReportLoader {
+public class ReportLoader extends ClassLoader {
 
-  /** reports we have */
-  private List<Report> instances = new ArrayList<Report>(10);
-  
-  /** report files */
-  private Map<File,String> file2reportclass = new HashMap<File, String>(10);
-  
-  /** classpath */
-  private List<URL> classpath = new ArrayList<URL>(10);
-  
-  /** whether reports are in classpath */
-  private boolean isReportsInClasspath = false;
-  
-  /** a singleton */
-  private static ReportLoader singleton;
-  
-  /**
-   * Clears the report loader's state effectively forcing a reload
-   */
-  /*package*/ static void clear() {
-    singleton = null;
-  }
-  
-  /** 
-   * Access
-   */
-  public static ReportLoader getInstance() {
-    
-    // not known yet?
-    if (singleton==null) {
-      synchronized (ReportLoader.class) {
-        if (singleton==null) {
-          singleton = new ReportLoader();
-        }
-      }
-    }
-      
-    // done
-    return singleton;
-      
-  }
-  
-  /**
-   * Report by class name
-   */
-  public Report getReportByName(String classname) {
-    for (Report report : instances) {
-      if (report.getClass().getName().equals(classname))
-        return report;
-    }
-    return null;
-    
-  }
-  
-  /**
-   * dir resolver
-   */
-  public static File getReportDirectory() {
-    
-    // where are the reports 
-    return new File(EnvironmentChecker.getProperty(
-      new String[]{ "genj.report.dir", "user.dir/report"},
-      "report",
-      "find report class-files"
-    ));
-  }
-  
+  private File basedir;
+  private Hashtable cache = new Hashtable();
+  private Vector reports = new Vector(10);
+  private static boolean warnedAboutClasspath = false;
+
   /**
    * Constructor
    */
-  private ReportLoader() {
+  public ReportLoader(File basedir) {
 
-    File base = getReportDirectory();
-    ReportView.LOG.info("Reading reports from "+base);
-      
-    // parse report directory
-    try {
-      classpath.add(base.toURI().toURL());
-    } catch (MalformedURLException e) {
-      // n/a
-    }
-    parseDir(base, null);
-    
-    // Prepare classloader
-    URLClassLoader cl = new URLClassLoader((URL[])classpath.toArray(new URL[classpath.size()]), getClass().getClassLoader());
-    
+    // Remember
+    this.basedir = basedir;
+
     // Load reports
-    for (File file : file2reportclass.keySet()) {
-      String clazz = (String)file2reportclass.get(file); 
-      try {
-        Report r = (Report)cl.loadClass(clazz).newInstance();
-        r.putFile(file);
-        if (!isReportsInClasspath&&r.getClass().getClassLoader()!=cl) {
-          ReportView.LOG.warning("Reports are in classpath and can't be reloaded");
-          isReportsInClasspath = true;
-        }
-        instances.add(r);
-      } catch (Throwable t) {
-        ReportView.LOG.log(Level.WARNING, "Failed to instantiate "+clazz, t);
-      }
-    }
-    
-    // sort 'em
-    Collections.sort(instances, new Comparator<Report>() { 
-      public int compare(Report a, Report b) {
-        // 20063008 this can actually fail if the report is bad
-        try {
-          return a.getName().compareTo(b.getName());
-        } catch (Throwable t) {
-          return 0;
-        }
-      }
-    });
-    
-    // done
+    loadReports();
+
   }
   
   /**
-   * Parse directory for lib- and report files
+   * Helper that loads a class from File
    */
-  private void parseDir(File dir, String pkg) { 
+  private Class loadClass(File file) {
 
-    // make sure dir is good
-    if (!dir.isDirectory())
-      return;
-
-    // loop files and directories
-    String[] files = dir.list();
-    for (int i=0;i<files.length;i++) {
-      File file = new File(dir, files[i]);
-      
-      // dir?
-      if (file.isDirectory()) {
-        parseDir(file, (pkg==null?"":pkg+".")+file.getName());
-        continue;
-      }
-
-      // report class file?
-      String report = isReport(file, pkg);
-      if (report!=null) {
-        file2reportclass.put(file, report);
-        continue;
-      } 
-      
-      // library?
-      if (isLibrary(file)) {
-        try {
-          ReportView.LOG.info("report library "+file.toURI().toURL());
-          classpath.add(file.toURI().toURL());
-        } catch (MalformedURLException e) {
-          // n/a
-        }
-      }
-      
-      // next 
-    }
-      
-    // done
-  }
-  
-  /**
-   * Criteria for library
-   */
-  private boolean isLibrary(File file) {
-    return 
-      !file.isDirectory() &&
-      (file.getName().endsWith(".jar") || file.getName().endsWith(".zip"));
-  }
-  
-  /**
-   * Criteria for report
-   */
-  private String isReport(File file, String pkg) {
-    if ( (pkg!=null&&pkg.startsWith("genj")) || 
-         file.isDirectory() ||
-         !file.getName().endsWith(".class") ||
-         !file.getName().startsWith("Report") ||
-         file.getName().indexOf("$")>0 )
+    // Look for filename
+    if ( !file.exists()) {
       return null;
-    String name = file.getName();
-    return (pkg==null?"":pkg+".") + name.substring(0, name.length()-".class".length());
+    }
+
+    // Try to open file
+    FileInputStream in;
+    try {
+      in = new FileInputStream(file);
+    } catch (FileNotFoundException ex) {
+      return null;
+    }
+
+    // Try to read form file
+    byte classdata[] = new byte[(int)file.length()];
+    try {
+      if (classdata.length != in.read(classdata) ) {
+        return null;
+      }
+      // .. and close
+      in.close();
+    } catch (IOException ex) {
+      Debug.log(Debug.WARNING, this,"File "+file+" couldn't be loaded :(");
+    }
+
+    // Get the class
+    try {
+      // transform bytes into class
+      Class c = defineClass(null,classdata,0,classdata.length);
+      // resolve (link) it
+      resolveClass(c);
+      // Remember in cache
+      cache.put(c.getName(),c);
+      // done
+      return c;
+    } catch (ClassFormatError err) {
+      Debug.log(Debug.WARNING, this,"File "+file+" isn't a valid class-file :(");
+    } catch (IncompatibleClassChangeError err) {
+      Debug.log(Debug.WARNING, this, err);
+    } catch (Throwable t) {
+      Debug.log(Debug.ERROR, this,"Class in "+file.getName()+" couldn't be resolved",t);
+    }
+
+    // Done (failed)
+    return null;
   }
 
   /**
-   * Which reports do we have
+   * Overriden class loading
+   * @exception ClassNotFoundException in case Class couldn't be loaded
+   */
+  protected Class loadClass(String name, boolean resolve) throws ClassNotFoundException {
+
+    // Check if already in cache
+    Class c = (Class)cache.get(name);
+    if (c!=null) {
+      return c;
+    }
+
+    // Maybe super can load it?
+    try {
+      c = super.loadClass(name, resolve);
+      if (c!=null) return c;
+    } catch (Throwable t) {
+    }
+
+    // Load from reports-directory
+    File file = new File(basedir,name.replace('.',File.separatorChar)+".class");
+    c = loadClass(file);
+    if (c!=null) {
+      return c;
+    }
+
+    // Look in default ClassLoader
+    return Class.forName(name);
+  }
+
+  /**
+   * Helper that loads a report from File
+   */
+  private void loadReport(File file) {
+
+    // Has to be a file
+    if (file.isDirectory()) {
+      return;
+    }
+    
+    // Classfile that is
+    if (file.getName().indexOf(".class")<0) {
+      return;
+    }
+
+    // Named as "ReportXYZ.class" ?
+    if ( !file.getName().startsWith("Report") ) {
+      return;
+    }
+
+    // Please no inner type!
+    if ( file.getName().indexOf("$")>0 ) {
+      return;
+    }
+    
+    // Getting the report type
+    Class type;
+              
+    try {
+                    
+      // If the report can be loaded by the default
+      // classloader then we fall back on that one
+      String name = file.getAbsoluteFile().getName().replace(File.separatorChar,'.');
+      name = name.substring(0,name.lastIndexOf(".class"));
+      type = super.loadClass(name, true);
+
+      if (!warnedAboutClasspath) {
+        warnedAboutClasspath = true;
+        Debug.log(Debug.INFO, this, "Reports are in the Classpath and can't be reloaded");
+      }
+      
+    } catch (Throwable t) {
+
+      type = loadClass(file);
+    
+    }
+
+    if (type==null) {
+      return;
+    }
+        
+    // Getting an instance
+    Object instance;
+    try {
+      instance = type.newInstance();
+    } catch (Throwable t) {
+      Debug.log(Debug.WARNING, this,"Couldn't load report "+file, t);
+      return;
+    }
+
+    // Remember as report?
+    if (!(instance instanceof Report)) {
+      return;
+    }
+
+    // Remember!
+    reports.addElement(type);
+
+    // Done
+  }
+
+  /**
+   * Load available reports from basedir
+   */
+  public boolean loadReports() {
+
+    // Directory to look in ?
+    if (!basedir.isDirectory()) {
+      return false;
+    }
+
+    // Look for class-files
+    try {
+
+      String[] files = basedir.list();
+
+      // Create classes for files
+      Class report;
+
+      File file;
+      for (int i=0;i<files.length;i++) {
+        file = new File(files[i]);
+        loadReport(new File(basedir,file.getName()));
+      }
+
+    } catch (Exception ex) {
+      Debug.log(Debug.WARNING, this,ex);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Which reports ?
    */
   public Report[] getReports() {
-    return (Report[])instances.toArray(new Report[instances.size()]);
+    Report result[] = new Report[reports.size()];
+    Class c;
+    for (int i=0;i<reports.size();i++) {
+      c = (Class)reports.elementAt(i);
+      try {
+        result[i]=(Report)c.newInstance();
+      } catch (Exception e) {
+      }
+    }
+    return result;
   }
 
-  /**
-   * Save options of all reports
-   */
-  /*package*/ void saveOptions() {
-    Report[] rs = getReports();
-    for (int r=0;r<rs.length;r++)
-      rs[r].saveOptions();
-  }
-  
-  /**
-   * Whether reports are in classpath
-   */
-  /*package*/ boolean isReportsInClasspath() {
-    return isReportsInClasspath;
-  }
-
-} //ReportLoader
+}

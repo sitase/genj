@@ -19,77 +19,84 @@
  */
 package genj.gedcom;
 
-import genj.util.swing.ImageIcon;
+import java.util.Vector;
+import java.awt.event.*;
+
+import genj.util.*;
 
 /**
  * Gedcom Property : SEX
  */
 public class PropertySex extends Property {
-  
-  private final static String TAG = "SEX";
-  
-  /** images */
-  private final static ImageIcon
-    IMG_UNKNOWN= Grammar.V55.getMeta(new TagPath("INDI:SEX")).getImage(),
-    IMG_MALE   = Grammar.V55.getMeta(new TagPath("INDI:SEX")).getImage("male"),
-    IMG_FEMALE = Grammar.V55.getMeta(new TagPath("INDI:SEX")).getImage("female");
 
-  /** txts */
-  public final static String
-    TXT_SEX     = Gedcom.getResources().getString("prop.sex"),
-    TXT_MALE    = Gedcom.getResources().getString("prop.sex.male"),
-    TXT_FEMALE  = Gedcom.getResources().getString("prop.sex.female"),
-    TXT_UNKNOWN = Gedcom.getResources().getString("prop.sex.unknown");
-    
   /** sexes */
-  public static final int UNKNOWN = 0;
-  public static final int MALE    = 1;
-  public static final int FEMALE  = 2;
+  private static final int UNKNOWN = -1;
+  public static final int MALE    = Gedcom.MALE;
+  public static final int FEMALE  = Gedcom.FEMALE;
 
   /** the sex code */
-  private int sex = UNKNOWN;
+  private int sex;
 
   /** the sex as string (unknown code) */
   private String sexAsString;
 
   /**
-   * Empty Constructor
+   * Constructor for Gedcom Sex Line
    */
   public PropertySex() {
+    // Setup data
+    setSex(UNKNOWN);
+    // Done
   }
-  
+
   /**
-   * Constructor
+   * Constructor for Gedcom Sex Line
    */
-  public PropertySex(String sex) {
-    setValue(sex);
+  public PropertySex(int setSex) {
+    // Setup data
+    sex = setSex;
+    // Done
   }
-  
+
   /**
-   * Image
+   * Constructor for Gedcom Sex Line
    */
-  public static ImageIcon getImage(int sex) {
-    switch (sex) {
-      case MALE: return IMG_MALE;
-      case FEMALE: return IMG_FEMALE;
-      default:
-        return IMG_UNKNOWN;
+  public PropertySex(String tag, String value) {
+    // Setup data
+    if (value.length() == 0) {
+      setSex(UNKNOWN);
+    } else {
+      setValue(value);
     }
+    // Done
   }
 
   /**
    * Image
    */
-  public ImageIcon getImage(boolean checkValid) {
-    // validity?
+  public static ImgIcon getDefaultImage(int sex) {
+    switch (sex) {
+    case MALE:
+      return Images.get("sex.m");
+    case FEMALE:
+      return Images.get("sex.f");
+    }
+    throw new IllegalArgumentException("Unknown sex");
+  }
+
+  /**
+   * Image
+   */
+  public ImgIcon getImage(boolean checkValid) {
     if (checkValid&&(!isValid()))
       return super.getImage(true);
-    // check it
     switch (sex) {
-      case MALE: return IMG_MALE;
-      case FEMALE: return IMG_FEMALE;
+      case FEMALE:
+        return Images.get("sex.f");
+      case MALE:
+        return Images.get("sex.m");
       default:
-        return super.getImage(checkValid);
+        return Images.get("sex");
     }
   }
 
@@ -102,17 +109,37 @@ public class PropertySex extends Property {
 
 
   /**
+   * Returns localized label for sex
+   */
+  static public String getLabelForSex() {
+    return Gedcom.getResources().getString("prop.sex");
+  }
+
+  /**
    * Returns localized label for sex of male/female
    */
   static public String getLabelForSex(int which) {
-    switch (which) {
-      case MALE:
-        return Gedcom.getResources().getString("prop.sex.male");
-      case FEMALE:
-        return Gedcom.getResources().getString("prop.sex.female");
-      default:
-        return Gedcom.getResources().getString("prop.sex.unknown");
-    }
+    if (which==MALE)
+      return Gedcom.getResources().getString("prop.sex.male");
+    return Gedcom.getResources().getString("prop.sex.female");
+  }
+
+  /**
+   * Returns the logical proxy to render/edit this property
+   */
+  public String getProxy() {
+    if (sexAsString!=null)
+      return "Unknown";
+    return "Sex";
+  }
+
+  /**
+   * Returns the name of the proxy-object which knows properties looked
+   * up by TagPath
+   * @return proxy's logical name
+   */
+  public static String getProxy(TagPath path) {
+    return "Sex";
   }
 
   /**
@@ -126,15 +153,7 @@ public class PropertySex extends Property {
    * Accessor for Tag
    */
   public String getTag() {
-    return TAG;
-  }
-
-  /**
-   * @see genj.gedcom.Property#setTag(java.lang.String)
-   */
-  /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    meta.assertTag(TAG);
-    return super.init(meta, value);
+    return "SEX";
   }
 
   /**
@@ -149,62 +168,47 @@ public class PropertySex extends Property {
       return "F";
     return "";
   }
-  
-  /**
-   * A value meant for display
-   */
-  public String getDisplayValue() {
-    return getLabelForSex(sex);
-  }
 
   /**
    * Accessor for Sex
    */
   public void setSex(int newSex) {
-    String old = getValue();
+    noteModifiedProperty();
     sexAsString = null;
     sex = newSex;
-    propagatePropertyChanged(this, old);
     // Done
   }
 
   /**
    * Accessor for Value
    */
-  public void setValue(String newValue) {
+  public boolean setValue(String newValue) {
 
-    String old = getValue();
+    noteModifiedProperty();
 
-    // Cannot parse anything longer than 1
-    if (newValue.trim().length()>1) {
+    // No information ?
+    if (newValue.length()!=1) {
       sexAsString=newValue;
-    } else {
-	    // zero length -> unknown
-	    if (newValue.length()==0) {
-	      sexAsString = null;
-	      sex = UNKNOWN;
-	    } else {
-		    // Female or Male ?
-		    switch (newValue.charAt(0)) {
-		      case 'f' :
-		      case 'F' :
-		        sex = FEMALE;
-		        sexAsString=null;
-		        break;
-		      case 'm' :
-		      case 'M' : 
-		        sex = MALE;
-		        sexAsString=null;
-		        break;
-		      default:
-		        sexAsString = newValue;
-		        break;
-		    }
-	    }
+      // Done
+      return false;
     }
-    // notify
-    propagatePropertyChanged(this, old);
-    // done
+    // Female or Male ?
+    switch (newValue.charAt(0)) {
+      case 'f' :
+      case 'F' :
+      sex = FEMALE;
+      sexAsString=null;
+      return true;
+      case 'm' :
+      case 'M' : sex = MALE;
+      sexAsString=null;
+      // Done
+      return true;
+    }
+    // Done
+    sexAsString=newValue;
+    // Done
+    return false;
   }
 
   /**

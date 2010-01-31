@@ -19,341 +19,259 @@
  */
 package genj.io;
 
+import java.io.*;
+import java.util.*;
+
 import genj.Version;
-import genj.crypto.Enigma;
-import genj.gedcom.Entity;
-import genj.gedcom.Gedcom;
-import genj.gedcom.Property;
-import genj.gedcom.PropertyXRef;
-import genj.gedcom.time.PointInTime;
+import genj.gedcom.*;
 import genj.util.Trackable;
 
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetEncoder;
-import java.nio.charset.CodingErrorAction;
-import java.nio.charset.UnmappableCharacterException;
-import java.nio.charset.UnsupportedCharsetException;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.logging.Logger;
-
 /**
- * GedcomWriter is a custom write for Gedcom compatible information. Normally
- * it's used by GenJ's application when trying to save to a file. This type 
- * can be used by 3rd parties that are interested in writing Gedcom from
- * a GenJ object-representation managed outside of GenJ as well.
+ * Type that knows how to write GEDCOM-data to InputStream
  */
 public class GedcomWriter implements Trackable {
 
-  private static Logger LOG = Logger.getLogger("genj.io");
-  
-  /** lots of state */
   private Gedcom gedcom;
   private BufferedWriter out;
   private String file;
   private String date;
-  private String time;
-  private int total;
+  private int level;
+  private int total,progress;
   private int line;
   private int entity;
-  private boolean cancel = false;
-  private Filter[] filters = new Filter[0];
-  private Enigma enigma = null;
+  private boolean cancel=false;
 
   /**
-   * Constructor for a writer that will write gedcom-formatted output
-   * on writeGedcom()
-   * @param ged object to write out
-   * @param stream the stream to write to
+   * Constructor
+   * @param gedcom Gedcom object to write
+   * @param out BufferedWriter to write to
    */
-  public GedcomWriter(Gedcom ged, OutputStream stream) throws IOException, GedcomEncodingException  {
-    
-    Calendar now = Calendar.getInstance();
+  public GedcomWriter(Gedcom gedcom, String file, BufferedWriter out) {
 
-    // init data
-    gedcom = ged;
-    file = ged.getOrigin()==null ? "Uknown" : ged.getOrigin().getFileName();
-    line = 0;
-    date = PointInTime.getNow().getValue();
-    time = new SimpleDateFormat("HH:mm:ss").format(now.getTime());
+    // Remember some data
+    this.gedcom=gedcom;
+    this.out   =out   ;
+    this.file  =file  ;
 
-    CharsetEncoder encoder = getCharset(false, stream, ged.getEncoding()).newEncoder();
-    encoder.onUnmappableCharacter(CodingErrorAction.REPORT);
-    out = new BufferedWriter(new OutputStreamWriter(stream, encoder));
-    
+    // Initializer calculation values
+    level=0;
+    line =1;
+    date =PropertyDate.getString(Calendar.getInstance());
+
     // Done
   }
 
   /**
-   * Create the charset we're using for out
+   * Cancels operation
    */
-  private Charset getCharset(boolean writeBOM, OutputStream out, String encoding) throws GedcomEncodingException {
-
-    // Attempt encoding
-    try {
-      // Unicode
-      if (Gedcom.UNICODE.equals(encoding)) {
-        if (writeBOM) try {
-          out.write(GedcomEncodingSniffer.BOM_UTF16BE);
-        } catch (Throwable t) {
-          // ignored
-        }
-        return Charset.forName("UTF-16BE");
-      }
-      // UTF8
-      if (Gedcom.UTF8.equals(encoding)) {
-        if (writeBOM) try {
-          out.write(GedcomEncodingSniffer.BOM_UTF8);
-        } catch (Throwable t) {
-          // ignored
-        }
-        return Charset.forName("UTF-8");
-      }
-      // ASCII - 20050705 using Latin1 (ISO-8859-1) from now on to preserve extended ASCII characters
-      if (Gedcom.ASCII.equals(encoding))
-        return Charset.forName("ISO-8859-1"); // was ASCII
-      // Latin1 (ISO-8859-1)
-      if (Gedcom.LATIN1.equals(encoding))
-        return Charset.forName("ISO-8859-1");
-      // ANSI (Windows-1252)
-      if (Gedcom.ANSI.equals(encoding))
-        return Charset.forName("Windows-1252");
-    } catch (UnsupportedCharsetException e) {
-    }
-
-    // ANSEL
-    if (Gedcom.ANSEL.equals(encoding)) 
-      return new AnselCharset();
-      
-    // unknown encoding
-    throw new GedcomEncodingException("Can't write with unknown encoding " + encoding);
-
-  }
-
-  /**
-   * Thread-safe cancel of writeGedcom()
-   */
-  public void cancelTrackable() {
+  public void cancel() {
     cancel = true;
   }
 
   /**
    * Returns progress of save in %
-   * @return percent as 0 to 100
    */
   public int getProgress() {
-    if (entity == 0) 
+    if (progress==0) {
       return 0;
-    return entity * 100 / total;
+    }
+    return progress*100/total;
   }
 
   /**
-   * Returns current write state as string
+   * Returns state as explanatory string
    */
   public String getState() {
-    return line + " Lines & " + entity + " Entities";
+    return line+" Lines & "+entity+" Entities";
   }
 
   /**
-   * Sets filters to use for checking whether to write 
-   * entities/properties or not
+   * Returns warnings of operation
    */
-  public void setFilters(Filter[] fs) {
-    if (fs == null)
-      fs = new Filter[0];
-    filters = fs;
+  public String getWarnings() {
+    return "";
   }
-  
+
   /**
-   * Number of lines written
+   * Helper for writing Gedcom-line
    */
-  public int getLines() {
-    return line;
+  private void line(int ldelta) {
+    level+=ldelta;
   }
-  
+
   /**
-   * Actually writes the gedcom-information 
+   * Helper for writing Gedcom-line
+   * @exception IOException
    * @exception GedcomIOException
    */
-  public void write() throws GedcomIOException {
+  private void line(int ldelta, String tag, String value) throws IOException, GedcomIOException {
+    level+=ldelta;
+    line(tag,value);
+  }
 
-    // check state - we pass gedcom only once!
-    if (gedcom==null)
-      throw new IllegalStateException("can't call write() twice");
-    
-    Collection ents = gedcom.getEntities(); 
-    total = ents.size();
+  /**
+   * Helper for writing Gedcom-line
+   * @exception IOException
+   * @exception GedcomIOException
+   */
+  private void line(String tag, String value) throws IOException, GedcomIOException {
+
+    // Still Operation ?
+    if (cancel) {
+      throw new GedcomIOException("Operation cancelled",line);
+    }
+
+    // Indent
+    /*
+    for (int i=0;i<level;i++)
+      out.write(' ');
+    */
+    // Level+Tag+Value
+    String l = ""+level;
+    out.write(l    ,0,l    .length());
+    out.write(' ');
+    out.write(tag  ,0,tag  .length());
+    out.write(' ');
+    if (value!=null)
+      out.write(value,0,value.length());
+    out.newLine();
+
+    // next
+    line++;
+
+    // Done
+  }
+
+  /**
+   * Write Entities information
+   * @exception IOException
+   * @exception GedcomIOException
+   */
+  private void writeEntities(EntityList[] entities) throws IOException, GedcomIOException {
+
+    // Loop through EntityLists
+    for (int i=0;i<entities.length;i++) {
+      for (int j=0;j<entities[i].getSize();j++) {
+        writeEntity(entities[i].get(j));
+      }
+    }
+
+    // Done
+  }
+
+  /**
+   * Write Entity
+   * @exception IOException
+   * @exception GedcomIOException
+   */
+  private void writeEntity(Entity ent) throws IOException, GedcomIOException {
+
+    // Entity line
+    Property prop  = ent.getProperty();
+    writeProperty("@"+ent.getId()+"@ ",prop);
+
+    // Done
+    entity++;
+  }
+
+  /**
+   * Do the writing
+   * @exception GedcomIOException
+   */
+  public boolean writeGedcom() throws GedcomIOException {
+
+    // Prepare
+    total = gedcom.getNoOfEntities();
+    EntityList[] entities = gedcom.getEntities();
 
     // Out operation
     try {
 
       // Data
       writeHeader();
-      writeEntities(ents);
+      writeEntities(entities);
       writeTail();
 
       // Close Output
       out.close();
 
-    } catch( GedcomIOException ioe ) {
-      throw ioe;
-    } catch (Exception ex) {
-      throw new GedcomIOException("Error while writing / "+ex.getMessage(), line);
+    } catch (IOException ex) {
+      throw new GedcomIOException("Error while writing",line);
     } finally {
-      gedcom = null;
+      // .. Clear changes in gedcom
+      gedcom.setUnsavedChanges(false);
     }
 
     // Done
+    return true;
   }
-  
-  /** write line for header and footer */
-  private void writeLine(String line) throws IOException {
-    out.write(line);
-    out.newLine();
-    this.line++;
-  }
-  
+
   /**
    * Write Header information
    * @exception IOException
+   * @exception GedcomIOException
    */
-  private void writeHeader() throws IOException {
-    
+  private void writeHeader() throws IOException, GedcomIOException {
+
     // Header
-    writeLine( "0 HEAD");
-    writeLine( "1 SOUR GENJ");
-    writeLine( "2 VERS "+Version.getInstance());
-    writeLine( "2 NAME GenealogyJ");
-    writeLine( "2 CORP Nils Meier");
-    writeLine( "3 ADDR http://genj.sourceforge.net");
-    writeLine( "1 DEST ANY");
-    writeLine( "1 DATE "+date);
-    writeLine( "2 TIME "+time);
-    if (gedcom.getSubmitter()!=null)
-      writeLine( "1 SUBM @"+gedcom.getSubmitter().getId()+'@');
-    writeLine( "1 FILE "+file);
-    writeLine( "1 GEDC");
-    writeLine( "2 VERS "+gedcom.getGrammar().getVersion());
-    writeLine( "2 FORM Lineage-Linked");
-    writeLine( "1 CHAR "+gedcom.getEncoding());
-    if (gedcom.getLanguage()!=null)
-      writeLine( "1 LANG "+gedcom.getLanguage());
-    if (gedcom.getPlaceFormat().length()>0) {
-      writeLine( "1 PLAC");
-      writeLine( "2 FORM "+gedcom.getPlaceFormat());
-    }
-    // done
+    line("HEAD","");
+    line(+1,"SOUR","GENJ");
+    line(+1,"VERS",Version.getInstance().toString());
+    line(+0,"NAME","GenealogyJ");
+    line(-1);
+    line(+0,"DEST","ANY");
+    line(+0,"CHAR","IBMPC");
+    line(+0,"FILE",file);
+    line(+0,"DATE",date);
+    line(-1);
   }
 
   /**
-   * Write Entities information
+   * Write Property
    * @exception IOException
+   * @exception GedcomIOException
    */
-  private void writeEntities(Collection ents) throws IOException {
+  private void writeProperty(String prefix, Property prop) throws IOException, GedcomIOException {
 
-    // Loop through entities
-    for (Iterator it=ents.iterator();it.hasNext();) {
-      // .. check op
-      if (cancel) throw new GedcomIOException("Operation cancelled", line);
-      // .. writing it and its subs
-      Entity e = (Entity)it.next();
-      
-      try {
-        line += new EntityWriter().write(0, e);
-      } catch(UnmappableCharacterException unme) {
-        throw new GedcomEncodingException(e, gedcom.getEncoding());
+    // This property's value
+    if (prop.isMultiLine()==Property.NO_MULTI) {
+      // .. just a single line
+      line(0,prefix+prop.getTag(),prop.getValue());
+    } else {
+      // .. more lines from iterator
+      Property.LineIterator iterator = prop.getLineIterator();
+      // .. just one though?
+      if ( !iterator.hasMoreValues() ) {
+        line(0,prefix+prop.getTag(),"");
+      } else {
+        line(0,prefix+prop.getTag(),iterator.getNextValue());
+        line(1);
+        while (iterator.hasMoreValues()) {
+          line (0,"CONT",iterator.getNextValue());
+        }
+        line(-1);
       }
-
-      // .. track it
-      entity++;
     }
 
-    // Done
+    // Properties
+    line(1);
+
+    int num = prop.getNoOfProperties();
+    for (int i=0;i<num;i++) {
+      writeProperty("",prop.getProperty(i));
+    }
+
+    line(-1);
   }
 
   /**
    * Write Tail information
    * @exception IOException
+   * @exception GedcomIOException
    */
-  private void writeTail() throws IOException {
+  private void writeTail() throws IOException, GedcomIOException {
+
     // Tailer
-    writeLine("0 TRLR");
+    line("TRLR","");
   }
-
-  /**
-   * our entity writer
-   */
-  private class EntityWriter extends PropertyWriter {
-    
-    /** constructor */
-    EntityWriter() {
-      super(out, false);
-    }
-
-    /** intercept prop decoding to check filters */
-    protected void writeProperty(int level, Property prop) throws IOException {
-      
-      // check against filters
-      Entity target = null;
-      if (prop instanceof PropertyXRef) {
-        Property p = ((PropertyXRef) prop).getTarget();
-        if (p != null)
-          target = p.getEntity();
-      }
-      for (int f = 0; f < filters.length; f++) {
-        if (filters[f].checkFilter(prop) == false)
-          return;
-        if (target != null)
-          if (filters[f].checkFilter(target) == false)
-            return;
-      }
-
-      // cont
-        super.writeProperty(level, prop);
-    }
-     
-    /** intercept value decoding to facilitate encryption */
-    protected String getValue(Property prop) throws IOException {
-      return prop.isPrivate() ? encrypt(prop.getValue()) : super.getValue(prop);
-    }
-    
-    /**
-     * encrypt a value
-     */
-    private String encrypt(String value) throws IOException {
-      
-      // not necessary for gedcom without password or empty values
-      if (gedcom.getPassword()==null || value.length()==0)
-        return value;
-      
-      // Make sure enigma is setup
-      if (enigma==null) {
-
-        // no need if password is unknown (data is already/still encrypted)
-        if (gedcom.getPassword()==Gedcom.PASSWORD_UNKNOWN)
-          return value;
-          
-        // error if password isn't set    
-        if (gedcom.getPassword()==null)
-          throw new IOException("Password not set - needed for encryption");
-          
-        // error if can't encrypt
-        enigma = Enigma.getInstance(gedcom.getPassword());
-        if (enigma==null) 
-          throw new IOException("Encryption not available");
-          
-      }
-      
-      // encrypt and done
-      return enigma.encrypt(value);
-    }
-
-  } //EntityDecoder
-  
-} //GedcomWriter
+}

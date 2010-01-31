@@ -19,69 +19,113 @@
  */
 package genj.gedcom;
 
-import java.io.File;
-import java.util.List;
-
-
 /**
  * Class for encapsulating multimedia entry in a gedcom file
  */
-public class Media extends Entity {
-  
-  private final static TagPath
-    TITLE55 = new TagPath("OBJE:TITL"),
-    TITLE551 = new TagPath("OBJE:FILE:TITL");
-  
-  private TagPath titlepath = TITLE55;
+public class Media extends PropertyMedia implements Entity {
+
+  private String id = "";
+  private Gedcom gedcom;
+
+  private PropertySet foreignXRefs = new PropertySet();
 
   /**
-   * Title ...
+   * Constructor for Multimedia
    */
-  @Override
-  protected String getToStringPrefix(boolean showIds) {
-    return getTitle();
+  /*package*/ Media(Gedcom gedcom) throws GedcomException {
+
+    // Call super's constructor
+    super(null);
+
+    // Entity
+    this.gedcom = gedcom;
   }
-  
+
   /**
-   * Overriden - special case for file association
+   * Adds a PropertyForeignXRef to this entity
    */
-  public boolean addFile(File file) {
-    List<PropertyBlob> pfiles = getProperties(PropertyBlob.class);
-    PropertyBlob pfile;
-    if (pfiles.isEmpty()) {
-      pfile = (PropertyBlob)addProperty("BLOB", "");
-    } else {
-      pfile = (PropertyBlob)pfiles.get(0);
+  public void addForeignXRef(PropertyForeignXRef fxref) {
+    foreignXRefs.add(fxref);
+  }
+
+  /**
+   * Notification to entity that it has been added to a Gedcom
+   */
+  public void addNotify(Gedcom gedcom) {
+    this.gedcom = gedcom;
+  }
+
+  /**
+   * Notification to entity that it has been deleted from a Gedcom
+   */
+  public void delNotify() {
+
+    // Notify to properties
+    super.delNotify();
+
+    // Remove all foreign XRefs
+    foreignXRefs.deleteAll();
+
+    // Break connection
+    this.gedcom = null;
+  }
+
+  /**
+   * Removes a property
+   * This overrides the default behaviour by first
+   * looking in this entity's foreign list
+   */
+  public boolean delProperty(Property which) {
+
+    if (foreignXRefs.contains(which)) {
+      foreignXRefs.delete(which);
+      return true;
     }
-    // keep it
-    return pfile.addFile(file);
+    return super.delProperty(which);
   }
 
   /**
-   * Returns the property file for this OBJE
+   * Gedcom this entity's in
+   * @return containing Gedcom
    */
-  public PropertyFile getFile() {
-    Property file = getProperty("FILE", true);
-    return (file instanceof PropertyFile) ? (PropertyFile)file : null;    
-  }
-  
-  /**
-   * Returns the title of this OBJE
-   */
-  public String getTitle() {
-    Property title = getProperty(titlepath);
-    return title==null ? "" : title.getValue();
-  }
-  
-  @Override
-  void addNotify(Gedcom ged) {
-    super.addNotify(ged);
-    
-    if (getMetaProperty().allows("TITLE"))
-      titlepath = TITLE55;
-    else
-      titlepath = TITLE551;
-      
+  public Gedcom getGedcom() {
+    return gedcom;
   }
 
-} //Media
+  /**
+   * Returns the id of this entity
+   */
+  public String getId() {
+    return id;
+  }
+
+  /**
+   * Returns the main property of this entity
+   */
+  public Property getProperty() {
+    return this;
+  }
+
+  /**
+   * Returns the type to which this entity belongs
+   * INDIVIDUALS, FAMILIES, MULTIMEDIAS, NOTES, ...
+   */
+  public int getType() {
+    return Gedcom.MULTIMEDIAS;
+  }
+
+  /**
+   * Set Gedcom this entity's in
+   */
+  public void setGedcom(Gedcom gedcom) {
+    this.gedcom=gedcom;
+  }
+
+  /**
+   * Sets entity's id.
+   * @param id new id
+   */
+  public void setId(String id) {
+    this.id=id;
+  }
+}

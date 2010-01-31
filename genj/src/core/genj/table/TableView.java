@@ -19,433 +19,648 @@
  */
 package genj.table;
 
-import genj.common.AbstractPropertyTableModel;
-import genj.common.PropertyTableModel;
-import genj.common.PropertyTableWidget;
-import genj.gedcom.Context;
-import genj.gedcom.Entity;
-import genj.gedcom.Gedcom;
-import genj.gedcom.Property;
-import genj.gedcom.TagPath;
-import genj.util.Registry;
-import genj.util.Resources;
-import genj.util.swing.Action2;
-import genj.view.SettingsAction;
-import genj.view.ToolBar;
-import genj.view.View;
+import java.awt.*;
+import java.awt.event.*;
 
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.event.ActionEvent;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.logging.Logger;
+import awtx.*;
+import awtx.table.*;
+
+import genj.util.*;
+import genj.gedcom.*;
 
 /**
  * Component for showing entities of a gedcom file in a tabular way
+ * NM 19990722 Change extends from Container to awtx.Table
  */
-public class TableView extends View {
-  
-  private final static Logger LOG = Logger.getLogger("genj.table");
-  private final static Registry REGISTRY = Registry.get(TableView.class);
-  
-  /** a static set of resources */
-  private Resources resources = Resources.get(this);
-  
-  /** the table we're using */
-  /*package*/ PropertyTableWidget propertyTable;
-  
-  /** the modes we're offering */
-  private Map<String, Mode> modes = new HashMap<String, Mode>();
-    {
-      modes.put(Gedcom.INDI, new Mode(Gedcom.INDI, new String[]{"INDI","INDI:NAME","INDI:SEX","INDI:BIRT:DATE","INDI:BIRT:PLAC","INDI:OCCU", "INDI:FAMS", "INDI:FAMC"}));
-      modes.put(Gedcom.FAM , new Mode(Gedcom.FAM , new String[]{"FAM" ,"FAM:MARR:DATE","FAM:MARR:PLAC", "FAM:HUSB", "FAM:WIFE", "FAM:CHIL" }));
-      modes.put(Gedcom.OBJE, new Mode(Gedcom.OBJE, new String[]{"OBJE","OBJE:FILE:TITL"}));
-      modes.put(Gedcom.NOTE, new Mode(Gedcom.NOTE, new String[]{"NOTE","NOTE:NOTE"}));
-      modes.put(Gedcom.SOUR, new Mode(Gedcom.SOUR, new String[]{"SOUR","SOUR:TITL", "SOUR:TEXT"}));
-      modes.put(Gedcom.SUBM, new Mode(Gedcom.SUBM, new String[]{"SUBM","SUBM:NAME" }));
-      modes.put(Gedcom.REPO, new Mode(Gedcom.REPO, new String[]{"REPO","REPO:NAME", "REPO:NOTE"}));
-    };
-  
-  /** current type we're showing */
-  private Mode currentMode;
-  
+public class TableView extends Table {
+
+  /** members */
+  /*package*/ Frame                  frame;
+  /*package*/ Gedcom                 gedcom;
+  /*package*/ Registry               registry;
+  /*package*/ CellRenderer           eHeaderRenderer = new EHeaderRenderer();
+  /*package*/ boolean                silent = false;
+
+  /*package*/ final static Resources resources = new Resources("genj.table");
+
+  private static final String defaultPaths [][] = {
+    {"INDI","INDI:NAME","INDI:SEX","INDI:BIRT:DATE","INDI:BIRT:PLAC","INDI:FAMS", "INDI:FAMC", "INDI:OBJE:FILE"},
+    {"FAM","FAM:MARR:DATE","FAM:MARR:PLAC", "FAM:HUSB", "FAM:WIFE", "FAM:CHIL" },
+    {"OBJE","OBJE:BLOB"},
+    {"NOTE"},
+    {"SOUR"},
+    {"SUBM"},
+    {"REPO"}
+  };
+
+  private TypeView typeViews[];
+
+  private ETableModel model;
+
+  private final static Object[][] views = {
+    { Property.getDefaultImage("indi").getImage(), "indis"   ,new Integer(Gedcom.INDIVIDUALS) },
+    { Property.getDefaultImage("fam" ).getImage(), "fams"    ,new Integer(Gedcom.FAMILIES   ) },
+    { Property.getDefaultImage("obje").getImage(), "medias"  ,new Integer(Gedcom.MULTIMEDIAS) },
+    { Property.getDefaultImage("note").getImage(), "notes"   ,new Integer(Gedcom.NOTES      ) },
+    { Property.getDefaultImage("sour").getImage(), "sources" ,null                            },
+    { Property.getDefaultImage("subm").getImage(), "subms"   ,null                            },
+    { Property.getDefaultImage("repo").getImage(), "repos"   ,null                            },
+  };
+
+  /**
+   * Class for representing table model of entities
+   */
+  class ETableModel extends AbstractTableModel implements GedcomListener {
+
+    // LCD
+
+    /** members */
+    private EntityList entities = new EntityList();
+    private int type;
+
+    /**
+     * Constructor
+     */
+    ETableModel(int type) {
+      this.type = type;
+      entities = gedcom.getEntities()[type];
+    }
+
+    /**
+     * Adds a listener to this model
+     */
+    public void addTableModelListener(TableModelListener listener) {
+      super.addTableModelListener(listener);
+      // (Re)connect to Gedcom if unneeded
+      if (listeners.size()==1) {
+        gedcom.addListener(this);
+        fireNumRowsChanged();
+      }
+    }
+
+    /**
+     * Removes a listener from this model
+     */
+    public void removeTableModelListener(TableModelListener listener) {
+      super.removeTableModelListener(listener);
+      // Disconnect from Gedcom if unneeded
+      if (listeners.size()==0) {
+        gedcom.removeListener(this);
+      }
+    }
+
+    /**
+     * Comparison between rows
+     */
+    public int compareRows(int rowa,int rowb, int column) {
+      Property a = (Property)getObjectAt(rowa,column);
+      Property b = (Property)getObjectAt(rowb,column);
+      if ((a==null)&&(b==null)) {
+        return 0;
+      }
+      if (a==null) {
+        return -1;
+      }
+      if (b==null) {
+        return 1;
+      }
+      return a.compareTo(b);
+    }
+
+    /**
+     * Returns type of entities in this model
+     */
+    public int getType() {
+      return type;
+    }
+
+    /**
+     * Returns number of Columns
+     */
+    public int getNumColumns() {
+      return typeViews[type].columns.length;
+    }
+
+    /**
+     * Returns number of Rows - that's the number of indis.
+     */
+    public int getNumRows() {
+      return entities.getSize();
+    }
+
+    /**
+     * Returns the Header Object col - that's one of the columns
+     */
+    public Object getHeaderAt(int col) {
+      return typeViews[type].columns[col];
+    }
+
+    /**
+     * Returns the Cell Object row,col - that's one of the indis.
+     */
+    public Object getObjectAt(int row, int col) {
+
+      // Calculate Entity
+      Entity e = entities.get(row);
+      Column c = typeViews[type].columns[col];
+
+      c.tagPath.setToFirst();
+      Property p = e.getProperty().getProperty(c.tagPath,true);
+
+      // Done
+      return p;
+    }
+
+    /**
+     * Returns an entity at given row
+     */
+    public Entity getEntityAt(int row) {
+      return entities.get(row);
+    }
+
+    /**
+     * Notification that a change in a Gedcom-object took place.
+     */
+    public void handleChange(final Change change) {
+
+      // Added/Deleted entities ?
+      if (change.isChanged(Change.EADD) || change.isChanged(Change.EDEL)) {
+        fireNumRowsChanged();
+        return;
+      }
+
+      // Added/Deleted/Modified properties ?
+      if ( (change.isChanged(Change.PADD))
+       ||(change.isChanged(Change.PDEL))
+       ||(change.isChanged(Change.PMOD)) )  {
+
+        fireRowsChanged(new int[0]);
+
+        return;
+      }
+
+      // Done with Changes
+    }
+
+    /**
+     * Notification that an entity has been selected.
+     */
+    public void handleSelection(Selection selection) {
+
+      // ignore it?
+      if (silent) {
+        return;
+      }
+
+      // Check if this information is important to us
+      Entity which = selection.getEntity();
+      if (which.getType()!=type)
+        return;
+
+      // Try to find entity and change selection
+      Entity entity;
+      for (int i=0;i<entities.getSize();i++) {
+        entity = entities.get(i);
+        if (entity==which) {
+          silent = true;
+          setSelectedRow(i);
+          silent = false;
+          break;
+        }
+      }
+    }
+
+    /**
+     * Notification that the gedcom is being closed
+     */
+    public void handleClose(Gedcom which) {
+    }
+
+    // EOC
+  }
+
+  /**
+   * Class for encapsulating a typeview
+   */
+  private static class TypeView {
+    Column[] columns;
+    int sortedColumn;
+    int sortedDir;
+  }
+
+  /**
+   * Class for handling a single column
+   */
+  private static class Column {
+
+    TagPath           tagPath;
+    int               width;
+    CellRenderer      renderer;
+
+    /**
+     * Constructor
+     */
+    /*package*/ Column(TagPath tagPath,int width) {
+
+      this.tagPath  = tagPath;
+      this.width    = width;
+
+      // Create proxy
+      String me = getClass().getName(),
+      pkg       = me.substring( 0, me.lastIndexOf(".") + 1 ),
+      howto     = "Proxy" + Property.calcDefaultProxy(tagPath);
+
+      try {
+        renderer = (CellRenderer) Class.forName( pkg + howto ).newInstance();
+      } catch (Exception e) {
+        renderer = new ProxyUnknown();
+      }
+
+      // Done
+    }
+
+    // EOC
+  }
+
+  /**
+   * New implementation of CellRenderer
+   */
+  public class EHeaderRenderer extends DefaultHeaderCellRenderer {
+
+    /**
+     * Render the header
+     */
+    public void render(Graphics g, Rectangle rect, Object o, FontMetrics fm) {
+
+      Column c = (Column)o;
+
+      // Enough space?
+      String s = c.tagPath.toString();
+
+      if (fm.stringWidth(s)+8>rect.width) {
+        o = c.tagPath.getLast();
+      } else {
+        o = s;
+      }
+
+      // Delegate
+      super.render(g,rect,o,fm);
+    }
+
+    // EOC
+  }
+
   /**
    * Constructor
+   * @param pGedcom the Gedcom to use
+   * @param pRegistry the Registry to get parameters from
+   * @param pFrame the frame (can be null) this components resides in
    */
-  public TableView() {
-    
-    // get modes
-    for (Mode mode : modes.values())
-      mode.load();
+  public TableView(Gedcom pGedcom, Registry pRegistry, Frame pFrame) {
 
-    // create our table
-    propertyTable = new PropertyTableWidget();
-    propertyTable.setAutoResize(false);
+    // Remember
+    gedcom   = pGedcom;
+    registry = pRegistry;
+    frame    = pFrame;
 
-    // lay it out
-    setLayout(new BorderLayout());
-    add(propertyTable, BorderLayout.CENTER);
-    
-    // get current mode
-    currentMode = getMode(Gedcom.INDI);
-    String tag = REGISTRY.get("mode", "");
-    if (modes.containsKey(tag))
-      currentMode = getMode(tag);
-    
-    // shortcuts KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, KeyEvent.CTRL_DOWN_MASK)
-    new NextMode(true).install(this, "ctrl pressed LEFT");
-    new NextMode(false).install(this, "ctrl pressed RIGHT");
-    
-    // done
-  }
-  
-  public Gedcom getGedcom() {
-    PropertyTableModel model = propertyTable.getModel();
-    return model!=null ? model.getGedcom() : null;
-  }
-  
-  /*package*/ PropertyTableWidget getTable() {
-    return propertyTable;
-  }
-  
-  /**
-   * @see javax.swing.JComponent#getPreferredSize()
-   */
-  public Dimension getPreferredSize() {
-    return new Dimension(480,320);
-  }
-  
-  /**
-   * Returns a mode for given tag
-   */
-  /*package*/ Mode getMode() {
-    return currentMode;
-  }
-  
-  /**
-   * Returns a mode for given tag
-   */
-  /*package*/ Mode getMode(String tag) {
-    // known mode?
-    Mode mode = (Mode)modes.get(tag); 
-    if (mode==null) {
-      mode = new Mode(tag, new String[0]);
-      modes.put(tag, mode);
-    }
-    return mode;
-  }
-  
-  /**
-   * Sets the type of entities to look at
-   */
-  /*package*/ void setMode(Mode set) {
-    PropertyTableModel currentModel = propertyTable.getModel();
-    
-    // give mode a change to grab what it wants to preserve
-    if (currentModel!=null&&currentMode!=null)
-      currentMode.save();
-    
-    // remember current mode
-    currentMode = set;
-    
-    // tell to table
-    if (currentModel!=null) {
-      propertyTable.setModel(new Model(currentModel.getGedcom(),currentMode));
-      propertyTable.setColumnLayout(currentMode.layout);
-    }
-  }
-  
-  @Override
-  public void setContext(Context context, boolean isActionPerformed) {
-    
-    // save settings
-    currentMode.save();
+    // Some parameters
+    setSortable(true);
 
-    // clear?
-    PropertyTableModel old = propertyTable.getModel();
-    if (context.getGedcom()==null) {
-      if (old!=null)
-        propertyTable.setModel(null);
-      return;
-    }
-    
-    // new gedcom?
-    if (old==null||old.getGedcom()!=context.getGedcom()) {
-      propertyTable.setModel(new Model(context.getGedcom(), currentMode));
-      propertyTable.setColumnLayout(currentMode.layout);
-    }
-
-    // select
-    propertyTable.select(context);
-  }
-  
-  /**
-   * @see genj.view.ToolBarSupport#populate(JToolBar)
-   */
-  public void populate(ToolBar toolbar) {
-	  
-    for (int i=0, j=1;i<Gedcom.ENTITIES.length;i++) {
-      String tag = Gedcom.ENTITIES[i];
-      toolbar.add(new SwitchMode(getMode(tag)));
-    }
-    
-    toolbar.add(new Settings());
-
-  }
-  
-  /**
-   * Write table settings before going
-   */
-  @Override
-  public void removeNotify() {
-    // save modes
-    for (Mode mode : modes.values())
-      mode.save();
-    // continue
-    super.removeNotify();
-  }
-  
-  /**
-   * Action - settings
-   */
-  private class Settings extends SettingsAction {
-
-    @Override
-    protected TableViewSettings getEditor() {
-      return new TableViewSettings(TableView.this);
-    }
-
-  }
-  
-  /**
-   * Action - go to next mode
-   */
-  private class NextMode extends Action2 {
-    private int dir;
-    private NextMode(boolean left) {
-      if (left) {
-        dir = -1;
-      } else {
-        dir = 1;
+    // Prepare buttons in left edge for view switching
+    ActionListener alistener = new ActionListener() {
+      // LCD
+      /** action notification */
+      public void actionPerformed(ActionEvent ae) {
+        setType(Integer.parseInt(ae.getActionCommand()));
       }
-    }
-    public void actionPerformed(ActionEvent event) {
-      int next = -1;
-      for (int i=0,j=Gedcom.ENTITIES.length; i<j; i++) {
-        next = (i+j+dir)%Gedcom.ENTITIES.length;
-        if (currentMode == getMode(Gedcom.ENTITIES[i])) 
-          break;
-      }
-      setMode(getMode(Gedcom.ENTITIES[next]));
-    }
-  } //NextMode
-  
-  /**
-   * Action - flip view to entity type
-   */
-  private class SwitchMode extends Action2 {
-    /** the mode this action triggers */
-    private Mode mode;
-    /** constructor */
-    SwitchMode(Mode mode) {
-      this.mode = mode;
-      setTip(resources.getString("mode.tip", Gedcom.getName(mode.getTag(),true)));
-      setImage(Gedcom.getEntityImage(mode.getTag()));
-    }
-    /** run */
-    public void actionPerformed(ActionEvent event) {
-      setMode(mode);
-      
-      // save current type
-      REGISTRY.put("mode", mode.getTag());
-    }
-  } //ActionMode
-  
-  /** 
-   * A PropertyTableModelWrapper
-   */
-  private class Model extends AbstractPropertyTableModel {
+      // EOC
+    };
 
-    /** mode */
-    private Mode mode;
-    
-    /** our cached rows */
-    private List<Entity> rows;
-    
-    /** constructor */
-    private Model(Gedcom gedcom, Mode set) {
-      super(gedcom);
-      mode = set;
-    }
-    
-    /** # columns */
-    public int getNumCols() {
-      return mode.getPaths().length;
-    }
-    
-    /** # rows */
-    public int getNumRows() {
-      // cache entities if not there yet
-      if (rows==null) 
-        rows = new ArrayList<Entity>(getGedcom().getEntities(mode.getTag()));
-      // ready 
-      return rows.size();
-    }
-    
-    /** path for colum */
-    public TagPath getPath(int col) {
-      return mode.getPaths()[col];
+    for (int i=0;i<views.length;i++) {
+
+      Image  img = (Image) views[i][0];
+      String key = (String)views[i][1];
+      String act = ""+     views[i][2];
+
+      Component c = ComponentProvider.createButton(
+        img,
+        resources.getString("corner."+key+".text"),
+        resources.getString("corner."+key+".tip" ),
+        act,
+        alistener,
+        ComponentProvider.IMAGE_ONLY
+      );
+      c.setEnabled(views[i][2]!=null);
+      add2Edge(c);
     }
 
-    /** property for row */
-    public Property getProperty(int row) {
-      
-      // init rows
-      getNumRows();
-
-      // and look it up
-      Property result = (Property)rows.get(row);
-      if (result==null)
-        return result;
-      
-      // since we do a lazy update after a gedcom write lock we check if cached properties are still good 
-      if (result.getEntity()==null) {
-        result = null;
-        rows.set(row, null);
-      }
-      
-      // done
-      return result;
-    }
-    
-    /** gedcom callback */
-    public void gedcomEntityAdded(Gedcom gedcom, Entity entity) {
-      // an entity we're not looking at?
-      if (!mode.getTag().equals(entity.getTag())) 
-        return;
-      // add it
-      rows.add(entity);
-      // tell about it
-      fireRowsAdded(rows.size()-1, rows.size()-1);
-      // done
+    // Restore last state
+    try {
+      setType(loadParameters(false));
+    } catch (Exception e) {
+      setType(loadParameters(true));
     }
 
-    /** gedcom callback */
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      // an entity we're not looking at?
-      if (!mode.getTag().equals(entity.getTag())) 
-        return;
-      // delete it
-      for (int i=0;i<rows.size();i++) {
-        if (rows.get(i)==entity) {
-          rows.remove(i);
-          // tell about it
-          fireRowsDeleted(i, i);
-          // done
+    // Listening
+    awtx.table.TableListener tlistener = new awtx.table.TableListener() {
+      // LCD
+      /** row selection notification */
+      public void rowSelectionChanged(int[] rows) {
+        if ((rows.length==0)||(silent)) {
           return;
         }
+        silent=true;
+        gedcom.fireEntitySelected(null,model.getEntityAt(rows[0]),false);
+        silent=false;
+        // Done
       }
-      // hmm, strange
-      LOG.warning("got notified that entity "+entity.getId()+" was deleted but it wasn't in rows in the first place");
-    }
-
-    /** gedcom callback */
-    public void gedcomPropertyAdded(Gedcom gedcom, Property property, int pos, Property added) {
-      invalidate(gedcom, property.getEntity(), added.getPath());
-    }
-
-    /** gedcom callback */
-    public void gedcomPropertyChanged(Gedcom gedcom, Property property) {
-      invalidate(gedcom, property.getEntity(), property.getPath());
-    }
-
-    /** gedcom callback */
-    public void gedcomPropertyDeleted(Gedcom gedcom, Property property, int pos, Property deleted) {
-      invalidate(gedcom, property.getEntity(), new TagPath(property.getPath(), deleted.getTag()));
-    }
-    
-    private void invalidate(Gedcom gedcom, Entity entity, TagPath path) {
-      // an entity we're not looking at?
-      if (!mode.getTag().equals(entity.getTag())) 
-        return;
-      // a path we're interested in?
-      TagPath[] paths = mode.getPaths();
-      for (int i=0;i<paths.length;i++) {
-        if (paths[i].equals(path)) {
-          for (int j=0;j<rows.size();j++) {
-            if (rows.get(j)==entity) {
-                fireRowsChanged(j,j,i);
-                return;
-            }
-          }      
-        }
+      /** double click/enter notification */
+      public void actionPerformed(int row) {
+        gedcom.fireEntitySelected(null,model.getEntityAt(row),true);
       }
-      // done
-    }
+      // EOC
+    };
+    addTableListener(tlistener);
 
-  } //Model
+    // Done
+  }
 
   /**
-   * A mode is a configuration for a set of entities
+   * Returns number of Columns
    */
-  /*package*/ class Mode {
-    
-    /** attributes */
-    private String tag;
-    private String[] defaults;
-    private TagPath[] paths;
-    private String layout;
-    
-    /** constructor */
-    private Mode(String t, String[] d) {
-      // remember
-      tag      = t;
-      defaults = d;
-      paths    = TagPath.toArray(defaults);
+  public int getNumColumnsFor(int eType) {
+    if (model==null) {
+      return 0;
     }
-    
-    /** load properties from registry */
-    private void load() {
-      
-      String[] ps = REGISTRY.get(tag+".paths" , (String[])null);
-      if (ps!=null) 
-        paths = TagPath.toArray(ps);
+    return typeViews[eType].columns.length;
+  }
 
-      layout = REGISTRY.get(tag+".layout", (String)null);
-      
+  /**
+   * Returns number of Rows - that's the number of indis.
+   */
+  public int getNumRows() {
+    if (model==null) {
+      return 0;
     }
-    
-    /** set paths */
-    /*package*/ void setPaths(TagPath[] set) {
-      paths = set;
-      if (currentMode==this)
-        setMode(currentMode);
-    }
-    
-    /** get paths */
-    /*package*/ TagPath[] getPaths() {
-      return paths;
-    }
-    
-    /** save properties from registry */
-    private void save() {
-      
-      // grab current column widths & sort column
-      if (currentMode==this && propertyTable.getModel()!=null) 
-        layout = propertyTable.getColumnLayout();
+    return model.getNumRows();
+  }
 
-	    REGISTRY.put(tag+".paths" , paths);
-	    REGISTRY.put(tag+".layout", layout);
+  /**
+   * Returns all TagPaths for given etype
+   */
+  public TagPath[] getTagPathsFor(int eType) {
+
+    // Valid model?
+    if (model==null) {
+      return new TagPath[0];
     }
-    
-    /** tag */
-    /*package*/ String getTag() {
-      return tag;
+
+    // # of TagPaths = # of Columns
+    Column[] columns = typeViews[eType].columns;
+
+    TagPath[] result = new TagPath[columns.length];
+    for (int c=0;c<result.length;c++) {
+      result[c] = columns[c].tagPath;
     }
-    
-  } //Mode
-  
-} //TableView
+
+    // Done
+    return result;
+
+  }
+
+  /**
+   * Return type of view which is one of the Gedcom.ENTITIES constants
+   */
+  public int getType() {
+    return model.getType();
+  }
+
+  /**
+   * Method for identifying MouseDoubleClicks
+   */
+  protected boolean isDoubleClick(MouseEvent e) {
+    return super.isDoubleClick(e) || e.isShiftDown();
+  }
+
+  /**
+   * Helper that loads pararmeters from registry
+   */
+  private int loadParameters(boolean useDefaults) {
+
+    // Prepare an array of TypeViews
+    typeViews = new TypeView[Gedcom.LAST_ETYPE-Gedcom.FIRST_ETYPE+1];
+
+    // .. loop through 'em
+    for (int t=Gedcom.FIRST_ETYPE;t<=Gedcom.LAST_ETYPE && t<defaultPaths.length ;t++) {
+
+      // .. create view for type
+      typeViews[t] = new TypeView();
+
+      // .. try to get from registry
+      int   [] widths;
+      String[] paths ;
+
+      String pre =  Gedcom.getPrefixFor(t);
+
+      if (useDefaults) {
+        widths = new int[0];
+        paths  = defaultPaths[t];
+      } else {
+        widths = registry.get(pre+".width",new int   [0] );
+        paths  = registry.get(pre+".path" ,defaultPaths[t]);
+      }
+
+      typeViews[t].sortedColumn = registry.get(pre+".scol",-1);
+      typeViews[t].sortedDir    = registry.get(pre+".sdir",-1);
+
+      // .. create space for columns
+      Column[] columns = new Column[paths.length];
+      typeViews[t].columns = columns;
+
+      // .. create columns
+      for (int c=0;c<paths.length;c++) {
+        columns[c] = new Column(
+          new TagPath(paths[c]),
+          (c>=widths.length?50:widths[c])
+        );
+      }
+
+      // .. next type
+    }
+
+    // Done
+    return registry.get("view",Gedcom.INDIVIDUALS);
+  }
+
+  /**
+   * Notification when table isn't used anymore
+   */
+  public void removeNotify() {
+
+    // Save parameters
+    saveParameters();
+
+    // Done
+    super.removeNotify();
+  }
+
+  /**
+   * Helper that saves parameters to registry
+   */
+  private void saveParameters() {
+
+    setType(-1);
+
+    // Loop through TypeViews
+    for (int t=0;t<typeViews.length;t++) {
+
+      // .. get paths&widths
+      Column[] columns = typeViews[t].columns;
+
+      String[] paths = new String[columns.length];
+      int   [] widths= new int   [columns.length];
+
+      for (int c=0;c<paths.length;c++) {
+
+        Column col = columns[c];
+
+        paths[c] = col.tagPath.toString();
+        widths[c]= col.width;
+
+      }
+
+      // .. save
+      String pre = Gedcom.getPrefixFor(t);
+      registry.put(pre+".path" ,paths );
+      registry.put(pre+".width",widths);
+
+      registry.put(pre+".scol",typeViews[t].sortedColumn);
+      registry.put(pre+".sdir",typeViews[t].sortedDir);
+
+      // .. next column
+    }
+
+    // .. save state
+    registry.put("view",model.getType());
+    registry.put("scol",getSortedColumn());
+    registry.put("sdir",getSortedDir());
+
+    // Done
+  }
+
+  /**
+   * Sets TagPaths to be used for columns for given eType
+   */
+  public void setTagPaths(int type, TagPath[] paths) {
+
+    // Prepare/Get new and old column definitions
+    Column[] newColumns = new Column[paths.length];
+    Column[] oldColumns = typeViews[type].columns;
+
+    // .. Loop through new Columns
+    for (int c=0;c<newColumns.length;c++) {
+
+      int w = 50;
+
+      // .. try to find an old width
+      for (int o=0;o<oldColumns.length;o++) {
+        if (oldColumns[o].tagPath.equals(paths[c])) {
+          w = oldColumns[o].width;
+          break;
+        }
+      }
+
+      // .. build new column
+      newColumns[c] = new Column(
+        paths[c],
+        w
+      );
+
+      // .. Continue
+    }
+
+    // Remember columns
+    typeViews[type].columns = newColumns;
+
+    // Show change
+    if (model.getType()==type) {
+      model = null;
+      setType(type);
+    }
+
+    // Done
+  }
+
+  /**
+   * Switch view to type of entity
+   */
+  public void setType(int type) {
+
+    if (type>Gedcom.LAST_ETYPE) {
+      type=Gedcom.FIRST_ETYPE;
+    }
+
+    // Valid model to remember parameters for?
+    if (model!=null) {
+
+      // .. maybe already there?
+      int t = model.getType();
+      if (t==type) {
+        return;
+      }
+
+      // .. Remember column widths
+      Column[] columns = typeViews[t].columns;
+
+      int ws[] = getColumnWidths();
+      for (int c=0;c<ws.length && c<columns.length;c++) {
+        columns[c].width=ws[c];
+      }
+
+      // .. And sorting parameters
+      typeViews[t].sortedColumn = getSortedColumn();
+      typeViews[t].sortedDir    = getSortedDir();
+
+      // .. continue
+    }
+
+    // No Model?
+    if (type==-1) {
+      setModel(null);
+      return;
+    }
+
+    // Create TableModel
+    model = new ETableModel(type);
+    setModel(model);
+
+    // Set Renderers for columns
+    Column columns[] = typeViews[type].columns;
+
+    int[] widths = new int[columns.length];
+    CellRenderer[] crenderers = new CellRenderer[widths.length];
+    CellRenderer[] hrenderers = new CellRenderer[widths.length];
+
+    for (int i=0;i<columns.length;i++) {
+
+      Column col = columns[i];
+
+      widths[i] = col.width;
+      crenderers[i] = col.renderer;
+      hrenderers[i] = eHeaderRenderer;
+
+    }
+
+    setCellRenderers(crenderers);
+    setHeaderCellRenderers(hrenderers);
+    setColumnWidths (widths);
+
+    setSortedColumn(
+      typeViews[type].sortedColumn,
+      typeViews[type].sortedDir
+    );
+
+    // Done
+  }
+
+}

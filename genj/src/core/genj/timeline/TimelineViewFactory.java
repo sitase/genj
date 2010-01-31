@@ -19,11 +19,14 @@
  */
 package genj.timeline;
 
-import genj.util.Resources;
-import genj.util.swing.ImageIcon;
-import genj.view.View;
-import genj.view.ViewFactory;
+import java.awt.Component;
+import java.awt.Frame;
 
+import genj.app.ViewFactory;
+import genj.app.ViewSettingsWidget;
+import genj.gedcom.Gedcom;
+import genj.print.PrintRenderer;
+import genj.util.Registry;
 
 /**
  * The factory for the TableView
@@ -31,24 +34,24 @@ import genj.view.ViewFactory;
 public class TimelineViewFactory implements ViewFactory {
 
   /**
-   * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
+   * @see genj.app.ViewFactory#createSettingsComponent(Component)
    */
-  public View createView() {
-    return new TimelineView();
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getImage()
-   */
-  public ImageIcon getImage() {
-    return new ImageIcon(this, "View");
+  public ViewSettingsWidget createSettingsComponent(Component view) {
+    return new TimelineViewSettings((TimelineView)view);
   }
 
   /**
-   * @see genj.view.ViewFactory#getName(boolean)
+   * @see genj.app.ViewFactory#createPrintRenderer(Component)
    */
-  public String getTitle() {
-    return Resources.get(this).getString("title");
+  public PrintRenderer createPrintRenderer(Component view) {
+    return null;
   }
 
-} //TimelineViewFactory
+  /**
+   * @see genj.app.ViewFactory#createViewComponent(Gedcom, Registry, Frame)
+   */
+  public Component createViewComponent(Gedcom gedcom, Registry registry, Frame frame) {
+    return new TimelineView(gedcom,registry,frame);
+  }
+
+}

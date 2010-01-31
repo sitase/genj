@@ -19,16 +19,30 @@
  */
 package genj.io;
 
+import java.io.*;
+
+import genj.gedcom.*;
+
 /**
- * An exception wrapping a problem with Gedcom data during read operations
+ * An exception wrapping a problem with Gedcom data format
  */
-public class GedcomFormatException extends GedcomIOException {
+public class GedcomFormatException extends Exception {
+
+  /** the line that this exception happened at */
+  private int line;
 
   /**
    * Constructor
    */
   public GedcomFormatException(String msg, int line) {
-    super(msg, line);
+    super(msg);
+    this.line=line;
   }
 
-} //GedcomFormatException
+  /**
+   * Accessor: line
+   */
+  public int getLine() {
+    return line;
+  }
+}

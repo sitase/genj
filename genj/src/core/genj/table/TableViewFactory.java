@@ -19,39 +19,39 @@
  */
 package genj.table;
 
-import genj.util.Resources;
-import genj.util.swing.ImageIcon;
-import genj.view.View;
-import genj.view.ViewFactory;
+import java.awt.Component;
+import java.awt.Frame;
 
+import genj.app.ViewFactory;
+import genj.app.ViewSettingsWidget;
+import genj.gedcom.Gedcom;
+import genj.print.PrintRenderer;
+import genj.util.Registry;
 
 /**
  * The factory for the TableView
  */
 public class TableViewFactory implements ViewFactory {
-  
-  /** our image */
-  private final static ImageIcon IMG = new ImageIcon(TableViewFactory.class, "images/View");
 
   /**
-   * @see genj.view.ViewFactory#createView(String, Gedcom, Registry, ViewManager)
+   * @see genj.app.ViewFactory#createSettingsComponent(Component)
    */
-  public View createView() {
-    return new TableView();
+  public ViewSettingsWidget createSettingsComponent(Component view) {
+    return new TableViewSettings((TableView)view);
   }
 
   /**
-   * @see genj.view.ViewFactory#getImage()
+   * @see genj.app.ViewFactory#createPrintRenderer(Component)
    */
-  public ImageIcon getImage() {
-    return IMG;
-  }
-  
-  /**
-   * @see genj.view.ViewFactory#getName(boolean)
-   */
-  public String getTitle() {
-    return Resources.get(this).getString("title");
+  public PrintRenderer createPrintRenderer(Component view) {
+    return null;
   }
 
-} //TableViewFactory
+  /**
+   * @see genj.app.ViewFactory#createViewComponent(Gedcom, Registry, Frame)
+   */
+  public Component createViewComponent(Gedcom gedcom, Registry registry, Frame frame) {
+    return new TableView(gedcom,registry,frame);
+  }
+
+}

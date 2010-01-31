@@ -19,374 +19,241 @@
  */
 package genj.nav;
 
-import genj.gedcom.Context;
+import genj.app.App;
+import genj.gedcom.Change;
 import genj.gedcom.Entity;
 import genj.gedcom.Gedcom;
-import genj.gedcom.GedcomListener;
-import genj.gedcom.GedcomListenerAdapter;
 import genj.gedcom.Indi;
-import genj.gedcom.PropertySex;
+import genj.gedcom.Selection;
+import genj.gedcom.GedcomListener;
+import genj.util.ActionDelegate;
 import genj.util.GridBagHelper;
+import genj.util.Registry;
 import genj.util.Resources;
-import genj.util.swing.Action2;
-import genj.util.swing.ImageIcon;
-import genj.util.swing.PopupWidget;
-import genj.view.SelectionSink;
-import genj.view.View;
+import genj.util.swing.ButtonHelper;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.Graphics;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
-import java.util.HashMap;
-import java.util.Map;
+import java.awt.event.ActionListener;
 
 import javax.swing.BorderFactory;
-import javax.swing.JComponent;
+import javax.swing.Box;
+import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.SwingConstants;
-import javax.swing.border.TitledBorder;
-
-import spin.Spin;
 
 /**
  * A navigator with buttons to easily navigate through Gedcom data
  */
-public class NavigatorView extends View {
+public class NavigatorView extends JPanel {
   
-  private static Resources resources = Resources.get(NavigatorView.class);
-
-  private final static String 
-    FATHER   = "father",
-    MOTHER   = "mother",
-    YSIBLING = "ysibling",
-    OSIBLING = "osibling",
-    PARTNER  = "partner",
-    CHILD    = "child";
-
-  private final static ImageIcon
-    imgYSiblings = new ImageIcon(NavigatorView.class,"YSiblings"),
-    imgOSiblings = new ImageIcon(NavigatorView.class,"OSiblings"),
-    imgChildren  = new ImageIcon(NavigatorView.class,"Children"),
-    imgFather    = new ImageIcon(NavigatorView.class,"Father"),
-    imgMother    = new ImageIcon(NavigatorView.class,"Mother"),
-    imgMPartner  = Indi.IMG_MALE,
-    imgFPartner  = Indi.IMG_FEMALE;
-
-
-  private GedcomListener callback = (GedcomListener)Spin.over(new GedcomListenerAdapter() {
-    public void gedcomEntityDeleted(Gedcom gedcom, Entity entity) {
-      if (context!=null&&context.getEntity()==entity)
-        setContext(new Context(gedcom), true);
-    }
-  });
+  private static Resources resources = new Resources(NavigatorView.class);
   
-  /** components */
-  private JLabel labelCurrent, labelSelf;
-  private Map<String, PopupWidget> key2popup = new HashMap<String, PopupWidget>();
-  private JPanel popupPanel = createPopupPanel();
+  /** the label holding information about the current individual */
+  private JLabel label;
   
-  /** the current context */
-  private Context context = new Context();
+  /** the current individual */
+  private Indi indi;
+  
+  /** the buttons */
+  private JButton bFather, bMother, bOlder, bPartner, bYounger, bChild;
+  
 
   /**
    * Constructor
    */
-  public NavigatorView() {
+  public NavigatorView(Gedcom useGedcom, Registry useRegistry, Frame useFrame) {
     
-    // layout    
-    setLayout(new BorderLayout());
+    // super
+    super(new BorderLayout());
 
-    labelCurrent = new JLabel();
-    labelCurrent.setBorder(BorderFactory.createTitledBorder(Gedcom.getName(Gedcom.INDI,false)));
-    add(labelCurrent,BorderLayout.NORTH);
-    add(popupPanel,BorderLayout.CENTER);
+    // layout    
+    label = new JLabel();
+    label.setFont(new Font("Arial", Font.PLAIN, 10));
+    label.setBorder(BorderFactory.createTitledBorder(resources.getString("nav.current_entity.title")));
+    add(label,BorderLayout.NORTH);
     
-//    // setup key bindings
-//    new Shortcut(FATHER  );
-//    new Shortcut(MOTHER  );
-//    new Shortcut(YSIBLING);
-//    new Shortcut(OSIBLING);
-//    new Shortcut(PARTNER );
-//    new Shortcut(CHILD   );
+    JPanel panel = createPanel();
+    add(panel,BorderLayout.CENTER);
+    
+    // date
+    useGedcom.addListener(new GedcomListener() {
+      public void handleChange(Change change) {
+        if (change.getEntities(change.EDEL).contains(indi)) setEntity(change.getGedcom(), null);
+        else setEntity(change.getGedcom(), indi);
+      }
+      public void handleClose(Gedcom which) {
+      }
+      public void handleSelection(Selection selection) {
+        setEntity(selection.getEntity().getGedcom(), selection.getEntity());
+      }
+    });
+    
+    // init
+    setEntity(useGedcom,useGedcom.getLastEntity());
 
     // done    
 
   }
-
-//  /**
-//   * A shortcut
-//   */
-//  private class Shortcut extends AbstractAction {
-//    /** relative key */
-//    String relative;
-//    /** constructor */
-//    Shortcut(String relative) {
-//      
-//      // remember shortcut's relative 
-//      this.relative = relative;
-//
-//      // identify mnemonic
-//      MnemonicAndText mat = new MnemonicAndText(resources.getString(relative));
-//      
-//      KeyStroke keystroke = KeyStroke.getKeyStroke("control "+mat.getMnemonic());
-//      if (keystroke!=null) {
-//        getInputMap(WHEN_IN_FOCUSED_WINDOW).put(keystroke, relative);
-//        //getInputMap(WHEN_FOCUSED).put(keystroke, relative);
-//        getActionMap().put(relative, this);
-//      }
-//    }
-//    /** performed */
-//    public void actionPerformed(ActionEvent e) {
-//      getPopup(relative).doClick();
-//    }
-//  } //Shortcut
-
+  
   /**
-   * @see javax.swing.JComponent#getPreferredSize()
+   * Sets the current entity (only individuals accepted)
    */
-  public Dimension getPreferredSize() {
-    return new Dimension(140,200);
-  }
-
-  /**
-   * context changer
-   */
-  @Override
-  public void setContext(Context newContext, boolean isActionPerformed) {
-    
-    // disconnect from old
-    if (context.getGedcom()!=null && context.getGedcom()!=newContext.getGedcom()) {
-      context.getGedcom().removeGedcomListener(callback);
-      
-      // connect to new
-      if (newContext.getGedcom()!=null)
-        // connect to new
-        newContext.getGedcom().addGedcomListener(callback);
-    }
-
-
-    // stay as is?
-    Indi old = (Indi)context.getEntity();
-    if (old!=null && context.getGedcom().contains(old) && !(newContext.getEntity() instanceof Indi) ) 
+  public void setEntity(Gedcom g, Entity e) {
+    // no entity
+    if ((e == null)&&(g.getEntities(Gedcom.INDIVIDUALS).getSize()>0)) e=g.getIndi(0);
+    if (e == null) {
+      // data
+      indi = null;
+      label.setText("n/a");
+      // buttons
+      bFather.setEnabled(false);
+      bMother.setEnabled(false);
+      bOlder.setEnabled(false);
+      bPartner.setEnabled(false);
+      bYounger.setEnabled(false);
+      bChild.setEnabled(false);
       return;
-    
-    // entity to take?
-    if (newContext.getEntity() instanceof Indi) {
-      
-      context = new Context(newContext.getEntity());
-
-      for (Component c : popupPanel.getComponents())
-        c.setEnabled(true);
-      
-      // jumps
-      Indi current = (Indi)context.getEntity();
-      setJump (FATHER  , current.getBiologicalFather());
-      setJump (MOTHER  , current.getBiologicalMother());
-      setJumps(OSIBLING, current.getOlderSiblings());
-      setJumps(PARTNER , current.getPartners());
-      setJumps(YSIBLING, current.getYoungerSiblings());
-      setJumps(CHILD   , current.getChildren());
-      // update label
-      labelCurrent.setText(current.toString());
-      labelCurrent.setIcon(current.getImage(false));
-
-      // update the self label/partner popup images
-      PopupWidget partner = getPopup(PARTNER);
-      switch (current.getSex()) {
-        case PropertySex.FEMALE:
-          labelSelf.setIcon(imgFPartner);
-          partner.setIcon(imgMPartner);
-          break;
-        case PropertySex.MALE:
-          labelSelf.setIcon(imgMPartner);
-          partner.setIcon(imgFPartner);
-          break;
-      }
-      
-    } else {
-
-      context = new Context(newContext.getGedcom());
-
-      for (Component c : popupPanel.getComponents())
-        c.setEnabled(false);
-      
-      // no jumps
-      setJump(FATHER  , null);
-      setJump(MOTHER  , null);
-      setJump(OSIBLING, null);
-      setJumps(PARTNER , null);
-      setJump(YSIBLING, null);
-      setJumps(CHILD   , null);
-      
-      // update label
-      labelCurrent.setText("n/a");
-      labelCurrent.setIcon(null);
     }
-
-    // done
+    // individual
+    if (e instanceof Indi) {
+      // data
+      indi = (Indi)e;
+      label.setText(e.toString());
+      // buttons
+      bFather.setEnabled(indi.getFather()!=null);
+      bMother.setEnabled(indi.getMother()!=null);
+      bOlder.setEnabled(indi.getOlderSibling()!=null);
+      bPartner.setEnabled(indi.getPartners().length>0);
+      bYounger.setEnabled(indi.getYoungerSibling()!=null);
+      bChild.setEnabled(indi.getChildren().length>0);
+      
+    }
+    // stay where we are
   }
   
-  /**
-   * Return popup by key
-   */
-  private PopupWidget getPopup(String key) {
-    return (PopupWidget)key2popup.get(key);  
-  }
-
-  /**
-   * remember a jump to individual
-   */
-  private void setJump(String key, Indi i) {
-    setJumps(key, i==null ? new Indi[0] : new Indi[]{ i });
-  }
-  
-  /**
-   * remember jumps to individuals
-   */
-  private void setJumps(String key, Indi[] is) {
-    // lookup popup
-    PopupWidget popup = getPopup(key);
-    popup.removeItems();
-    // no jumps?
-    if (is==null||is.length==0) {
-      popup.setEnabled(false);
-    } else {
-      popup.setEnabled(true);
-      for (int i=0;i<is.length;i++) {
-        popup.addItem(new Jump(is[i]));
-      }
-    }
-    // done
-  }
-    
-  /**
-   * Creates a button
-   */
-  private JComponent createPopup(String key, ImageIcon i) {
-    
-    // create result
-    PopupWidget result = new PopupWidget();
-    result.setIcon(i);
-    result.setFocusPainted(false);
-    result.setFireOnClickWithin(500);
-    result.setFocusable(false);
-    result.setEnabled(false);
-//    result.setToolTipText(new MnemonicAndText(resources.getString(key)).getText("Ctrl-"));
-    result.setToolTipText(resources.getString("tip."+key));
-
-    // remember    
-    key2popup.put(key, result);
-    
-    // done
-    return result;
-  }
-
   /**
    * Creates the panel
    */
-  private JPanel createPopupPanel() {    
+  private JPanel createPanel() {    
     
-    final TitledBorder border = BorderFactory.createTitledBorder(resources.getString("nav.navigate.title"));
-    final JPanel result = new PopupPanel();
-    result.setBorder(border);
+    JPanel result = new JPanel();    
+    result.setBorder(BorderFactory.createTitledBorder(resources.getString("nav.navigate.title")));
     GridBagHelper gh = new GridBagHelper(result);
     
-    // add the buttons
-    JComponent
-      popFather   = createPopup(FATHER,   imgFather),
-      popMother   = createPopup(MOTHER,   imgMother),
-      popOSibling = createPopup(OSIBLING, imgOSiblings),
-      popPartner  = createPopup(PARTNER,  imgMPartner),
-      popYSibling = createPopup(YSIBLING, imgYSiblings),
-      popChildren = createPopup(CHILD,    imgChildren); 
-
-    labelSelf = new JLabel(Gedcom.getEntityImage(Gedcom.INDI),SwingConstants.CENTER);
-
-    popPartner.setPreferredSize(popOSibling.getPreferredSize());
-    popFather .setPreferredSize(popOSibling.getPreferredSize());
-    popMother .setPreferredSize(popOSibling.getPreferredSize());
-    labelSelf.setPreferredSize(popOSibling.getPreferredSize());
+    // add the buttons    
+    ButtonHelper bh = new ButtonHelper()
+      .setFocusable(false)
+      .setBorder(false)
+      .setInsets(0)
+      .setResources(resources)
+      .setEnabled(false);
     
-    gh.add(popFather  ,4,1,1,1);
-    gh.add(popMother  ,5,1,1,1);
-    gh.add(popOSibling,1,2,2,1,0,new Insets(12,0,12,12));
-    gh.add(labelSelf  ,4,2,1,1);
-    gh.add(popPartner ,5,2,1,1);
-    gh.add(popYSibling,7,2,2,1,0,new Insets(12,12,12,0));
-    gh.add(popChildren,4,3,2,1);
+      bFather = bh.create(new ActionFather()        );
+      bMother = bh.create(new ActionMother()        );
+      bOlder  = bh.create(new ActionOlderSibling()  );
+      bPartner= bh.create(new ActionPartner()       );
+      bYounger= bh.create(new ActionYoungerSibling());
+      bChild  = bh.create(new ActionChild()         );
+
+    gh.add(bFather ,2,1,1,1,gh.FILL_NONE);
+    gh.add(bMother ,3,1,1,1,gh.FILL_NONE);
+    gh.add(bOlder  ,0,2,2,1,gh.FILL_NONE);
+    gh.add(bPartner,2,2,2,1,gh.FILL_NONE, new Insets(12,0,12,0));
+    gh.add(bYounger,4,2,2,1,gh.FILL_NONE);
+    gh.add(bChild  ,2,3,2,1,gh.FILL_NONE);
 
     // done
     return result;
   }
-  
-  /**
-   * A panel for the popup buttons that connects 'em with lines
-   */
-  private class PopupPanel extends JPanel {
-    /**
-     * @see javax.swing.JComponent#paintChildren(java.awt.Graphics)
-     */
-    protected void paintChildren(Graphics g) {
-    
-      // paint lines
-      g.setColor(Color.lightGray);
-      
-      line(g,getPopup(MOTHER), getPopup(OSIBLING));
-      line(g,getPopup(MOTHER), getPopup(YSIBLING));
-      line(g,getPopup(MOTHER), labelSelf);
-      line(g,getPopup(PARTNER), getPopup(CHILD));
-          
-      // now paint popup buttons
-      super.paintChildren(g);
-    
-      // done
-    }
-    
-    /**
-     * connect components (lower/left - top/center)
-     */
-    private void line(Graphics g, JComponent c1, JComponent c2) {
-      Rectangle
-        a = c1.getBounds(),
-        b = c2.getBounds();
-      int y = (a.y+a.height+b.y)/2;
-      int x = a.x;
-      g.drawLine(x,a.y+a.height,x,y);
-      x = b.x+b.width/2;
-      g.drawLine(x,y,x,b.y);
-      g.drawLine(a.x,y,x,y);
-//      g.drawLine(a.x,a.y+a.height,b.x+b.width/2,b.y);
-    }
-  
-  } //PopupPanel
 
   /**
-   * Jump to another indi
+   * Navigate 2 Father
    */
-  private class Jump extends Action2 {
-    /** the target */
-    private Indi target;
+  private class ActionFather extends ActionDelegate {
     /** constructor */
-    private Jump(Indi taRget) {
-      // remember
-      target = taRget;
-      // our looks
-      setText(target.toString());
-      setImage(target.getImage(false));
+    protected ActionFather() {
+      super.setRollover(Images.imgNavFatherOn).setImage(Images.imgNavFatherOff).setTip("tip.nav_father"  );
     }
-    /** do it */
-    public void actionPerformed(ActionEvent event) {
-      // propagate to others (do this before event.getSource() gets disconnected)
-      SelectionSink.Dispatcher.fireSelection(event, new Context(target));
-      // follow immediately
-      setContext(new Context(target),true);
+    /** run */
+    protected void execute() {
+      indi.getGedcom().fireEntitySelected(null, indi.getFather(), true);
     }
-  } //Jump
-
-} ///NavigatorView
+  }
+      
+  /**
+   * Navigate 2 Mother
+   */
+  private class ActionMother extends ActionDelegate {
+    /** constructor */
+    protected ActionMother() {
+      super.setRollover(Images.imgNavMotherOn).setImage(Images.imgNavMotherOff).setTip("tip.nav_mother"  );
+    }
+    /** run */
+    protected void execute() {
+      indi.getGedcom().fireEntitySelected(null, indi.getMother(), true);
+    }
+  }
+        
+  /**
+   * Navigate 2 Previous
+   */
+  private class ActionYoungerSibling extends ActionDelegate {
+    /** constructor */
+    protected ActionYoungerSibling() {
+      super.setRollover(Images.imgNavYoungerSiblingOn).setImage(Images.imgNavYoungerSiblingOff).setTip("tip.nav_ysibling");
+    }
+    /** run */
+    protected void execute() {
+      indi.getGedcom().fireEntitySelected(null, indi.getYoungerSibling(), true);
+    }
+  }      
+  
+  /**
+   * Navigate 2 Next
+   */
+  private class ActionOlderSibling extends ActionDelegate {
+    /** constructor */
+    protected ActionOlderSibling() {
+      super.setRollover(Images.imgNavOlderSiblingOn).setImage(Images.imgNavOlderSiblingOff).setTip("tip.nav_osibling");
+    }
+    /** run */
+    protected void execute() {
+      indi.getGedcom().fireEntitySelected(null, indi.getOlderSibling(), true);
+    }
+  }
+        
+  /**
+   * Navigate 2 Partner
+   */
+  private class ActionPartner extends ActionDelegate {
+    /** constructor */
+    protected ActionPartner() {
+      super.setRollover(Images.imgNavPartnerOn).setImage(Images.imgNavPartnerOff).setTip("tip.nav_partner" );
+    }
+    /** run */
+    protected void execute() {
+      indi.getGedcom().fireEntitySelected(null, indi.getPartners()[0], true);
+    }
+  }
+        
+  /**
+   * Navigate 2 Child
+   */
+  private class ActionChild extends ActionDelegate {
+    /** constructor */
+    protected ActionChild() {
+      super.setRollover(Images.imgNavChildOn).setImage(Images.imgNavChildOff).setTip("tip.nav_child"   );
+    }
+    /** run */
+    protected void execute() {
+      indi.getGedcom().fireEntitySelected(null, indi.getChildren()[0], true);
+    }
+  }
+  
+}

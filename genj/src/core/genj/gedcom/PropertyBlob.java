@@ -19,266 +19,33 @@
  */
 package genj.gedcom;
 
-import genj.util.Base64;
-import genj.util.ByteArray;
-import genj.util.swing.ImageIcon;
+import java.util.*;
+import java.awt.*;
+import java.io.*;
 
-import java.io.File;
-import java.io.InputStream;
-import java.lang.ref.SoftReference;
-import java.util.logging.Level;
+import genj.util.*;
 
 /**
  * Gedcom Property : BLOB
  */
-public class PropertyBlob extends Property implements MultiLineProperty, IconValueAvailable {
-  
-  private final static String TAG = "BLOB";
+public class PropertyBlob extends Property {
 
-  /** the content (either base64 or raw bytes) */
-  private Object content = "";
+  /** the raw bytes */
+  private byte[]  raw;
 
-  /** a soft reference to image icon */
-  private SoftReference icon;
+  /** the base64 string */
+  private String  base64;
+
+  /** transformed to image */
+  private ImgIcon valueAsIcon;
 
   /** whether was checked for image */
-  private boolean noIconAvailable;
-
-  /**
-   * Returns the data of this Blob
-   */
-  public byte[] getBlobData() {
-
-    // Already present ?
-    if (content instanceof byte[])
-      return (byte[])content;
-
-    // Decode Base64
-    try {
-      content = Base64.decode(content.toString());
-    } catch (IllegalArgumentException e) {
-      Gedcom.LOG.log(Level.WARNING, "Cannot convert blob base64 in "+getGedcom().getName()+"/"+getEntity()+"/"+getPath()+" into bytes ("+e.getMessage()+")");
-      return new byte[0];
-    }
-
-    return (byte[])content;
-  }
-  
-  /**
-   * Title of Blob
-   */
-  public String getTitle() {
-    Entity e = getEntity();
-    return (e instanceof Media) ? ((Media)e).getTitle() : getTag();
-  }
-
-  /**
-   * Returns the tag of this property
-   */
-  public String getTag() {
-    return TAG;
-  }
-  
-  /**
-   * @see genj.gedcom.Property#setTag(java.lang.String)
-   */
-  /*package*/ Property init(MetaProperty meta, String value) throws GedcomException {
-    meta.assertTag(TAG);
-    return super.init(meta,value);
-  }
-
-  /**
-   * Returns the property value line
-   */
-  public String getValue() {
-
-    // Raw-Data existing ?
-    if (content instanceof byte[])
-      return ((byte[])content).length+" Raw Bytes";
-
-    // gotta be base64 string
-    return content.toString().length()+" Base64 Bytes";
-  }
-
-  /**
-   * Tries to return the data as an Icon
-   */
-  public synchronized ImageIcon getValueAsIcon() {
-
-    // was already identified as unavailable?
-    if (noIconAvailable)
-      return null;
-
-    // soft ref'd image ?
-    if (icon!=null) {
-      ImageIcon result = (ImageIcon)icon.get();
-      if (result!=null)
-        return result;
-    }
-    
-    // Data for Image ?
-    byte[] bs = getBlobData();
-    if (bs==null) {
-      noIconAvailable = true;
-      return null;
-    }
-
-    // Try to create image
-    try {
-      ImageIcon result = new ImageIcon(getTitle(), bs);
-
-      // remember
-      icon = new SoftReference(result);
-      
-      // done
-      return result;
-      
-    } catch (Throwable t) {
-    }
-
-    // fall through
-    noIconAvailable = true;
-    return null;
-  }
-  
-  /**
-   * @see genj.gedcom.MultiLineProperty#getLineCollector()
-   */
-  public Collector getLineCollector() {
-    return new BlobCollector();
-  }
-
-  /**
-   * Returns an Iterator which can be used to iterate through
-   * several lines of this blob's value
-   */
-  public MultiLineProperty.Iterator getLineIterator() {
-    
-    // raw?
-    if (content instanceof byte[])
-      return new BlobIterator(Base64.encode((byte[])content));
-      
-    // string!
-    return new BlobIterator(content.toString());
-  }
-  
-  /**
-   * Sets a property value line
-   */
-  public void setValue(String value) {
-    
-    String old = getValue();
-
-    // Successfull new information
-    content = value;
-    icon = null;
-    noIconAvailable = false;
-
-    // Remember changed property
-    propagatePropertyChanged(this, old);
-
-    // Done
-  }
-  
-  /**
-   * Overridden - special file association handling
-   */
-  public boolean addFile(File file) {
-    return load(file.getAbsolutePath(), true);
-  }
-  
-  /**
-   * Sets this property's value
-   */
-  public boolean load(String file, boolean updateMeta) {
-    
-    String old = getValue();
-
-    // Reset state
-    noIconAvailable = false;
-    icon = null;
-    
-    // file?
-    if (file.length()!=0) {
-      // Try to open file
-      try {
-        InputStream in = getGedcom().getOrigin().open(file);
-        byte[] newContent = new ByteArray(in, in.available(), false).getBytes();
-        in.close();
-        content = newContent;
-      } catch (Throwable t) {
-        return false;
-      }
-    }
-    
-    // Remember changed property
-    propagatePropertyChanged(this, old);
-    
-    // check
-    Property media = getParent();
-    if (!updateMeta||!(media instanceof PropertyMedia||media instanceof Media)) 
-      return true;
-      
-    // format? this is all gedcom 5.5. style
-    Property format = media.getProperty("FORM");
-    if (format==null)
-      format = media.addProperty(new PropertySimpleValue("FORM")); 
-    format.setValue(PropertyFile.getSuffix(file));
-    
-    // done  
-    return true;
-  }
-
-  /**
-   * A continuation for gathering blob data
-   *
-   */
-  private class BlobCollector implements MultiLineProperty.Collector {
-    
-    /** current state */
-    private StringBuffer buffer;
-    
-    /**
-     * Constructor
-     */ 
-    private BlobCollector() {
-      buffer = new StringBuffer(1024);
-      if (content instanceof String) buffer.append(content);
-    }
-    
-    /**
-     * @see genj.gedcom.MultiLineSupport.Continuation#append(int, java.lang.String, java.lang.String)
-     */
-    public boolean append(int indent, String tag, String value) {
-      
-      // only level 1 (direct children)
-      if (indent!=1)
-        return false;
-        
-      // gotta be CONT 
-      if (!"CONT".equals(tag))
-        return false;
-        
-      // grab it
-      buffer.append(value.trim());
-      
-      // accepted
-      return true;
-    }
-    
-    /**
-     * @see genj.gedcom.MultiLineProperty.Collector#getValue()
-     */
-    public String getValue() {
-      return buffer.toString();
-    }
-
-  } //MyContinuation
+  private boolean isIconChecked;
 
   /**
    * Member class for iterating through adress' lines of base64-encoded data
    */
-  private static class BlobIterator implements MultiLineProperty.Iterator {
+  private class Base64LineIterator implements Property.LineIterator {
 
     /** the base64 string */
     private String base64;
@@ -290,44 +57,235 @@ public class PropertyBlob extends Property implements MultiLineProperty, IconVal
     private final int LINE = 72;
 
     /** Constructor */
-    public BlobIterator(String base64) {
+    public Base64LineIterator(String base64) {
       this.base64 = base64;
       this.offset = 0;
     }
-    
-    /**
-     * @see genj.gedcom.MultiLineProperty.Iterator#setValue()
-     */
-    public void setValue(String base64) {
-      // this is only called by PropertyWriter on read for encryption - ignored as the blob
-      // data cannot be encrypted / overwritten
-    }
-    
-    /**
-     * @see genj.gedcom.MultiLineSupport.LineIterator#getIndent()
-     */
-    public int getIndent() {
-      return offset==0?0:1;
-    }
-    
-    /** current tag */
-    public String getTag() {
-      return offset==0 ? TAG : "CONT";
+
+    /** whether this iterator has more lines */
+    public boolean hasMoreValues() {
+      return (offset < base64.length());
     }
 
     /** Returns the next line of this iterator */
-    public String getValue() {
-      return base64.substring( offset, Math.min(offset+LINE,base64.length()) );
+    public String getNextValue() throws NoSuchElementException {
+
+      String result;
+      try {
+        result = base64.substring( offset, Math.min(offset+LINE,base64.length()) );
+      } catch (StringIndexOutOfBoundsException e) {
+        throw new NoSuchElementException();
+      }
+      offset+=LINE;
+      return result;
     }
 
-    /** set to next */
-    public boolean next() {
-      if (offset+LINE>=base64.length()) 
-        return false;
-      offset += LINE;
-      return true;
+    // EOC
+  }
+
+  /**
+   * Constructor of Blob Gedcom-line
+   */
+  public PropertyBlob() {
+    this("");
+  }
+
+  /**
+   * Constructor of Blob Gedcom-line
+   * @param in input to read data from
+   */
+  public PropertyBlob(File file) throws GedcomException {
+    setValue(file);
+  }
+
+  /**
+   * Constructor of Blob Gedcom-line
+   */
+  public PropertyBlob(String value) {
+  }
+
+  /**
+   * Constructor of Blob Gedcom-line
+   */
+  public PropertyBlob(String tag, String value) {
+  }
+
+  /**
+   * Returns the data of this Blob
+   */
+  public byte[] getBlobData() {
+
+    // Already present ?
+    if (raw!=null) {
+      return raw;
     }
 
-  } //Base64Iterator
+    // No Base64 present ?
+    if (base64==null) {
+      return null;
+    }
 
-} //PropertyBlob
+    // Decode Base64
+    try {
+      raw = Base64.decode(base64);
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
+
+    return raw;
+  }
+
+  /**
+   * Returns a LineIterator which can be used to iterate through
+   * several lines of this address
+   */
+  public LineIterator getLineIterator() {
+
+    if (raw!=null) {
+      String b64 = Base64.encode(raw);
+      return new Base64LineIterator(b64);
+    }
+    if (base64!=null) {
+      return new Base64LineIterator(base64);
+    }
+
+    return new Base64LineIterator("");
+  }
+
+  /**
+   * Returns the logical name of the proxy-object which knows this object
+   */
+  public String getProxy() {
+    return "Blob";
+  }
+
+  /**
+   * Returns the name of the proxy-object which knows properties looked
+   * up by TagPath
+   * @return proxy's logical name
+   */
+  public static String getProxy(TagPath path) {
+    return "Blob";
+  }
+  /**
+   * Returns the tag of this property
+   */
+  public String getTag() {
+    return "BLOB";
+  }
+
+  /**
+   * Returns the property value line
+   */
+  public String getValue() {
+
+    // Raw-Data existing ?
+    if (raw!=null)
+      return raw.length+" Raw Bytes";
+
+    // Base64-Data existing ?
+    if (base64!=null)
+      return base64.length()+" Base64 Bytes";
+
+    // None
+    return "Empty";
+
+  }
+
+  /**
+   * Tries to return the data as an Icon
+   */
+  public synchronized ImgIcon getValueAsIcon() {
+
+    // Already calculated?
+    if (isIconChecked) {
+      return valueAsIcon;
+    }
+    isIconChecked = true;
+    valueAsIcon   = null;
+
+    // Data for Image ?
+    byte[] bs = getBlobData();
+    if (bs==null)
+      return null;
+
+    // Try to create image
+    Image img = Toolkit.getDefaultToolkit().createImage(bs);
+    if (img!=null) {
+      valueAsIcon = new ImgIcon(img);
+    }
+
+    return valueAsIcon;
+  }
+
+  /**
+   * This property incorporates several lines as block with no newline
+   */
+  public int isMultiLine() {
+    return MULTI_BLOCK;
+  }
+
+  /**
+   * Sets value to be taken from file
+   */
+  public void setValue(File file) throws GedcomException {
+
+    // Try to open file
+    FileInputStream in;
+    try {
+      in = new FileInputStream(file);
+    } catch (FileNotFoundException ex) {
+      throw new GedcomException("Couldn't open file "+file);
+    }
+
+    // Reasonable expectedSize ?
+    int len = (int)file.length();
+
+    // Read
+    byte buffer[] = new byte[len];
+    try {
+      len = in.read(buffer);
+    } catch (IOException e) {
+      throw new GedcomException("Error while reading file "+file);
+    } finally {
+      try { in.close(); } catch (Exception ie) {};
+    }
+
+    // .. nothing read ?
+    if (len!=buffer.length)
+      throw new GedcomException("Couldn't read all "+buffer.length+" bytes of file "+file);
+
+    // Successfull new information
+    isIconChecked=false;
+    valueAsIcon   =null;
+    base64        =null;
+    raw           =buffer;
+
+    // Remember changed property
+    noteModifiedProperty();
+
+    // Done
+  }
+
+  /**
+   * Sets a property value line
+   */
+  public boolean setValue(String value) {
+
+    // Remember value
+    raw    =null;
+    base64 =value.trim();
+    if (base64.length()==0)
+      base64 = null;
+
+    // Successfull new information
+    isIconChecked=false;
+    valueAsIcon   =null;
+
+    // Remember changed property
+    noteModifiedProperty();
+
+    // Done
+    return true;
+  }          
+}

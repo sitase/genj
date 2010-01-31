@@ -16,203 +16,1036 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- * 
- * $Revision: 1.138 $ $Author: nmeier $ $Date: 2010-01-28 14:48:13 $
  */
 package genj.gedcom;
 
-import genj.util.Origin;
-import genj.util.ReferenceSet;
-import genj.util.Resources;
-import genj.util.SafeProxy;
-import genj.util.swing.ImageIcon;
-
-import java.text.Collator;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Random;
-import java.util.StringTokenizer;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.*;
+import java.io.*;
+import genj.util.*;
 
 /**
  * The object-representation of a Gedom file
  */
-public class Gedcom {
-  
-  final static Logger LOG = Logger.getLogger("genj.gedcom");
-  final static private Random seed = new Random();
-  final static Resources resources = Resources.get(Gedcom.class);
+public class Gedcom implements GedcomListener {
 
-  public final static String PASSWORD_UNKNOWN = "unknown";
-  
-  public static final String
-   // standard Gedcom encodings 
-    UNICODE  = "UNICODE", 
-    ASCII    = "ASCII",      // we're using ISO-8859-1 actually to make extended characters possible - the spec is grayish on that one
-    ANSEL    = "ANSEL",
-    UTF8     = "UTF-8", // since 5.5.1
-   // non-standard encodings
-    LATIN1   = "LATIN1",     // a.k.a ISO-8859-1
-    ANSI     = "ANSI";       // a.k.a. Windows-1252 (@see http://www.hclrss.demon.co.uk/demos/ansi.html)
-  
-  /** encodings including the non Gedcom-standard encodings LATIN1 and ANSI */  
-  public static final String[] ENCODINGS = { 
-    ANSEL, UNICODE, ASCII, LATIN1, ANSI, UTF8 
-  };
+  private boolean          isTransaction = false;
+  private boolean          hasUnsavedChanges;
+  private Origin            origin;
+  private Vector            listeners = new Vector();
+  private Entity            lastEntity = null;
+  private Vector            addedEntities     ,
+                             deletedEntities   ;
+  private Vector            addedProperties   ,
+                             deletedProperties ,
+                             modifiedProperties;
+  private EntityList[]      entities = new EntityList[LAST_ETYPE-FIRST_ETYPE+1];
+  private IDHashtable[]     ids = new IDHashtable[LAST_ETYPE-FIRST_ETYPE+1];
 
-  /** languages as defined by the Gedcom standard */  
-  public static final String[] LANGUAGES = {
-    "Afrikaans","Albanian","Amharic","Anglo-Saxon","Arabic","Armenian","Assamese",
-    "Belorusian","Bengali","Braj","Bulgarian","Burmese", 
-    "Cantonese","Catalan","Catalan_Spn","Church-Slavic","Czech", 
-    "Danish","Dogri","Dutch", 
-    "English","Esperanto","Estonian", 
-    "Faroese","Finnish","French", 
-    "Georgian","German","Greek","Gujarati", 
-    "Hawaiian","Hebrew","Hindi","Hungarian", 
-    "Icelandic","Indonesian","Italian",
-    "Japanese", 
-    "Kannada","Khmer","Konkani","Korean",
-    "Lahnda","Lao","Latvian","Lithuanian", 
-    "Macedonian","Maithili","Malayalam","Mandrin","Manipuri","Marathi","Mewari", 
-    "Navaho","Nepali","Norwegian",
-    "Oriya", 
-    "Pahari","Pali","Panjabi","Persian","Polish","Prakrit","Pusto","Portuguese", 
-    "Rajasthani","Romanian","Russian", 
-    "Sanskrit","Serb","Serbo_Croa","Slovak","Slovene","Spanish","Swedish", 
-    "Tagalog","Tamil","Telugu","Thai","Tibetan","Turkish", 
-    "Ukrainian","Urdu", 
-    "Vietnamese", 
-    "Wendic" ,
-    "Yiddish"
-  };
+  static private Random    seed = new Random();
+  static private Resources resources;
 
-  /** record tags */
-  public final static String
-    INDI = "INDI", 
-    FAM  = "FAM" ,
-    OBJE = "OBJE", 
-    NOTE = "NOTE", 
-    SOUR = "SOUR", 
-    SUBM = "SUBM", 
-    REPO = "REPO";
-    
-  public final static String[] 
-    ENTITIES = { INDI, FAM, OBJE, NOTE, SOUR, SUBM, REPO };      
+  public final static int
+    REL_NONE    = 1,
+    REL_PARENT  = 2,
+    REL_CHILD   = 3,
+    REL_SPOUSE  = 4,
+    REL_SIBLING = 5;
 
-  private final static Map<String,String>
-    E2PREFIX = new HashMap<String,String>();
-    static {
-      E2PREFIX.put(INDI, "I");
-      E2PREFIX.put(FAM , "F");
-      E2PREFIX.put(OBJE, "M");
-      E2PREFIX.put(NOTE, "N");
-      E2PREFIX.put(SOUR, "S");
-      E2PREFIX.put(SUBM, "B");
-      E2PREFIX.put(REPO, "R");
-    }
-    
-  private final static Map<String, Class<? extends Entity>> 
-    E2TYPE = new HashMap<String, Class<? extends Entity>>();
-    static {
-      E2TYPE.put(INDI, Indi.class);
-      E2TYPE.put(FAM , Fam .class);
-      E2TYPE.put(OBJE, Media.class);
-      E2TYPE.put(NOTE, Note.class);
-      E2TYPE.put(SOUR, Source.class);
-      E2TYPE.put(SUBM, Submitter.class);
-      E2TYPE.put(REPO, Repository.class);
-    }
-    
-  private final static Map<String,ImageIcon>
-    E2IMAGE = new HashMap<String,ImageIcon>();
+  public final static int
+    TAG_ENTITY_SOURCE   = 1,
+    TAG_PROPERTY_SOURCE = 2;
 
-  /** image */
-  private final static ImageIcon image = new ImageIcon(Gedcom.class, "images/Gedcom");
-  
-  /** submitter of this Gedcom */
-  private Submitter submitter;
-  
-  /** grammar version */
-  private Grammar grammar = Grammar.V551;
+  public final static int
+    MALE   = 1,
+    FEMALE = 2;
 
-  /** origin of this Gedcom */
-  private Origin origin;
-  
-  /** last change */
-  private PropertyChange lastChange = null;
-  
-  /** maximum ID length in file */
-  private int maxIDLength = 0;
-  
-  /** entities */
-  private LinkedList<Entity> allEntities = new LinkedList<Entity>();
-  private Map<String, Map<String,Entity>> tag2id2entity = new HashMap<String, Map<String,Entity>>();
-  
-  /** currently collected undos and redos */
-  private boolean isDirty = false;
-  private List<List<Undo>> 
-    undoHistory = new ArrayList<List<Undo>>(),
-    redoHistory = new ArrayList<List<Undo>>();
+  private final static String[]
+    ePrefixs  = { "I", "F", "M", "N", "S", "B", "R"},
+    eTags     = { "INDI", "FAM", "OBJE", "NOTE", "SOUR", "SUBM", "REPO" };
 
-  /** a semaphore we're using for syncing */
-  private Object writeSemaphore = new Object();
-  
-  /** current lock */
-  private Lock lock = null;
-  
-  /** listeners */
-  private List<GedcomListener> listeners = new CopyOnWriteArrayList<GedcomListener>();
-  
-  /** mapping tags refence sets */
-  private Map<String, ReferenceSet<String,Property>> tags2refsets = new HashMap<String, ReferenceSet<String, Property>>();
-  
-  /** mapping tags to counts */
-  private Map<String,Integer> propertyTag2valueCount = new HashMap<String,Integer>();
-
-  /** encoding */
-  private String encoding = ENCODINGS[Math.min(ENCODINGS.length-1, Options.getInstance().defaultEncoding)];
-    
-  /** language */
-  private String language = null;
-  
-  /** cached locale */
-  private Locale cachedLocale = null;
-
-  /** cached collator */
-  private Collator cachedCollator = null;
-  
-  /** global place format */
-  private String placeFormat = "";
-
-  /** password for private information */
-  private String password = null;
-
-  /**
-   * Gedcom's Constructor
-   */
-  public Gedcom() {
-    this(null);
-  }
+  public final static int
+    INDIVIDUALS  = 0,
+    FAMILIES     = 1,
+    MULTIMEDIAS  = 2,
+    NOTES        = 3,
+    SOURCES      = 4,
+    SUBMITTERS   = 5,
+    REPOSITORIES = 6,
+    FIRST_ETYPE  = INDIVIDUALS,
+    LAST_ETYPE   = REPOSITORIES;
 
   /**
    * Gedcom's Constructor
    */
   public Gedcom(Origin origin) {
-    // remember
-    this.origin = origin;
+    init(origin,100);
+  }
+
+  /**
+   * Gedcom's Constructor
+   */
+  public Gedcom(Origin origin, int initialCapacity) {
+    init(origin,initialCapacity);
+  }
+
+  /**
+   * Adds a Listener which will be notified when data changes
+   */
+  public synchronized void addListener(GedcomListener which) {
+    listeners.addElement(which);
+  }
+
+  /**
+   * Close Gedcom object
+   */
+  public void close() {
+
+    // Signal to listeners
+    Object ls[] = new Object[listeners.size()];
+    listeners.copyInto(ls);
+
+    GedcomListener listener;
+    for (int i=0;i<ls.length;i++) {
+      listener  = (GedcomListener)ls[i];
+      listener.handleClose(this);
+    }
+
     // Done
+  }
+
+  /**
+   * Creates a child for given fam
+   * @exception GedcomException in case of error during creation
+   */
+  private Indi createChildOf(Fam fam, String lastName, String firstName, int sex) throws GedcomException {
+
+    // Create new child & add to list of indis
+    Indi child = createIndi(lastName,firstName,sex);
+
+    // Connect fam, and child
+    fam.addChild(child);
+
+    // Done
+    return child;
+  }
+
+  /**
+   * Creates a child for given indi
+   * @exception GedcomException in of error during creation
+   */
+  private Indi createChildOf(Indi indi, String lastName, String firstName, int sex) throws GedcomException {
+
+    // Can new child be another child in indi's 1st fam ?
+    Fam fam = indi.getFam(0);
+
+    if (fam==null) {
+      fam = createFam();
+      // Connect Fam, Indi and Spouse
+      fam.setParents(indi,null);
+    }
+
+    // Create child in family
+    return createChildOf(fam,lastName,firstName,sex);
+
+  }
+  /**
+   * Create a entity by tag
+   * @exception GedcomException in case of unknown tag for entity
+   */
+  public Entity createEntity(String tag, String id) throws GedcomException {
+
+    // Indi ?
+    if (getTagFor(INDIVIDUALS).equals(tag.toUpperCase())) {
+      return createIndi(id);
+    }
+    // Fam ?
+    if (getTagFor(FAMILIES).equals(tag.toUpperCase())) {
+      return createFam(id);
+    }
+    // Media ?
+    if (getTagFor(MULTIMEDIAS).equals(tag.toUpperCase())) {
+      return createMedia(id);
+    }
+    // Notes
+    if (getTagFor(NOTES).equals(tag.toUpperCase())) {
+      return createNote(id);
+    }
+    // Sources
+    if (getTagFor(SOURCES).equals(tag.toUpperCase())) {
+      return createSource(id);
+    }
+    // Submitters
+    if (getTagFor(SUBMITTERS).equals(tag.toUpperCase())) {
+      return createSubmitter(id);
+    }
+    // Repository
+    if (getTagFor(REPOSITORIES).equals(tag.toUpperCase())) {
+      return createRepository(id);
+    }
+    // Unknown
+    throw new GedcomException("Unknown tag for entity");
+  }
+
+  /**
+   * Creates a non-related family
+   * @exception GedcomException in of error during creation
+   */
+  public Fam createFam() throws GedcomException {
+    return createFam(null);
+  }
+
+  /**
+   * Creates a family in gedcom (related or not)
+   * @exception GedcomException in case relative of family is not member of same gedcom
+   */
+  public Fam createFam(int memberIs, Entity member) throws GedcomException {
+
+    // Is the member of that fam a member of this gedcom (individual)
+    if (member!=null) {
+      boolean ok = false;
+      for (int i=0;i<getEntities(INDIVIDUALS).getSize();i++) {
+        if (getIndi(i)==member) {
+          ok = true;
+          break;
+        }
+      }
+      if (!ok)
+        throw new GedcomException("Given Relative isn't individual in this gedcom");
+    }
+
+    // Prepare variable of returned individual
+    Fam newfam = null;
+
+    // Check relation
+    switch (memberIs) {
+      // .. no relationship
+      case REL_NONE:
+        newfam = createFam();
+        break;
+      // .. parent
+      case REL_PARENT:
+        // .. parm o.k.
+        if ( (member==null) || (member instanceof Fam) )
+          throw new GedcomException("Creating a family with given parent needs parameter parent !");
+        // .. do it
+        newfam = createFamilyFor((Indi)member);
+        break;
+      // .. new child
+      case REL_CHILD:
+        // .. parm o.k.
+        if ( (member==null) || (member instanceof Fam) )
+          throw new GedcomException("Creating a family with given child needs parameter child !");
+        // .. do it
+        newfam = createParentalFamilyFor((Indi)member);
+        break;
+    // .. end case
+    }
+
+    // No supported relation ?
+    if (newfam==null)
+      throw new GedcomException("Gedcom.Unsupported relation !");
+
+    // Done
+    return newfam;
+  }
+
+  /**
+   * Creates a non-related family
+   * @exception GedcomException in of error during creation
+   */
+  public Fam createFam(String id) throws GedcomException {
+
+    // Check the id
+    if ((id!=null)&&(ids[FAMILIES].contains(id))) {
+      throw new DuplicateIDException("Family with id "+id+" is alread defined");
+    }
+
+    // Generate id if necessary
+    if (id==null) {
+      id = getRandomIdFor(FAMILIES);
+    }
+    
+    // Create fam & add to list of indis
+    Fam fam = new Fam(this);
+    noteAddedEntity(fam);
+    entities[FAMILIES].add(fam);
+
+    // Store id
+    ids[FAMILIES].put(id,fam);
+
+    fam.setId(id);
+
+    // Done
+    return fam;
+  }
+
+  /**
+   * Creates a family for a given parent
+   * @exception GedcomException in case of error during creation
+   */
+  private Fam createFamilyFor(Indi indi) throws GedcomException {
+
+    // Create family & add to list of fams
+    Fam fam = createFam();
+
+    // Connect Fam &  Indi
+    fam.setParents(indi,null);
+
+    // Create child in family
+    return fam;
+  }
+
+  /**
+   * Creates a non-related individual
+   * @exception GedcomException in of error during creation
+   */
+  public Indi createIndi() throws GedcomException {
+    return createIndi(null);
+  }
+
+  /**
+   * Creates a non-related individual
+   * @exception GedcomException in of error during creation
+   */
+  public Indi createIndi(String id) throws GedcomException {
+
+    // Check the id
+    if ((id!=null)&&(ids[INDIVIDUALS].contains(id))) {
+      throw new DuplicateIDException("Individual with id "+id+" is alread defined");
+    }
+
+    // Calculate id if necessary
+    if (id==null) {
+      id = getRandomIdFor(INDIVIDUALS);
+    }
+
+    // Create indi & add to list of indis
+    Indi indi = new Indi(this);
+    noteAddedEntity(indi);
+    entities[INDIVIDUALS].add(indi);
+
+    // Store id in individual
+    ids[INDIVIDUALS].put(id,indi);
+    indi.setId(id);
+
+    // Done
+    return indi;
+  }
+
+  /**
+   * Creates a non-related individual
+   * @exception GedcomException in of error during creation
+   */
+  public Indi createIndi(String lastName, String firstName, int sex) throws GedcomException {
+
+    Indi indi = createIndi(null);
+
+    // NAME
+    if ((lastName!=null)&&(firstName!=null)) {
+      PropertyName pn = new PropertyName();
+      pn.setName(firstName, lastName);
+      indi.addProperty(pn);
+    }
+
+    // SEX
+    if ((sex == Gedcom.MALE) || (sex == Gedcom.FEMALE)) {
+      indi.addProperty(new PropertySex(sex));
+    } else {
+      indi.addProperty(new PropertySex());
+    }
+
+    // BIRT
+    indi.addProperty(Property.createInstance("BIRT", true));
+
+    // DEAT
+    indi.addProperty(Property.createInstance("DEAT", true));
+
+    // OCCU
+    indi.addProperty(Property.createInstance("OCCU", true));
+
+    // ADDR
+    indi.addProperty(Property.createInstance("ADDR", true));
+
+    // NOTE
+    indi.addProperty(Property.createInstance("NOTE", true));
+
+    return indi;
+  }
+
+  /**
+   * Creates a new person in gedcom (related or not)
+   * @exception GedcomException in of error during creation
+   */
+  public Indi createIndi(String lastName, String firstName, int sex, int relatedTo, Entity relative)  throws GedcomException {
+
+    // Is the relative a member of this gedcom
+    while (relative!=null) {
+      boolean ok = false;
+      for (int i=0;i<getEntities(INDIVIDUALS).getSize();i++)
+      if (getIndi(i)==relative) {
+        ok = true;
+        break;
+      }
+      if (ok) break;
+      for (int i=0;i<getEntities(FAMILIES).getSize();i++)
+      if (getFam(i)==relative) {
+        ok = true;
+        break;
+      }
+      if (ok) break;
+
+      throw new GedcomException("Gedcom.Given Relative isn't member of this gedcom");
+    }
+
+    // Prepare variable of returned individual
+    Indi newindi = null;
+
+    // Check relation
+    switch (relatedTo) {
+      // .. no relationship
+      case REL_NONE:
+        newindi = createIndi(lastName,firstName,sex);
+        break;
+      // .. new parent
+      case REL_PARENT:
+        // .. parm o.k.
+        if ( (relative==null) || (relative instanceof Fam) )
+          throw new GedcomException("Creating a parent needs parameter child !");
+        // .. do it
+        newindi = createParentOf((Indi)relative,lastName,firstName,sex);
+        break;
+      // .. new child
+      case REL_CHILD:
+        // .. parm o.k.
+        if (relative==null)
+          throw new GedcomException("Creating a child needs parameter parent !");
+        // .. do it
+        if (relative instanceof Fam)
+          newindi = createChildOf((Fam)relative,lastName,firstName,sex);
+        else
+          newindi = createChildOf((Indi)relative,lastName,firstName,sex);
+        break;
+      // .. new spouse
+      case REL_SPOUSE:
+        // .. parm o.k.
+        if (relative==null)
+          throw new GedcomException("Creating a spouse needs parameter spouse !");
+        // .. do it
+        if (relative instanceof Fam)
+          newindi = createSpouseOf((Fam)relative,lastName,firstName,sex);
+        else
+          newindi = createSpouseOf((Indi)relative,lastName,firstName,sex);
+        break;
+      // .. new sibling
+      case REL_SIBLING:
+        // .. parm o.k.
+        if ( (relative==null) || (relative instanceof Fam) )
+          throw new GedcomException("Creating a sibling needs parameter sibling !");
+        // .. do it
+        newindi = createSiblingOf((Indi)relative,lastName,firstName,sex);
+        break;
+    // .. end case
+    }
+
+    // No supported relation ?
+    if (newindi==null)
+      throw new GedcomException("Gedcom.Unsupported relation !");
+
+    // Done
+    return newindi;
+  }
+
+  /**
+   * Creates a non-related media
+   * @exception GedcomException in of error during creation
+   */
+  public Media createMedia() throws GedcomException {
+    return createMedia(null, null);
+  }
+
+  /**
+   * Creates a related media
+   * @exception GedcomException in of error during creation
+   */
+  public Media createMedia(Entity attachedTo) throws GedcomException {
+    return createMedia(null, attachedTo);
+  }
+
+  /**
+   * Creates a non-related media
+   * @exception GedcomException in of error during creation
+   */
+  /*package*/ Media createMedia(String id) throws GedcomException {
+    return createMedia(id,null);
+  }
+
+  /**
+   * Creates a related media
+   * @exception GedcomException in of error during creation
+   */
+  /*package*/ Media createMedia(String id, Entity attachedTo) throws GedcomException {
+
+    // Generate id if necessary
+    if (id==null) {
+      id = getRandomIdFor(MULTIMEDIAS);
+    }
+
+    // Create media & add to list of indis
+    Media media = new Media(this);
+    noteAddedEntity(media);
+    entities[MULTIMEDIAS].add(media);
+
+    // Store id
+    ids[MULTIMEDIAS].put(id,media);
+
+    media.setId(id);
+
+    // Attach?
+    if (attachedTo!=null) {
+      media.getProperty().addDefaultProperties();
+      attachedTo.getProperty().addMedia(media);
+    }
+
+    // Done
+    return media;
+  }
+
+  /**
+   * Creates a non-related note
+   * @exception GedcomException in of error during creation
+   */
+  public Note createNote() throws GedcomException {
+    return createNote(null, null);
+  }
+
+  /**
+   * Creates a related note
+   * @exception GedcomException in of error during creation
+   */
+  public Note createNote(Entity attachedTo) throws GedcomException {
+    return createNote(null, attachedTo);
+  }
+
+  /**
+   * Creates a non-related note
+   * @exception GedcomException in of error during creation
+   */
+  /*package*/ Note createNote(String id) throws GedcomException {
+    return createNote(id, null);
+  }
+
+  /**
+   * Creates a non-related note
+   * @exception GedcomException in of error during creation
+   */
+  /*package*/ Note createNote(String id, Entity attachedTo) throws GedcomException {
+
+    // Generate id if necessary
+    if (id==null) {
+      id = getRandomIdFor(NOTES);
+    }
+
+    // Create note & add to list of notes
+    Note note = new Note(this);
+    noteAddedEntity(note);
+    entities[NOTES].add(note);
+
+    // Store id
+    ids[NOTES].put(id,note);
+    note.setId(id);
+
+    // Attach?
+    if (attachedTo!=null) {
+      attachedTo.getProperty().addNote(note);
+    }
+
+    // Done
+    return note;
+  }
+
+  /**
+   * Creates a Repository entity.
+   * @exception GedcomException in of error during creation
+   */
+  /*package*/ Source createSource(String id) throws GedcomException {
+    return createSource(id, null);
+  }
+
+  /**
+   * Creates a Repository entity.
+   * @exception GedcomException in of error during creation
+   */
+  /*package*/ Source createSource(String id, Entity attachedTo) throws GedcomException {
+
+    // Generate id if necessary
+    if (id==null) {
+      id = getRandomIdFor(SOURCES);
+    }
+
+    // Create source & add to list of sources
+    Source source = new Source(this);
+    noteAddedEntity(source);
+    entities[SOURCES].add(source);
+
+    // Store id
+    ids[SOURCES].put(id,source);
+    source.setId(id);
+
+    // Attach?
+    if (attachedTo!=null) {
+      attachedTo.getProperty().addSource(source);
+    }
+    // Done
+    return source;
+  }
+
+  /**
+   * Creates a non-related submitter
+   * @exception GedcomException in of error during creation
+   * dkionka: blindly copied createNote()
+   */
+  /*package*/ Submitter createSubmitter(String id) throws GedcomException {
+
+    // Generate id if necessary
+    if (id==null) {
+      id = getRandomIdFor(SUBMITTERS);
+    }
+
+    // Create submitter & add to list of submitters
+    Submitter submitter = new Submitter(this);
+    noteAddedEntity(submitter);
+    entities[SUBMITTERS].add(submitter);
+
+    // Store id
+    ids[SUBMITTERS].put(id,submitter);
+    submitter.setId(id);
+
+    // Done
+    return submitter;
+  }
+
+  /**
+   * Creates a Repository entity.
+   * @exception GedcomException in of error during creation
+   */
+  /*package*/ Repository createRepository(String id) throws GedcomException {
+    return createRepository(id, null);
+  }
+
+  /**
+   * Creates a Repository entity.
+   * @exception GedcomException in of error during creation
+   */
+  /*package*/ Repository createRepository(String id, Entity attachedTo) throws GedcomException {
+
+    // Generate id if necessary
+    if (id==null) {
+      id = getRandomIdFor(REPOSITORIES);
+    }
+
+    // Create repository & add to list of repositorys
+    Repository repository = new Repository(this);
+    noteAddedEntity(repository);
+    entities[REPOSITORIES].add(repository);
+    // Store id
+    ids[REPOSITORIES].put(id,repository);
+    repository.setId(id);
+
+    // Attach?
+    if (attachedTo!=null) {
+      attachedTo.getProperty().addRepository(repository);
+    }
+    // Done
+    return repository;
+  }
+
+  /**
+   * Creates a family as childhood for given indi
+   * @exception GedcomException in case individual already has parents
+   */
+  private Fam createParentalFamilyFor(Indi indi) throws GedcomException {
+
+    // Does that indi already have a childhood ?
+    if ( indi.getFamc() != null)
+      throw new GedcomException("Individual has parents already");
+
+    // Create family & add to list of fams
+    Fam fam = createFam();
+
+    // Connect Fam &  Indi
+    fam.addChild(indi);
+
+    // Create child in family
+    return fam;
+  }
+
+  /**
+   * Creates a parent for given indi
+   * @exception GedcomException in case individual already has two parents
+   */
+  private Indi createParentOf(Indi indi, String lastName, String firstName, int sex) throws GedcomException {
+
+    // Prepare fam for new Parent
+    Fam fam;
+
+    // Check if indi has one or two parents
+    if (indi.getFamc()!=null) {
+      // .. existing fam
+      fam = indi.getFamc();
+      // .. two spouses ?
+      if (!fam.hasMissingSpouse()) {
+        throw new GedcomException("Tried to create 3rd spouse in family !");
+      }
+      // .. max one spouse !
+      Indi spouse = fam.getOtherSpouse(null);
+      if (spouse!=null) {
+        sex = PropertySex.calcOppositeSex(spouse, sex);
+      }
+    } else {
+      // .. fam
+      fam = createFam();
+      fam.addChild(indi);
+    }
+
+    // Create new parent & add to list of indis
+    Indi parent = createIndi(lastName,firstName,sex);
+
+    // Connect fam & parent
+    fam.setParents(parent,fam.getOtherSpouse(null));
+
+    // Done
+    return parent;
+  }
+
+  /**
+   * Creates a sibling for given indi
+   * @exception GedcomException in case of error during creation
+   */
+  private Indi createSiblingOf(Indi indi, String lastName, String firstName, int sex) throws GedcomException {
+
+    // Prepare fam for Parent of siblings
+    Fam fam;
+
+    // Check if indi has parental family
+    if (indi.getFamc()!=null) {
+      fam = indi.getFamc();
+    } else {
+      fam = createFam();
+      fam.addChild(indi);
+    }
+
+    // Create new sibling & add to list of indis
+    Indi sibling = createIndi(lastName,firstName,sex);
+
+    // Connect fam & parent
+    fam.addChild(sibling);
+
+    // Done
+    return sibling;
+  }
+
+  /**
+   * Creates a spouse for given relative fam
+   * @exception GedcomException in case family already has two spouses
+   */
+  private Indi createSpouseOf(Fam fam, String lastName, String firstName, int sex) throws GedcomException {
+
+    // Check if fam has a missing spouse
+    if (!fam.hasMissingSpouse())
+      throw new GedcomException("Tried to create 3rd spouse in family !");
+
+    // Create new spouse & add to list of indis
+    Indi spouse = createIndi(
+      lastName,
+      firstName,
+      PropertySex.calcOppositeSex(fam.getOtherSpouse(null),sex)
+    );
+
+    // Connect fam, spouse and indi
+    fam.setParents(spouse,fam.getOtherSpouse(null));
+
+    // Done
+    return spouse;
+  }
+
+  /**
+   * Creates a spouse for given relative indi
+   * @exception GedcomException in case of error during creation
+   */
+  private Indi createSpouseOf(Indi indi, String lastName, String firstName, int sex) throws GedcomException {
+
+    // Can new spouse be missing partner in indi's 1st fam ?
+    if ( (indi.getNoOfFams()>0) && (indi.getFam(0).hasMissingSpouse()) ) {
+      return createSpouseOf(indi.getFam(0),lastName,firstName,sex);
+    }
+
+    // Create new spouse & add to list of indis
+    Indi spouse = createIndi(
+      lastName,
+      firstName,
+      PropertySex.calcOppositeSex(indi, sex)
+    );
+
+    // Create family & add to list of fams
+    Fam fam = createFam();
+
+    // Connect Fam, Indi and Spouse
+    fam.setParents(indi,spouse);
+
+    // Done
+    return spouse;
+  }
+
+  /**
+   * Deletes entity
+   * @exception GedcomException in case unknown type of entity
+   */
+  public void deleteEntity(Entity which) throws GedcomException {
+
+    // Type of entity
+    int type = which.getType();
+
+    // Entity exists ?
+    if (!ids[type].contains(which.getId()))
+      throw new GedcomException("Unknown entity with id "+which.getId());
+
+    // Notify deletion
+    noteDeletedEntity(which);
+
+    // Delete it
+    entities[type].del   (which);
+    ids     [type].remove(which);
+
+    which.delNotify();
+
+    // Done
+  }
+
+  /**
+   * Ends Transaction
+   * @return the change that has been made
+   */
+  public synchronized Change endTransaction() {
+
+    // Is there a transaction going on?
+    if (!isTransaction)
+      throw new RuntimeException("Attempt to end non existing Transaction");
+
+    // Changes that need to signaled to listeners ?
+    final Change change = new Change(
+      this,
+      addedEntities,
+      deletedEntities,
+      addedProperties,
+      deletedProperties,
+      modifiedProperties
+    );
+
+    hasUnsavedChanges |= (change.getChange()!=0);
+
+    addedEntities      = null;
+    deletedEntities    = null;
+    addedProperties    = null;
+    deletedProperties  = null;
+    modifiedProperties = null;
+
+    // ... send message to all listeners
+    Object ls[] = new Object[listeners.size()];
+    listeners.copyInto(ls);
+
+    for (int i=0;i<listeners.size();i++) {
+      ((GedcomListener)ls[i]).handleChange(change);
+    }
+
+    // ... End
+    isTransaction = false;
+
+    // ... Done
+    return change;
+  }
+
+  /**
+   * Proxy for notifying the selection of an entity. Can be used
+   * by listeners to notify others in case of a selection event.
+   */
+  public synchronized void fireEntitySelected(GedcomListener from,Entity which,boolean doubleClick)  {
+
+    // Is there a transaction running?
+    if (isTransaction) {
+        return;
+    }
+
+    // Entity ?
+    if (which==null)
+      throw new IllegalArgumentException("Selection can't be null");
+
+    lastEntity = which;
+
+    // Signal to listeners
+    Selection selection = new Selection(which, from, doubleClick);
+    GedcomListener listener;
+
+    for (int i=0;i<listeners.size();i++) {
+      listener  = (GedcomListener)listeners.elementAt(i);
+      if (listener != from) {
+        listener.handleSelection(selection);
+      }
+    }
+
+    // Done
+  }
+
+  /**
+   * Returns all entities
+   */
+  public EntityList[] getEntities() {
+    return entities;
+  }
+
+  /**
+   * Returns entities of given type
+   */
+  public EntityList getEntities(int type) {
+    return entities[type];
+  }
+
+  /**
+   * Returns the entity with given id
+   */
+  public Entity getEntityFromId(String id) throws DuplicateIDException {
+    Entity result = null;
+    for (int i=0;i<ids.length;i++) {
+      result = ids[i].get(id);
+      if (result!=null)
+        break;
+    }
+    return result;
+  }
+
+  /**
+   * Returns the entity with given id of given type or null if not exists
+   */
+  public Entity getEntityFromId(String id, int type) throws DuplicateIDException {
+    return ids[type].get(id);
+  }
+
+  /**
+   * Returns the family at the given index
+   */
+  public Fam getFam(int index) {
+    return entities[FAMILIES].getFam(index);
+  }
+
+  /**
+   * Returns the family with given id
+   */
+  public Fam getFamFromId(String id) throws DuplicateIDException {
+    return (Fam)ids[FAMILIES].get(id);
+  }
+
+  /**
+   * Returns IDHashtables with IDs of entities
+   */
+  public IDHashtable[] getIDs() {
+    return ids;
+  }
+
+  /**
+   * Returns the individual at the given position
+   */
+  public Indi getIndi(int index) {
+    return entities[INDIVIDUALS].getIndi(index);
+  }
+
+  /**
+   * Returns the individual with given id
+   */
+  public Indi getIndiFromId(String id) throws DuplicateIDException {
+    return (Indi)ids[INDIVIDUALS].get(id);
+  }
+
+  /**
+  Returns the last selected entity
+  */
+  public Entity getLastEntity()  {
+    return lastEntity;
+  }
+
+  /**
+   * Returns the multimedia at the given position
+   */
+  public Media getMedia(int index) {
+    return entities[MULTIMEDIAS].getMedia(index);
+  }
+
+  /**
+   * Returns the multimedia with given id
+   */
+  public Media getMediaFromId(String id) throws DuplicateIDException {
+    return (Media)ids[MULTIMEDIAS].get(id);
+  }
+
+  /**
+   * Returns the name of this gedcom
+   */
+  public String getName() {
+    return origin.getName();
+  }
+
+  /**
+   * Returns the readable name of the given entity type
+   */
+  public static String getNameFor(int type, boolean plural) {
+    return getResources().getString("type."+ePrefixs[type]+(plural?"s":""));
+  }
+
+  /**
+   * Returns number of all entities
+   */
+  public int getNoOfEntities() {
+
+    int total = 0;
+    for (int i=0;i<entities.length;i++) {
+      total+=entities[i].getSize();
+    }
+
+    return total;
+  }
+
+  /**
+   * Returns the note at the given position
+   */
+  public Note getNote(int index) {
+    return entities[NOTES].getNote(index);
+  }
+
+  /**
+   * Returns the note with given id
+   */
+  public Note getNoteFromId(String id) throws DuplicateIDException {
+    return (Note)ids[NOTES].get(id);
+  }
+
+  /**
+   * Returns the source with given id
+   */
+  public Source getSourceFromId(String id) throws DuplicateIDException {
+    return (Source)ids[SOURCES].get(id);
+  }
+
+  /**
+   * Returns the submitter with given id
+   */
+  public Submitter getSubmitterFromId(String id) throws DuplicateIDException {
+    return (Submitter)ids[SUBMITTERS].get(id);
+  }
+
+  /**
+   *
+   * Returns the repository with given id
+   */
+  public Repository getRepositoryFromId(String id) throws DuplicateIDException {
+    return (Repository)ids[REPOSITORIES].get(id);
   }
 
   /**
@@ -221,1169 +1054,556 @@ public class Gedcom {
   public Origin getOrigin() {
     return origin;
   }
-  
+
   /**
-   * Returns the origin of this gedcom
+   * Returns the prefix of the given entity type
    */
-  public void setOrigin(Origin origin) {
-    this.origin = origin;
-  }
-  
-  /**
-   * Set grammar
-   */
-  public void setGrammar(Grammar grammar) {
-    this.grammar = grammar;
-  }
-  
-  /**
-   * Return grammar
-   */
-  public Grammar getGrammar() {
-    return grammar;
+  public static String getPrefixFor(int type) {
+    return ePrefixs[type];
   }
 
   /**
-   * Returns the submitter of this gedcom (might be null)
+   * Creates a random ID for given type of entity which is free in this Gedcom
    */
-  public Submitter getSubmitter() {
-    if (submitter==null)
-      return (Submitter)getFirstEntity(Gedcom.SUBM);
-    return submitter;
+  public String getRandomIdFor(int type) {
+    return getRandomIdFor(type,this,null);
   }
-  
-  /** 
-   * Sets the submitter of this gedcom
-   */
-  public void setSubmitter(Submitter set) {
-    
-    // change it
-    if (set!=null&&!getEntityMap(SUBM).containsValue(set))
-      throw new IllegalArgumentException("Submitter is not part of this gedcom");
 
-    // flip it
-    final Submitter old = submitter;
-    submitter = set;
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
+  /**
+   * Creates a random ID for given type of entity which is free in two Gedcoms
+   */
+  public static String getRandomIdFor(int type, Gedcom g1, Gedcom g2) {
+
+    String result = null;
+
+    // We might to do this several times
+    int id = Math.max(g1==null?0:g1.entities[type].getSize(),g2==null?0:g2.entities[type].getSize());
+
+    while (true) {
       
-    // keep undo
-    lock.addChange(new Undo() {
-      void undo() {
-          setSubmitter(old);
-      }
-    });
-    
-    // let listeners know
-    for (GedcomListener listener : listeners) {
-      if (listener instanceof GedcomMetaListener)
-        ((GedcomMetaListener)listener).gedcomHeaderChanged(this);
+      id ++;
+
+      // Trim to 000
+      result = ePrefixs[type] + (id<100?(id<10?"00":"0"):"") + id;
+
+      if ((g1!=null)&&(g1.ids[type].contains(result)))
+        continue;
+      if ((g2!=null)&&(g2.ids[type].contains(result)))
+        continue;
+
+      // Found one
+      break;
+    };
+
+    // Done
+    return result;
+  }
+
+  /**
+   * Returns the Resources (lazily)
+   */
+  public static Resources getResources() {
+    if (resources==null) {
+      resources = new Resources("genj.gedcom");
     }
-    
-    // done
+    return resources;
+  }
+
+  /**
+   * Returns the tag for given entity type
+   */
+  public static String getTagFor(int type) {
+    return eTags[type];
   }
   
+  /**
+   * Notification that a change in a Gedcom-object took place.
+   */
+  public void handleChange(Change change) {
+  }
+
+  /**
+   * Notification that the gedcom is being closed
+   */
+  public void handleClose(Gedcom which) {
+  }
+
+  /**
+   * Notification that an entity has been selected.
+   */
+  public void handleSelection(Selection selection) {
+  }
+
+  /**
+   * Returns wether there are two entities with same ID
+   */
+  public boolean hasDuplicates() {
+    for (int i=0;i<ids.length;i++) {
+      if (ids[i].hasDuplicates())
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Has the gedcom unsaved changes ?
+   */
+  public boolean hasUnsavedChanges() {
+    return hasUnsavedChanges;
+  }
+
+  /**
+   * Private initialiser
+   */
+  private void init(Origin origin, int initialCapacity) {
+
+    if (origin==null)
+      throw new IllegalArgumentException("Origin has to specified");
+
+    this.origin = origin;
+
+    for (int i=0;i<entities.length;i++) {
+      entities[i] = new EntityList (initialCapacity);
+      ids     [i] = new IDHashtable(initialCapacity);
+    }
+
+    // Done
+  }
+
+  /**
+   * Merging of two Gedcom candidates - all unsatisfied links in those
+   * candidates will be removed and all entities get new IDs.
+   * @param g1 candidate 1
+   * @param g2 candidate 2
+   * @param options a value of TAG_ENTITY_SOURCE, TAG_PROPERTY_SOURCE
+   *        for tagging all entities where they came from and/or all
+   *        properties of merged entities.
+   */
+  public static Gedcom merge(final Gedcom g1, final Gedcom g2, Entity[][] matches, int options) {
+
+    // Valid parameters?
+    if ((g1==null)||(g2==null))
+      throw new IllegalArgumentException("Candidates have to be non null");
+    if (g1==g2)
+      throw new IllegalArgumentException("Candidates have to be not equal");
+
+    // Prepare candidates
+    g1.close();
+    g2.close();
+
+    g1.removeDuplicates();
+    g2.removeDuplicates();
+
+    g1.removeUnsatisfiedLinks();
+    g2.removeUnsatisfiedLinks();
+
+    // Create new Gedcom
+    final Gedcom result;
+    try {
+      result = new Gedcom(
+        Origin.create(g2.getOrigin(),"Merged.ged"),
+        g1.getNoOfEntities()+g2.getNoOfEntities()
+      );
+    } catch (java.net.MalformedURLException muex) {
+      Debug.log(Debug.ERROR, Gedcom.class, "Fatal error creating new origin from "+g1.getName()+" and "+g2.getName(), muex);
+      return null;
+    }
+
+    // Any tagging ?
+    Note n1=null,
+       n2=null;
+    if (((options&TAG_ENTITY_SOURCE)!=0)||((options&TAG_PROPERTY_SOURCE)!=0)) {
+
+      // .. Prepare Source Tags
+      n1 = new Note(result);
+      n2 = new Note(result);
+      n1.setValue("Source is "+g1.getOrigin()+"\n Merged on "+new Date());
+      n2.setValue("Source is "+g2.getOrigin()+"\n Merged on "+new Date());
+    }
+
+    // Merge matched entities
+    for (int m=0;m<matches.length;m++) {
+
+      // Two to One
+      Entity e1 = matches[m][0];
+      Entity e2 = matches[m][1];
+
+      // Tag kept properties from G2 (if needed)
+      if ((options&TAG_PROPERTY_SOURCE)!=0) {
+        for (int p=0;p<e2.getProperty().getNoOfProperties();p++) {
+          Property prop = e2.getProperty().getProperty(p);
+          prop.addProperty(new PropertyNote(n2));
+        }
+      }
+
+      // Move properties from G1 (and tag moved properties if needed)
+      for (int p=0;p<e1.getProperty().getNoOfProperties();p++) {
+
+        Property prop = e1.getProperty().getProperty(p);
+  
+        // .. A PropertyXRef?
+        if (prop instanceof PropertyXRef)
+          continue;
+  
+        // .. Tag it
+        if ((options&TAG_PROPERTY_SOURCE)!=0)
+          prop.addProperty(new PropertyNote(n1));
+  
+        // .. Add it
+        e2.getProperty().addProperty(prop);
+      }
+
+      // Forget entity E1 in G1
+      e1.getGedcom().entities[e1.getType()].del(e1);
+
+      // next Entity to be merged
+    }
+
+    // Tag entities from two sources
+    if ((options&TAG_ENTITY_SOURCE)!=0) {
+
+      // .. Tag entities
+      for (int l=0;l<g1.entities.length;l++) {
+        for (int e=0;e<g1.entities[l].getSize();e++) {
+          g1.entities[l].get(e).getProperty().addProperty(new PropertyNote(n1));
+        }
+      }
+
+      // .. Tag entities
+      for (int l=0;l<g2.entities.length;l++) {
+        for (int e=0;e<g2.entities[l].getSize();e++) {
+          g2.entities[l].get(e).getProperty().addProperty(new PropertyNote(n2));
+        }
+      }
+
+      // .. done
+    }
+
+    // Fill in entities
+    if (n1!=null) {
+      result.entities[n1.getType()].add(n1);
+      result.entities[n2.getType()].add(n2);
+    }
+
+    for (int i=0;i<g1.entities.length;i++) {
+      // .. add entities of type from G1
+      result.entities[i].add(g1.entities[i]);
+      // .. add entities of type from G1
+      result.entities[i].add(g2.entities[i]);
+      // .. loop through entities of type from Result
+      for (int e=0;e<result.entities[i].getSize();e++) {
+        Entity ent=result.entities[i].get(e);
+        // .. remember Daddy
+        ent.setGedcom(result);
+        // .. get new ID
+        String id = result.getRandomIdFor(ent.getType());
+        // .. change entity
+        ent.setId(id);
+        // .. remember ID
+        result.ids[ent.getType()].put(id,ent);
+      }
+    }
+
+    // Done
+    return result;
+  }
+
+  /**
+   * Notification that a set of entities have been added.
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteAddedEntities(EntityList entities) {
+
+    // Is there a transaction running?
+    if (!isTransaction) {
+      return;
+    }
+
+    addedEntities.addElement(entities);
+  }
+
+  /**
+   * Notification that an entity has been added.
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteAddedEntity(Entity entity) {
+
+    // Is there a transaction running?
+    if (!isTransaction) {
+      return;
+    }
+    addedEntities.addElement(entity);
+  }
+
+  /**
+   * Notification that a property has been added.
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteAddedProperty(Property prop) {
+
+    // Is there a transaction running?
+    if (!isTransaction) {
+      return;
+    }
+    addedProperties.addElement(prop);
+    // Done
+  }
+
+  /**
+   * Notification that a set of entities have been deleted.
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteDeletedEntities(EntityList entities) {
+
+    // Is there a transaction running?
+    if (!isTransaction) {
+        return;
+    }
+
+    deletedEntities.addElement(entities);
+    // Done
+  }
+
+  /**
+   * Notification that an entity has been deleted.
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteDeletedEntity(Entity entity) {
+
+    // Is there a transaction running?
+    if (!isTransaction) {
+      return;
+    }
+
+    // Remember
+    deletedEntities.addElement(entity);
+
+    // Last one ?
+    if (lastEntity==entity) {
+      lastEntity=null;
+    }
+
+    // Done
+  }
+
+  /**
+   * Notification that a property has been deleted.
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteDeletedProperty(Property prop) {
+
+    // Is there a transaction running?
+    if (!isTransaction)
+      return;
+
+    deletedProperties.addElement(prop);
+    // Done
+  }
+
+  /**
+   * Notification that a property has been modified
+   * That change will be notified to listeners after unlocking write.
+   */
+  void noteModifiedProperty(Property property) {
+
+    // Is there a transaction running?
+    if (!isTransaction)
+      return;
+
+    modifiedProperties.addElement(property);
+    // Done
+  }
+
+  /**
+   * Removes all duplicates in Gedcom
+   */
+  public void removeDuplicates() {
+
+    for (int i=0;i<ids.length;i++) {
+
+      // .. indefinite?
+      if (!ids[i].hasDuplicates())
+        continue;
+
+      // .. make definit!
+      Entity[] ents = ids[i].getDuplicates();
+      for (int e=0;e<ents.length;e++) {
+        // .. change id
+        try {
+          setIdOf(ents[e],getRandomIdFor(ents[e].getType()));
+        } catch (GedcomException ex) {
+          // can't happen
+        }
+
+        // .. next
+      }
+
+      // .. next
+    }
+
+    // Done
+  }
+
+  /**
+   * Removes a Listener from receiving notifications
+    */
+  public synchronized void removeListener(GedcomListener which) {
+    listeners.removeElement(which);
+  }
+
+  /**
+   * Remove unsatisfied links (PropertyXRef) from Gedcom
+   */
+  public void removeUnsatisfiedLinks() {
+
+    // Get list of EntityLists
+    for (int t=0;t<entities.length;t++) {
+      for (int e=0;e<entities[t].getSize();e++) {
+        removeUnsatisfiedLinks(entities[t].get(e).getProperty());
+      }
+    }
+
+    // Done
+  }
+
+  /**
+   * Helper that removes unsatisfied links (PropertyXRef) from Property
+   */
+  private void removeUnsatisfiedLinks(Property property) {
+
+    // Check wether any property of this property is unsatisfied
+    for (int p=property.getNoOfProperties()-1;p>=0;p--) {
+
+      // .. candidate
+      Property prop = property.getProperty(p);
+
+      // .. unsatisfied XRef?
+      if ( (prop instanceof PropertyXRef)&&(!((PropertyXRef)prop).isValid()) ) {
+        // .. delete
+        property.delProperty(prop);
+      } else {
+        // .. divide & conquer
+        removeUnsatisfiedLinks(prop);
+      }
+
+      // .. next candidate
+    }
+
+    // Done
+  }
+
+  /**
+   * Sets an entity's id
+   * @exception GedcomException if id-argument is null oder of zero length
+   */
+  public void setIdOf(Entity entity, String id) throws GedcomException {
+
+    // Known entity?
+    if (!entities[entity.getType()].contains(entity)) {
+      throw new GedcomException("Illegal argument for this Gedcom");
+    }
+
+    // ID o.k. ?
+    id = id.trim();
+    if (id.length()==0) {
+      throw new GedcomException("Length of entity's ID has to be non-zero");
+    }
+
+    // Remember change
+    noteModifiedProperty(entity.getProperty());
+
+    // Prepare change
+    int type = entity.getType();
+
+    // Change it by removing old id
+    ids[type].remove(entity);
+
+    // .. remember as new
+    ids[type].put(id,entity);
+
+    // ... store info in entity
+    entity.setId(id);
+
+    // Done
+  }
+
+  /**
+   * Sets the origin of this gedcom
+   */
+  public void setOrigin(Origin newOrigin) {
+
+    // Remember new origin
+    origin = newOrigin;
+
+    // Done
+  }
+
+  /**
+   * Clears flag for unsaved changes
+   */
+  public void setUnsavedChanges(boolean set) {
+    hasUnsavedChanges=set;
+  }
+  /**
+   * Starts changing of mankind
+   */
+  public synchronized boolean startTransaction() {
+
+    // Is there a transaction running?
+    if (isTransaction) {
+      return false;
+    }
+
+    // Start
+    isTransaction = true;
+
+    // ... prepare rememberance of changes
+    addedEntities      = new Vector(64);
+    deletedEntities    = new Vector(64);
+    addedProperties    = new Vector(64);
+    deletedProperties  = new Vector(64);
+    modifiedProperties = new Vector(64);
+
+    // .. done
+    return true;
+  }
+
   /**
    * toString overridden
    */
   public String toString() {
     return getName();
   }
-  
+
   /**
-   * Adds a Listener which will be notified when data changes
+   * Returns all Entities with given id
+   * @param which one of INDIVIDUALS, FAMILIES, MULTIMEDIAS, NOTES
    */
-  public void addGedcomListener(GedcomListener listener) {
-    if (listener==null)
-      throw new IllegalArgumentException("listener can't be null");
-    if (!listeners.add(SafeProxy.harden(listener)))
-      throw new IllegalArgumentException("can't add gedcom listener "+listener+"twice");
-    LOG.log(Level.FINER, "addGedcomListener() from "+new Throwable().getStackTrace()[1]+" (now "+listeners.size()+")");
-    
-  }
-
-  /**
-   * Removes a Listener from receiving notifications
-   */
-  public void removeGedcomListener(GedcomListener listener) {
-    // 20060101 apparently window lifecycle mgmt including removeNotify() can be called multiple times (for windows
-    // owning windows for example) .. so down the line the same listener might unregister twice - we'll just ignore that
-    // for now
-    listeners.remove(SafeProxy.harden(listener));
-    LOG.log(Level.FINER, "removeGedcomListener() from "+new Throwable().getStackTrace()[1]+" (now "+listeners.size()+")");
-  }
-  
-  /**
-   * the current undo set
-   */
-  private List<Undo> getCurrentUndoSet() {
-    return undoHistory.get(undoHistory.size()-1);
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateXRefLinked(final PropertyXRef property1, final PropertyXRef property2) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+property1.getTag()+" and "+property2.getTag()+" linked");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-      void undo() {
-        property1.unlink();
-      }
-    });
-    
-    // let listeners know
-    for (GedcomListener listener : listeners) {
-      listener.gedcomPropertyChanged(this, property1);
-      listener.gedcomPropertyChanged(this, property2);
-    }
-
-    // done
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateXRefUnlinked(final PropertyXRef property1, final PropertyXRef property2) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+property1.getTag()+" and "+property2.getTag()+" unlinked");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          property1.link(property2);
-        }
-      });
-    
-    // let listeners know
-    for (GedcomListener listener : listeners) {
-      listener.gedcomPropertyChanged(this, property1);
-      listener.gedcomPropertyChanged(this, property2);
-    }
-
-    // done
-  }
-
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateEntityAdded(final Entity entity) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Entity "+entity.getId()+" added");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-      void undo() {
-        deleteEntity(entity);
-      }
-    });
-    
-    // let listeners know
-    for (GedcomListener listener : listeners) 
-      listener.gedcomEntityAdded(this, entity);
-
-    // done
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateEntityDeleted(final Entity entity) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Entity "+entity.getId()+" deleted");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-    
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() throws GedcomException  {
-          addEntity(entity);
-        }
-      });
-    
-    // let listeners know
-    for (GedcomListener listener : listeners) 
-      listener.gedcomEntityDeleted(this, entity);
-
-    // done
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagatePropertyAdded(Entity entity, final Property container, final int pos, Property added) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+added.getTag()+" added to "+container.getTag()+" at position "+pos+" (entity "+entity.getId()+")");
-    
-    // track counts for value properties (that's none references)
-    if (!(added instanceof PropertyXRef)) {
-      Integer count = propertyTag2valueCount.get(added.getTag());
-      propertyTag2valueCount.put(added.getTag(), count==null ? 1 : count+1);
-    }
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          container.delProperty(pos);
-        }
-      });
-    
-    // let listeners know
-    for (GedcomListener listener : listeners) 
-      listener.gedcomPropertyAdded(this, container, pos, added);
-
-    // done
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagatePropertyDeleted(Entity entity, final Property container, final int pos, final Property deleted) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+deleted.getTag()+" deleted from "+container.getTag()+" at position "+pos+" (entity "+entity.getId()+")");
-    
-    // track counts for value properties (that's none references)
-    if (!(deleted instanceof PropertyXRef)) {
-      propertyTag2valueCount.put(deleted.getTag(), propertyTag2valueCount.get(deleted.getTag())-1 );
-    } 
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          container.addProperty(deleted, pos);
-        }
-      });
-    
-    // let listeners know
-    for (GedcomListener listener : listeners) 
-      listener.gedcomPropertyDeleted(this, container, pos, deleted);
-    
-    // done
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagatePropertyChanged(Entity entity, final Property property, final String oldValue) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+property.getTag()+" changed in (entity "+entity.getId()+")");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          property.setValue(oldValue);
-        }
-      });
-    
-    // notify
-    for (GedcomListener listener : listeners) 
-      listener.gedcomPropertyChanged(this, property);
-
-    // done
-  }
-
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagatePropertyMoved(final Property property, final Property moved, final int from, final int to) {
-    
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Property "+property.getTag()+" moved from "+from+" to "+to+" (entity "+property.getEntity().getId()+")");
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() {
-          property.moveProperty(moved, from<to ? from : from+1);
-        }
-      });
-    
-    // notify
-    for (GedcomListener listener : listeners) {
-      listener.gedcomPropertyDeleted(this, property, from, moved);
-      listener.gedcomPropertyAdded(this, property, to, moved);
-    }
-
-    // done
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateWriteLockAqcuired() {
-    for (GedcomListener listener : listeners) {
-      if (listener instanceof GedcomMetaListener)
-        ((GedcomMetaListener)listener).gedcomWriteLockAcquired(this);
-    }
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateBeforeUnitOfWork() {
-    for (GedcomListener listener : listeners) {
-      if (listener instanceof GedcomMetaListener)
-        ((GedcomMetaListener)listener).gedcomBeforeUnitOfWork(this);
-    }
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateAfterUnitOfWork() {
-    for (GedcomListener listener : listeners) {
-      if (listener instanceof GedcomMetaListener) 
-        ((GedcomMetaListener)listener).gedcomAfterUnitOfWork(this);
-    }
-  }
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateWriteLockReleased() {
-    
-    for (GedcomListener listener : listeners) {
-      if (listener instanceof GedcomMetaListener) 
-        ((GedcomMetaListener)listener).gedcomWriteLockReleased(this);
-    }
-  }  
-  
-  /**
-   * Final destination for a change propagation
-   */
-  protected void propagateEntityIDChanged(final Entity entity, final String old) throws GedcomException {
-    
-    Map id2entity = getEntityMap(entity.getTag());
-    
-    // known?
-    if (!id2entity.containsValue(entity))
-      throw new GedcomException("Can't change ID of entity not part of this Gedcom instance");
-    
-    // valid prefix/id?
-    String id = entity.getId();
-    if (id==null||id.length()==0)
-      throw new GedcomException("Need valid ID length");
-    
-    // dup?
-    if (getEntity(id)!=null)
-      throw new GedcomException("Duplicate ID is not allowed");
-
-    // do the housekeeping
-    id2entity.remove(old);
-    id2entity.put(entity.getId(), entity);
-    
-    // remember maximum ID length
-    maxIDLength = Math.max(id.length(), maxIDLength);
-    
-    // log it
-    if (LOG.isLoggable(Level.FINER))
-      LOG.finer("Entity's ID changed from  "+old+" to "+entity.getId());
-    
-    // no lock? we're done
-    if (lock==null) 
-      return;
-      
-    // keep undo
-    lock.addChange(new Undo() {
-        void undo() throws GedcomException {
-          entity.setId(old);
-        }
-      });
-    
-    // notify
-    for (GedcomListener listener : listeners) 
-      listener.gedcomPropertyChanged(this, entity);
-
-    // done
-  }
-
-  /**
-   * Add entity 
-   */
-  private void addEntity(Entity entity) throws GedcomException {
-    
-    String id = entity.getId();
-    
-    // some entities (event definitions for example) don't have an
-    // id - we'll keep them in our global list but not mapped id->entity
-    if (id.length()>0) {
-      Map id2entity = getEntityMap(entity.getTag());
-      if (id2entity.containsKey(id))
-        throw new GedcomException(resources.getString("error.entity.dupe", id));
-      
-      // remember id2entity
-      id2entity.put(id, entity);
-    }
-    
-    // remember entity
-    allEntities.add(entity);
-    
-    // notify
-    entity.addNotify(this);
-    
-  }
-  
-  /**
-   * Accessor - last change
-   * @return change or null
-   */
-  public PropertyChange getLastChange() {
-    return lastChange;
-  }
-  
-  /**
-   * Accessor - last change
-   */
-  protected void updateLastChange(PropertyChange change) {
-    if (lastChange==null || lastChange.compareTo(change)<0)
-      lastChange = change;
-  }
-
-  /**
-   * Creates a non-related entity with id
-   */
-  public Entity createEntity(String tag) throws GedcomException {
-    return createEntity(tag, null);
-  }    
-    
-  /**
-   * Create a entity by tag
-   * @exception GedcomException in case of unknown tag for entity
-   */
-  public Entity createEntity(String tag, String id) throws GedcomException {
-    
-    // generate new id if necessary - otherwise trim it
-    if (id==null)
-      id = getNextAvailableID(tag);
-    
-    // remember maximum ID length
-    maxIDLength = Math.max(id.length(), maxIDLength);
-
-    // lookup a type - all well known types need id
-    Class clazz = (Class)E2TYPE.get(tag);
-    if (clazz!=null) {
-      if (id.length()==0)
-        throw new GedcomException(resources.getString("entity.error.noid", tag));
-    } else {
-      clazz = Entity.class;
-    }
-    
-    // Create entity
-    Entity result; 
-    try {
-      result = (Entity)clazz.newInstance();
-    } catch (Throwable t) {
-      throw new RuntimeException("Can't instantiate "+clazz);
-    }
-
-    // initialize
-    result.init(tag, id);
-    
-    // keep it
-    addEntity(result);
-
-    // Done
-    return result;
-  }  
-
-  /**
-   * Deletes entity
-   * @exception GedcomException in case unknown type of entity
-   */
-  public void deleteEntity(Entity which) {
-
-    // Some entities dont' have ids (event definitions for example) - for
-    // all others we check the id once more
-    String id = which.getId();
-    if (id.length()>0) {
-      
-      // Lookup entity map
-      Map id2entity = getEntityMap(which.getTag());
-  
-      // id exists ?
-      if (!id2entity.containsKey(id))
-        throw new IllegalArgumentException("Unknown entity with id "+which.getId());
-
-      // forget id
-      id2entity.remove(id);
-    }
-    
-    // Tell it first
-    which.beforeDelNotify();
-
-    // Forget it now
-    allEntities.remove(which);
-
-    // was it the submitter?    
-    if (submitter==which) submitter = null;
-
-    // Done
-  }
-
-  /**
-   * Internal entity lookup
-   */
-  private Map<String,Entity> getEntityMap(String tag) {
-    // lookup map of entities for tag
-    Map<String,Entity> id2entity = tag2id2entity.get(tag);
-    if (id2entity==null) {
-      id2entity = new HashMap<String,Entity>();
-      tag2id2entity.put(tag, id2entity);
-    }
-    // done
-    return id2entity;
-  }
-  
-  /**
-   * Returns all properties for given path
-   */
-  public Property[] getProperties(TagPath path) {
-    ArrayList result = new ArrayList(100);
-    for (Iterator it=getEntities(path.getFirst()).iterator(); it.hasNext(); ) {
-      Entity ent = (Entity)it.next();
-      Property[] props = ent.getProperties(path);
-      for (int i = 0; i < props.length; i++) result.add(props[i]);
-    }
-    return Property.toArray(result);
-  }
-  
-  /**
-   * Count statistics for property tag
-   */
-  public int getPropertyCount(String tag) {
-    Integer result = propertyTag2valueCount.get(tag);
-    return result==null ? 0 : result;
-  }
-
-  /**
-   * Returns all entities
-   */
-  public List<Entity> getEntities() {
-    return Collections.unmodifiableList(allEntities);
-  }
-
-  /**
-   * Returns entities of given type
-   */
-  public Collection<? extends Entity> getEntities(String tag) {
-    return Collections.unmodifiableCollection(getEntityMap(tag).values());
-  }
-
-  /**
-   * Returns entities of given type sorted by given path (can be empty or null)
-   */
-  public Entity[] getEntities(String tag, String sortPath) {
-    return getEntities(tag, sortPath!=null&&sortPath.length()>0 ? new PropertyComparator(sortPath) : null);
-  }
-
-  /**
-   * Returns entities of given type sorted by comparator (can be null)
-   */
-  public Entity[] getEntities(String tag, Comparator comparator) {
-    Collection ents = getEntityMap(tag).values();
-    Entity[] result = (Entity[])ents.toArray(new Entity[ents.size()]);
-    // sort by comparator or entity
-    if (comparator!=null) 
-      Arrays.sort(result, comparator);
-    else
-      Arrays.sort(result);
-    // done
-    return result;
-  }
-
-  /**
-   * Returns the entity with given id (or null)
-   */
-  public Entity getEntity(String id) {
-    // loop all types
-    for (Iterator tags=tag2id2entity.keySet().iterator();tags.hasNext();) {
-      Entity result = (Entity)getEntityMap((String)tags.next()).get(id);
-      if (result!=null)
-        return result;
-    }
-    
-    // not found
-    return null;
-  }
-
-  /**
-   * Returns the entity with given id of given type or null if not exists
-   */
-  public Entity getEntity(String tag, String id) {
-    // check back in appropriate type map
-    return (Entity)getEntityMap(tag).get(id);
-  }
-  
-  /**
-   * Returns a type for given tag
-   */
-  public static Class getEntityType(String tag) {
-    Class result =(Class)E2TYPE.get(tag);
-    if (result==null)
-      throw new IllegalArgumentException("no such type");
-    return result;
-  }
-  
-  /**
-   * Returns any instance of entity with given type if exists
-   */
-  public Entity getFirstEntity(String tag) {
-    // loop over entities and return first of given type
-    for (Iterator it = allEntities.iterator(); it.hasNext(); ) {
-      Entity e = (Entity)it.next();
-      if (e.getTag().equals(tag))
-        return e;
-    }
-    // can't help 
-    return null;
-  }
-
-  /**
-   * Return the next available ID for given type of entity
-   */
-  public String getNextAvailableID(String entity) {
-    
-    // Lookup current entities of type
-    Map id2entity = getEntityMap(entity);
-    
-    // Look for an available ID
-    // 20080121 if there's no entity yet we start with '1' 
-    // 20060124 used to start with id2entity.size()+1 for !isFillGapsInIDs since
-    // n people already there should optimistically cover 1..n so we can continue
-    // with n+1. IF the user started id'ing with 0 then the covered range is 
-    // 0..(n-1) though (Philip reported a file like that). So just for that case 
-    // let's start at n and let the loop for checking existing IDs move forward
-    // once if necessary
-    int id = Options.getInstance().isFillGapsInIDs ? 1 : (id2entity.isEmpty() ? 1 : id2entity.size());
-    
-    StringBuffer buf = new StringBuffer(maxIDLength);
-    
-    search: while (true) {
-      
-      // 20050619 back to checking all IDs with max id length padding
-      // since we don't want to assign I1 if there's a I01 already - got
-      // a file from Anton written by Gramps that has these kinds of
-      // 'duplicates' all over
-      buf.setLength(0);
-      buf.append(getEntityPrefix(entity));
-      buf.append(id);
-      
-      while (true) {
-        if (id2entity.containsKey(buf.toString())) break;
-        if (buf.length()>=maxIDLength) break search;
-        buf.insert(1, '0');
-      } 
-      
-      // try next
-      id++;
-    }
-    
-    // 20050509 not patching IDs with zeros anymore - since we now have alignment
-    // in tableview there's not really a need to add leading zeros for readability.
-    return getEntityPrefix(entity) + id;
-  }
-  
-  /**
-   * Has the gedcom unsaved changes ?
-   */
-  public boolean hasChanged() {
-    return isDirty || !undoHistory.isEmpty();
-  }
-
-  /**
-   * Clears flag for unsaved changes
-   */
-  public void setUnchanged() {
-    
-    // is dirty?
-    if (!hasChanged())
-      return;
-    
-    // do it
-    undoHistory.clear();
-    isDirty = false;
-    
-    // no lock? we're done
-    if (lock==null)
-      return;
-    
-    // let listeners know
-    for (GedcomListener listener : listeners) {
-      if (listener instanceof GedcomMetaListener)
-        ((GedcomMetaListener)listener).gedcomHeaderChanged(this);
-    }
-
-    // done
-  }
-  
-  /**
-   * Test for write lock
-   */
-  public boolean isWriteLocked() {
-    return lock!=null;
-  }
-  
-  /**
-   * Perform a unit of work - don't throw any exception as they can't be handled
-   */
-  public void doMuteUnitOfWork(UnitOfWork uow) {
-    try {
-      doUnitOfWork(uow);
-    } catch (GedcomException e) {
-      LOG.log(Level.WARNING, "Unexpected gedcom exception", e);
-    }
-  }
-  
-  /**
-   * Starts a transaction
-   */
-  public void doUnitOfWork(UnitOfWork uow) throws GedcomException {
-    
-    PropertyChange.Monitor updater;
-    
-    // grab lock
-    synchronized (writeSemaphore) {
-      
-      if (lock!=null)
-        throw new GedcomException("Cannot obtain write lock");
-      lock = new Lock(uow);
-
-      // hook up updater for changes
-      updater = new PropertyChange.Monitor();
-      addGedcomListener(updater);
-
-      // reset redos
-      redoHistory.clear();
-      
-    }
-
-    // let listeners know
-    propagateWriteLockAqcuired();
-    
-    // run the runnable
-    Throwable rethrow = null;
-    try {
-      uow.perform(this);
-    } catch (Throwable t) {
-      rethrow = t;
-    }
-    
-    synchronized (writeSemaphore) {
-
-      // keep undos (within limits)
-      if (!lock.undos.isEmpty()) {
-        undoHistory.add(lock.undos);
-        
-        while (undoHistory.size()>Options.getInstance().getNumberOfUndos()) {
-          undoHistory.remove(0);
-          isDirty = true;
-        }
-      }
-      
-      // let listeners know
-      propagateWriteLockReleased();
-        
-      // release
-      lock = null;
-      
-      // unhook updater for changes
-      removeGedcomListener(updater);
-    }
-    
-    // log
-    LOG.log(Level.FINE, "End of UOW, property counts "+propertyTag2valueCount);
-
-    // done
-    if (rethrow!=null) {
-      if (rethrow instanceof GedcomException)
-        throw (GedcomException)rethrow;
-      throw new RuntimeException(rethrow);
-    }
-  }
-
-  /**
-   * Test for undo
-   */
-  public boolean canUndo() {
-    return !undoHistory.isEmpty();
-  }
-  
-  /**
-   * Performs an undo
-   */
-  public void undoUnitOfWork() {
-    
-    // there?
-    if (undoHistory.isEmpty())
-      throw new IllegalArgumentException("undo n/a");
-
-    synchronized (writeSemaphore) {
-      
-      if (lock!=null)
-        throw new IllegalStateException("Cannot obtain write lock");
-      lock = new Lock();
-  
-    }
-    
-    // let listeners know
-    propagateWriteLockAqcuired();
-    
-    // run through undos
-    List<Undo> todo = undoHistory.remove(undoHistory.size()-1);
-    for (int i=todo.size()-1;i>=0;i--) {
-      Undo undo = (Undo)todo.remove(i);
-      try {
-        undo.undo();
-      } catch (Throwable t) {
-        LOG.log(Level.SEVERE, "Unexpected throwable during undo()", t);
-      }
-    }
-    
-    synchronized (writeSemaphore) {
-
-      // keep redos
-      redoHistory.add(lock.undos);
-      
-      // let listeners know
-      propagateWriteLockReleased();
-      
-      // release
-      lock = null;
-    }
-    
-    // done
-  }
-    
-  /**
-   * Test for redo
-   */
-  public boolean canRedo() {
-    return !redoHistory.isEmpty();
-  }
-  
-  /**
-   * Performs a redo
-   */
-  public void redoUnitOfWork() {
-    
-    // there?
-    if (redoHistory.isEmpty())
-      throw new IllegalArgumentException("redo n/a");
-
-    synchronized (writeSemaphore) {
-      
-      if (lock!=null)
-        throw new IllegalStateException("Cannot obtain write lock");
-      lock = new Lock();
-  
-    }
-    
-    // let listeners know
-    propagateWriteLockAqcuired();
-    
-    // run the redos
-    List<Undo> todo = redoHistory.remove(redoHistory.size()-1);
-    for (int i=todo.size()-1;i>=0;i--) {
-      Undo undo = (Undo)todo.remove(i);
-      try {
-        undo.undo();
-      } catch (Throwable t) {
-        LOG.log(Level.SEVERE, "Unexpected throwable during undo()", t);
-      }
-    }
-    
-    // release
-    synchronized (writeSemaphore) {
-      
-      // keep undos
-      undoHistory.add(lock.undos);
-
-      // let listeners know
-      propagateWriteLockReleased();
-      
-      // clear
-      lock = null;
-    }
-
-    // done
-    
-  }
-  
-  /**
-   * Get a reference set for given tag
-   */
-  /*package*/ ReferenceSet<String,Property> getReferenceSet(String tag) {
-    // lookup
-    ReferenceSet<String,Property> result = tags2refsets.get(tag);
-    if (result==null) {
-      // .. instantiate if necessary
-      result = new ReferenceSet<String, Property>();
-      tags2refsets.put(tag, result);
-      // .. and pre-fill
-      String defaults = Gedcom.resources.getString(tag+".vals",false);
-      if (defaults!=null) {
-        StringTokenizer tokens = new StringTokenizer(defaults,",");
-        while (tokens.hasMoreElements()) result.add(tokens.nextToken().trim(), null);
-      }
-    }
-    // done
-    return result;
-  }
-
-  /**
-   * Returns the name of this gedcom or null if unnamed
-   */
-  public String getName() {
-    return origin==null ? null : origin.getName();
-  }
-
-  /**
-   * Returns a readable name for the given tag   */
-  public static String getName(String tag) {
-    return getName(tag, false);
-  }
-
-  /**
-   * Returns the readable name for the given tag
-   */
-  public static String getName(String tag, boolean plural) {
-    if (plural) {
-      String name = resources.getString(tag+".s.name", false);
-      if (name!=null)
-        return name;
-    }
-    String name = resources.getString(tag+".name", false);
-    return name!=null ? name : tag;
-  }
-
-  /**
-   * Returns the prefix of the given entity
-   */
-  public static String getEntityPrefix(String tag) {
-    String result = (String)E2PREFIX.get(tag);
-    if (result==null)
-      result = "X";
-    return result;
-  }
-
-  /**
-   * Returns an image for Gedcom
-   */
-  public static ImageIcon getImage() {
-    return image;
+  public EntityList getEntitiesFromId(int which, String id) {
+    return ids[which].getAll(id);
   }
 
   /**
    * Returns an image for given entity type
    */
-  public static ImageIcon getEntityImage(String tag) {
-    ImageIcon result = (ImageIcon)E2IMAGE.get(tag);
-    if (result==null) {
-      result = Grammar.V55.getMeta(new TagPath(tag)).getImage();
-      E2IMAGE.put(tag, result);
+  public static ImgIcon getImage(int type) {
+    try {
+      return Images.get(eTags[type]);
+    } catch (ArrayIndexOutOfBoundsException e) {
+      throw new IllegalArgumentException("Unknown type");
     }
-    return result;
-  }
-  
-  /**
-   * Returns the Resources (lazily)
-   */
-  public static Resources getResources() {
-    return resources;
   }
 
+
   /**
-   * Accessor - encoding
+   * Little helper that retuns type for given entity and know
+   * how to handle null
    */
-  public String getEncoding() {
-    return encoding;
-  }
-  
-  /**
-   * Accessor - encoding
-   */
-  public void setEncoding(String set) {
-     encoding = set;
-  }
-  
-  /**
-   * Accessor - place format
-   */
-  public String getPlaceFormat() {
-    return placeFormat;
-  }
-  
-  /**
-   * Accessor - place format
-   */
-  public void setPlaceFormat(String set) {
-    placeFormat = set.trim();
-  }
-  
-  /**
-   * Accessor - language
-   */
-  public String getLanguage() {
-    return language;
-  }
-  
-  /**
-   * Accessor - encoding
-   */
-  public void setLanguage(String set) {
-    language = set;
-  }
-  
-  /**
-   * Accessor - password
-   */
-  public void setPassword(String set) {
-    password = set;
-  }
-  
-  /**
-   * Accessor - password
-   */
-  public String getPassword() {
-    return password;
-  }
-  
-  /**
-   * Accessor - password
-   */
-  public boolean hasPassword() {
-    return password!=null;
-  }
-  
-  /**
-   * Check for containment
-   */
-  public boolean contains(Entity entity) {
-    return getEntityMap(entity.getTag()).containsValue(entity);
-  }
-  
-  /**
-   * Return an appropriate Locale instance
-   */
-  public Locale getLocale() {
-    
-    // not known?
-    if (cachedLocale==null) {
-      
-      // known language?
-      if (language!=null) {
-        
-        // look for it
-        Locale[] locales = Locale.getAvailableLocales();
-        for (int i = 0; i < locales.length; i++) {
-          if (locales[i].getDisplayLanguage(Locale.ENGLISH).equalsIgnoreCase(language)) {
-            cachedLocale = new Locale(locales[i].getLanguage(), Locale.getDefault().getCountry());
-            break;
-          }
-        }
-        
-      }
-      
-      // default?
-      if (cachedLocale==null)
-        cachedLocale = Locale.getDefault();
-      
+  public static int getType(Entity entity) {
+    if (entity==null) {
+      return -1;
     }
-    
-    // done
-    return cachedLocale;
+    return entity.getType();
   }
-  
-  /**
-   * Return an appropriate Collator instance
-   */
-  public Collator getCollator() {
-    
-    // not known?
-    if (cachedCollator==null) {
-      cachedCollator = Collator.getInstance(getLocale());
-      
-      // 20050505 when comparing gedcom values we really don't want it to be
-      // done case sensitive. It surfaces in many places (namely for example
-      // in prefix matching in PropertyTableWidget) so I'm restricting comparison
-      // criterias to PRIMARY from now on
-      cachedCollator.setStrength(Collator.PRIMARY);
-    }
-    
-    // done
-    return cachedCollator;
-  }
-  
-  /**
-   * Undo
-   */
-  private abstract class Undo {
-    abstract void undo() throws GedcomException;
-  }
-  
-  /**
-   * Our locking mechanism is based on one writer at a time
-   */
-  private class Lock implements UnitOfWork {
-    UnitOfWork uow;
-    List<Undo> undos = new ArrayList<Undo>();
-    
-    Lock() {
-      this.uow = this;
-    }
-    
-    Lock(UnitOfWork uow) {
-      this.uow = uow;
-    }
-    
-    public void perform(Gedcom gedcom) {
-      // it's just a fake UOW for undo/redos
-    }
-    
-    void addChange(Undo run) {
-      undos.add(run);
-    }
-    
-  }
-  
-} //Gedcom
+
+}

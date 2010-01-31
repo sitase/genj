@@ -20,221 +20,65 @@
 package genj.gedcom;
 
 /**
- * Abstract base type for all Entities - don't make abstract since we actually
- * instantiate this for entities we don't know 
+ * Interface for generic Entity in a genealogic file.
  */
-public class Entity extends Property {
-  
-  /** the containing gedcom */
-  private Gedcom gedcom;
-  
-  /** the id */
-  private String id;
-  
-  /** the tag */
-  private String tag;
-  
-  /** just in case someone's using a value */
-  private String value;
-  
-  /**
-   * Lifecycle - callback after being added to Gedcom
-   */
-  /*package*/ void addNotify(Gedcom ged) {
-    // remember
-    gedcom = ged;
-    // propagate change (see Property.addNotify() for motivation why propagate is here)
-    ged.propagateEntityAdded(this);
-    // done    
-  }
-  
-  /**
-   * Lifecycle - callback before being removed from Gedcom
-   */
-  /*package*/ void beforeDelNotify() {
-    
-    // delete children
-    delProperties();
+public interface Entity {
 
-    // propagate change (see addNotify() for motivation why propagate is here)
-    gedcom.propagateEntityDeleted(this);
-    
-    // forget gedcom
-    gedcom = null;
-    
-    // done    
-  }
-  
   /**
-   * Return the last change of this entity (might be null)
+   * Notification to entity that it has been added to a Gedcom
    */
-  public PropertyChange getLastChange() {
-    return (PropertyChange)getProperty("CHAN");
-  }
+  public void addNotify(Gedcom gedcom);
+
+  /**
+   * Notification to entity that it has been deleted from a Gedcom
+   */
+  public void delNotify();
 
   /**
    * Gedcom this entity's in
    * @return containing Gedcom
    */
-  public Gedcom getGedcom() {
-    return gedcom;
-  }
-  
-  /**
-   * @see genj.gedcom.Property#getEntity()
-   */
-  public Entity getEntity() {
-    return this;
-  }
+  public Gedcom getGedcom();
 
-  /**
-   * Changes an entity's ID
-   */
-  public void setId(String set) throws GedcomException {
-    
-    // change it
-    String old = id;
-    id = set;
-    
-    // tell Gedcom about it
-    if (gedcom!=null) try {
-      gedcom.propagateEntityIDChanged(this, old);
-    } catch (Throwable t) {
-      id = old;
-    }
-
-    // done
-  }
-  
   /**
    * Returns entity's id
    * @return id
    */
-  public String getId() {
-    return id;
-  }
+  public String getId();
+
+  /**
+   * Entity's main property
+   * @return Property
+   */
+  public Property getProperty();
+
+  /**
+   * Returns the type to which this entity belongs
+   * INDIVIDUALS, FAMILIES, MULTIMEDIAS, NOTES, ...
+   */
+  public int getType();
+
+  /**
+   * Set Gedcom this entity's in
+   */
+  public void setGedcom(Gedcom gedcom);
+
+  /**
+   * Sets entity's id
+   */
+  public void setId(String setId);
   
   /**
-   * Initialize entity
+   * Adds another foreign xref - normally references between
+   * entities are modelled via a property in each entity (e.g.
+   * FAMC-CHIL or FAMS-HUSB). They are linked against each 
+   * other. If a property doesn't have a complement in an 
+   * entity (e.g. NOTE-?) this 'hidden' property handles the
+   * back reference (therefore NOTE-ForeignXRef). It is 
+   * expected that any functionality overriden in superclass
+   * Property (e.g. delProperty) takes these foreigns into
+   * consideration
    */
-  /*package*/ void init(String setTag, String setId) {
-    tag = setTag;
-    id = setId;
-  }
-  
-  /**
-   * @see genj.gedcom.Property#toString()
-   */
-  public final String toString() {
-    return toString(true);
-  }
-  
-  public final String toString(boolean showIds) {
-    
-    StringBuffer buf = new StringBuffer();
-    buf.append(getToStringPrefix(showIds));
-    if (buf.length()==0)
-      buf.append(getTag());
-    if (showIds) {
-      buf.append(" (");
-      buf.append(getId());
-      buf.append(')');
-    }
-    return buf.toString();
-  }
+  public void addForeignXRef(PropertyForeignXRef fxref);
 
-  protected String getToStringPrefix(boolean showIds) {
-    return getTag();
-  }
-  
-  /**
-   * @see genj.gedcom.Property#getTag()
-   */
-  public String getTag() {
-    return tag;
-  }
-  
-  /**
-   * @see genj.gedcom.Property#getValue()
-   */
-  public String getValue() {
-    return value!=null?value : "";
-  }
-  
-  /**
-   * @see genj.gedcom.Property#setValue(java.lang.String)
-   */
-  public void setValue(String set) {
-    value = set;
-  }
-
-  /**
-   * @see genj.gedcom.Property#compareTo(java.lang.Object)
-   */
-  public int compareTo(Property other) {
-    
-    if (!(other instanceof Entity))
-      throw new IllegalArgumentException("Cannot compare entity to property");
-    
-    return getID() - ((Entity)other).getID(); 
-  }
-
-  /**
-   * Returns a comparable id
-   */
-  private int getID() throws NumberFormatException {
-    
-    int 
-      start = 0,
-      end   = id.length()-1;
-      
-    while (start<=end&&!Character.isDigit(id.charAt(start))) start++;
-    while (end>=start&&!Character.isDigit(id.charAt(end))) end--;
-
-    if (end<start) throw new NumberFormatException();
-         
-    return Integer.parseInt(id.substring(start, end+1));
-  }
-
-  /**
-   * Format a sub-property of this entity
-   * @see Property#format(String)
-   */
-  public String format(String propertyTag, String format) {
-    Property p = getProperty(propertyTag);
-    return p!=null ? p.format(format) : "";
-  }
-
-  /**
-   * Propagate changed property
-   */
-  void propagateXRefLinked(PropertyXRef property1, PropertyXRef property2) {
-    if (gedcom!=null)
-      gedcom.propagateXRefLinked(property1, property2);
-  }
-
-  void propagateXRefUnlinked(PropertyXRef property1, PropertyXRef property2) {
-    if (gedcom!=null)
-      gedcom.propagateXRefUnlinked(property1, property2);
-  }
-
-  void propagatePropertyAdded(Property container, int pos, Property added) {
-    if (gedcom!=null)
-      gedcom.propagatePropertyAdded(this, container, pos, added);
-  }
-
-  void propagatePropertyDeleted(Property container, int pos, Property deleted) {
-    if (gedcom!=null)
-      gedcom.propagatePropertyDeleted(this, container, pos, deleted);
-  }
-
-  void propagatePropertyChanged(Property property, String oldValue) {
-    if (gedcom!=null)
-      gedcom.propagatePropertyChanged(this, property, oldValue);
-  }
-
-  void propagatePropertyMoved(Property property, Property moved, int from, int to) {
-    if (gedcom!=null)
-      gedcom.propagatePropertyMoved(property, moved, from, to);
-  }
-} //Entity
+}

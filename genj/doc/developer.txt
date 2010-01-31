@@ -3,12 +3,12 @@ GenJ - Developer HOWTO
 GETTING IT
 
  GenJ's source is hosted at http://genj.sourceforge.net. By using
- cvs/ssh you can get any desired snapshot. The main development module
+ cvs/ssh you can get any desired snapshot. The main developem module
  is ./dev.
 
  For now I assume that you have cvs/ssh correctly setup on your
  machine. Set the following environment parameters and cd into
- an empty directory of your choice:
+ an empty directory of choice:
 
   >cd d:\genj
   >set cvs_rsh=ssh
@@ -37,7 +37,9 @@ LOOKING AT IT
 
 ADOPTING IT
 
- Make sure to open build.properties and adopt the following settings
+ Download and install the ANT package - get it from http://jakarta.apache.org/ant
+
+ Make sure to open ant.properties and adopt the following settings
  to your environment:
 
   dir.dist              - Where to place files that are part of the distribution
@@ -49,6 +51,7 @@ ADOPTING IT
  Make sure that
 
   JAVA_HOME points to your JDK/JRE installation
+  ANT_HOME points to your ANT installation
 
 WORKING WITH IT
 

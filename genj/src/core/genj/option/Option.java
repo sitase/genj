@@ -19,79 +19,33 @@
  */
 package genj.option;
 
+import javax.swing.*;
 
-import java.util.ArrayList;
-import java.util.List;
-
-
+import genj.util.*;
 
 /**
- * An option is simply a wrapped public field of a type
- * with meta-information (JavaBean 'light')
+ * The base-type for an option that is displayed as a Panel
  */
-public abstract class Option {
+/*package*/ abstract class Option extends JPanel {
 
-  private List listeners;
+  /** resources all Options share */
+  protected static final Resources resources = new Resources("genj.option");
 
-  private String category;
+  /** the frame this option is used in */
+  protected JFrame frame;
 
   /**
-   * Accessor - category of this option
-   * @return category or null
+   * Accessor for resource String
    */
-  public String getCategory() {
-    return category;
+  protected static String getResourceString(String key) {
+    return resources.getString(key);
   }
 
   /**
-   * Accessor - category of this option
+   * Constructor
    */
-  public void setCategory(String set) {
-    category = set;
+  protected Option(JFrame pFrame) {
+    frame = pFrame;
   }
 
-  /**
-   * Accessor - name of this option
-   */
-  public abstract String getName();
-
-  /**
-   * Accessor - tool tip for this option
-   */
-  public abstract String getToolTip();
-
-  /**
-   * Restore option values from registry
-   */
-  public abstract void restore();
-
-  /**
-   * Persist option values to registry
-   */
-  public abstract void persist();
-
-  /**
-   * Create an editor
-   */
-  public abstract OptionUI getUI(OptionsWidget widget);
-
-  /**
-   * Add listener
-   */
-  public void addOptionListener(OptionListener listener) {
-    if (listeners==null)
-      listeners = new ArrayList(4);
-    listeners.add(listener);
-  }
-
-  /**
-   * Trigger for change notification
-   */
-  protected void fireChangeNotification() {
-    if (listeners==null)
-      return;
-    for (int i = 0; i < listeners.size(); i++)
-      ((OptionListener)listeners.get(i)).optionChanged(this);
-  }
-
-} //Option
+}
