@@ -21,21 +21,24 @@
    Initialization
    -->
   <target name="init">
+  	
+  	<echo append="No" file="build/revision.properties">revision=</echo>
+  	<exec failifexecutionfails="true" failonerror="true" executable="svnversion" spawn="false" dir="." output="build/revision.properties" append="Yes">
+  	  <arg line="-n"/>
+	</exec>	
+  	<loadproperties srcfile="build/revision.properties"/>
 
-    <tstamp><format property="now.short" pattern="yyyyMMdd"/></tstamp>
-    <tstamp><format property="now.long" pattern="yyyy/MM/dd HH:mm:ss"/></tstamp>
+    <tstamp><format property="now" pattern="yyyy/MM/dd HH:mm:ss"/></tstamp>
   	
-    <loadproperties srcfile="./build.properties"/>
+    <loadproperties srcfile="build.properties"/>
 
-  	<property name="version" value="${now.short}"/>
-    <property name="build" value="${version} ${now.long} ${user.name}"/>
+  	<property name="version" value="${revision}"/>
+    <property name="build" value="${version} (${revision}) ${now} ${user.name}"/>
   	
-    <echo level="info">version = ${version}</echo>
-    <echo level="info">build = ${build}</echo>
+    <echo level="info">version=${version}</echo>
+    <echo level="info">build=${build}</echo>
   	
-  	<echo file="./build/version.properties">
-  		version = ${version}
-    </echo>
+  	<echo file="./build/version.properties">version = ${version}</echo>
     	
   	<echo level="info">Creating output directories</echo>
     <mkdir dir="./build"/>
