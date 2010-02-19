@@ -263,7 +263,7 @@ import swingx.tree.AbstractTreeModel;
         }
         sb.append(Gedcom.getName(prop.getTag()));
         sb.append(" ");
-        sb.append(prop.getEntity().getDisplayValue());
+        sb.append(prop.getEntity().toString());
         setText(sb.toString());
         setIcon(prop.getImage(false));
       }
