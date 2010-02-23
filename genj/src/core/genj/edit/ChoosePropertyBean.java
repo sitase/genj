@@ -25,6 +25,7 @@ import genj.util.GridBagHelper;
 import genj.util.Resources;
 
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
@@ -98,6 +99,7 @@ public class ChoosePropertyBean extends JComponent {
     tpInfo = new JTextPane();
     tpInfo.setText("");
     tpInfo.setEditable(false);
+    tpInfo.setPreferredSize(new Dimension(256,256));
     spInfo = new JScrollPane(tpInfo);
     gh.add(spInfo,2,2,1,1,GridBagHelper.GROWFILL_BOTH);
 
