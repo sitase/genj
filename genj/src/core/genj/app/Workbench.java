@@ -388,7 +388,18 @@ public class Workbench extends JPanel implements SelectionSink {
       return false;
     }
   
-    return saveGedcomImpl(gedcom, filters);
+    // save
+    if (!saveGedcomImpl(gedcom, filters))
+    	return false;
+    
+    // close and reset
+    if (!closeGedcom())
+    	return false;
+
+    // new set
+    setGedcom(gedcom);
+    
+    return true;
   }
   
   /**
@@ -548,6 +559,7 @@ public class Workbench extends JPanel implements SelectionSink {
   /**
    * Restores last loaded gedcom file
    */
+  @SuppressWarnings("deprecation")
   public void restoreGedcom() {
 
     String restore = REGISTRY.get("restore.url", (String)null);
