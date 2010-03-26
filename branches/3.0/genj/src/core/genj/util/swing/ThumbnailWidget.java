@@ -556,8 +556,9 @@ public class ThumbnailWidget extends JComponent {
     ImageIcon result = IMG_THUMBNAIL;
     
     if (source instanceof FileInput) {
-   	  try {
-        Icon icon = FileSystemView.getFileSystemView().getSystemIcon( ((FileInput)source).getFile() );
+      File file = ((FileInput)source).getFile();
+   	  if (file.isFile()) try {
+        Icon icon = FileSystemView.getFileSystemView().getSystemIcon( file );
         if (icon!=null)
           result = new ImageIcon(icon);
    	  } catch (Throwable t) {
@@ -756,11 +757,12 @@ public class ThumbnailWidget extends JComponent {
 
       // load it
       InputStream in = null;
+      ImageInputStream iin = null;
       ImageReader reader = null;
       try {
 
         in = source.open();
-        ImageInputStream iin = ImageIO.createImageInputStream(in);
+        iin = ImageIO.createImageInputStream(in);
 
         Iterator<ImageReader> iter = ImageIO.getImageReaders(iin);
         if (!iter.hasNext())
@@ -797,7 +799,7 @@ public class ThumbnailWidget extends JComponent {
           image = new SoftReference<Image>(img);
           imageSize.setSize(img.getWidth(null), img.getHeight(null));
         }
-
+        
       } catch (Throwable t) {
         if (LOG.isLoggable(Level.FINER))
           LOG.log(Level.FINER, "Loading " + source.getName() + " failed", t);
@@ -814,16 +816,12 @@ public class ThumbnailWidget extends JComponent {
         }
 
       } finally {
+        try { reader.removeIIOReadUpdateListener(this); } catch (Throwable t) {}
+        try { reader.reset(); } catch (Throwable t) {}
+        try { reader.dispose(); } catch (Throwable t) {}
+        try { iin.close(); } catch (Throwable t) { }
+        try { in.close(); } catch (Throwable t) { }
         repaint.stop();
-        try {
-          reader.dispose();
-        } catch (Throwable t) {
-        }
-        try {
-          in.close();
-        } catch (Throwable t) {
-        }
-
         repaint();
       }
 
