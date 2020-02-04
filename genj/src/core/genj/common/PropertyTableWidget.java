@@ -52,6 +52,7 @@ import java.awt.event.MouseEvent;
 import java.text.Collator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.StringTokenizer;
 import java.util.logging.Logger;
 
@@ -300,13 +301,18 @@ public class PropertyTableWidget extends JPanel  {
     SortableTableModel model = (SortableTableModel)table.getModel();
     TableColumnModel columns = table.getColumnModel();
 
+    StringTokenizer tokens = new StringTokenizer(layout, ",");
     try {
-      StringTokenizer tokens = new StringTokenizer(layout, ",");
       int n = Integer.parseInt(tokens.nextToken());
   
-      for (int i=0;i<n&&i<columns.getColumnCount();i++) {
+      for (int i=0; i<n; i++) {
+        String columnWidthToken = tokens.nextToken();
+        if (i >= columns.getColumnCount())
+          // Probably some columns have been removed, and we still have an old layout string
+          continue;
+
         TableColumn col = columns.getColumn(i);
-        int w = Integer.parseInt(tokens.nextToken());
+        int w = Integer.parseInt(columnWidthToken);
         col.setWidth(w);
         col.setPreferredWidth(w);
       }
@@ -319,8 +325,10 @@ public class PropertyTableWidget extends JPanel  {
           model.setSortingStatus(c, d);
       }
 
-    } catch (Throwable t) {
-      // ignore
+    } catch (NoSuchElementException e) {
+      throw new IllegalArgumentException("Invalid column layout specification: " + layout);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException("Non-integer token in column layout " + layout);
     }
   }
   
