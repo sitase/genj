@@ -95,7 +95,9 @@ public class RelationshipsBean extends PropertyBean {
     }
       
     table.setModel(model);
-    table.setColumnLayout(REGISTRY.get(columnLayoutResourceKey, ""));
+    String columnLayout = REGISTRY.get(columnLayoutResourceKey, "");
+    if (columnLayout != "")
+      table.setColumnLayout(columnLayout);
   }
   
   private Model getModel(Fam fam) {
