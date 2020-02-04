@@ -297,6 +297,10 @@ public class PropertyTableWidget extends JPanel  {
    * Set column layout
    */
   public void setColumnLayout(String layout) {
+    if (layout == null || layout.equals("")) {
+      LOG.warning("Attempted to set column layout with empty definition");
+      return;
+    }
     
     SortableTableModel model = (SortableTableModel)table.getModel();
     TableColumnModel columns = table.getColumnModel();
