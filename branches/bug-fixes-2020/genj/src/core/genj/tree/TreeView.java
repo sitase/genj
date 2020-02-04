@@ -832,6 +832,7 @@ public class TreeView extends View implements ContextProvider, ActionProvider {
             entities.remove(entity);
           else
             entities.add(entity);
+          context = new Context(entity.getGedcom(), entities);
         } else {
           context = new Context(entity);
         }
