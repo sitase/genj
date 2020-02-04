@@ -154,6 +154,20 @@ public class PropertyChange extends Property implements MultiLineProperty {
   }
 
   /**
+   * Gets the Gedcom value for the DATE part of the change
+   */
+  public String getDateValue() {
+    return time < 0 ? "" : PointInTime.getPointInTime(time).getValue();
+  }
+
+  /**
+   * Gets the Gedcom value for the TIME part of the change
+   */
+  public String getTimeValue() {
+    return time < 0 ? "" : toString(time);
+  }
+
+  /**
    * Interpret a gedcom value as "date, UTF" as passed in by DateTimeCollector
    * @see genj.gedcom.Property#setValue(java.lang.String)
    */
@@ -210,7 +224,7 @@ public class PropertyChange extends Property implements MultiLineProperty {
    * Gedcom value - this is an intermittend value only that won't be saved (it's not Gedcom compliant but contains a valid gedcom date)
    */
   public String getValue() {
-    return time<0 ? "" : PointInTime.getPointInTime(time).getValue() +','+toString(time);
+    return time < 0 ? "" : getDateValue() + ',' + getTimeValue();
   }
 
   /**
@@ -282,7 +296,7 @@ public class PropertyChange extends Property implements MultiLineProperty {
     /** lines */
     private String[]
       tags = { CHAN, DATE, TIME  },
-      values = { "", PointInTime.getPointInTime(time).getValue(), PropertyChange.this.toString(time) };
+      values = { "", getDateValue(), getTimeValue() };
 
     /**
      * @see genj.gedcom.MultiLineProperty.Iterator#setValue(java.lang.String)
