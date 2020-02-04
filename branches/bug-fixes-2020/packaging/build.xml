@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="GenJ" default="dist" basedir=".">
+
+  <!--
+   Initialization
+   -->
+  <target name="init">
+
+    <loadproperties srcfile="build.properties"/>
+
+  	<fail unless="dir.izpack" message="need dir.izpack defined in build.properties"/>
+    <fail unless="dir.genj" message="need dir.genj defined in build.properties"/>
+    <fail unless="dir.geo" message="need dir.geo defined in build.properties"/>
+  	
+    <taskdef name="izpack" classpath="${dir.izpack}/lib/standalone-compiler.jar" classname="com.izforge.izpack.ant.IzPackTask"/>
+  	  	
+  	<echo level="info">Creating output directories</echo>
+    <mkdir dir="./build"/>
+    <mkdir dir="./build/dist"/>
+    	
+  </target>
+  
+  <!--
+   Initialization
+   -->
+  <target name="clean" depends="init">
+    <echo level="info">Cleaning output directories</echo>
+    <delete includeemptydirs="true" failonerror="false">
+      <fileset dir="./build" excludes="eclipse/*"/>
+    </delete>
+    <ant dir="${dir.genj}" inheritall="false" target="clean"/>
+    <ant dir="${dir.geo}" inheritall="false" target="clean"/>
+  </target>
+
+  <target name="version" depends="init">
+    <loadproperties srcfile="${dir.genj}/build/version.properties"/>
+    <echo level="info">version = ${version}</echo>
+  </target>
+	
+  <!--
+   Nested Project - genj
+   -->  
+  <target name="dist.genj" depends="init">
+  	<ant dir="${dir.genj}" inheritall="false" target="dist"/>
+  	<move todir="./build/dist">
+  		<fileset dir="${dir.genj}/build/dist/"/>
+  	</move>
+  </target>
+  
+  <!--
+   Nested Project - Geo
+   -->  
+  <target name="dist.geo" depends="init">
+    <ant dir="${dir.geo}" inheritall="false" target="dist">
+      <property name="dir.genj" value="${dir.genj}"/>
+    </ant>
+    <move todir="./build/dist">
+      <fileset dir="${dir.geo}/build/dist/"/>
+    </move>
+  </target>
+  
+	
+	<target name="dist.installer.jar" depends="init, dist.genj, dist.geo, version">
+
+		<!-- prepare installer descriptor -->
+	    <copy tofile="./build/installer.xml" file="./src/installer.xml" overwrite="true">
+	      <filterset>
+	      	<filter token="version" value="${version}"/>
+          <filter token="dir.genj" value="${dir.genj}"/>
+	      </filterset>
+	    </copy>
+
+	    <!-- build jar installer -->
+	    <izpack input="./build/installer.xml" output="./build/dist/genj_install-${version}.jar" installerType="standard" basedir="." izpackdir="${dir.izpack}"/>
+
+    </target>
+
+	<target name="dist.installer.win" depends="dist.installer.jar">
+
+	    <!-- build windows installer -->
+	    <exec dir="${basedir}\build\dist" executable="${dir.izpack}/utils/wrappers/izpack2exe/izpack2exe.exe">
+	      <env key="path" path="${dir.izpack}/utils/wrappers/izpack2exe"/>
+	      <arg value='--file=genj_install-${version}.jar'/>
+	      <arg value='--output=setup.exe'/>
+	      <arg value='--no-upx'/>
+	    </exec>
+  
+		<zip destfile="./build/dist/genj_win-${version}.zip">
+			<fileset file="./build/dist/setup.exe"/>
+		</zip>
+		
+		<delete file="./build/dist/setup.exe"/>
+
+    </target>
+
+	<target name="dist.installer.mac" depends="version, dist.genj, dist.geo">
+
+	    <!-- build mac application package -->
+		<property name="macapp" value="GenealogyJ.app"/>
+		
+		<delete dir="build/dist/${macapp}"/>
+			
+	    <mkdir dir="build/dist/${macapp}"/>
+	    <mkdir dir="build/dist/${macapp}/Contents"/>
+	    <mkdir dir="build/dist/${macapp}/Contents/MacOS"/>
+        <mkdir dir="build/dist/${macapp}/Contents/Resources"/>
+        <mkdir dir="build/dist/${macapp}/Contents/Resources/Java"/>
+		
+		<echo file="./build/dist/${macapp}/Contents/PkgInfo">APPL????</echo>
+		<copy todir="./build/dist/${macapp}/Contents" file="src/mac/Info.plist">
+	      <filterset>
+	      	<filter token="version" value="${version}"/>
+	      </filterset>
+		</copy>
+		<copy todir="./build/dist/${macapp}/Contents/MacOS" file="src/mac/JavaApplicationStub"/>
+		<copy todir="./build/dist/${macapp}/Contents/Resources" file="src/mac/genj.icns"/>
+		<unzip dest="./build/dist/${macapp}/Contents/Resources/Java">
+			<fileset dir="./build/dist" includes="genj_*-${version}.zip" excludes="genj_win-${version}.zip"/>
+		</unzip>
+		
+	    <delete file="./build/dist/genj_mac-${version}.tar"/>
+	    	
+	    <tar destfile="./build/dist/genj_mac-${version}.tar.gz" compression="gzip">
+	      <zipfileset dir="./build/dist" includes="${macapp}/Contents/MacOS/JavaApplicationStub" filemode="755"/>
+	      <zipfileset dir="./build/dist" excludes="${macapp}/Contents/MacOS/JavaApplicationStub" includes="${macapp}/**"/>
+	    </tar>
+
+    </target>
+		
+	<!-- 
+	izpack packaging
+	-->
+	<target name="dist.installer" depends="dist.installer.jar, dist.installer.win, dist.installer.mac">
+	</target>
+	
+  <!--
+   Distribution
+   -->
+  <target name="dist" depends="dist.installer">
+
+  </target>
+
+</project>
