@@ -160,8 +160,7 @@ public class TableView extends View {
     // tell to table
     if (currentModel!=null) {
       propertyTable.setModel(new Model(currentModel.getGedcom(),currentMode));
-      if (currentMode.layout != null)
-        propertyTable.setColumnLayout(currentMode.layout);
+      propertyTable.setColumnLayout(currentMode.layout);
     }
   }
   

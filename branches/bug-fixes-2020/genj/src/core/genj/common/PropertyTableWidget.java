@@ -297,13 +297,15 @@ public class PropertyTableWidget extends JPanel  {
    * Set column layout
    */
   public void setColumnLayout(String layout) {
+    SortableTableModel model = (SortableTableModel)table.getModel();
+    TableColumnModel columns = table.getColumnModel();
+
     if (layout == null || layout.equals("")) {
       LOG.warning("Attempted to set column layout with empty definition");
+      model.cancelSorting();
       return;
     }
     
-    SortableTableModel model = (SortableTableModel)table.getModel();
-    TableColumnModel columns = table.getColumnModel();
 
     StringTokenizer tokens = new StringTokenizer(layout, ",");
     try {
