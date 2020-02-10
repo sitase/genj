@@ -150,7 +150,7 @@ public class ReportLoader {
           cl.loadClass(clazz);
         } catch (ClassNotFoundException e) {
           // clazz should be something we just found, something wrong with directory parsing?
-          throw new IllegalStateException("Attempted to load non-existent class", e);
+          ReportView.LOG.log(Level.WARNING, "Attempted to load non-existent class", e);
         }
       }
     }
